@@ -10,13 +10,13 @@ Los logit de destino y modo, ActivitySim, MATSim y ESTRAUS usan las mismas entra
 
 | Variable | En `data/mvp` | Brecha | Mejor fuente |
 | --- | --- | --- | --- |
-| Hogar → trabajo (comuna) | `work_od.csv`, Censo 2024: 2.740.454 personas | Ninguna | Ya está |
+| Hogar → trabajo (comuna) | `work_od.csv`, Censo 2024: 2.740.454 personas con destino conocido; el motor usa 2.688.814 RM → RM | Ninguna | Ya está |
 | Modo al trabajo | `mode_share.csv`, `mode_od.csv`, Censo 2024 | El Metro va junto con el bus (código 2) | Ya está; EOD 2012 para separar |
 | Empleo dentro de la comuna | `jobs.csv`, `jobs_2026.csv` | Es un modelo, no una medición | Ya está |
 | Tiempos de viaje | `travel_times.csv`, `travel_times_blocks.csv` (GTFS) | Solo transporte público | Ya está |
-| **Trabajo en casa (base de teletrabajo)** | No hay archivo | **517.018** trabajadores RM responden «trabaja en su vivienda» (P44 código 1). El conteo está en `data/mvp/README.md`, pero no hay tabla por comuna | Microdatos Censo 2024, el mismo `tools/scrape/censo2024-od.py`, contando `p44_lug_trab = 1` por comuna |
+| **Trabajo en casa (base de teletrabajo)** | No hay archivo | **517.018** trabajadores RM declaran como lugar de trabajo **habitual** su vivienda (P44 código 1). El denominador de viajes del motor ya los excluye. El conteo está en `data/mvp/README.md`, pero no hay tabla por comuna | Microdatos Censo 2024, el mismo `tools/scrape/censo2024-od.py`, contando `p44_lug_trab = 1` por comuna |
 | Ingreso por residencia | `income.csv` (CASEN 2015, media por comuna) | Es de 2015 | MDSF SAE 2022 por comuna (tasa de pobreza, no ingreso medio), **verificada**: https://observatorio.ministeriodesarrollosocial.gob.cl/pobreza-comunal-2022 |
-| **Salario en el destino** | No hay | Ninguno | SII, Estadísticas de Empresas por Comuna y Rubro: trabajadores dependientes y renta neta, 2005–2025, **verificada**: https://www.sii.cl/sobre_el_sii/estadisticas_de_empresas.html. Sesgo: la comuna es la de la casa matriz |
+| Salario en el destino | No hay | No hay fuente por lugar de trabajo | SII, Estadísticas de Empresas por Comuna y Rubro: trabajadores dependientes y renta neta, 2005–2025, **verificada**: https://www.sii.cl/sobre_el_sii/estadisticas_de_empresas.html. Solo como contexto de planillas por empleador: la comuna es la de la casa matriz, así que no sirve como salario del lugar de trabajo en una utilidad de destino |
 | **Valor del tiempo** | No hay | El motor no convierte minutos en pesos | MDSF, Precios Sociales 2025, **verificado en el PDF**: urbano en vehículo **3.126**, espera y caminata **6.252**, viaje deportivo o recreativo **2.620** CLP/h-pasajero. Mezcla de propósitos 3,4 % trabajo / 27,2 % commute / 69,4 % otros (13 EOD de SECTRA). https://sni.gob.cl/wp-content/uploads/Precios_Sociales_2025.pdf |
 | Autos del hogar | Hernán-10 (corte 5, `eod_car_mode.csv`, EOD 2012) | Es de 2012 | `vehicles.csv` no sirve como tenencia: el permiso se saca en otra comuna |
 | Ocio y compras | `activity_points.csv` (16.697 POI OSM), `eod_destinations.csv`, `eod_trip_rates.csv` | No hay visitas por lugar | ENUT 2023 (INE, uso del tiempo, **verificada**): https://www.ine.gob.cl/enut. ENPCCL 2024 (participación cultural, con base de datos, **verificada**): https://www.cultura.gob.cl/participacioncultural/resultados-enpccl-2024/ |
@@ -27,6 +27,6 @@ Los logit de destino y modo, ActivitySim, MATSim y ESTRAUS usan las mismas entra
 
 1. **Teletrabajo base por comuna**, con el código 1 de P44 del Censo 2024. Hernán-10 propone `kind:"stay_home"` y midió 21,7 % de trabajadores sin viaje al trabajo en la EOD 2012. El Censo da la base de 2024 por comuna con el mismo universo que `work_od.csv`. El dato ya se descarga: solo hay que contar otra respuesta.
 2. **Valor del tiempo**, de Precios Sociales 2025. Convierte en pesos los minutos que gana o pierde un escenario. Por ejemplo: «el intercambio MUT ↔ Monumental cuesta X millones de pesos al día en tiempo». No cambia ningún resultado del motor; solo agrega una salida.
-3. **Salario en el destino**, de SII por comuna y rubro. Sirve de atractor de destino cuando se mueven empleos. Hay que declarar el sesgo de la casa matriz.
+
 
 Límites: SAE 2022 da pobreza, no ingreso. ENUT y ENPCCL son regionales. La asistencia a partidos y los coeficientes de ESTRAUS no son datos abiertos.
