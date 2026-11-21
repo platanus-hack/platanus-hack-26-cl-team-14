@@ -3,7 +3,7 @@
 Source of truth for scope. If a moment is not here, the team does not build for it.
 Humans own this file. Agents can propose changes in Discord.
 
-- Status: empty — idea not defined yet (see `decisions/20261120-2309-idea-tranship.md`)
+- Status: empty — idea not defined yet
 
 ## Problem (one sentence)
 
