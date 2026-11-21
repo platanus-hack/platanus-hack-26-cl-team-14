@@ -20,6 +20,8 @@ pub struct TripGroup {
     pub count: usize,
     pub origin_cut: String,
     pub destination_cut: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub building_entrance: Option<u64>,
 }
 
 /// JSON array `[id, signed_count_delta, flags]`. Bits 1/2 mark the origin/destination,
@@ -138,7 +140,7 @@ struct Slot { start: u64, id: usize, half_hour: usize }
 
 /// Build once on the baseline, then call `sample` on each state.
 /// An ID identifies a mode and a fixed range of home/job cells in this plan.
-pub struct TripPlan { slots: [Vec<Slot>; 5] }
+pub struct TripPlan { slots: [Vec<Slot>; 5], entrance_group_id: usize }
 
 impl TripPlan {
     pub fn new(baseline: &Population, n: usize) -> Self {
@@ -167,7 +169,7 @@ impl TripPlan {
             }
             slots
         });
-        Self { slots }
+        Self { slots, entrance_group_id: n }
     }
 
     /// Each group uses current workers and current representative points. A mode outside
@@ -183,6 +185,11 @@ impl TripPlan {
         });
         let homes = coordinates(&pop.homes);
         let jobs = coordinates(&pop.jobs);
+        let ahumada_origin = pop.homes.iter().position(|p| p.id == "13101021008002");
+        let ahumada_destination = pop.jobs.iter().position(|p| p.id == "13101021005003");
+        let door_trip = ahumada_origin.zip(ahumada_destination)
+            .map(|(home, job)| (home as u32, job as u32));
+        let mut entrance_group = None;
         let mut out = Vec::new();
         for (mode, bins) in bins.iter_mut().enumerate() {
             // Fold a singleton into the adjacent occupied interval of the same mode.
@@ -202,16 +209,35 @@ impl TripPlan {
                 previous = Some(i);
             }
             for (members, slot) in bins.iter().zip(&self.slots[mode]).filter(|(m, _)| m.len() >= 2) {
+                // Allocate one modeled walker to the Portal Fernández Concha door
+                // in the assigned job block. Keep the sampled departure bin.
+                let entrance_walker = mode == 2 && door_trip.is_some_and(|pair| members.contains(&pair));
                 let (home, job) = representatives(members, &homes, &jobs);
                 let (origin, destination) = (&pop.homes[home], &pop.jobs[job]);
+                if entrance_walker {
+                    let (home, job) = door_trip.unwrap();
+                    entrance_group = Some(TripGroup {
+                        id: self.entrance_group_id,
+                        origin: homes[home as usize],
+                        destination: [-70.6510204, -33.4385882],
+                        origin_cut: pop.homes[home as usize].cut.clone(),
+                        destination_cut: pop.jobs[job as usize].cut.clone(),
+                        mode: "walk",
+                        count: 1,
+                        half_hour: slot.half_hour,
+                        building_entrance: Some(11064204030),
+                    });
+                }
                 out.push(TripGroup {
                     id: slot.id, origin: [origin.longitude, origin.latitude],
                     destination: [destination.longitude, destination.latitude],
                     origin_cut: origin.cut.clone(), destination_cut: destination.cut.clone(),
-                    mode: MODES[mode], count: members.len(), half_hour: slot.half_hour,
+                    mode: MODES[mode], count: members.len() - usize::from(entrance_walker),
+                    half_hour: slot.half_hour, building_entrance: None,
                 });
             }
         }
+        out.extend(entrance_group);
         out
     }
 }
