@@ -1,7 +1,8 @@
 use super::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) struct Entrance {
+    pub(super) gtfs: Option<Box<str>>,
     pub(super) position: Vec3,
     sign: Vec3,
     outward: Vec3,
@@ -35,6 +36,7 @@ pub(super) fn entrances() -> Entrances {
                         )
                     });
                     Entrance {
+                        gtfs: r["gtfs"].as_str().map(Into::into),
                         position,
                         sign,
                         outward,
@@ -99,6 +101,7 @@ pub(super) fn position_closed_signs(
 }
 
 pub(super) struct Station {
+    street_people: street_people::StreetPeople,
     centre: Vec3,
     entrances: Vec<Entrance>,
     radius: f32,
@@ -142,6 +145,7 @@ impl Station {
             entries.push(entries.last().unwrap() + people.as_f64().unwrap());
         }
         Self {
+            street_people: street_people::StreetPeople::new(row, routes),
             centre,
             entrances,
             radius,
@@ -158,6 +162,7 @@ impl Station {
         visible: &impl Fn(Vec3, f32) -> bool,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
+        self.street_people.draw(now, eye, visible, place);
         if !visible(self.centre, self.radius) {
             return;
         }
@@ -182,7 +187,7 @@ impl Station {
         // samples those same boardings. The engine does not identify individual transfers.
         let distance = eye.distance(self.centre);
         let scale = if distance <= 2_000. { 1. } else { PERSONS_PER_MOVER };
-        let person_size = (distance * 0.003).clamp(1.2, 3.6);
+        let person_size = (distance * 0.003).clamp(1.8, 3.6);
         let speed = Vehicle::Walk.speed();
         let approach = 18. / speed;
         let bin = (now / BIN) as usize;
@@ -200,9 +205,13 @@ impl Station {
             for j in first_index(now)..first_index(now + approach) {
                 let fraction = ((j as f64 + 0.5) * scale - self.entries[i]) / total;
                 let remaining = (start + fraction as f32 * BIN - now) * speed;
-                // DTPM measures the station total. Alternate between its mapped gates.
+                // A sampled walker stays on its mapped path through the boarding time.
+                if scale == 1. && self.street_people.gate_index(i, j).is_some() {
+                    continue;
+                }
                 let gate = &self.entrances[j % self.entrances.len()];
-                let lane = ((j / self.entrances.len() % 3) as f32 - 1.) * 0.65;
+                // Leave one shoulder width between lanes at the 3.2 m entrance.
+                let lane = ((j / self.entrances.len() % 3) as f32 - 1.) * 1.35;
                 let p = gate.sign + gate.outward * remaining + right(gate.outward) * lane;
                 place(Model::Person, Paint::Plain, pose(p, -gate.outward, Vec3::splat(person_size)));
             }
