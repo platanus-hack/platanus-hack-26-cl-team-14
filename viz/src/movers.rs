@@ -583,7 +583,11 @@ fn read_result(
     }
     let r = &result.0;
     let stations = r["stations"].as_array().unwrap();
-    replay.clock_offset.get_or_insert_with(|| {
+    let elapsed = time.elapsed_secs() * rate.0;
+    if let Some(bin) = r["scene"]["half_hour"].as_u64() {
+        // Replay each result from the same selected scene time so the two runs compare.
+        replay.clock_offset = Some(bin as f32 * BIN - elapsed);
+    } else if replay.clock_offset.is_none() {
         let mut boardings = [0.; 48];
         for station in stations {
             for (total, count) in boardings
@@ -597,8 +601,8 @@ fn read_result(
             .rev()
             .max_by(|&a, &b| boardings[a].total_cmp(&boardings[b]))
             .unwrap();
-        peak as f32 * BIN - time.elapsed_secs() * rate.0
-    });
+        replay.clock_offset = Some(peak as f32 * BIN - elapsed);
+    }
     let mut closed = std::collections::HashSet::new();
     for change in r["applied"].as_array().into_iter().flatten().filter(|c| c["kind"] == "station") {
         let state = &change["understood"];
