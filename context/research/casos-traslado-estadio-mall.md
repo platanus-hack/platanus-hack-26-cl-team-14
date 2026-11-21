@@ -6,8 +6,8 @@ Confianza: **A** = abrí la fuente primaria. **B** = cita secundaria, resumen o 
 
 | Caso | Año | Cambio medido | Fuente | Conf. |
 |---|---|---|---|---|
-| Sanfrecce Hiroshima: Big Arch (suburbio) → Edion Peace Wing (centro) | 2024 | Uso de auto baja 19,4 pp en hinchas "core", 12,8 pp en "medios", 1,1 pp en "ocasionales". CO2 de viaje por espectador: 10.670 g → 7.480 g (−29,9 %). Residentes de la ciudad: 1.892 g → 744 g (−60,7 %). | Inoue et al., *Sustainability* 17(13):5956, 2025, [doi:10.3390/su17135956](https://doi.org/10.3390/su17135956) | B (abstract abierto vía Semantic Scholar; cifras de resúmenes; MDPI bloqueó la descarga) |
-| Mismo caso: distancia media de viaje 10,3 → 2,5 km | 2024 | **No encontrado** en ninguna fuente que pude leer. | — | — |
+| Sanfrecce Hiroshima: Big Arch (suburbio) → Edion Peace Wing (centro) | 2024 | Uso de auto baja 19,4 pp en hinchas "core", 12,8 pp en "medios", 1,1 pp en "ocasionales". CO2 de viaje por espectador: 10.670 g → 7.480 g (−29,9 %). Residentes de la ciudad: 1.892 g → 744 g (−60,7 %). | Inoue et al., *Sustainability* 17(13):5956, 2025, [doi:10.3390/su17135956](https://doi.org/10.3390/su17135956) | A (Tabla 8, p. 11 del PDF; verificado por Eliseo-21) |
+| Mismo caso: distancia al estadio | 2024 | Desde el centro de población de Naka: 10,3 → 2,5 km. Desde Saeki sube: 8,6 → 12,9 km. Son distancias desde dos puntos de origen, no la media de los viajes. | Inoue et al. 2025, [pdf](https://mdpi-res.com/d_attachment/sustainability/sustainability-17-05956/article_deploy/sustainability-17-05956.pdf), p. 12 | A |
 | Mismo caso: público | 2024 | Promedio +9.398 por partido vs 2023; 90 % de ocupación. | [Soccerphile](https://www.soccerphile.com/stadiums/edion-peace-wing-hiroshima-stadium) | C |
 | Arsenal: Highbury → Emirates | 2006 | Público liga: 38.184 → ~60.040 por partido (+57 %). Acuerdo S106 exige < 20 % de hinchas en auto; el GLA dice que la meta "se cumplió" (dato del club). Cero estacionamiento + zona de permisos pagada por el club. | GLA, *A Question of Sports Travel*, 2007, [pdf](https://www.london.gov.uk/media/84247/download), p. 16–17; [Football Ground Map](https://www.footballgroundmap.com/team/arsenal) | A (regla 20 %); B (público) |
 | Tottenham: White Hart Lane → nuevo estadio | 2019 | Plan: auto 40 % → ~23 % (meta 77 % sin auto). TfL lo llama "muy ambicioso" y dice que Emirates logró una baja mayor. +20.000 viajes a pie (+55 %), previstos. En 2021 el club dice estar "cerca" de 23 %. | GLA, informe PDU/2292a/02, 2010, [pdf](https://www.london.gov.uk/sites/default/files/public://public://PAWS/media_id_133530///tottenham_hotspur_fc_report.pdf) párr. 36, 56, 86; [Sport Positive 2021](https://www.sportpositiveleagues.com/team/tottenham-hotspur-2021/) | A (meta, no medición); B (2021) |
@@ -30,4 +30,4 @@ Confianza: **A** = abrí la fuente primaria. **B** = cita secundaria, resumen o 
 
 "Cuando Hiroshima llevó su estadio del suburbio al centro, junto al transporte público, el uso de auto de sus hinchas bajó hasta 19 puntos (estudio revisado por pares, 2025). Nuestro motor predice la misma dirección para el Monumental en Tobalaba."
 
-No usar la cifra 10,3 → 2,5 km: no la encontré en ninguna fuente.
+La cifra 10,3 → 2,5 km existe (p. 12), pero es la distancia desde un solo punto (Naka), no la media de los viajes. Desde Saeki la distancia sube. Si se usa, decirlo así.
