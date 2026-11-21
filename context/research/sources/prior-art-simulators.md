@@ -107,7 +107,7 @@ What we can say:
 - Access: 3 Google Drive links on the page.
 - Check: VERIFIED-BYTES 2026-11-21. Page HTTP 200, 3 Drive links found. We did not download the files. Another agent has `tools/scrape/eod2012.py`. The old links are dead: `sectra.gob.cl/biblioteca/detalle1.asp?mfn=3253` and `sectra.gob.cl/encuestas_movilidad/encuestas_movilidad.htm` both return 404.
 - Role: INPUT
-- Limits: 14 years old. MATSim Santiago, ESTRAUS, and the academic models all use this one survey. Thus they have the same errors. No newer EOD of Santiago was found in this research.
+- Limits: 14 years old. MATSim Santiago, ESTRAUS, and the academic models all use this one survey. They share survey limitations, although their processing and model errors can differ. No newer EOD of Santiago was found in this research.
 - Use in the simulation: INPUT for activity chains and mode choice. Not a TARGET: the prior models already fit it.
 
 ### ESTRAUS (SECTRA strategic transport model)
@@ -149,7 +149,7 @@ What we can say:
 - eqasim for Chile: GitHub search `eqasim chile` gives 0 results. Use: NONE.
 - Metro de Santiago demand model: one web search, no public model or file found. Use: NONE.
 - Agent simulator of COVID-19 in Santiago, https://arxiv.org/abs/2005.09556: abstract opened, no data or code link found. Use: NONE.
-- Optimizing city-scale traffic, https://arxiv.org/abs/1906.05093: abstract opened. A search summary says it uses about 665 thousand vehicles in Santiago, which is the MATSim v2b count. No new data. Use: NONE.
+- Optimizing city-scale traffic, https://arxiv.org/abs/1906.05093: abstract opened. A search summary says it uses about 665 thousand vehicles in Santiago. Similar counts do not establish that it uses the MATSim v2b dataset; overlap remains unverified. Use: NONE.
 
 ### Simulators of other cities (not Santiago data; for the engine decision only)
 - LPSim, https://arxiv.org/abs/2406.08496: abstract opened, HTTP 200. Numbers in the table above. Use: NONE as data.
