@@ -1,15 +1,26 @@
 # Santiago Metro passenger paths
 
-Read `web/data/metro_tracks.geojson.gz` as a GeoJSON FeatureCollection. It covers the seven passenger lines in the March 2026 DTPM feed. The pack contains 272 directed station-to-station paths, 286 scheduled boarding points, and two platform points from OSM passenger-route members. It uses 217,511 bytes inflated and 22,175 bytes compressed.
+Read `web/data/metro_tracks.geojson.gz` as a GeoJSON FeatureCollection. It covers the seven passenger lines in the March 2026 DTPM feed. The pack contains 272 directed station-to-station paths, 286 scheduled boarding points, and two platform points from OSM passenger-route members. It uses 226,288 bytes inflated and 22,662 bytes compressed.
 
 ## Animate a public route
 
 1. Select a top-level `routes` entry by `line` and GTFS `direction`. It supplies ordered `parent_station_ids` and `segment_ids`.
 2. Resolve each segment ID to a LineString with `properties.feature=track`. Each path runs from `from_parent_station_id` to `to_parent_station_id`. The end of one path equals the start of the next. Coordinates use WGS84 longitude and latitude.
-3. Read `kind` for the whole leg. A `mixed` leg has multiple classes. Read `origin_kind` and `destination_kind` for the adjoining track at a station. Four endpoint observations lack vertical evidence. The pack does not locate transitions within a leg.
+3. Read `kind` for the whole leg. A `mixed` leg has multiple classes. Read `origin_kind` and `destination_kind` for the adjoining track at a station. Four endpoint observations lack vertical evidence. The array `kind_sequence` lists consecutive classes in travel order and merges adjacent equal values. An unmatched sequence is empty. The aggregate lengths in `osm_kind_metres` describe the whole leg; the pack has no transition positions or durations for individual runs.
 4. Use Point features with `feature=platform` and `source=gtfs_stop` for boarding. They carry the line, parent station ID and DTPM stop ID. Two additional points represent the mean vertices of OSM platform ways in the L2 passenger relation. Their GTFS parents are `RO` and `PQ`.
 
 The paths use the published GTFS shape, split at the nearest point to each intermediate parent station. Both directions match the original shape length within 1 m per line. All 14 ordered OSM stop sequences match GTFS in station count and proximity (each pair within 350 m). The same 143 line-station pairs occur in the paths, the GTFS boarding points and `data/mvp/metro_station_service.csv`. Transfers reduce this to 126 distinct parent IDs. An unmatched sequence has `osm_match=false` and retains its GTFS geometry with unknown evidence.
+
+## Observed passenger platform settings
+
+Four boarding points carry optional `station_setting` and `station_setting_source` properties. Use the station observation for those boarding points. Track classifications apply to train movement. Other boarding points have no verified station-level category in this pack.
+
+| GTFS parent | Line | Platform setting | Evidence |
+| --- | --- | --- | --- |
+| NP, Neptuno | L1 | `partly_open_below_street` | Hidalgo describes the partially open station type and identifies Neptuno. Her station photographs document the passenger area. [Hidalgo, pp. 76–78](https://www.tesisenred.net/bitstream/handle/10803/80299/TRHC1de17.pdf?isAllowed=y&sequence=1) |
+| BL, Blanqueado | L5 | `underground` | The builder identifies Blanqueado among the stations for which it excavated platform tunnels. [OHLA, Santiago Subway, lines 4 and 5](https://www.ohla-group.com/wp-content/uploads/2021/07/Railway-Infrastructures-monografico.pdf) |
+
+Six directed mixed legs have tunnel classifications at both ends. Two contain an inferred surface class between them; the middle class of the other four is unknown.
 
 ## Vertical evidence
 
