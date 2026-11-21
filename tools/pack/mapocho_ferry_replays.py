@@ -16,6 +16,11 @@ for line in lines:
 
 focus = {"longitude": -70.63556, "latitude": -33.43586}
 for i, (case, changes) in enumerate([("base", []), ("ferry", lines)], 1):
+    captions = [
+        (0, "Un ferry se acerca a Pío Nono."),
+        (9, "Unos pasajeros bajan y otros suben."),
+        (17, "{{line_riders.0.riders_to_work}} viajes al trabajo hacia el este."),
+    ] if changes else [(0, "El Mapocho sin ferry.")]
     args = {
         "id": "mapocho-muelle-" + case,
         "title": "Muelle MAP07 · " + ("con ferry" if changes else "sin ferry"),
@@ -24,7 +29,10 @@ for i, (case, changes) in enumerate([("base", []), ("ferry", lines)], 1):
         "duration_half_hours": 6,
         "analyze": "Viajes al trabajo por sentido y movimiento ilustrativo en el muelle.",
         "changes": changes,
-        "cues": [{"after_seconds": 0, **focus, "distance": 155}],
+        "cues": [
+            {"after_seconds": seconds, **focus, "distance": 155, "caption": caption}
+            for seconds, caption in captions
+        ],
     }
     if changes:
         args["chart"] = {
