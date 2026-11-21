@@ -1,37 +1,63 @@
 # Pitch proposal: "Santiago en un segundo"
 
-- Status: Proposed by brave-gecko (claude-fable-5-1, subagent of gentle-fox), 2026-11-21 06:13 UTC. Updated 06:25 UTC after gentle-tapir's critic round 2b: schools 3,220, MUT jobs 7,124 modeled, buildings file exists, stadium moment has no observed stations, engine contract is PR #26. Humans accept, change, or reject it in `context/pitch.md`.
+- Status: Proposed by brave-gecko, 2026-11-21 06:13 UTC. Rewritten by keen-koala (claude-fable-5-1, replaces brave-gecko) at 06:50 UTC: the MUT site is Las Condes (`13114`), a fallback wow moment on the comuna engine, Variant C on the Las Condes car share, and questions for the humans. Humans accept, change, or reject it in `context/pitch.md`.
 - Structure follows `context/pitch.md`. Spoken lines are in Chilean Spanish. All other text is simple English.
-- Every number has the research file that holds it. `claim` marks a press or publisher number that nobody recomputed.
+- Every number has the file that holds it. `claim` marks a press or publisher number that nobody recomputed. `thread` marks a number from a real run that an agent posted but no file holds yet: say it on stage only after a file holds it.
 
 ## Problem (one sentence)
 
 Santiago is decided in pieces (a mall here, a tower there, a stadium somewhere) and nobody can see what each piece does to the 7.4 million people who live with the result.
 
+## What exists tonight (06:50 UTC)
+
+| Part | State | Who |
+| --- | --- | --- |
+| Comuna engine, `GET /api/world` and `POST /api/simulate` (`zone_id`, `jobs_multiplier`, `housing_multiplier`) | Merged in `main` (PR #25, #28). Runs on Emerson's laptop on :8787 with the real files. 0.09 ms per run, measured | witty-llama, bright-otter |
+| Point-to-station module `engine/src/site.rs` (contract PR #26) | Merged (PR #30). **The route `POST /api/site-scenario` is not wired**; the scene cannot call it yet | witty-llama wires, clever-heron reviews |
+| Scene `web/` | v1.2 draws Tobalaba with observed columns; no API call yet. v2 (Santiago/Tobalaba switch, API wiring) in work | keen-panda |
+| Data pack `data/mvp/` | `communes.csv`, `work_od.csv`, `mode_share.csv`, `blocks.csv`, `jobs.csv`, `schools.csv`, `buildings.geojson`, `communes_urban.geojson`, 3 Metro station files | lucky-llama, swift-fox, bright-heron |
+
+Two pitches follow from this: the full one (site route wired) and the fallback (comuna engine only). Both are written below. The humans choose the story; the agents choose which one ships by the state of the route at rehearsal time.
+
 ## The numbers we can say on stage
 
 | Number | What it is | File |
 | --- | --- | --- |
-| 7,400,741 | Persons with a home comuna in the RM, Census 2024 | `sources/od-flows-admin.md` |
-| 52,646 | Census 2024 manzanas of the RM, each with persons and dwellings | `santiago-data-catalog.md`, `data/mvp/zones.csv` |
-| 2,740,454 | RM residents who commute to a known comuna (9,128 pairs; 51,640 of them to a comuna outside the RM). The older 2,748,949 included 8,495 persons on region-only codes | brave-condor's CUT check in the thread, 2026-11-21 06:14 UTC; `data/mvp/work_od.csv` |
-| 208,799 | Workers who enter Providencia from other comunas each day. Top origins: Santiago 25,134, Ñuñoa 17,455, Puente Alto 15,142, La Florida 13,414 | computed from `data/raw/censo2024-personas/od_work_rm.csv` (codes 2 and 3, regenerated 03:10 UTC). Region-only codes do not touch Providencia |
-| 81,613 | Metro boardings at Tobalaba on an average weekday, April 13 to 17, 2026 (sum of 48 half hours) | computed from `data/raw/dtpm/subidas_2026_04.xlsx`, `Modo=Metro`, `Tipo_dia=LABORAL`, `Paradero=TOBALABA`. clever-heron got 81,612.8 independently: `data/mvp/tobalaba_observations.json` (PR #23), station `TB-TOB`, Saturday 46,461, Sunday 27,151 |
-| 7,516 | Boardings at Tobalaba in the busiest half hour, 18:00 to 18:30. Next: 18:30 with 6,704 and 17:30 with 6,244 | same workbook |
-| 2,469,425 and 2,512,170 | Weekday Metro and bus boardings in Santiago, publisher summary, `claim` | `santiago-transport-verified.md` |
-| 298 | Average dwellings in an RM residential tower of 15 floors or more (361 permits, median 238, max 1,161, max 38 floors) | `sources/construction-pipeline.md` |
-| 477 | Average dwellings in an Estación Central tower of 20 floors or more (57 permits) | `sources/construction-pipeline.md` |
-| 2,156 | Persons in the Pila del Ganso manzana, Estación Central, Census 2017: 1,019 dwellings, about 2.1 persons per dwelling | `sources/construction-pipeline.md` |
-| 3,220 | Operating RM schools with coordinates and enrolment, MINEDUC 2026 (3,227 operate; 7 have no coordinates) | `data/mvp/schools.csv`, `sources/verify-people-work.md` |
+| 7,400,741 | Persons with a home comuna in the RM, Census 2024 | `data/mvp/communes.csv`, `sources/od-flows-admin.md` |
+| 52,646 | Census 2024 blocks of the RM, each with persons and dwellings | `data/mvp/blocks.csv` |
+| 6,260,194 | Persons in the 34 comunas of Gran Santiago (the camera frame of the city view) | `data/mvp/communes_urban.geojson`, `data/mvp/README.md` |
+| 2,740,454 | RM residents who commute to a known comuna (9,128 pairs; 51,640 to a comuna outside the RM) | `data/mvp/work_od.csv` |
+| 305,601 | Workers who go to a job in Las Condes each day from any RM comuna (column sum). 28,583 of them live in Santiago centro, checked against the INE visualizer | `data/mvp/work_od.csv`, `data/mvp/README.md` (jobs) |
+| 107,707 | Las Condes residents who commute to a known comuna. 45,458 work inside Las Condes, 12,923 in Providencia, 12,409 in Santiago | `data/mvp/work_od.csv` |
+| 51.1% and 31.4% | Las Condes commuters who go to work by **car** (55,009) and by **public transport** (33,834: bus, Metro, train, taxi, colectivo in one Census code). Walking 10.0%. Say "transporte público", never "Metro": the Census does not split them | `data/mvp/mode_share.csv`, `data/mvp/README.md` |
+| 0.835 | Commuters per dwelling in Las Condes: 107,707 commuters / 128,937 dwellings. So a tower of 298 dwellings holds about 249 commuters: 127 by car, 78 by public transport, if they behave like the comuna | arithmetic on `communes.csv` and `mode_share.csv`; see Variant C |
+| 39.7% | Providencia commuters by public transport. Providencia is the comuna of the **station** (TB-TOB is 26 m inside Providencia), not of the site. Use only if the story names Providencia | `data/mvp/mode_share.csv`; lucky-llama's point-in-polygon check, thread 06:32 UTC |
+| 81,613 | Metro boardings at Tobalaba on an average weekday, April 13 to 17, 2026 (37 observed half hours; 11 bins are null, not zero) | `data/mvp/tobalaba_observations.json` (PR #23, #29), station `TB-TOB` |
+| 7,516 | Boardings at Tobalaba in the busiest half hour, 18:00 to 18:30 (bin 36). Next: 18:30 with 6,704 and 17:30 with 6,244 | same file |
+| 54,840 and 14,954 | Weekday boardings at Los Leones (`LE-LEN`) and El Golf (`GO`), 36 observed bins each | `data/mvp/los_leones_observations.json`, `el_golf_observations.json` (PR #29) |
+| 298 | Average dwellings in an RM residential tower of 15 floors or more (361 permits, median 238, max 1,161) | `sources/construction-pipeline.md` |
+| 477 | Average dwellings in an Estación Central tower of 20 floors or more (57 permits). 57 × 477 = 27,189 dwellings = +35.8% on the 75,992 dwellings of the comuna | `sources/construction-pipeline.md`, `data/mvp/communes.csv` |
+| 2,156 | Persons in the Pila del Ganso block, Estación Central, Census 2017: 1,019 dwellings, about 2.1 persons per dwelling | `sources/construction-pipeline.md` |
+| 3,220 | Operating RM schools with coordinates and enrolment, MINEDUC 2026 | `data/mvp/schools.csv` |
 | 35,345 and 40,167 | Attendance at two U. de Chile home matches at Estadio Nacional, 2025; season average 29,564 | `sources/events-attendance.md` |
 | about 48,000 | Capacity of Estadio Nacional, `claim` | `sources/events-attendance.md` |
-| 53.5 million | Metro passengers in July 2026, INE press series, `claim` | `sources/score-targets.md` |
-| 39.7% | Providencia commuters who go to work by public transport (bus or Metro); 33.7% car, 14.9% walking. Las Condes 31.4%, Santiago 61.7%. Not a Metro-entry share | `data/mvp/mode_share.csv`, `data/mvp/README.md` |
-| 7,124 | Modeled jobs on the MUT manzana `13114131009033` (permit 4,643 + 2012 addresses 1,469 + landmark 1,012). Say "modelado". Press claims, not measured: 4,000 office workers, more than 200 shops, 45,765 m² of offices | `data/mvp/README.md`, section "The MUT" |
-| 2,085 | OSM building footprints in the Tobalaba frame (bbox -70.6105,-33.4255 to -70.5915,-33.4105). Height from OSM tags, else 9 m flagged `h_src=default` | `web/data/buildings.geojson`, `web/osm_to_scene.py` |
-| 1.75 s | 7 million destination draws over 866 zones, numpy, one core, toy test. Not a simulation time | `sources/prior-art-simulators.md` |
+| 7,124 | Modeled jobs on the MUT block `13114131009033`, Las Condes, Av. Apoquindo 2730 (permit 4,643 + 2012 addresses 1,469 + landmark 1,012). Say "modelado". Press claims, not measured: 4,000 office workers, more than 200 shops | `data/mvp/jobs.csv`, `data/mvp/README.md`, section "The MUT" |
+| 31,516 | Building footprints with height around Tobalaba (Overture 2026-11-18, OSM + Google + Microsoft). MUT base 17.5 m and 3 towers 58 to 65 m tagged `is_mut`. Gran Torre Costanera 300 m | `data/mvp/buildings.geojson` |
+| 0.09 ms | Comuna engine run time on Emerson's laptop, 52 zones, measured by bright-otter and by this agent. Say "menos de un milisegundo", not "7 millones de agentes" | thread 06:31 UTC; `curl` on :8787 |
+| −778 per day | `thread`. Manual run of `site.rs` by clever-heron (06:32 UTC): remove the MUT jobs and add a tower, Tobalaba loses 821 evening boardings and gains 43 morning boardings, under labelled assumptions. **About 1% of 81,613.** No file holds the request yet | thread; clever-heron prepares the exact JSON |
 
-Numbers we do NOT have: measured MUT workers or visitors (two press claims on visits disagree: about 12,000 and about 21,000 per day), the Metro-entry share of Providencia residents (only the bus+Metro share exists), where stadium fans live, observed boardings at any Metro station other than Tobalaba in git (49 stops within 1 km of the MUT are in `web/data/run.json` as observations), and the real run time of the Rust engine. Do not say them until a file holds them.
+Numbers we do NOT have: measured MUT workers or visitors, the Metro share inside the 31.4%, occupied share and persons per dwelling for Las Condes (swift-fox builds `site_inputs.csv`), where stadium fans live, observed boardings at any station other than Tobalaba, Los Leones, El Golf, and the run time of the site route. Do not say them until a file holds them.
+
+## The finding that changes the wow moment
+
+clever-heron's real run of `site.rs` says: the MUT replacement moves Tobalaba by about 1% per day. On a column of 7,516 boardings, a 1% change is one pixel on a projector. **The station columns cannot be the surprise for the MUT case.** Even 5,000 dwellings add about 720 morning boardings (0.14 per dwelling per day, from the same run), spread over 8 bins: 2% per bin.
+
+Two things in the data are large enough to see from the back of the room:
+
+1. **The street, not the station.** 51.1% of Las Condes commuters drive. A 298-dwelling tower at the MUT puts about 127 cars on Apoquindo and 78 people in buses and the Metro together. The surprise is the inversion: a tower 100 m from the biggest Metro station of Santiago makes more cars than public transport riders, if its residents behave like Las Condes. (Variant C.)
+2. **The stadium.** 40,000 persons exit in 2 hours. With a public transport share near 50%, that is about 20,000 boardings over 4 half hours: 5,000 per bin, the size of the Tobalaba evening peak, on stations that normally have far less. This moves columns. It needs scenario-only columns labelled "supuesto" at the stations near the stadium, because we have no observations there.
+
+Recommendation: keep Variant A's story (18:00 at Tobalaba), but the juror's number produces two results on screen: the cars on the street (large, red) and the change at the station (small, honest: "el Metro casi no lo nota"). The columns move for real in the stadium case.
 
 ## Variant A: "Las seis de la tarde en Tobalaba" (recommended)
 
@@ -39,13 +65,25 @@ Emotional core: the daily commuter. Every person in the room has stood on the To
 
 | Time | What the audience sees | What must work behind it |
 | --- | --- | --- |
-| 0:00 | Dark screen. One line: "Son las seis de la tarde en Tobalaba." The 3D isometric scene of Tobalaba appears: real buildings, the station. A column grows on the station for each half hour of the day; at 18:00 it hits 7,516. Spoken: "Siete mil quinientas personas suben al metro aquí, en media hora, todas las tardes. Nadie lo decidió. Simplemente pasó." | Scene (browser or native, Juan permits both) with `web/data/buildings.geojson` (2,085 OSM footprints, exists, calm-puma) and the 48 weekday half hours from `data/mvp/tobalaba_observations.json` (merged, PR #23). Camera starts at street level and lifts. |
-| 0:25 | Zoom out from Tobalaba to all Santiago. 52,646 manzanas light up with real people. Spoken: "Santiago se decide a pedazos. Un mall acá, una torre allá, un estadio donde salga más barato. Y nadie puede ver qué le pasa a los siete millones que viven las consecuencias." | `data/mvp/zones.csv` as a point layer: 52,646 rows, size by persons. One camera move. |
-| 0:50 | Three large numbers appear over the city: 7,4 M personas, 2,74 M viajes al trabajo, 3.220 colegios. Thin flow lines appear from homes to work comunas. Spoken: "Hicimos un motor. Una persona por cada habitante, con su casa, su trabajo y su colegio. Datos reales: Censo 2024, DTPM, MINEDUC. Todo en Rust, para que Santiago entero corra en segundos." | `data/mvp/work_od.csv` flows drawn as arcs (9,128 pairs); `schools.csv` only if the morning (08:00) flows are shown. The Rust engine (`engine/`, HTTP on :8787) is loaded with the pack. |
-| 1:10 | **Wow moment.** Camera back to Tobalaba. The MUT block turns red. A large control: "Sacar el MUT (7.124 empleos, modelado). Poner una torre de [298] viviendas." Spoken: "Saquemos el MUT. Pongamos una torre. Doscientas noventa y ocho viviendas, el promedio real de una torre de quince pisos en Santiago." Press "Correr". A timer shows the measured time. The columns at Tobalaba morph from observed to scenario; new flow lines leave the tower to the comunas where the new residents work. Spoken: "Esto no es un video. Díganme un número." A juror says a number. The presenter types it. Run again. | Rust `POST /api/site-scenario`, the contract merged in PR #26 (`context/research/tobalaba-scenario-contract.md`): `scenario[t] = observed[t] − site_base[t] + site_scenario[t]`. Remove 7,124 modeled jobs, add N dwellings, residents' work destinations from the Providencia row of `work_od.csv`, workers' return departures in the evening, home departures in the morning, nearest Metro entrance → parent TB-TOB. Every parameter is explicit and labelled (occupied share, persons per dwelling, Metro-entry share, access share, time windows); the presenter enters 298 as a user assumption. **Owner of the Rust implementation: none yet.** v1 (`/api/simulate`, comuna multipliers) cannot move a station column. Measured run time under 2 s on the laptop. The scene redraws from the response without reload. |
-| 1:50 | Case 2. The camera flies west to Estación Central. Spoken: "Esto ya pasó una vez. En Estación Central se aprobaron cincuenta y siete torres de más de veinte pisos, cuatrocientas setenta y siete viviendas cada una, en promedio. Nadie lo simuló." The control now says "57 torres de 477 viviendas en [comuna]". The presenter picks another comuna. Run. Flows and station columns change there. | Same engine call, other point, other N. Comuna selector with 4 options. `buildings.geojson` covers only Tobalaba; the other comuna shows manzana points and the new towers as simple boxes. |
-| 2:20 | Case 3. Spoken: "Y la pregunta que se hace la U hace diez años: ¿dónde ponemos el estadio?" A stadium marker: 40,000 persons one night. Drag it from Ñuñoa to another comuna. Run. Night columns rise at the stations next to the new place. A label says "origen de hinchas: supuesto, proporcional a población". | Same `site-scenario` call with an event term: 40,000 visitors **exit** after the match (exits generate the local boardings, not arrivals, per the PR #26 contract), explicit attendance, Metro and access shares, exit profile 21:00 to 23:00. Observed boardings exist in git only for Tobalaba and 49 stops near the MUT, so this moment shows scenario-only columns labelled "supuesto" at the stations near the stadium, or needs a compact all-Metro-stations layer from clever-heron in the format of `tobalaba_observations.json`. |
+| 0:00 | Dark screen. One line: "Son las seis de la tarde en Tobalaba." The 3D isometric scene appears: real buildings, the station, the MUT towers. A column grows on the station for each half hour of the day; at 18:00 it hits 7,516. Spoken: "Siete mil quinientas personas suben al metro aquí, en media hora, todas las tardes. Nadie lo decidió. Simplemente pasó." | Scene with `data/mvp/buildings.geojson` and the 48 weekday bins of `tobalaba_observations.json` (null bins draw nothing). Exists in scene v1.2. |
+| 0:25 | Zoom out to Gran Santiago. 52,646 blocks light up with real people. Spoken: "Santiago se decide a pedazos. Un mall acá, una torre allá, un estadio donde salga más barato. Y nadie puede ver qué le pasa a los siete millones que viven las consecuencias." | `blocks.csv` as a point layer sized by `population`; camera frame from `communes_urban.geojson` (lon −70.80 to −70.50, lat −33.63 to −33.34). Scene v2, keen-panda. |
+| 0:50 | Three large numbers: 7,4 M personas, 2,74 M viajes al trabajo, 52 comunas. Thin arcs from home comunas to work comunas. Spoken: "Hicimos un motor. Casa, trabajo y cómo se mueve cada comuna. Datos reales: Censo 2024, DTPM. Todo en Rust: Santiago entero corre en menos de un milisegundo." | `GET /api/world` flows as arcs (2,627 internal pairs). Exists; the scene must call it. |
+| 1:10 | **Wow moment.** Camera back to Tobalaba. The MUT block turns red. One control: "Sacar el MUT (7.124 empleos, modelado). Poner una torre de [298] viviendas." Spoken: "Saquemos el MUT. Pongamos una torre. Doscientas noventa y ocho departamentos, el promedio real de una torre de quince pisos en Santiago." Press "Correr". Two results appear. On the street: about 127 red cars leave the tower onto Apoquindo. On the station: the columns move by one pixel, and a label says "el Metro casi no lo nota: −1%". Spoken: "El metro ni se entera. Apoquindo sí. Esto no es un video. Díganme un número." A juror says a number. The presenter types it. Run again. | **Needs the site route.** `POST /api/site-scenario` (contract PR #26, module merged PR #30, route not wired). Plus one small addition to the response: `resident_commuters_by_mode[]` for the site comuna from `mode_share.csv` (car, public transport, walk, bike) so the scene draws the cars without computing. Measured run time on screen. |
+| 1:50 | Case 2. The camera flies west to Estación Central. Spoken: "Esto ya pasó una vez. En Estación Central se aprobaron cincuenta y siete torres de más de veinte pisos, cuatrocientas setenta y siete departamentos cada una. Nadie lo simuló." The control says "57 torres de 477 viviendas en Estación Central". Run. New arcs leave the comuna: 15,332 more workers to Santiago, 10,710 to Las Condes, 8,717 to Providencia. Spoken: "Veintiséis mil viajes nuevos cada mañana. Diez mil de ellos hacia acá." | `POST /api/simulate` with `zone_id` 13106, `housing_multiplier` 1.3578. **Exists; measured today**: +62,646 persons, +26,080 commuters, 0.09 ms. The scene draws the flow deltas. Buildings outside Tobalaba: `blocks.csv` points and simple boxes for the towers. |
+| 2:20 | Case 3. Spoken: "Y la pregunta que se hace la U hace diez años: ¿dónde ponemos el estadio?" A stadium marker: 40,000 persons one night. Drag it from Ñuñoa to another comuna. Run. Night columns rise at the stations next to the new place. Label: "origen de hinchas: supuesto, proporcional a población". | Same site route with an event term (40,000 exits, 21:00 to 23:00, explicit shares, per PR #26). Columns are scenario-only, labelled "supuesto": no observed boardings exist for those stations. If the site route is not wired, cut this case. |
 | 2:45 | Camera lifts over all Santiago. Spoken: "Un motor. Tres preguntas. La próxima vez que alguien decida un pedazo de Santiago, que lo vea primero." Team name and one line. | Nothing new. |
+
+### Fallback: Variant A on the comuna engine only
+
+Use this if `POST /api/site-scenario` is not wired and checked in the browser by rehearsal time. Same opening (0:00 to 0:50). Then:
+
+| Time | What the audience sees | What must work behind it |
+| --- | --- | --- |
+| 1:10 | **Wow moment moves to Estación Central.** Spoken: "Esto ya pasó. Cincuenta y siete torres, nadie lo simuló. Hagámoslo ahora." Run. 26,080 new commuters leave the comuna as arcs; the top destinations light up with their numbers. "Díganme una comuna y cuántas torres." A juror says "Ñuñoa, veinte torres". The presenter picks the comuna, types the dwellings, Run. The arcs change. | `POST /api/simulate` only. A comuna selector (52 comunas) and one dwellings input; the scene converts dwellings to `housing_multiplier` = (dwellings + added) / dwellings using the `dwellings` field of `GET /api/world`. That division is the only arithmetic the scene does. Keep multipliers in 0.1 to 2.0 (bright-otter: outside that range the engine returns negative flows). |
+| 1:50 | MUT case, shorter. Camera to Tobalaba. The MUT block turns red, the tower rises (scene v1.2 already does this). Spoken: "Y acá, al lado de la estación más grande de Santiago: si sacamos el MUT y ponemos una torre de 298 departamentos, el Censo dice que la mitad de sus vecinos saldría en auto. Ciento veintisiete autos más en Apoquindo. Setenta y ocho personas al transporte público." The Tobalaba columns stay observed and keep the label "observado, abril 2026". | No engine call. Two numbers from `mode_share.csv` and `communes.csv`, printed by the scene as data, labelled "Censo 2024, si se comportan como Las Condes". Honest: the columns do not change, and we say so. |
+| 2:20 | Close as above. Cut the stadium: the comuna engine has no event term and no night. | Nothing new. |
+
+What the fallback loses: no live station change, no stadium. What it keeps: a juror controls a real engine and the city answers at once, with real Census flows.
 
 ## Variant B: "El error de Estación Central"
 
@@ -53,62 +91,74 @@ Emotional core: regret and a second chance. We already built the vertical ghetto
 
 | Time | What the audience sees | What must work behind it |
 | --- | --- | --- |
-| 0:00 | Estación Central in 3D, 2017. Low buildings. Spoken: "Año 2017, Estación Central. Un barrio de casas de dos pisos." Towers rise one by one, 57 of them, 477 dwellings each. "En siete años, cincuenta y siete torres. Nadie preguntó qué pasaría." | Census 2017 manzana layer and INE permits 2010 to 2018 for Estación Central (both in `construction-pipeline.md`), animated by permit year. |
-| 0:40 | **Wow moment.** Spoken: "Le dimos al motor los datos de 2017 y las torres. Y le preguntamos qué pasaría en 2024." Two columns per manzana: engine 2017 plus towers, and Census 2024 real. They match within a visible margin. "El motor lo vio. Siete años antes." | Engine backtest: 2017 population plus permitted dwellings times persons per dwelling, compared with Census 2024 manzana counts. Score on screen. Nobody owns this today. |
-| 1:30 | Case 2: MUT at Tobalaba, as in Variant A at 1:10, shorter. | Same as A. |
-| 2:15 | Case 3: stadium, as in Variant A. | Same as A. |
+| 0:00 | Estación Central in 3D, 2017. Low buildings. Spoken: "Año 2017, Estación Central. Un barrio de casas de dos pisos." Towers rise one by one, 57 of them, 477 dwellings each. "En siete años, cincuenta y siete torres. Nadie preguntó qué pasaría." | Census 2017 block layer and INE permits 2010 to 2018 for Estación Central (both in `construction-pipeline.md`), animated by permit year. |
+| 0:40 | **Wow moment.** Spoken: "Le dimos al motor los datos de 2017 y las torres. Y le preguntamos qué pasaría en 2024." Two columns per block: engine 2017 plus towers, and Census 2024 real. "El motor lo vio. Siete años antes." | Engine backtest against Census 2024 blocks. Nobody owns this. The comuna engine has no 2017 state. |
+| 1:30 | MUT at Tobalaba, as in Variant A at 1:10, shorter. | Same as A. |
+| 2:15 | Stadium, as in Variant A. | Same as A. |
 | 2:45 | Close: "Esta vez, miremos antes." | Nothing new. |
 
-### Why I recommend A
+Not buildable tonight. Keep only if the humans want it and accept that A is the fallback.
 
-- A is buildable tonight with what exists: `zones.csv`, the work matrix, the DTPM boardings, the buildings near Tobalaba. B needs a backtest against Census 2024 manzanas that nobody has started, and a Census 2017 layer that is catalogued but not downloaded.
-- A puts the surprise in the hands of a juror. B puts it in a chart that the jury must trust. Hackathon judges reward the moment they understand at once (see findings below).
-- A's hook (18:00 at Tobalaba) is a feeling that every person in Santiago has. B's hook is a political topic that can split the room.
-- B's story is stronger if the backtest works. If the humans want B, the engine owner must start the backtest at once, and A is the fallback.
+## Variant C: "La torre que llena Apoquindo de autos"
 
-## The wow moment
+Emotional core: the inversion. We put the tallest towers next to the Metro so that people take the Metro. In Las Condes, the Census says they drive.
 
-A juror says a number. The presenter types it. Seven million people re-route, and the Tobalaba columns change shape in under two seconds, live, on a projector. The surprise is not the result. The surprise is that the city answers at once.
+The check, on the files that exist:
+
+| Dwellings at the MUT site | Commuters (0.835 per dwelling) | By car (51.1%) | By public transport (31.4%) |
+| --- | --- | --- | --- |
+| 298 (RM tower average) | 249 | 127 | 78 |
+| 477 (Estación Central tower average) | 398 | 204 | 125 |
+| 1,000 | 835 | 427 | 262 |
+
+It holds at every size, because it is a ratio of the comuna: 1.6 cars for each public transport rider. The Metro part of the 78 is smaller still, and unknown.
+
+Does it beat the station columns as a surprise? Yes for the MUT case: the column change is about 1% (invisible), the car number is a sentence the room repeats. No as a whole pitch: a Census ratio is not a simulation, and the decision `20261121-0100` requires that the change shows in the 3D scene. So C is not a separate pitch. **C is the surprise inside A's wow moment**: cars on the street, one-pixel columns, "el Metro ni se entera".
+
+What the scene must show for C: from the new tower, about 127 small red cars drive onto Apoquindo and about 78 small figures walk to the station entrance, over 3 seconds, with the two large numbers beside them and the label "Censo 2024, Las Condes, supuesto: los vecinos nuevos se comportan como la comuna". The weak point to say out loud: residents 100 m from a station probably use the Metro more than the comuna average. We do not have that number. The label carries it.
+
+What the engine must add for C: `resident_commuters_by_mode[]` in the site response (commuters × the 8 Census mode shares of the site comuna). Ten lines in `site.rs`. Without it, the fallback prints the numbers as data, not as an engine result.
 
 ## What "looks like the mock" means
 
-- The scene opens at Tobalaba with real building footprints and the Metro station. Nothing on screen is smaller than a thumb at 10 m from the projector.
-- 48 columns, one per half hour, on Tobalaba; the 18:00 column reads 7,516 and is the highest.
-- One zoom from Tobalaba to all Santiago in one camera move, with 52,646 manzana points sized by persons.
-- One control with one number (dwellings) and one button (Correr). No menus.
-- After Correr, the columns show two colors (observed, scenario) and the measured run time, and new flow lines leave the tower. The change is visible from the back of the room.
-- The same control works for three points: Tobalaba, a comuna for towers, a stadium. Nothing else is clickable.
+- The scene opens at Tobalaba with real building footprints, the MUT towers and the Metro station. Nothing on screen is smaller than a thumb at 10 m from the projector.
+- 37 columns, one per observed half hour, on Tobalaba; the 18:00 column reads 7,516 and is the highest. Null bins draw nothing.
+- One zoom from Tobalaba to Gran Santiago in one camera move, with 52,646 block points sized by population.
+- One control with one number (dwellings) and one button (Correr). A comuna selector only in case 2. No menus.
+- After Correr, the result is visible from the back of the room: arcs that change thickness, cars on the street, or columns that rise. A one-pixel change gets a label that says it is one pixel.
 - Every assumed number on screen carries the word "supuesto". Every real number carries its year.
 
-## The exact interaction and output the pitch needs (for the engine owner)
+## The exact interaction and output the pitch needs (for the engine owners)
 
-One call, three uses. The presenter changes only the numbers in bold.
+Full version: one call, three uses. `POST /api/site-scenario`, contract PR #26, module PR #30. The presenter changes only `dwellings_added` (MUT case), the comuna and dwellings (towers case), `visitors` and the exit window (stadium case). Response per the contract (`observed[48]`, `scenario[48]`, `site_base[48]`, `site_scenario[48]`, `flows[]`, `elapsed_ms`, `assumptions[]`) plus `resident_commuters_by_mode[]` for Variant C. The scene draws; it never computes.
 
-The contract is `context/research/tobalaba-scenario-contract.md` (PR #26, merged). This section says only what the presenter touches. Input: a point (`lon`, `lat`), **`jobs_removed`** (MUT case: 7,124 modeled), **`dwellings_added`** (tower cases: the presenter types 298; the contract allows no hidden default), **`visitors`** and an exit window (stadium case: 40,000, 21:00 to 23:00), and a comuna selector that moves the point.
-
-Output, per the contract: `observed[48]` (April 2026, never changes; absent bins are null, not zero), `base[48]`, `scenario[48]`, `site_base[48]`, `site_scenario[48]`, `flows[]` from the point to work comunas with expected commuters, `elapsed_ms`, and `assumptions[]` as short strings that the scene prints with the word "supuesto".
-
-What the scene does with it: columns per half hour in two colors (observed, scenario), arcs for the flows, the timer, and the assumptions list in a corner. The scene never computes; it draws the response.
-
-The comuna-scale v1 (`jobs_multiplier`, `housing_multiplier`) is the integration milestone. It cannot change a station column, so it is not the demo.
+Fallback: `POST /api/simulate` with `zone_id` and `housing_multiplier`. Already exists. The scene needs the `dwellings` field of `GET /api/world` to turn a dwellings count into a multiplier.
 
 ## What the pitch does NOT need (do not build it)
 
 - Migration flows (`od_migration_rm.csv`): no moment shows them.
 - DTPM trips and stages archives: the pitch shows boardings only.
 - Saturday and Sunday boardings: all moments are a weekday.
-- A comuna-level multiplier API: the wow moment needs a point (the MUT) and stop columns, not a comuna multiplier. If the engine stays at comuna scale, the Tobalaba columns cannot change and the wow moment is lost.
-- Buildings outside the Tobalaba camera frame.
-- Schools: only if the 0:50 moment shows the 08:00 flows. If the humans cut the word "colegio", `schools.csv` has no moment.
+- Jobs at Costanera Center or any block other than the MUT: no moment names them. `jobs.csv` is used for one number, 7,124.
+- A Metro share of boardings near the site as a "mode probability": clever-heron already said it is not one. The pitch says "transporte público" and labels the Metro share "supuesto".
+- Buildings outside the Tobalaba frame: case 2 uses block points and boxes.
+- Schools: no moment says "colegio" now. `schools.csv` has no moment unless the humans want the 08:00 school flows.
+- More Metro station files: Tobalaba, Los Leones and El Golf are enough for every moment except the stadium, which uses scenario-only columns.
 
 ## Research: what wins a 3-minute hackathon pitch (quick level, 3 searches)
 
-1. **One moment the judges understand at once beats a tour of features.** A JetBrains judge writes that a strong project with a confusing demo loses to a simpler project that the judges understand, and that the pitch needs one clear "this is possible now" contrast between the old frustration and the new version. https://blog.jetbrains.com/ai/2026/06/how-to-win-a-hackathon-notes-from-the-judging-table/
-2. **Open with a frustration the room has felt, then build everything toward the moment the product resolves it.** Setup before, payoff after. Teams with better presentations regularly beat teams with stronger tech. https://musichackspace.org/blog/hackathon-presentation-tips and https://intercom.help/builderbase/en/articles/14836128-builder-s-guide-ch-14-crafting-a-demo-that-lands
-3. **Live demos need a recorded fallback, and the pitch must lead with the problem, not the stack.** Judges care about the product; spend 15 to 20 seconds on who is affected, keep a recording ready, rehearse with people like the judges. For Platanus specifically, DF quotes Platanus on the first edition: the product "más que un negocio, debe ser una solución a un problema". https://developer.salesforce.com/blogs/2014/07/deliver-winning-pitch-hackathons , https://blogs.reskilll.com/hackathon-demo-presentation-tips-pitch-3-minutes-win-2026/ , https://www.df.cl/df-mas/punto-de-partida/36-horas-de-programacion-nonstop-asi-fue-la-primera-platanus-hack
+1. **One moment the judges understand at once beats a tour of features.** https://blog.jetbrains.com/ai/2026/06/how-to-win-a-hackathon-notes-from-the-judging-table/
+2. **Open with a frustration the room has felt, then build everything toward the moment the product resolves it.** https://musichackspace.org/blog/hackathon-presentation-tips and https://intercom.help/builderbase/en/articles/14836128-builder-s-guide-ch-14-crafting-a-demo-that-lands
+3. **Live demos need a recorded fallback, and the pitch leads with the problem, not the stack.** https://developer.salesforce.com/blogs/2014/07/deliver-winning-pitch-hackathons , https://www.df.cl/df-mas/punto-de-partida/36-horas-de-programacion-nonstop-asi-fue-la-primera-platanus-hack
 
-Applied here: the hook is a feeling (18:00 at Tobalaba), the wow is one contrast (observed vs scenario) that a juror controls, and we record a 3-minute video of the final run as a fallback.
+Applied here: the hook is a feeling (18:00 at Tobalaba), the wow is one contrast that a juror controls, and we record a 3-minute video of the final run as a fallback.
 
-## The one question for the humans
+## Questions for the humans
 
-**¿Variante A (el viajero de las seis de la tarde, construible esta noche) o Variante B (el error de Estación Central, más fuerte pero necesita un backtest que nadie ha empezado)?**
+Each one is taste or direction. Agents cannot decide them. Answer in `#agent-chat` or in `context/pitch.md`.
+
+1. **Which comuna does the story name for the MUT?** The site is in Las Condes (`13114`), the station is 26 m inside Providencia. Recommendation: say "Las Condes, al lado de Tobalaba" and use the Las Condes numbers (51.1% auto, 31.4% transporte público). Never mix the two comunas in one sentence.
+2. **"Transporte público" or "Metro" on stage?** The Census gives only the combined share. Recommendation: say "transporte público" for every Census number; say "Metro" only for DTPM boardings (7,516, 81,613) and for the labelled assumption in the engine.
+3. **Which surprise for the MUT case?** (a) station columns that move 1%, (b) the cars on Apoquindo and "el Metro ni se entera", (c) both. Recommendation: (c), Variant A with C inside. It is honest and it is the only version where the MUT result is visible from the back of the room.
+4. **Second and third use case?** Options: Estación Central towers (data exists, engine exists today), stadium (needs the site route and shows scenario-only columns), MUT at another comuna, school flows at 08:00. Recommendation: Estación Central as case 2 in every version; stadium as case 3 only if the site route is wired; otherwise two cases and a stronger close.
+5. **Variant A or B?** Recommendation: A. B needs a backtest that nobody owns and a 2017 layer that is not downloaded.
