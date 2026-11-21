@@ -1,6 +1,6 @@
 # Data pack
 
-Some sections describe builder outputs that are not on `main` yet: `blocks.csv`, `communes_urban.geojson`, `site_inputs.csv`, `jobs.csv`, `buildings.geojson`. They arrive in later PRs.
+Some sections describe builder outputs that are not on `main` yet: `blocks.csv`, `communes_urban.geojson`, `site_inputs.csv`, `jobs.csv`. They arrive in later PRs.
 
 ## blocks.csv
 
@@ -170,6 +170,8 @@ over the person file and caches the tallies, then the join runs in 2 s).
 | `apartment_share_of_dwellings` | `n_tipo_viv_depto / n_vp` | observed |
 | `persons_per_occupied_dwelling_apartment_blocks` | the same ratio, over the blocks of the comuna where 90% or more of the private dwellings are apartments and `n_vp` is 10 or more | observed, subset |
 | `occupied_share_apartment_blocks` | `n_vp_ocupada / n_vp` over that same subset. Use it together with the column above, so the chain stays closed inside the subset | observed, subset |
+| `car_share_block_table`, `public_share_block_table` | `n_transporte_auto` and `n_transporte_publico` over the 7 travel columns of the comuna | observed |
+| `car_share_apartment_blocks`, `public_share_apartment_blocks` | the same two shares over the apartment-block subset | observed, subset |
 | `apartment_blocks`, `apartment_block_persons` | size of that subset | |
 | `dwellings_with_residents_present` | dwellings with at least one person record | observed |
 | `persons_all_dwelling_kinds` | `n_per`: private **plus** collective dwellings and the street operative | observed |
@@ -187,6 +189,20 @@ over the person file and caches the tallies, then the join runs in 2 s).
   `commuters_all_per_resident` 0.3670, apartment share 0.7288,
   `persons_per_occupied_dwelling_apartment_blocks` **2.0847** with
   `occupied_share_apartment_blocks` **0.9251**, over 320 blocks and 160,457 persons.
+- **How a tower resident travels, measured.** In Las Condes the apartment blocks use
+  the car less than the comuna: `car_share_apartment_blocks` **0.4684** against
+  `car_share_block_table` **0.5192**, and public transport **0.3219** against 0.3077.
+  Walking rises from 9.2% to 12.0%. So a new tower sends about 10% fewer people by car
+  than the comuna average, relative. In Providencia the gap is small (0.3371 against
+  0.3469), and in Santiago the subset is almost the whole comuna (0.1286 both).
+- **The 4 travel columns are a wider universe than `mode_share.csv` and the two must not
+  be mixed.** The block table counts every person with a `p45` answer: 3,068,499 in the
+  RM, against 2,740,454 in `mode_share.csv`. The extra people work at home, work in
+  another country, or have no fixed place of work (`p44_lug_trab` 1, 4 and 5). That is
+  why the comuna car share here is 0.5192 and `mode_share.csv` gives 0.5107 for the
+  same comuna. Use `mode_share.csv` for a commuter count, and these 4 columns only to
+  compare a block subset against its comuna on one basis. 45 cells of the 7 travel
+  columns are suppressed in the RM and count as 0.
 - The two pairs do not give the same residents for each dwelling built: the comuna pair
   gives 0.9405 × 2.4185 = 2.2746 and the apartment-block pair gives
   0.9251 × 2.0847 = 1.9286, which is 15% lower. Always use a pair, never one column of
@@ -269,12 +285,14 @@ block. Show the 75.95% as evidence that this place is Metro-first, not as a coef
   reviewed joins of PR #23 and PR #29.
 - **Unmatched totals, both directions.** All 44 bus stops of the circle have a weekday
   record. In the other direction, 790.4 of the 2,512,170.4 RM weekday bus boardings
-  (0.03%) carry a user code that this GTFS does not hold at all, so they have no point;
-  none of them is in Las Condes or Providencia. The two largest, `PC275` and `PC727`,
-  do have a point in the March release, at 2,849 m and 4,689 m, far outside the circle.
-  So no unplaced boarding can change the 75.95%. The November 2026 release gives the
-  same 44 stops and the same 0.7595, but it drops `PC275` and `PC727`, which is why the
-  builder uses the March one.
+  (0.03%) carry a user code that the March GTFS does not hold at all, so they have no
+  point; none of them is in Las Condes or Providencia. The November 2026 release
+  (`gtfs_20261114.zip`) gives the same 44 stops in the circle and the same 0.7595, but
+  it leaves 4,006.6 boardings with no point instead of 790.4. The two largest of **that
+  November unmatched set** are `PC275` (Providencia, 685.0) and `PC727` (Las Condes,
+  95.2); the March release does hold both, at 2,849 m and 4,689 m, far outside the
+  circle. So no unplaced boarding can change the 75.95%, and the builder uses the March
+  release because it places more of them.
 - The 1 km radius needs no unreviewed join: the next Metro parents are Alcántara at
   1,073 m, Cristóbal Colón at 1,328 m, Pedro de Valdivia at 1,477 m and Escuela Militar
   at 1,678 m, all outside. No Tren stop is in the radius.
@@ -397,7 +415,7 @@ Properties: `height_m`, `height_source`, `name` (if any), `is_mut` (MUT base and
 - `exposure`: `stories_de` × 3.5 m of the Santiago residential exposure model (GitHub aleaicv/ExposureModels, release santiago_chile_ch_2025, reference year 2023, residential buildings with 5 or more stories), when the vertex mean of a model polygon is inside the footprint. 1,052. This is a model value, not a measurement. Check against OSM levels on 1,748 footprints with both: median difference 2 floors, 52% within 2 floors.
 - `default`: 6 m placeholder (2 floors). 21,403. Footprints under 55 m² with default height are dropped to keep the file under 10 MB.
 
-Real height (not `default`): 32% of footprints.
+Non-default height, measured or inferred: 32% of footprints.
 Tallest: Gran Torre Costanera 300 m, Titanium La Portada 200 m, Torre Telefónica 143 m.
 MUT: base "Mercado Urbano Tobalaba" 17.5 m (5 levels); Torres 1, 2, 3 = 61.2, 64.6, 57.8 m (tags); Torre 4 has no data (6 m default).
 
