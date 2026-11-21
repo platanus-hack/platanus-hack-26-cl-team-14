@@ -29,7 +29,7 @@ for i, (case, changes) in enumerate([("base", []), ("ferry", lines)], 1):
     if changes:
         args["chart"] = {
             "title": "Viajes al trabajo en barco", "unit": "viajes modelados por día hábil",
-            "show_after_seconds": 28,
+            "show_after_seconds": 17,
             "bars": [{"label": label, "field": f"line_riders.{index}.riders_to_work"}
                      for index, label in enumerate(["Hacia el este", "Hacia el oeste"])],
         }

@@ -22,7 +22,7 @@ Compare baseline and ferry at the same river camera. For a fixed-clock check use
 
 ## Author and play the native passenger shot
 
-With a private engine running, the author can send the two requests below through the existing chat MCP. The generator uses the nine joined river legs, both service directions and the same pier camera on both runs. It writes caches named `mapocho-muelle-base` and `mapocho-muelle-ferry`. The experiment leaves the city visible for 28 real seconds before showing the chart. [Authoring inputs](../../tools/pack/mapocho_ferry_replays.py)
+With a private engine running, the author can send the two requests below through the existing chat MCP. The generator uses the nine joined river legs, both service directions and the same pier camera on both runs. It writes caches named `mapocho-muelle-base` and `mapocho-muelle-ferry`. The experiment leaves the city visible for 17 real seconds before showing the chart. [Authoring inputs](../../tools/pack/mapocho_ferry_replays.py)
 
 ```sh
 python3 tools/pack/mapocho_ferry_replays.py | SANTIAGO_API_URL="http://127.0.0.1:${PORT}" node tools/santiago-mcp/server.mjs
