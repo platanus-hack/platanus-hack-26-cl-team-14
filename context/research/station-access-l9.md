@@ -54,3 +54,21 @@ On the local release build, loading and fitting took 148 ms. Projecting all poin
 The city caller also ran on 3,966,150 synthetic records. It assigned the L4b public transport share to each of the 2,688,814 workers. Students did not enter the station projection. Closing the extension added 12,114.45 weekday boardings at Los Libertadores. Reopening restored all 6,048 original station-bin values. Each projection took 42 ms on this host.
 
 In the continuous run, reassigned walking trips contributed 1,575.43 of the 12,113.15 extra boardings at Los Libertadores. Direct bus access contributed the other 10,537.72 (87%). Using the walk-only L4b scale on the same closed network gives a change of 1,717.82.
+
+## Same access model with the L10 job weights
+
+Changing only the point weights to L10 gave a frozen half-hour WAPE of 0.4114697894, a daily WAPE of 0.2963945781 and 234,689.78 absolute error boardings. The frozen holdout covered the same 1,123 cells. Error fell by 3,647.07 against L9 alone and 17,368.13 against L10 alone. The fitted bus mixture was 0.1868281671. [Job weights at 211133c](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/211133c/data/mvp/jobs_2026.csv)
+
+The modeled closure increase at Los Libertadores fell to 10,604.89. The gap from the historical magnitude grew from 274 to 1,234 boardings. April modeled boardings on matched bins were 16,531.92 at Los Libertadores, 6,495.91 at Ferrocarril, 15,071.67 at Lo Cruzat and 30,864.93 at Plaza Quilicura. The three new stations sum to 52,432.51 versus 39,442.20 observed. The weights use transit work arrivals at the training stations. Their effect combines workplace distribution and transit use.
+
+To reproduce the combined run, copy the six inputs to a separate data directory and substitute the L10 weights in that copy. Use the original checkout for the frozen scorer.
+
+```sh
+out=$(mktemp -d)
+for f in blocks.csv work_od.csv mode_share.csv metro_training.json bus_station_access.csv; do cp "data/mvp/$f" "$out/$f"; done
+git show 211133c:data/mvp/jobs_2026.csv > "$out/jobs.csv"
+cargo run --release --manifest-path engine/Cargo.toml --bin station_access -- "$out" "$out/open.json" "$out/closed.json" FER LCR PQU
+python3 -I tools/pack/check_score.py "$out/open.json"
+```
+
+Removing all 4,619 held-out arrival rows before rebuilding the weights gave the same weight file. It has SHA-256 `c247e549425e69bed0941019a36ad42866e35ce1b64501a842596da338fa16d4`. The team knew the 2023 historical target when it chose the L9 mechanism. The closure result is a retrospective comparison. [Combined run](https://discord.com/channels/1573514576400752640/1573579088684253235/1573674966774194279)
