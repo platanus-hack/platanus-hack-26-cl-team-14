@@ -56,8 +56,8 @@ for t, (s, e) in enumerate(zip(tiles, tiles[1:])):
         k = entries[starts[t] + i]
         if mesh[flags + i] & 4 or k == 65535:
             continue
-        a, b = rings[polys[i]], rings[polys[i] + 1]
-        mapped.append(([((west + pos[2 * j]) / 1e5, (south + pos[2 * j + 1]) / 1e5) for j in range(a, b)], block_ids[k]))
+        shape = [[((west + pos[2 * j]) / 1e5, (south + pos[2 * j + 1]) / 1e5) for j in range(rings[r], rings[r + 1])] for r in range(polys[i], polys[i + 1])]
+        mapped.append((shape, block_ids[k]))  # first ring exterior, others holes
 
 
 def inside(x, y, ring):
@@ -75,9 +75,10 @@ def metres(lon, lat, row):  # the metric of the #154 rule in engine/src/scenario
 out = csv.writer(sys.stdout, lineterminator="\n")
 out.writerow(["place_id", "name", "osm", "longitude", "latitude", "block_id", "cut", "comuna", "jobs", "other_blocks_in_bbox", "nearest_jobs_row", "nearest_jobs_row_m", "status"])
 for pid, name, osm, lon, lat, (s, n, w, e) in PLACES:
-    [block] = {b for r, b in mapped if inside(lon, lat, r)}  # exactly one building contains each point
-    others = sorted({b for r, b in mapped if s <= sum(q[1] for q in r) / len(r) <= n and w <= sum(q[0] for q in r) / len(r) <= e} - {block})
+    hits = {b for r, b in mapped if inside(lon, lat, r[0]) and not any(inside(lon, lat, h) for h in r[1:])}
+    block = hits.pop() if hits else ""  # a point in a courtyard or a stadium field has no containing building
+    others = sorted({b for r, b in mapped if s <= sum(q[1] for q in r[0]) / len(r[0]) <= n and w <= sum(q[0] for q in r[0]) / len(r[0]) <= e} - {block})
     near = min(jobs, key=lambda b: metres(lon, lat, jobs[b]))
-    row = jobs[block]
-    status = "multi_block" if others else "single_block"
-    out.writerow([pid, name, osm, f"{lon:.6f}", f"{lat:.6f}", block, row["cut"], comunas[row["cut"]], row["jobs"], " ".join(others), near, round(metres(lon, lat, jobs[near])), status])
+    row = jobs.get(block, {"cut": "", "jobs": ""})
+    status = "unresolved" if not block else "multi_block" if others else "single_block"
+    out.writerow([pid, name, osm, f"{lon:.6f}", f"{lat:.6f}", block, row["cut"], comunas.get(row["cut"], ""), row["jobs"], " ".join(others), near, round(metres(lon, lat, jobs[near])), status])
