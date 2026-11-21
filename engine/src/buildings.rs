@@ -221,11 +221,17 @@ impl BuildingEdits<'_> {
                 Some(moved)
             }
             (Some((mut feature, inputs)), Some(old))
-                if change["properties"].get("use").is_none()
-                    && change["properties"].get("height_m").is_none() =>
+                if change["properties"].get("use").is_none_or(|v| {
+                    v.is_string() && v.as_str() == old.feature["properties"]["use"].as_str()
+                }) && change["properties"].get("height_m").is_none_or(|v| {
+                    v.is_number() && v.as_f64() == old.feature["properties"]["height_m"].as_f64()
+                }) =>
             {
                 let mut notes = old.assumptions.clone();
                 for (field, value) in change["properties"].as_object().unwrap() {
+                    if field == "height_m" || field == "use" {
+                        continue;
+                    }
                     let count = value
                         .as_f64()
                         .filter(|n| n.is_finite() && *n >= 0.0)
