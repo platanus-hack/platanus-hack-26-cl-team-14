@@ -6,7 +6,7 @@
 <style>
   html, body { margin: 0; height: 100%; background: #0a0f24; color: #fff; overflow: hidden;
     font: 700 28px/1.1 -apple-system, "Helvetica Neue", Arial, sans-serif; }
-  #map { position: absolute; inset: 0; }
+  #map { position: absolute; inset: 0; } canvas { background: none !important; }
   .box { position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; }
   #clock { top: 28px; left: 28px; font-size: 150px; font-variant-numeric: tabular-nums; cursor: pointer; }
   #clock small { display: block; font-size: 30px; color: #9fb0d8; }
@@ -21,7 +21,7 @@
   input[type=range] { width: 100%; height: 44px; accent-color: #ff7a1a; }
   #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; font-variant-numeric: tabular-nums; }
   #delta small { display: block; font-size: 30px; color: #9fb0d8; }
-  #ph { top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-8deg); font-size: 60px; color: #ffd400;
+  #ph { top: 28px; left: 50%; transform: translateX(-50%); font-size: 60px; color: #ffd400;
     border: 6px solid #ffd400; background: none; pointer-events: none; opacity: .85; display: none; }
   .more { color: #ff4d6d; } .less { color: #3ddc97; }
 </style>
@@ -42,7 +42,7 @@ const SCALE = 0.1;            // metres of column for each boarding in a half ho
 const FIRST = 11, LAST = 47;  // 05:30 to 23:30
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('es-CL');
-const isMut = f => /MUT|Mercado Urbano Tobalaba/.test(f.properties.name);
+const isMut = f => f.properties.is_mut;
 const isMetro = s => !/^P[A-J]\d/.test(s.stop_id);
 const at = (a, t) => { const i = Math.floor(t), j = Math.min(i + 1, 47); return a[i] + (a[j] - a[i]) * (t - i); };
 
@@ -54,11 +54,11 @@ const d = 0.00024, tower = [{polygon: [[MUT[0] - d, MUT[1] - d * .85], [MUT[0] +
 const deckgl = new DeckGL({
   container: 'map',
   views: new MapView({orthographic: true}),
-  initialViewState: {longitude: -70.6015, latitude: -33.4183, zoom: 15.4, pitch: 55, bearing: -28},
+  initialViewState: {longitude: -70.6015, latitude: -33.4160, zoom: 15.2, pitch: 55, bearing: -28},
   controller: true,
   effects: [new LightingEffect({
-    ambient: new AmbientLight({intensity: 1.6}),
-    sun: new DirectionalLight({direction: [-2, -4, -3], intensity: 2.2})})],
+    ambient: new AmbientLight({intensity: 1.0}),
+    sun: new DirectionalLight({direction: [-2, -4, -3], intensity: 1.4})})],
 });
 
 function layers() {
@@ -69,21 +69,24 @@ function layers() {
   };
   return [
     new GeoJsonLayer({id: 'ground', data: ground, stroked: false,
-      getFillColor: [26, 74, 62], getLineColor: f => f.properties.kind == 'river' ? [40, 110, 200] : f.properties.major ? [70, 84, 130] : [38, 48, 86],
-      getLineWidth: f => f.properties.kind == 'river' ? 40 : f.properties.major ? 16 : 7, lineWidthUnits: 'meters'}),
+      getFillColor: [26, 74, 62], getLineColor: f => /river|canal/.test(f.properties.kind) ? [40, 110, 200] : f.properties.major ? [70, 84, 130] : [38, 48, 86],
+      getLineWidth: f => f.properties.kind == 'river' ? 45 : f.properties.kind == 'canal' ? 10 : f.properties.major ? 16 : 7, lineWidthUnits: 'meters'}),
     new GeoJsonLayer({id: 'buildings', data: buildings, extruded: true, stroked: false,
-      getElevation: f => isMut(f) && active ? 0 : f.properties.h,
-      getFillColor: f => isMut(f) ? [255, 122, 26] : [150, 165, 205],
+      getElevation: f => isMut(f) && active ? 0 : f.properties.height_m,
+      getFillColor: f => isMut(f) ? [255, 122, 26] : [125, 140, 190],
       material: {ambient: .45, diffuse: .7, shininess: 8},
       updateTriggers: {getElevation: active}, transitions: {getElevation: 900}}),
     new deck.PolygonLayer({id: 'tower', data: tower, extruded: true, getPolygon: o => o.polygon,
       getElevation: active ? homes * 0.12 : 0, getFillColor: [255, 255, 255],
       updateTriggers: {getElevation: [active, homes]}, transitions: {getElevation: 900}}),
-    active && new ColumnLayer({id: 'ghost', data: run.stops, getPosition: s => [s.lon, s.lat], diskResolution: 20,
-      radius: 26, getElevation: s => at(s.base, t) * SCALE, getFillColor: [255, 255, 255, 60], updateTriggers: {getElevation: t}}),
     new ColumnLayer({id: 'stops', data: run.stops, getPosition: s => [s.lon, s.lat], diskResolution: 20,
       radius: 18, getElevation: s => at(s[key], t) * SCALE, getFillColor: fill,
       material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: [t, key], getFillColor: [t, key]}}),
+    active && new ColumnLayer({id: 'ghost', data: run.stops, getPosition: s => [s.lon, s.lat], diskResolution: 20,
+      radius: 26, getElevation: s => at(s.base, t) * SCALE, getFillColor: [255, 255, 255, 50], parameters: {depthWriteEnabled: false}, updateTriggers: {getElevation: t}}),
+    new deck.TextLayer({id: 'label', data: [0], getPosition: [...MUT, active ? homes * 0.12 : 65], getPixelOffset: [0, -60], getText: () => active ? 'TORRE' : 'MUT',
+      getSize: 44, fontWeight: 800, getColor: [255, 255, 255], background: true, getBackgroundColor: active ? [10, 15, 36] : [255, 122, 26],
+      backgroundPadding: [14, 8], updateTriggers: {getPosition: [active, homes], getText: active, getBackgroundColor: active}}),
     active && new ArcLayer({id: 'flows', data: run.flows, getSourcePosition: f => f.from, getTargetPosition: f => f.to,
       getWidth: f => 2 + Math.sqrt(f.persons), getSourceColor: [255, 255, 255], getTargetColor: [255, 122, 26]}),
   ];
@@ -93,6 +96,8 @@ function draw() {
   const i = Math.floor(t);
   $('hhmm').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
   $('now').textContent = fmt(run.stops[0][active ? 'scenario' : 'base'][i]);
+  const day = Math.max(0, Math.sin((t - 13) / 28 * Math.PI));  // 0 at 06:30 and 20:30, 1 near 13:30
+  document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
   deckgl.setProps({layers: layers()});
 }
 
@@ -116,7 +121,9 @@ $('go').onclick = () => {
 
 // shortcut: reads a static file, change this URL to the engine when it gives per-stop estimates
 Promise.all(['data/run.json', 'data/buildings.geojson', 'data/ground.geojson'].map(u => fetch(u).then(r => r.json()))).then(([r, b, g]) => {
-  run = r; buildings = b; ground = g;
+  run = r; ground = g;
+  // the diorama tile: keep the buildings inside the frame of the ground extract
+  buildings = b.features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
   run.stops.sort((a, b) => Math.max(...b.observed) - Math.max(...a.observed));  // stops[0] is Tobalaba
   if (run.placeholder) $('ph').style.display = 'block';
   else $('sc').textContent = run.score.toLocaleString('es-CL', {maximumFractionDigits: 2});
