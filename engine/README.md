@@ -440,3 +440,31 @@ Each file contains 48 half-hours for each of 126 GTFS parent IDs. The model proj
 2,700.9 fewer weekday boardings at Tobalaba and 1,655.7 fewer across the network.
 These are scenario estimates. When comparing hosts, check for equal values within
 the existing tolerance of 1e-9 boardings per half-hour.
+
+## April job weights for station boardings
+
+The station fit can use the normalized April destination weights in `jobs_2026.csv`. The population and job-choice models still read the original block stocks in `jobs.csv`. This run uses the synthetic population from `98ae956` and the [normalized weights from `dae0d11`](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/commit/dae0d110f93c8e994110a9964a468e1a615b759c).
+
+```sh
+cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp /tmp/person-l9.json l9
+cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp /tmp/person-april.json april-transport
+python3 -I tools/pack/check_score.py /tmp/person-l9.json
+python3 -I tools/pack/check_score.py /tmp/person-april.json
+```
+
+The optional constructor checks the SHA-256 of stock (`4420a3956bc414601e8bf07bcdc99eddc3c865aebad47d2f137b2fc7ed15c481`) and weights (`5ea069bc928a6d9677ce0f5d2e89542bfcb21761bf618b5d9681305d3a419866`). Each job block's public-transport commuter mass receives its April-to-stock ratio. New blocks and blocks with zero original stock have a factor of one. The projection then restores each comuna's total public-transport commuter mass. The original `StationAccess::load` reads the stock file alone for job weights.
+
+```rust
+let access = StationAccess::load_with_april_transport_jobs(data)?;
+access.weight_job_masses(pop.jobs.iter().map(|p| (p.id.as_str(), p.cut.as_str())), &mut j);
+```
+
+Call the second line on newly aggregated station masses before `project_points`. Each scenario starts with its own masses.
+
+| Frozen development metric | Person-based L9 | April transport weights |
+|---|---:|---:|
+| Half-hour absolute error | 238,349.70 | 234,697.77 |
+| Half-hour WAPE | 0.4178865487 | 0.4114838095 |
+| Daily WAPE | 0.2967951832 | 0.2963993983 |
+
+The score covers 1,123 observed cells at 31 stations. The April fit reduces error by 3,651.93 boardings. Its block weights use arrivals at training stations. All 6,048 open-network predictions matched the independent run. Closing the three Quilicura extension stations adds 10,605.51 modeled boardings at Los Libertadores (L9 adds 12,114.75). Removing the MUT block's 4,679 jobs gives a modeled Tobalaba change of −4,080.23 (L9 gives −2,547.89). The MUT response magnitude remains unverified.
