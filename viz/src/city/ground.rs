@@ -30,7 +30,7 @@ fn tile_for(tiles: &mut GroundTiles, point: Vec3) -> &mut Surface {
     tiles.entry(tile).or_default()
 }
 
-// One shared pair of vertices at each join keeps streets continuous on bends.
+// Clip each strip quad to the DEM faces so terrain cannot cut through its interior.
 fn ribbon(mesh: &mut Surface, points: &[Vec3], half_width: f32, elevation: f32, color: Color4) {
     let mut draped = Vec::with_capacity(points.len());
     for pair in points.windows(2) {
@@ -49,7 +49,7 @@ fn ribbon(mesh: &mut Surface, points: &[Vec3], half_width: f32, elevation: f32, 
         return;
     }
     let normal = |a: Vec3, b: Vec3| Vec3::new(a.z - b.z, 0.0, b.x - a.x).normalize_or_zero();
-    let first_vertex = mesh.positions.len() as u32;
+    let mut previous_edges: Option<[Vec3; 2]> = None;
     let last = points.len() - 1;
     for (i, &p) in points.iter().enumerate() {
         let previous = normal(points[i.saturating_sub(1)], p);
@@ -57,16 +57,15 @@ fn ribbon(mesh: &mut Surface, points: &[Vec3], half_width: f32, elevation: f32, 
         let join = (previous + next).normalize_or_zero();
         let reference = if i == last { previous } else { next };
         let offset = join * (half_width / join.dot(reference).max(0.5));
-        for mut edge in [p + offset, p - offset] {
-            edge.y = terrain_from_xz(edge.x, edge.z) + elevation;
-            mesh.positions.push(edge.to_array());
+        let edges = [p + offset, p - offset].map(|mut edge| {
+            edge.y = terrain_from_xz(edge.x, edge.z);
+            edge
+        });
+        if let Some(previous) = previous_edges {
+            let ring = vec![previous[0], previous[1], edges[1], edges[0]];
+            super::terrain::drape_land(mesh, &[ring], elevation, color);
         }
-        mesh.normals.extend([[0.0, 1.0, 0.0]; 2]);
-        mesh.colors.extend([color; 2]);
-        if i != last {
-            let a = first_vertex + i as u32 * 2;
-            mesh.indices.extend([a, a + 2, a + 1, a + 1, a + 2, a + 3]);
-        }
+        previous_edges = Some(edges);
     }
 }
 
