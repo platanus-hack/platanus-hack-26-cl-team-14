@@ -5,13 +5,14 @@ The city view can read `web/data/open_surfaces.geojson.gz` as a GeoJSON FeatureC
 | Kind | OSM objects | Packed polygons | Selection |
 | --- | ---: | ---: | --- |
 | `surface_parking` | 864 | 866 | Explicit `amenity=parking` and `parking=surface`. Exclude tagged covers, interiors, buildings, building parts and negative layers. [OSM surface parking](https://wiki.openstreetmap.org/wiki/Tag:parking%3Dsurface) |
+| `parking_unspecified` | 1,084 | 1,084 | Mapped `amenity=parking` with no parking subtype. Apply the same structure and cover exclusions. The physical parking type is unknown. [OSM parking](https://wiki.openstreetmap.org/wiki/Tag:amenity%3Dparking) |
 | `brownfield` | 138 | 138 | Land mapped for redevelopment. Existing structures can remain. [OSM brownfield](https://wiki.openstreetmap.org/wiki/Tag:landuse%3Dbrownfield) |
 | `greenfield` | 206 | 206 | Undeveloped land mapped for future development. [OSM greenfield](https://wiki.openstreetmap.org/wiki/Tag:landuse%3Dgreenfield) |
 | `vacant` | 0 | 0 | The source has no polygon tagged `landuse=vacant` in this view. |
 | `pitch` | 6,461 | 6,461 | Mapped sports pitch polygons. Exclude tagged interiors. [OSM pitch](https://wiki.openstreetmap.org/wiki/Tag:leisure%3Dpitch) |
 | `track` | 142 | 142 | Sports tracks mapped as multipolygons or ways with `area=yes`. Exclude tagged interiors. Tracks drawn only as paths have no measured width. [OSM track](https://wiki.openstreetmap.org/wiki/Tag:leisure%3Dtrack) |
 
-The pack has 7,811 source objects, 7,813 valid polygons, 83 interior rings, and 42,719 vertices including ring closures. It uses 282,957 bytes compressed and 2,011,594 bytes inflated. The builder clips to the city view, simplifies in UTM zone 19S with a 4 m tolerance, and rounds coordinates to five decimal places.
+The pack has 8,895 source objects, 8,897 valid polygons, 84 interior rings, and 49,577 vertices including ring closures. It uses 330,686 bytes compressed and 2,324,779 bytes inflated. The builder clips to the city view, simplifies in UTM zone 19S with a 4 m tolerance, and rounds coordinates to five decimal places.
 
 ## Places checked in the pack
 
@@ -23,7 +24,7 @@ The pack has 7,811 source objects, 7,813 valid polygons, 83 interior rings, and 
 
 ## Building overlap in the first infill pack
 
-Measured against building commit `d6b81a07c2f7558f7e8db0a4d2418af5bf461bd7`. Of its 111,413 new generated roofs, 2,574 overlap at least one packed surface by positive area. Pitches intersect 1,746 roofs, greenfields 495, tracks 227, brownfields 83, and parking 53. A roof can intersect more than one class.
+Measured against building commit `d6b81a07c2f7558f7e8db0a4d2418af5bf461bd7`. Of its 111,413 new generated roofs, 2,643 overlap at least one packed surface by positive area. Pitches intersect 1,746 roofs, greenfields 495, tracks 227, brownfields 83, unspecified parking 74, and surface parking 53. A roof can intersect more than one class.
 
 None of these overlaps falls inside the 500 m circles at Tobalaba (−70.600974, −33.417357), Puente Alto (−70.57536, −33.60958), or Quilicura (−70.72939, −33.36569). This comparison covers only those newly generated roofs and the surface classes above.
 
