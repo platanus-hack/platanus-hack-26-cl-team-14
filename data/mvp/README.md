@@ -245,7 +245,7 @@ over the person file and caches the tallies, then the join runs in 2 s).
 | `commuters_all` | the same, with a work comuna anywhere in Chile | observed |
 | `commuters_rm_per_resident`, `commuters_all_per_resident` | that count / `persons` | observed |
 | `apartment_share_of_dwellings` | `n_tipo_viv_depto / n_vp` | observed |
-| `persons_per_occupied_dwelling_apartment_blocks` | the same ratio, over the blocks of the comuna where 90% or more of the private dwellings are apartments and `n_vp` is 10 or more | observed, subset |
+| `persons_per_occupied_dwelling_apartment_blocks` | block-table `n_per` (all dwelling kinds) / `n_vp_ocupada`, over blocks where 90% or more of the private dwellings are apartments and `n_vp` is 10 or more. Its numerator differs from the private-person microdata numerator of the comuna ratio | observed, subset |
 | `occupied_share_apartment_blocks` | `n_vp_ocupada / n_vp` over that same subset. Use it together with the column above, so the chain stays closed inside the subset | observed, subset |
 | `car_share_block_table`, `public_share_block_table` | `n_transporte_auto` and `n_transporte_publico` over the 7 travel columns of the comuna | observed |
 | `car_share_apartment_blocks`, `public_share_apartment_blocks` | the same two shares over the apartment-block subset | observed, subset |
@@ -268,7 +268,7 @@ over the person file and caches the tallies, then the join runs in 2 s).
   `commuters_all_per_resident` 0.3670, apartment share 0.7288,
   `persons_per_occupied_dwelling_apartment_blocks` **2.0847** with
   `occupied_share_apartment_blocks` **0.9251**, over 320 blocks and 160,457 persons.
-- **How a tower resident travels, measured.** In Las Condes the apartment blocks use
+- **Observed travel shares in the apartment-dominated blocks.** In Las Condes they use
   the car less than the comuna: `car_share_apartment_blocks` **0.4684** against
   `car_share_block_table` **0.5192**, and public transport **0.3219** against 0.3077.
   Walking rises from 9.2% to 12.0%. In Providencia the gap is small (0.3371 against
@@ -305,6 +305,15 @@ over the person file and caches the tallies, then the join runs in 2 s).
   `p45` by `p44`. So **any apartment-block refinement of a commuter mode share is a
   transfer assumption**, never a measured commuter count. Label it that way, or keep
   the comuna share of `mode_share.csv`.
+- **The apartment pair with a comuna commuter rate is one transfer assumption, and the
+  ratio method is another. Neither is a bound on a real tower.** The pair carries the
+  smaller flat (2.0847 against 2.4185) but not the higher travel of the people in it.
+  Measured with the rate 0.3545: the pair gives 0.6837 commuters for each dwelling and
+  the ratio method gives 0.7342, which is 7.4% higher. The difference is between two
+  models, not an error against a measurement, so **do not call either one conservative
+  or a lower bound**. Label the one you send "supuesto de transferencia" and name it.
+  The demo sends the apartment pair with 298 **physical** dwellings; do not fold a
+  ratio into `dwellings_added`, which is a count of dwellings.
 - The two pairs do not give the same residents for each dwelling built: the comuna pair
   gives 0.9405 × 2.4185 = 2.2746 and the apartment-block pair gives
   0.9251 × 2.0847 = 1.9286, which is 15% lower. Always use a pair, never one column of
