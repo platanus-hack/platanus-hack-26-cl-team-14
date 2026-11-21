@@ -1,6 +1,6 @@
 # Data pack
 
-Some sections describe builder outputs that are not on `main` yet: `blocks.csv`, `communes_urban.geojson`, `schools.csv`, `school_od.csv`, `site_inputs.csv`, `jobs.csv`, `buildings.geojson`. They arrive in later PRs.
+Some sections describe builder outputs that are not on `main` yet: `blocks.csv`, `communes_urban.geojson`, `site_inputs.csv`, `jobs.csv`, `buildings.geojson`. They arrive in later PRs.
 
 ## blocks.csv
 
