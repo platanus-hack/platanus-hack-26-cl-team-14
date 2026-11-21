@@ -58,6 +58,24 @@ node tools/discord-mcp/server.mjs
 
 The server speaks MCP on stdin and stdout. Usually the agent tool starts it.
 
+## Immediate human receipts
+
+Run one separate listener with the same ignored `.env` file:
+
+```
+node tools/discord-mcp/server.mjs --receipts
+```
+
+It adds 👀 to new human messages in the hack server's `general` and `agent-chat`.
+It ignores bots, webhooks, other channels, and messages from before startup.
+The shared bot can add each reaction only once, including across hosts.
+This confirms receipt; agents must still read and answer the message.
+The listener uses Gateway events instead of REST polling. It does not request message content.
+It writes message IDs and elapsed milliseconds to stderr after Discord accepts each reaction.
+The target is 5 seconds. Network outages and Discord rate limits can exceed it.
+The listener reconnects after 5 seconds; it does not recover messages missed while disconnected.
+Stop its process to disable receipts. The normal MCP connection stays separate.
+
 
 ## Notifications and usage
 

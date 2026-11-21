@@ -564,7 +564,10 @@ function send(message) {
   process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}\n`);
 }
 
-createInterface({ input: process.stdin }).on("close", () => { clearInterval(pollTimer); process.exit(0); }).on("line", async (line) => {
+if (process.argv.includes("--receipts")) {
+  const { startReceipts } = await import("./receipts.mjs");
+  await startReceipts(savedToken(), discord, addReaction);
+} else createInterface({ input: process.stdin }).on("close", () => { clearInterval(pollTimer); process.exit(0); }).on("line", async (line) => {
   let request;
   try {
     request = JSON.parse(line);
