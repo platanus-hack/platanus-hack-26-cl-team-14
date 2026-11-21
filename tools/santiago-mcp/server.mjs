@@ -76,7 +76,7 @@ const featureChanges = [
   },
   {
     kind: 'line',
-    description: 'Edit one directed bus, Metro or boat service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. A two-way service is two adds. Stops outside the catalog go in new_stops. Each added line returns line_riders: workers near both ends, trips to work by stop and half hour, and the mode they leave. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing.',
+    description: 'Edit one directed bus, Metro or boat service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. A two-way service is two adds. Stops outside the catalog go in new_stops. Each added line returns line_riders: workers near both ends, trips to work by stop and half hour, and the mode they leave. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing. Target {type:"mode",id:"metro"} with op remove removes every Metro pattern. Also close the stations with kind station. Set temporary true to change mode choice for one day.',
     target: idTarget, geometries: ['LineString'],
     properties: lineProperties,
   },
@@ -86,6 +86,7 @@ const featureChanges = [
   then: { required: ['properties'], properties: { properties: { minProperties: 1 } } },
   properties: {
     kind: { enum: [kind] }, target, op: { enum: ['add', 'set', 'move', 'remove'] },
+    ...(kind === 'line' && { temporary: { type: 'boolean', description: 'True: the change lasts one day, so it moves mode choice only.' } }),
     properties: { type: 'object', properties, additionalProperties: false },
     geometry: { oneOf: geometries.map(type => ({
       type: 'object', required: ['type', 'coordinates'],

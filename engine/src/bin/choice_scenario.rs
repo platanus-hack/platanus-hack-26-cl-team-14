@@ -50,7 +50,7 @@ fn main() {
     let run = |label: &str, pop: &mut Population, weights: &[f64], minutes: &[f64]| {
         pop.persons.clone_from(&start);
         let t = Instant::now();
-        let moved = rechoose::rechoose(&c, pop, weights, minutes, &placed);
+        let moved = rechoose::rechoose(&c, pop, weights, minutes, minutes, &placed);
         let choose_ms = t.elapsed().as_secs_f64() * 1e3;
         let t = Instant::now();
         let after = day(&model, pop);
