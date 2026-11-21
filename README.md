@@ -67,7 +67,7 @@ Install Rust 1.97.1 or newer with Cargo, and install curl. From the repository r
 ./run.sh
 ```
 
-The launcher starts the engine on port 8787, waits for it to answer, and opens the native city window. Drag to pan and scroll to zoom. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
+The launcher starts the engine on port 8787, waits for it to answer, and opens the native city window. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
 
 ### Ask a question from your local agent
 

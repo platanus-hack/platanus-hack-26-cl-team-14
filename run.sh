@@ -36,6 +36,6 @@ until curl --fail --silent --max-time 1 --output /dev/null "$api/api/scenario-la
     sleep 0.2
 done
 echo "SANTIAGO_API_URL=$api"
-SANTIAGO_ENGINE="$api" cargo run --locked --release --manifest-path viz/Cargo.toml &
+SANTIAGO_LOCK_CAMERA=1 SANTIAGO_ENGINE="$api" cargo run --locked --release --manifest-path viz/Cargo.toml &
 window_pid=$!
 wait "$window_pid"
