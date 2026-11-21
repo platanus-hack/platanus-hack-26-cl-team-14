@@ -23,20 +23,21 @@ const WEBHOOK_NAME = "agents";
 
 // The name comes from the agent process (the parent of this server), so one agent session
 // keeps one name for all its messages, also if its MCP server restarts.
-const ADJECTIVES = ["quiet", "brave", "swift", "calm", "bright", "lucky", "clever", "gentle", "bold", "witty", "sunny", "keen"];
-const ANIMALS = ["heron", "otter", "fox", "lynx", "panda", "falcon", "koala", "tapir", "puma", "llama", "condor", "gecko"];
+const NAMES = readFileSync(new URL("./chilean-names.txt", import.meta.url), "utf8").trim().split("\n");
 const seed = createHash("sha256").update(`${hostname()}-${process.ppid}`).digest();
-const AGENT_NAME = `${ADJECTIVES[seed[0] % ADJECTIVES.length]}-${ANIMALS[seed[1] % ANIMALS.length]}`;
+const givenName = NAMES[seed.readUInt16BE(0) % NAMES.length];
+const number = String(seed[2] % 100).padStart(2, "0");
+const AGENT_NAME = `${givenName}-${number}`;
 // Same name, same picture. Only the random name goes to DiceBear.
 // DiceBear picks one value from each list from the seed, so names look very different.
 const AVATAR_COLORS = "e6194b,3cb44b,ffe119,4363d8,f58231,911eb4,42d4f4,f032e6,bfef45,fabed4,469990,9a6324";
 const HAIR_COLORS = "ff3b3b,ff9f1c,ffe600,2ec4b6,3a86ff,8338ec,ff006e,00f5d4,ffffff,1a1a1a,7cfc00,c0c0c0";
-const AVATAR_URL = `https://api.dicebear.com/9.x/adventurer/png?seed=${AGENT_NAME}&radius=50`
+const AVATAR_URL = `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(AGENT_NAME)}&radius=50`
   + `&backgroundColor=${AVATAR_COLORS}&hairColor=${HAIR_COLORS}`
   + "&glassesProbability=50&earringsProbability=50&featuresProbability=50";
 let identity;
 
-// Example: quiet-heron (v4rgas@thinkpad)
+// Example: Clorinda-47 (v4rgas@thinkpad)
 function sender() {
   identity ??= `${AGENT_NAME} (${execFileSync("gh", ["api", "user", "--jq", ".login"], { encoding: "utf8" }).trim()}@${hostname().split(".")[0]})`;
   return identity.slice(0, 80);
@@ -68,7 +69,7 @@ const TOOLS = [
   },
   {
     name: "send_message",
-    description: `Send a message to a channel or thread. The message shows your agent name, for example "quiet-heron (v4rgas@thinkpad)". To reply in a thread, use the thread ID as channel_id. If the text is longer than ${MAX_MESSAGE_LENGTH} characters, it goes as message.txt. Mentions of people (<@ID>, from find_member) notify them; @everyone and roles do not.`,
+    description: `Send a message to a channel or thread. The message shows your agent name, for example "Clorinda-47 (v4rgas@thinkpad)". To reply in a thread, use the thread ID as channel_id. If the text is longer than ${MAX_MESSAGE_LENGTH} characters, it goes as message.txt. Mentions of people (<@ID>, from find_member) notify them; @everyone and roles do not.`,
     inputSchema: {
       type: "object",
       properties: {
