@@ -46,6 +46,17 @@ with ZipFile(FEED) as feed:
         if len(calls) > len(stations.get(shape, [])):
             stations[shape] = [station for _, station, _ in calls]
 
+    # Bus start times are approximate. Integrate the service rate over each bin.
+    for row in table(feed, "frequencies"):
+        if row["trip_id"] not in trips:
+            continue
+        shape = trips[row["trip_id"]]["shape_id"]
+        start, end = seconds(row["start_time"]), seconds(row["end_time"])
+        headway = int(row["headway_secs"])
+        for period in range(start // HALF_HOUR, (end - 1) // HALF_HOUR + 1):
+            overlap = min(end, (period + 1) * HALF_HOUR) - max(start, period * HALF_HOUR)
+            departures[shape][period] += overlap / headway
+
     points = defaultdict(list)
     for row in table(feed, "shapes"):
         shape = row["shape_id"]
@@ -62,6 +73,22 @@ for route, direction, shape in sorted({(t["route_id"], t["direction_id"], t["sha
         "parent_station_ids": stations[shape],
         "path": [[lon, lat] for _, lon, lat in sorted(points[shape])],
         "trips": departures[shape],
+    })
+
+# Use one actual bus shape per route. Both directions contribute departures.
+bus_shapes = defaultdict(set)
+for trip in trips.values():
+    if routes[trip["route_id"]]["route_type"] == "3":
+        bus_shapes[trip["route_id"]].add(trip["shape_id"])
+
+for route, shapes in sorted(bus_shapes.items()):
+    shape = max(sorted(shapes), key=lambda s: sum(departures[s]))
+    coords = [[lon, lat] for _, lon, lat in sorted(points[shape])]
+    paths.append({
+        "mode": "bus", "route": routes[route]["route_short_name"],
+        "color": "#" + routes[route]["route_color"],
+        "path": coords[:-1:3] + coords[-1:],
+        "trips": [round(sum(departures[s][i] for s in sorted(shapes)), 3) for i in range(48)],
     })
 
 OUT.write_text(json.dumps(paths, separators=(",", ":")) + "\n", encoding="utf-8")

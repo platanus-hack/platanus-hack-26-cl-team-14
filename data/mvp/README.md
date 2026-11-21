@@ -703,3 +703,11 @@ The path shows the full line. It does not describe the stops of each train.
 
 The 14 paths cover 7 lines. One direction per line gives 143 station entries, which matches the [Ministry of Transport network count](https://mtt.gob.cl/extension-de-linea-2-comenzo-su-operacion-y-beneficiara-a-618-mil-personas/).
 Interchange lines can share a parent station. The feed has 126 distinct parent IDs across these paths.
+
+Each bus record represents one GTFS route. Its path uses the shape with the most expected departures that day.
+The builder keeps every third shape point and the last point. The route's `trips` values cover all directions and variants.
+For each overlapping headway interval the builder divides its duration in the half hour by the published headway.
+All bus intervals use `exact_times=0`. Fractional values are expected departures, rounded to three decimal places.
+These counts describe scheduled service. They do not measure passenger demand or vehicle positions. [GTFS frequencies reference](https://gtfs.org/documentation/schedule/reference/#frequenciestxt)
+
+The file contains 878 Metro path points and 68,715 bus path points across 416 bus routes. Size: 1,635,778 bytes.
