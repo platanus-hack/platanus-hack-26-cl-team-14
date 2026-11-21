@@ -689,3 +689,11 @@ Four causes of the gap, and they do not all point the same way:
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
+
+## travel_times_blocks.csv
+
+Run `python3 -I tools/pack/travel_times_blocks.py` with the March 2026 GTFS feed and Census 2024 blocks. The table gives modeled public transport minutes at 08:00 on a weekday. It contains 1,602 directed pairs across 41 of the 52 comunas. The builder samples up to four blocks per comuna from blocks with employed residents and a GTFS stop within 1 km. Trips within a comuna use different blocks at each end.
+
+`origin_access_share` and `destination_access_share` give the fraction of resident workers within 1 km of a stop at each end. The minutes describe travel between the sampled blocks with access. `worker_pairs` counts routed block pairs.
+
+Eleven comunas have no worker block within 1 km of a stop in this feed. These are San José de Maipo, Tiltil, Melipilla, Alhué, Curacaví, María Pinto, San Pedro, Talagante, El Monte, Isla de Maipo, and Peñaflor. They account for 211,532 workers. A time for these comunas requires a separate assumption. The table contains no car times. The reported median ratio to EOD 2012 survey times is about 0.65 and serves only as a descriptive comparison.
