@@ -8,8 +8,9 @@ Use the exact builder commit and the cached November 20, 2026 Santiago urban PBF
 
 ```sh
 python3 -B tools/pack/road_surface.py /absolute/path/to/urban.osm.pbf
+python3 -B tools/pack/road_centerlines.py
 python3 -B tools/pack/road_surface_report.py /absolute/path/to/cameras.csv
-shasum -a 256 web/data/road_surface.geojson.gz
+shasum -a 256 web/data/road_surface.geojson.gz web/data/road_centerlines.geojson.gz
 ```
 
 The camera CSV header is `camera,lon,lat,radius_m`. Supply the capture site by the tower, Plaza Baquedano, the motorway junction, the Maipú residential grid and the Quilicura industrial street. Use the agreed camera centres and report the radius measured on the ground for each. The report accepts no CSV when only the whole-pack checks are needed. Its scratch database and files live under `data/raw/road-surface/`.
@@ -27,6 +28,14 @@ The camera CSV header is `camera,lon,lat,radius_m`. Supply the capture site by t
 | `kind` | `sidewalk` for a separate sidewalk; otherwise its `structure`. Use `structure` to place a bridge sidewalk or hide a tunnel sidewalk. |
 
 The builder uses each raw way once. Separate OSM carriageways keep their own centerlines. It buffers unsimplified lines in UTM zone 19S with round joins and caps. It rounds the buffered outlines to 0.000001°, clips them to the integer-aligned building grid, then unions polygons of the same tile, structure, layer and use. Road intersections merge regardless of highway class. Separately drawn sidewalks and standalone cycle paths remain distinct features. A sidewalk or cycle lane tagged only on a host carriageway has no separate measured line. This pack does not invent an offset line for it.
+
+## Motor-road centerlines
+
+`web/data/road_centerlines.geojson.gz` is a WGS84 GeoJSON FeatureCollection of LineStrings. The standalone builder reads the same `data/raw/road-surface/ways.csv` that supplies the polygon buffer. After generating the surface once, run `python3 -B tools/pack/road_centerlines.py` to add this sidecar.
+
+Each part carries numeric `osm_way_id`, zero-based `part`, and the original `highway` class. It follows the original OSM way direction and uses every interior source vertex at its original precision. A way that leaves the city rectangle can yield multiple clipped parts. Only boundary intersections create new vertices. The pair (`osm_way_id`, `part`) identifies a piece within this snapshot.
+
+`width_m` and `width_source` come from the same row as the surface. Both `left_half_width_m` and `right_half_width_m` equal half the total width. Left and right follow OSM way direction. Symmetry is a display assumption. `layer` and `structure` preserve the surface classification. Deck elevation has no verified source in the pack. The data contains no deck-elevation field. Keep using the mode-specific OSRM routes for travel direction and access restrictions. A mapped road width alone does not establish permission to drive a car or bus there.
 
 ## Width sources
 
