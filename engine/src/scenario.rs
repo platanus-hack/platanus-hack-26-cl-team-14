@@ -2,13 +2,12 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
-use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, sample_trips};
+use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripPlan};
 use crate::rechoose::{Base, rechoose};
-use crate::stations::StationModel;
 use crate::stations::access::StationAccess;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
@@ -38,11 +37,13 @@ struct State { od: Vec<f64>, public: Vec<f64>, day: Vec<Vec<f64>> }
 pub struct Scenario {
     choice: Choice,
     pop: Population,
-    model: StationModel,
+    /// Public-transport share of the commuters of each home comuna (mode 2 of mode_share.csv), as the station fit (L2).
+    share: Vec<f64>,
     access: StationAccess,
     base: State,
     /// Display groups of the baseline workers (population/trips.rs), for the map.
     trips: Value,
+    plan: TripPlan,
     fine_modes: FineModes,
     placed: Base,
     /// Per station and per comuna: id, name, longitude, latitude.
@@ -66,12 +67,26 @@ const ASSUMPTIONS: [&str; 10] = [
 ];
 
 fn r1(x: f64) -> f64 { (x * 10.0).round() / 10.0 }
+fn r6(x: f64) -> i64 { (x * 1e6).round() as i64 }
+/// A station name without accents, in upper case: "Ñuñoa" = "NUNOA".
+fn plain(s: &str) -> String {
+    s.trim().to_uppercase().chars().map(|c| match c { 'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' | 'Ü' => 'U', 'Ñ' => 'N', c => c }).collect()
+}
 
 impl Scenario {
     pub fn load(dir: &Path) -> Scenario {
         let choice = Choice::load(dir);
         let pop = Population::build(dir);
-        let model = StationModel::new(dir);
+        let mut modes = vec![(0.0, 0.0); choice.n];
+        for r in csv::Reader::from_path(dir.join("mode_share.csv")).unwrap().into_records().map(|r| r.unwrap()) {
+            if let Some(i) = choice.cuts.iter().position(|c| *c == r[0]) {
+                let x: f64 = r[2].parse().unwrap();
+                modes[i].1 += x;
+                if &r[1] == "2" { modes[i].0 += x; }
+            }
+        }
+        let share = modes.iter().map(|m| m.0 / m.1).collect();
+        let plan = TripPlan::new(&pop, 2000);
         let access = StationAccess::load(dir);
         let st: Vec<Value> = serde_json::from_reader(std::fs::File::open(dir.join("metro_training.json")).unwrap()).unwrap();
         let s = |v: &Value| v.as_str().unwrap().to_string();
@@ -79,7 +94,7 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: json!(sample_trips(&pop, 300)), fine_modes: FineModes::from_baseline(&pop), choice, pop, model, access, stations, comunas };
+        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: json!(plan.sample(&pop)), plan, fine_modes: FineModes::from_baseline(&pop), choice, pop, share, access, stations, comunas };
         sc.base = sc.state(&sc.pop, &sc.access.all_parent_ids());
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -101,7 +116,7 @@ impl Scenario {
         let n = self.choice.n;
         let home: Vec<usize> = pop.homes.iter().map(|p| self.ix(&p.cut)).collect();
         let work: Vec<usize> = pop.jobs.iter().map(|p| self.ix(&p.cut)).collect();
-        let share: Vec<f64> = self.choice.cuts.iter().map(|c| self.model.public_share(c)).collect();
+        let share = &self.share;
         let (mut od, mut public) = (vec![0.0; n * n], vec![0.0; n]);
         let (mut h, mut j) = (vec![0.0; pop.homes.len()], vec![0.0; pop.jobs.len()]);
         for p in pop.persons.iter().filter(|p| !p.student) {
@@ -132,7 +147,7 @@ impl Scenario {
             let kind = raw["kind"].as_str().unwrap_or("");
             let key = raw["target"]["id"].as_str().unwrap_or("");
             if let Some((id, name, ..)) = self.stations.iter().find(|s| kind == "station" && raw["target"]["type"] == "station" && raw["op"] == "set"
-                && [Some(0.0), Some(1.0)].contains(&raw["value"].as_f64()) && (s.0 == key || s.1 == key.to_uppercase())) {
+                && [Some(0.0), Some(1.0)].contains(&raw["value"].as_f64()) && (s.0 == key || plain(&s.1) == plain(key))) {
                 let closed = raw["value"].as_f64() == Some(0.0);
                 if closed { open.remove(id); } else { open.insert(id.clone()); }
                 let mut v = raw.clone();
@@ -153,12 +168,13 @@ impl Scenario {
             let ch = &serde_json::from_value::<Change>(raw.clone()).unwrap();
             let op = |x: f64| match ch.op { Op::Add => x + ch.value, Op::Multiply => x * ch.value, Op::Set => ch.value }.max(0.0);
             let mut note = serde_json::to_value(ch).unwrap();
-            // The points of the target (indices into pop.jobs or pop.homes) and its comuna. A point target is a new point.
+            // The points of the target (indices into pop.jobs or pop.homes) and its comuna. A point target is the point at these coordinates (6 decimals), or else a new point.
             let points = |v: &mut Vec<Point>| -> (Vec<usize>, String) {
                 match &ch.target {
                     Target::Block { id } => { let i = v.iter().position(|p| p.id == *id).unwrap(); (vec![i], v[i].cut.clone()) }
                     Target::Comuna { id } => ((0..v.len()).filter(|&i| v[i].cut == *id).collect(), id.clone()),
                     Target::Point { longitude, latitude } => {
+                        if let Some(i) = v.iter().position(|p| r6(p.longitude) == r6(*longitude) && r6(p.latitude) == r6(*latitude)) { return (vec![i], v[i].cut.clone()); }
                         let cut = self.cut_at(*longitude, *latitude);
                         v.push(Point { id: format!("new{}", v.len()), cut: cut.clone(), longitude: *longitude, latitude: *latitude, weight: 0.0 });
                         (vec![v.len() - 1], cut)
@@ -223,17 +239,24 @@ impl Scenario {
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
         let moved = rechoose(c, &mut pop, &weights, &minutes, &self.placed);
         self.fine_modes.apply(&mut pop);
-        // The points whose jobs or residents changed, for the map. A new point has no id.
-        let changed = |v: &[Point], old: &[Point], key: &str| v.iter().enumerate().filter_map(|(i, p)| {
-            let d = p.weight - old.get(i).map_or(0.0, |q| q.weight);
-            (d.abs() > 1e-9).then(|| (d, json!({ "id": old.get(i).map(|q| &q.id), "cut": p.cut, "longitude": p.longitude, "latitude": p.latitude,
-                "jobs_delta": if key == "jobs" { d } else { 0.0 }, "residents_delta": if key == "jobs" { 0.0 } else { d } })))
-        }).collect::<Vec<_>>();
-        let mut blocks = changed(&pop.jobs, &self.pop.jobs, "jobs");
-        blocks.extend(changed(&pop.homes, &self.pop.homes, "residents"));
-        blocks.sort_by(|a, b| b.0.abs().total_cmp(&a.0.abs()));
-        let blocks_total = blocks.len();
-        let blocks: Vec<Value> = blocks.into_iter().take(300).map(|x| x.1).collect();
+        // The points whose jobs or residents changed, for the map: one row per block id. A new point has no id; its key is its coordinates.
+        let (mut rows, mut at): (Vec<(Value, [f64; 2])>, HashMap<String, usize>) = (vec![], HashMap::new());
+        for (k, v, old) in [(0, &pop.jobs, &self.pop.jobs), (1, &pop.homes, &self.pop.homes)] {
+            for (i, p) in v.iter().enumerate() {
+                let d = p.weight - old.get(i).map_or(0.0, |q| q.weight);
+                if d.abs() <= 1e-9 { continue; }
+                let id = old.get(i).map(|q| &q.id);
+                let key = id.cloned().unwrap_or_else(|| format!("{} {}", r6(p.longitude), r6(p.latitude)));
+                let j = *at.entry(key).or_insert_with(|| {
+                    rows.push((json!({ "id": id, "cut": p.cut, "longitude": p.longitude, "latitude": p.latitude }), [0.0; 2]));
+                    rows.len() - 1
+                });
+                rows[j].1[k] += d;
+            }
+        }
+        rows.sort_by(|a, b| (b.1[0].abs() + b.1[1].abs()).total_cmp(&(a.1[0].abs() + a.1[1].abs())));
+        let blocks_total = rows.len();
+        let blocks: Vec<Value> = rows.into_iter().take(300).map(|(mut v, d)| { v["jobs_delta"] = json!(d[0]); v["residents_delta"] = json!(d[1]); v }).collect();
         let (b, s) = (&self.base, &self.state(&pop, &open));
 
         let daily = |d: &State, i: usize| d.day[i].iter().sum::<f64>();
@@ -277,7 +300,7 @@ impl Scenario {
             },
             "stations": stations, "zones": zones, "flows": flows,
             "blocks_changed": blocks, "blocks_changed_total": blocks_total,
-            "trips_base": self.trips, "trips_scenario": sample_trips(&pop, 300),
+            "trips_base": self.trips, "trips_scenario": self.plan.sample(&pop),
             "assumptions": ASSUMPTIONS,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         })
