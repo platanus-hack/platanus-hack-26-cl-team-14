@@ -24,20 +24,14 @@ fn ecef(lon: f64, lat: f64, height: f64) -> DVec3 {
     )
 }
 
-// Keep the existing footprint and DEM interpolation as the capture reference.
-fn anchor(repo: &Path) -> Result<(f64, f64, f64)> {
-    let landmarks: Value =
-        serde_json::from_slice(&fs::read(repo.join("web/data/santiago_landmarks.geojson"))?)?;
-    let tower = landmarks["features"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|f| f["properties"]["id"] == "gran_torre_costanera")
-        .unwrap();
-    let ring = tower["geometry"]["coordinates"][0].as_array().unwrap();
-    let points = &ring[..ring.len() - 1];
-    let lon = points.iter().map(|p| p[0].as_f64().unwrap()).sum::<f64>() / points.len() as f64;
-    let lat = points.iter().map(|p| p[1].as_f64().unwrap()).sum::<f64>() / points.len() as f64;
+// Existing mapped place references in tools/pack/named_places.py.
+// These are OSM-object centres, not inferred simulation block assignments.
+fn anchor(repo: &Path, site: &str) -> Result<(f64, f64, f64)> {
+    let (lon, lat) = match site {
+        "mut" => (-70.6011321, -33.4172801), // OSM relation/18760408
+        "monumental" => (-70.6059663, -33.5065368), // OSM relation/14111047
+        _ => return Err("site must be mut or monumental".into()),
+    };
     let dem = fs::read(repo.join("web/data/terrain.i16"))?;
     let col = (lon + 70.85) * 1200.;
     let row = (-33.3 - lat) * 1200.;
@@ -349,17 +343,24 @@ async fn prepare(
 async fn main() -> Result<()> {
     let started = Instant::now();
     let args: Vec<_> = std::env::args().collect();
-    let output = PathBuf::from(
-        args.get(1)
-            .ok_or("usage: capture_costanera NEW_OUTPUT_DIRECTORY [--one-tile]")?,
-    );
+    let output = PathBuf::from(args.get(1).ok_or(
+        "usage: capture_demo_tiles NEW_OUTPUT_DIRECTORY --site mut|monumental [--one-tile]",
+    )?);
+    let site = args
+        .windows(2)
+        .find(|a| a[0] == "--site")
+        .map(|a| a[1].as_str())
+        .ok_or("--site mut|monumental is required")?;
+    if !matches!(site, "mut" | "monumental") {
+        return Err("site must be mut or monumental".into());
+    }
     let one = args.iter().any(|s| s == "--one-tile");
     fs::create_dir(&output)?;
     fs::create_dir(output.join("source"))?;
     fs::create_dir(output.join("tiles"))?;
     fs::write(output.join("google.png"), include_bytes!("../google.png"))?;
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let (lon, lat, height) = anchor(&repo)?;
+    let (lon, lat, height) = anchor(&repo, site)?;
     let local = earth_to_local(lon, lat, height);
     let key = std::env::var("GOOGLE_MAPS_API_KEY")?;
     let client = Client::new();
@@ -431,7 +432,7 @@ async fn main() -> Result<()> {
         selected.len()
     );
     if selected.is_empty() {
-        return Err("No Costanera tiles selected".into());
+        return Err("No tiles selected for this site".into());
     }
     selected.sort_by(|a, b| a.2.total_cmp(&b.2));
     let mut rows = Vec::new();
@@ -439,7 +440,7 @@ async fn main() -> Result<()> {
     let mut downloaded = json_bytes;
     let mut prepared = 0;
     // One-tile mode tries central candidates until it finds substantial geometry.
-    // This avoids accepting a tiny detached surface fragment as the tower gate.
+    // This avoids accepting a tiny detached surface fragment as the site gate.
     let mut attempts = 0;
     for chunk in selected.chunks(if one { 1 } else { 4 }) {
         let mut jobs = Vec::new();
@@ -481,7 +482,12 @@ async fn main() -> Result<()> {
         output.join("ATTRIBUTION.txt"),
         format!("Google Maps\n{}\n", attribution.join("; ")),
     )?;
-    let manifest = json!({"anchor":{"longitude":lon,"latitude":lat,"height_m":height,"height_datum":"existing Copernicus DSM EGM2008; used as local reference, not converted to ellipsoid"},"coordinate_system":"X east, Y up, Z south","transform_space":"identity outer placement; scene roots already in local metres after f64 Earth and axis conversion","bounds":{"half_extent_m":HALF},"max_geometric_error_m":ERROR,"captured_at_unix_s":SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),"attribution":attribution,"google_logo":"google.png","tiles":rows,"download_bytes":downloaded,"prepared_glb_bytes":prepared,"capture_seconds":started.elapsed().as_secs_f64(),"one_tile_gate":one});
+    let source_object = if site == "mut" {
+        "relation/18760408"
+    } else {
+        "relation/14111047"
+    };
+    let manifest = json!({"site":site,"anchor_source":{"file":"tools/pack/named_places.py","osm_object":source_object,"method":"existing OSM object centre"},"anchor":{"longitude":lon,"latitude":lat,"height_m":height,"height_datum":"existing Copernicus DSM EGM2008; used as local reference, not converted to ellipsoid"},"coordinate_system":"X east, Y up, Z south","transform_space":"identity outer placement; scene roots already in local metres after f64 Earth and axis conversion","bounds":{"half_extent_m":HALF},"max_geometric_error_m":ERROR,"captured_at_unix_s":SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),"attribution":attribution,"google_logo":"google.png","tiles":rows,"download_bytes":downloaded,"prepared_glb_bytes":prepared,"capture_seconds":started.elapsed().as_secs_f64(),"one_tile_gate":one});
     fs::write(
         output.join("manifest.json"),
         serde_json::to_vec_pretty(&manifest)?,

@@ -1,6 +1,6 @@
-# Costanera local Google scene
+# Local Google scenes for the demo
 
-Human scope: one local scene around the existing tower footprint. Open it only on Vicente's Mac. Do not integrate simulation entities.
+Human scope: MUT and Estadio Monumental only. The human withdrew Costanera. Open the selected demo scenes only on Vicente's Mac. Other demo sites require confirmation from the transcript. Do not integrate simulation entities.
 
 ## Permission and sources
 
@@ -22,22 +22,27 @@ Context7 resolved the Google Maps JavaScript and glTF libraries. It had no match
 Build with Rust 1.97.1:
 
 ```sh
-cargo build --locked --manifest-path tools/costanera-capture/Cargo.toml -j1
+cargo build --locked --manifest-path tools/demo-tiles-capture/Cargo.toml -j1
 ```
 
 Pass a new output path. Supply the key through `GOOGLE_MAPS_API_KEY`. Do not put a key in the command arguments.
 
 ```sh
-tools/costanera-capture/target/debug/capture_costanera /tmp/vicente-costanera-one --one-tile
+tools/demo-tiles-capture/target/debug/capture_demo_tiles /tmp/vicente-mut-one --site mut --one-tile
 ```
 
 One-tile mode ranks bounded candidates by proximity. It skips fragments with fewer than 1000 vertices. This sample rule does not prove full coverage. First render the selected tile. Check decoded geometry, textures, node translations and orientation. Then capture the full square into a different new directory:
 
 ```sh
-tools/costanera-capture/target/debug/capture_costanera /tmp/vicente-costanera-full
+tools/demo-tiles-capture/target/debug/capture_demo_tiles /tmp/vicente-mut-full --site mut
 ```
 
-The footprint source is `web/data/santiago_landmarks.geojson`, OSM way 1179710949. The anchor uses its eight boundary vertices, without the repeated closing vertex. The height uses the existing triangular DEM interpolation in `web/data/terrain.i16`.
+Site presets use the existing mapped OSM-object centres from `tools/pack/named_places.py`:
+
+- `--site mut`: relation 18760408, longitude −70.6011321, latitude −33.4172801.
+- `--site monumental`: relation 14111047, longitude −70.6059663, latitude −33.5065368.
+
+These points define capture anchors. They do not assert a resolved simulation block or complete footprint coverage. The Monumental row in `named_places.csv` has unresolved block mapping. The height uses the existing triangular DEM interpolation in `web/data/terrain.i16`. The manifest records the selected site and source object. No free-form coordinate or Costanera preset is provided.
 
 The square extends 250 metres east, west, north and south. Projected tile bounds conservatively retain whole edge tiles. Selection descends above 2 metres geometric error, or stops at a leaf. ADD retains parent content. REPLACE removes parent content when children replace it. External tileset transforms inherit the parent transform. Downloads use at most four simultaneous requests.
 
@@ -55,4 +60,4 @@ The viewer must load all local files without a key or network. It must show the 
 
 ## Acceptance state
 
-The capture command compiles with the locked dependencies and Rust 1.97.1. No automated tests ran. Tile requests, the one-tile frame, full-area capture and offline viewer checks remain pending. Timing fields describe capture only; they do not measure local viewer loading.
+The earlier capture implementation compiled with locked dependencies and Rust 1.97.1. The site rename and presets have not yet been compiled. No automated tests ran. MUT and Monumental tile requests, one-tile frames, full-area captures and offline viewer checks remain pending. Earlier local research samples do not establish acceptance for these sites. Timing fields describe capture only; they do not measure local viewer loading.
