@@ -112,7 +112,7 @@ impl Scenario {
             }
         }
         let share = modes.iter().map(|m| m.0 / m.1).collect();
-        let plan = TripPlan::new(&pop, 2000);
+        let plan = TripPlan::new(&pop, 2000).with_portal_walk();
         let layer = std::env::var("SANTIAGO_STATION_JOB_WEIGHTS");
         let access = StationAccess::load_layer(dir, layer.as_deref().unwrap_or("l9"));
         // Older data packs can still run the current-network and user-defined point scenarios.

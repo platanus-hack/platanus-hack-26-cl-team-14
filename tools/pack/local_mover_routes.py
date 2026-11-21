@@ -16,6 +16,10 @@ SOURCE = Path(sys.argv[1])
 PORTS = dict(zip(("walk", "car", "bicycle"), map(int, sys.argv[2:5])))
 PROFILES = {"walk": "foot", "car": "driving", "bicycle": "cycling"}
 MAX_SNAP_M = 250
+PORTAL_ENTRANCE = (-70.6510204, -33.4385882)
+# Clear the packed walls at the first point and at the mapped entrance.
+PORTAL_START = [-70.65235100943183, -33.43739238423542]
+PORTAL_END = [-70.65102267381782, -33.438588254649325]
 # Manual review found regional walking detours of 126.6 km and 92.3 km.
 EXCLUDED_WALKS = {
     (1648, "walk", (-71.327463, -33.799936), (-71.287494, -33.711995)),
@@ -42,7 +46,11 @@ def query(mode, origin, destination):
             return data["code"], None
         raise
     route = data["routes"][0]
-    path = rounded_path(route["geometry"]["coordinates"], 3)
+    line = route["geometry"]["coordinates"]
+    if mode == "walk" and destination == PORTAL_ENTRANCE:
+        snaps = [p["distance"] for p in data["waypoints"]]
+        return "Routed", ([PORTAL_START, *line[1:-1], PORTAL_END], snaps, route["distance"])
+    path = rounded_path(line, 3)
     if len(path) < 2 or route["distance"] == 0:
         return "Stationary", None
     snaps = [round(p["distance"], 1) for p in data["waypoints"]]
@@ -55,7 +63,7 @@ baseline = json.loads(gzip.decompress(Path(sys.argv[5]).read_bytes())) if len(sy
 data = json.loads(source)
 scenes = {name: data["trips_" + name] for name in ("base", "scenario")}
 selected = sorted({signature(g) for groups in scenes.values() for g in groups
-                   if g["count"] >= 2 and g["mode"] in PORTS})
+                   if (g["count"] >= 2 or "building_entrance" in g) and g["mode"] in PORTS})
 results, statuses, paths, groups = {}, {}, [], []
 if baseline:
     if baseline["max_snap_m"] != MAX_SNAP_M:
@@ -98,7 +106,7 @@ routed = {signature(row) for row in groups}
 for scene, rows in scenes.items():
     counts = Counter()
     for g in rows:
-        if g["count"] < 2 or g["mode"] not in PORTS:
+        if (g["count"] < 2 and "building_entrance" not in g) or g["mode"] not in PORTS:
             continue
         key = signature(g)
         status = "Routed" if key in routed else statuses.get(key, "Missing")

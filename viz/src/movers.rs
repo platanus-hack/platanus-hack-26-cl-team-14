@@ -561,6 +561,7 @@ struct Group {
     duration: f32,
     path: Arc<Path>,
     copies: [usize; 3],
+    building_walk: bool,
     phase: f32,
     changed: [usize; 3],
     tint: Paint,
@@ -682,7 +683,12 @@ fn read_result(
             _ => [1.; 3],
         };
         let count = row["count"].as_f64().unwrap();
-        let copies = density.map(|factor| (count * factor / scale + seed).floor() as usize);
+        let building_walk = row["building_entrance"].is_u64();
+        let copies = if building_walk {
+            [1, 0, 0]
+        } else {
+            density.map(|factor| (count * factor / scale + seed).floor() as usize)
+        };
         let (delta, flags) = deltas.get(&id).copied().unwrap_or_default();
         let tint = if flags & 8 != 0 || delta > 0. {
             Paint::Gain
@@ -725,6 +731,7 @@ fn read_result(
             duration,
             path,
             copies,
+            building_walk,
             phase: seed as f32,
             changed,
             tint,
@@ -1182,14 +1189,22 @@ fn draw(
                     Vehicle::Rail => Model::Coach,
                 };
                 // In the overview keep moving figures legible when each pixel spans many metres.
-                let scale = if tier == 2 {
+                let scale = if g.building_walk {
+                    1.
+                } else if tier == 2 {
                     size_at(pos).max(eye.distance(pos) * 0.0012)
                 } else if kind == Vehicle::Walk {
                     pedestrian_scale(eye.distance(pos), size_at(pos))
                 } else {
                     size_at(pos)
                 } * presence;
-                let lane = if kind == Vehicle::Walk { 3.4 } else { 1.6 };
+                let lane = if g.building_walk {
+                    0.
+                } else if kind == Vehicle::Walk {
+                    3.4
+                } else {
+                    1.6
+                };
                 let transform = pose(
                     pos + right(dir) * lane + Vec3::Y * 0.25,
                     dir,
