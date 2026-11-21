@@ -10,7 +10,7 @@ To open only the viewer, run this command from the repository root with Rust 1.9
 CARGO_TARGET_DIR=/tmp/viz-target cargo run --manifest-path viz/Cargo.toml
 ```
 
-Drag to pan. Scroll to zoom. Press M to switch between the surface and the subway at the same camera position. Set `SANTIAGO_ENGINE` to use another engine. Set `SANTIAGO_PIXEL=1` for the pixel-art view. Each art pixel takes the most frequent palette color from four samples. Depth edges use a darker shade. [Pixel rendering reference](https://github.com/cobanov/pixelart-gaussiansplat)
+Drag to pan. Scroll to zoom. Press M to switch between the surface and the subway at the same camera position. Set `SANTIAGO_ENGINE` to use another engine. The default ink view uses four samples per art pixel. An ordered 4×4 dither selects the final paper and ink tones. The replay clock switches to night at 20:00 and day at 06:00. Night light in windows is decorative. Set `SANTIAGO_PIXEL=0` for the full-resolution camera with depth of field. [Pixel rendering reference](https://github.com/cobanov/pixelart-gaussiansplat)
 
 The two building packs contain 279,385 mapped footprints and 459,845 shapes generated inside census blocks. Camera distance selects the oriented boxes or the full polygons. Roof forms, window patterns and tree crowns are visual approximations.
 
