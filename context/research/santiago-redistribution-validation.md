@@ -7,9 +7,11 @@ The verified INE viewer exposes only 144 top-three flows from 48 Santiago origin
 It does not supply a complete historical matrix. A full 2002 cross-tab remains unverified.
 Do not invent a predictive Santiago score from the current engine's baseline identity.
 
-Retrieval update, 2026-11-21: [official Redatam CrossTab](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CrossTab?BASE=CENSO_2002&ITEM=CRUCPOB&lang=ESP) returned an aggregate beyond the top three; the provisional employment filter's category labels remain unverified.
-Santiago→Providencia is 8,303 in that query versus INE's 8,350. Do not silently reconcile the difference or approve this query as an evaluation target.
-A complete, correctly filtered 2002 OD matrix remains unverified.
+Retrieval update, 2026-11-21: [official Redatam CrossTab](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CrossTab?BASE=CENSO_2002&ITEM=CRUCPOB&lang=ESP) returned aggregates beyond the viewer's top three; the source audit verified employed codes `SLABORAL` 1, 2, and 4.
+Santiago→Providencia is 8,025 paid workers + 278 temporarily absent workers + 47 unpaid family workers = 8,350, matching INE exactly.
+The earlier provisional `SLABORAL <= 3` filter omitted the 47 unpaid family workers; the discrepancy is resolved by the corrected cohort, not normalization.
+Only this control pair is verified. A complete, correctly filtered 2002 OD matrix remains unverified and is not an approved evaluation target.
+Endpoint trap: a leading-parenthesis `TEXT_FILTER` submission silently lost its filter. Inspect the generated `FOR` clause before trusting an aggregate.
 
 ## Observed target coverage
 
