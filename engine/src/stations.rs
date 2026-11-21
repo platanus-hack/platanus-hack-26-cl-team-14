@@ -141,7 +141,12 @@ const MUT_CUT: &str = "13114";
 struct ArtifactStation { id: String, predicted: Vec<f64> }
 #[derive(Deserialize)]
 struct Artifact { layer: String, stations_args: Vec<String>, wape_bins: f64, #[serde(default)] model_source_sha256: String,
-    #[serde(default)] input_sha256: HashMap<String, String>, stations: Vec<ArtifactStation> }
+    #[serde(default)] input_sha256: HashMap<String, String>, #[serde(default)] target_sha256: String,
+    #[serde(default)] scorer_sha256: String, #[serde(default)] observed_cells: usize, stations: Vec<ArtifactStation> }
+
+/// Frozen score: target bytes of PR #35 and the scorer of PR #42 (tools/pack/check_score.py).
+const TARGET_SHA256: &str = "ecd8131fac2bfcf401bb5700dda7a7a0a31534990b8b962134d31449651ef5a3";
+const SCORER_SHA256: &str = "ea807561049a3e62a847455b98863594744ae1768201a498f3d720af2991dcaa";
 
 /// Files the fit reads; their hashes must equal the artifact's before its score is shown.
 const FIT_INPUTS: [&str; 5] = ["work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json"];
@@ -189,11 +194,13 @@ impl StationModel {
         let has = |k: &str| art.stations_args.iter().any(|x| x == k);
         let radius = art.stations_args.first().and_then(|r| r.parse().ok()).unwrap_or(f64::INFINITY);
         let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"));
-        // The stored score belongs to this fit only if: same model source, same input bytes, the label of these
+        // The stored score belongs to this fit only if: same model source, frozen target bytes and scorer, 1,123 cells, same input bytes, the label of these
         // arguments, all 31 frozen held-out stations present, and exactly the same held-out predictions.
         let held: std::collections::BTreeSet<&str> = st.iter().filter(|s| s.holdout).map(|s| s.id.as_str()).collect();
         let listed: std::collections::BTreeSet<&str> = art.stations.iter().map(|a| a.id.as_str()).collect();
         let same = art.model_source_sha256 == sha256(include_bytes!("stations.rs"))
+            && art.target_sha256 == TARGET_SHA256 && sha256(&std::fs::read(data.join("metro_observations.json")).unwrap()) == TARGET_SHA256
+            && art.scorer_sha256 == SCORER_SHA256 && art.observed_cells == 1123
             && FIT_INPUTS.iter().all(|f| art.input_sha256.get(*f) == Some(&sha256(&std::fs::read(data.join(f)).unwrap())))
             && layer_of(&art.stations_args) == Some(art.layer.as_str())
             && held.len() == 31 && listed == held && art.stations.len() == 31

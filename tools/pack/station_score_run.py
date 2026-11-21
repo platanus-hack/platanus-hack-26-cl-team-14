@@ -43,6 +43,7 @@ out = {"layer": layer, "stations_args": args, "model_commit": git("log", "-1", "
        "model_source_sha256": sha("engine/src/stations.rs"),
        "input_sha256": {f: sha("data/mvp/" + f) for f in ("work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json")},
        "scorer_commit": git("log", "-1", "--format=%h", "--", "tools/pack/check_score.py"),
+       "scorer_sha256": sha("tools/pack/check_score.py"),
        "run_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
        "target": "Metro boardings, April 2026, LABORAL average of 2026-04-13 to 2026-04-17 (DTPM)",
        "target_sha256": sha("data/mvp/metro_observations.json"), "predictions_sha256": sha(pred_path),
