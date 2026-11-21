@@ -1,6 +1,7 @@
 # Extra hypothetical event: boarding-profile contract
 
-**Conditional review proposal; no build authorization.** L4b and its weekday
+**Conditional review proposal. Local reversible preparation is allowed; no
+implementation push or merge until the contract and data gates pass.** L4b and its weekday
 score stay unchanged. Add a scaled observed contrast to a fixed Saturday
 baseline. Do not remove the source event or label this operation “move”.
 
@@ -54,7 +55,7 @@ Implement separately in `event.rs`; leave source-bound `stations.rs` and the
 L4b fit untouched. The existing API must still return its bound L4b score.
 Add `POST /api/event-scenario` with request `{"site_id":"<approved id>",
 "multiplier":1}`. Saturday and the template revision are fixed, not request
-parameters. Multiplier is explicit, finite and nonnegative: 1 copies the known
+parameters. Multiplier is explicit, finite and in **[0,3]** for this demo: 1 copies the known
 contrast; 0 means no extra contribution. No hidden parameter defaults.
 
 Use only the two entries in reviewed `data/mvp/event_venues.json`:
@@ -98,5 +99,6 @@ Label **“additional hypothetical event; contrast attribution and transfer are
 assumptions”**. The source-day activity stays in every baseline, including PQ.
 No causal forecast, event validation, attendance inference, weekday score,
 refit, commuter OD or capacity model. Root must review the evidence artifact,
-site table and this contract before implementation. Everything needs review by
-12:15 UTC for freeze eligibility; human story choice remains separate.
+site table and this contract before implementation is pushed or merged. UTC
+gates: data/contract 10:50, module 11:15, route 11:35, scene 11:50, browser
+12:10, freeze eligibility 12:15. Human story choice remains separate.
