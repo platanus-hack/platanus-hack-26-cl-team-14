@@ -16,7 +16,7 @@ The number of side-by-side panels is open. Keep the 25-second slot and use the c
 ## Rehearse the full run
 
 1. Before rehearsal, record the three replay IDs, their engine revisions, and the data used for each chart. Check that the list contains all three IDs.
-2. Stop the simulation engine once the cache is ready. Open the presenter view and run all three prompts in order. Keep the services that read and display the cache running.
+2. Keep the cache reader and presenter view running. Run all three prompts in order. Check the MCP trace and HTTP request log for cache reads and zero simulation calls. Keep any process that also serves the cache running for this check.
 3. For each prompt, check that the terminal shows the planned edits, start time, duration, and measures before playback. Check that it hides during playback and returns after the final chart.
 4. Check the final side-by-side view from projector distance. Match each displayed result to the cached output. Check the units, time window, and label for the historical Metro comparison.
 5. Record the actual start and end time for every row. If the run exceeds 3:00, trim narration or holds and repeat the entire run. Record the final duration, replay IDs, and any visible defect in the V3 thread.
