@@ -2,8 +2,7 @@
 
 DTPM April 2026, LABORAL day, mean per half hour. Bus stops join by exact stop_id.
 A half hour with no row is null, not zero. Metro stations are NOT here: the page reads
-the three reviewed files (PR #29). Copy them from main until this branch has them:
-  for s in tobalaba los_leones el_golf; do git show origin/main:data/mvp/${s}_observations.json > web/data/${s}_observations.json; done
+the three reviewed files data/mvp/*_observations.json (PR #29).
 Run from the repo root: python3 web/stops.py
 """
 import csv, io, json, math, re, zipfile
@@ -11,7 +10,7 @@ import csv, io, json, math, re, zipfile
 MUT = (-70.6009, -33.4180)
 RADIUS_M = 1000
 XLSX = "data/raw/dtpm/subidas_2026_04.xlsx"
-GTFS = "data/raw/verify-transport-metro/gtfs_20261114.zip"
+GTFS = "data/raw/dtpm-gtfs-march/GTFS_20260321_v3.zip"
 
 near = {}
 for r in csv.DictReader(io.TextIOWrapper(zipfile.ZipFile(GTFS).open("stops.txt"), "utf-8-sig")):
