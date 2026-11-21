@@ -48,6 +48,9 @@ You decide all other things: tasks, technical design, code, data, tools.
 - **No defensive code.** Write only the happy path that the demo uses.
   Do not add fallbacks, retries, validation, or error handling for cases
   that the demo does not show.
+- **Smallest code.** Use the skill `ponytail` on every coding task.
+  Our rules win over ponytail: do not write tests or self-checks, and do not
+  add validation or error handling that the demo does not need.
 - **Research first.** Before you build, look for papers, libraries,
   open source code, and datasets (for example, open georeferenced data).
   Use what exists. Use the skill `research-first`.
