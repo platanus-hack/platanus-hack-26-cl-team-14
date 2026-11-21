@@ -9,10 +9,10 @@
   #map { position: absolute; inset: 0; } canvas { background: none !important; }
   .box { zoom: var(--k); position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; font-variant-numeric: tabular-nums; }
   small { display: block; font-size: 30px; color: #9fb0d8; }
-  body:not(.s) .s, body:not(.t) .t, body:not(.p) .p { display: none !important; }
-  #switch { top: 28px; right: 28px; padding: 10px; display: flex; gap: 10px; } #switch button { font-size: 36px; padding: 16px 22px; }
+  body:not(.s) .s, body:not(.t) .t, body:not(.p) .p, body:not(.e) .e { display: none !important; }
+  #switch { top: 28px; right: 28px; padding: 10px; display: flex; gap: 10px; } #switch { z-index: 1; } #switch button { font-size: 30px; padding: 16px 16px; }
   button { font: inherit; font-size: 46px; padding: 18px 34px; color: #fff; background: #1c2750; border: 0; border-radius: 16px; cursor: pointer; }
-  body.s #vs, body.t #vt, body.p #vp, #go, #reset { color: #0a0f24; background: #ff7a1a; }
+  body.s #vs, body.t #vt, body.p #vp, body.e #ve, #go, #reset, .site.on { color: #0a0f24; background: #ff7a1a; }
   #go.on { background: #fff; }
   .tl { top: 28px; left: 28px; } .big { font-size: 130px; display: inline-block; margin-right: 50px; } .mid { font-size: 96px; } #zname { font-size: 72px; color: #ff7a1a; }
   #clock { cursor: pointer; }
@@ -27,7 +27,7 @@
 </style>
 <body class="t">
 <div id="map"></div>
-<div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button><button id="vp">Puntaje</button></div>
+<div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button><button id="vp">Puntaje</button><button id="ve">Evento</button></div>
 
 <div class="box tl t" id="clock">
   <div class="big" id="hhmm">--:--</div>
@@ -69,6 +69,21 @@
   <small><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#ff7a1a"></i>modelo</small>
 </div>
 
+<div class="box tl e">
+  <div class="big" id="hh3">--:--</div>
+  <div class="big model" id="eadd">—</div>
+  <small>subidas añadidas en la tarde · patrón de Parque O'Higgins</small>
+  <small>sábado 11 de abril de 2026, observado · <span id="ebins"></span></small>
+</div>
+<div class="box panel e">
+  <div style="display:flex;gap:10px"><button class="site on" data-id="estadio_nacional">Nacional</button><button class="site" data-id="estadio_monumental">Monumental</button></div>
+  <div class="val"><small>evento hipotético adicional</small> ×<span id="mv">1,0</span></div>
+  <input id="mult" type="range" min="0" max="3" step="0.1" value="1">
+  <small>supuesto: el exceso es del evento</small>
+  <small>supuesto: se comporta igual en otro lugar · sin validar</small>
+  <small><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#ff7a1a"></i>con el patrón añadido</small>
+</div>
+
 <div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
 <div id="delta" class="box t" style="width:800px;font-size:76px"><span id="dv"></span>
   <small>Cambio de subidas al día en Tobalaba</small><small>contabilidad del sitio, supuestos visibles</small>
@@ -87,7 +102,8 @@ const KZ = 0.02;              // metres of comuna height for each person who wor
 const VIEWS = {
   t: {longitude: -70.6040, latitude: -33.4218, zoom: 15.2, pitch: 55, bearing: -28},
   s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15},
-  p: {longitude: -70.77, latitude: -33.45, zoom: 11.1, pitch: 55, bearing: -15}};
+  p: {longitude: -70.77, latitude: -33.45, zoom: 11.1, pitch: 55, bearing: -15},
+  e: {longitude: -70.625, latitude: -33.490, zoom: 13.1, pitch: 55, bearing: -15}};
 const $ = id => document.getElementById(id);
 // the panels were laid out at 1600 px of width; they grow with the window so a 1920 projector keeps the same proportions
 (onresize = () => document.documentElement.style.setProperty('--k', innerWidth / 1600))();
@@ -115,7 +131,7 @@ const deckgl = new DeckGL({
 
 const ms = {};  // for each view: the measured time of the last engine answer, or "sin motor"
 function engine(v, r) {
-  ms[v] = r ? [fmt(r.elapsed_ms, 2) + ' ms', 'motor Rust · medido'] : ['sin motor', v == 's' ? ':8787 no responde' : site ? 'se ve el último escenario válido' : 'falta /api/site-scenario'];
+  ms[v] = r ? [fmt(r.elapsed_ms, 2) + ' ms', 'motor Rust · medido'] : ['sin motor', v == 's' ? ':8787 no responde' : v == 'e' ? 'falta /api/event-scenario' : site ? 'se ve el último escenario válido' : 'falta /api/site-scenario'];
   draw();
 }
 
@@ -251,6 +267,27 @@ function puntaje() {
   ];
 }
 
+// ---------- Evento: an extra hypothetical event at one of two reviewed sites (POST /api/event-scenario) ----------
+let ev = null, egen = 0, esite = 'estadio_nacional';
+function eventScenario() {
+  const g = ++egen, m = +$('mult').value;
+  $('mv').textContent = fmt(m, 1);
+  post('event-scenario', {site_id: esite, multiplier: m}).then(r => { if (g == egen) { ev = r; engine('e', r); draw(); } }, () => { if (g == egen) engine('e'); });
+}
+function evento() {
+  const st = ev ? ev.stations : [];
+  const col = (id, key, dx, color) => new ColumnLayer({id, data: st.filter(s => at(s[key], t) != null),
+    getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 60, getElevation: s => at(s[key], t) * 1.5,  // same scale for both
+    getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
+  return [
+    new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 30}),
+    ev && new deck.ScatterplotLayer({id: 'site', data: [ev.site], getPosition: v => [v.longitude, v.latitude], getRadius: 140, getFillColor: [255, 255, 255]}),
+    col('eobs', 'observed', -0.0008, [0, 229, 255]), col('escn', 'scenario', 0.0008, [255, 122, 26]),
+    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude], getPixelOffset: [0, 40], getText: s => s.name,
+      getSize: 34, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255]}),
+  ];
+}
+
 // ---------- page ----------
 function draw() {
   if (view == 't') {
@@ -262,14 +299,19 @@ function draw() {
     const day = Math.max(0, Math.sin((t - 13) / 28 * Math.PI));  // 0 at 06:30 and 20:30, 1 near 13:30
     document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
   } else document.body.style.background = '';
+  if (view == 'e') {
+    const i = Math.floor(t); $('hh3').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
+    $('eadd').textContent = ev ? '+' + fmt(ev.known_assigned_mass) : '—';
+    $('ebins').textContent = ev ? ev.known_template_bins + ' de ' + ev.window_bins + ' medias horas con dato' : '';
+  }
   if (view == 'p') { const i = Math.floor(t); $('hh2').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00'); }
   $('engine').style.display = ms[view] ? 'block' : 'none';
   if (ms[view]) [$('ms').textContent, $('msk').textContent] = ms[view];
-  deckgl.setProps({layers: view == 't' ? tobalaba() : view == 's' ? santiago() : puntaje()});
+  deckgl.setProps({layers: view == 't' ? tobalaba() : view == 's' ? santiago() : view == 'p' ? puntaje() : evento()});
 }
 
 function tick() {
-  if (playing) { t += 1 / 50; if (t >= LAST) t = FIRST; draw(); }  // about 0.85 s for each half hour
+  if (playing) { t += 1 / 50; if (t >= LAST) t = view == 'e' ? 34 : FIRST; draw(); }  // Evento loops 17:00 to 23:30  // about 0.85 s for each half hour
   requestAnimationFrame(tick);
 }
 
@@ -279,7 +321,9 @@ function show(v) {
   draw();
 }
 
-$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t'); $('vp').onclick = () => show('p');
+$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t'); $('vp').onclick = () => show('p'); $('ve').onclick = () => { show('e'); eventScenario(); };
+$('mult').oninput = eventScenario;
+document.querySelectorAll('.site').forEach(b => b.onclick = () => { esite = b.dataset.id; document.querySelectorAll('.site').forEach(x => x.classList.toggle('on', x == b)); eventScenario(); });
 $('clock').onclick = () => playing = !playing;
 $('slider').oninput = e => { homes = +e.target.value; $('n').textContent = fmt(homes); if (active) siteScenario(); else draw(); };
 $('go').onclick = () => {
@@ -306,7 +350,9 @@ Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json
   if (q.has('t')) { t = +q.get('t'); playing = false; }
   if (q.has('mut')) $('go').onclick();
   if (q.has('j')) $('jobs').value = q.get('j');
-  show(q.get('v') || 't');
+  if (q.has('site')) esite = q.get('site');
+  if (q.has('m')) $('mult').value = q.get('m');
+  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || 't');
   tick();
   get(API + 'world').then(w => { world = sim = w; simulate(); }, () => engine('s'));
 });
