@@ -159,7 +159,13 @@ const createReplayTool = {
       id: { type: 'string', pattern: '^[a-z0-9-]+$' },
       title: { type: 'string' },
       question: { type: 'string', description: 'The question the presenter types.' },
-      scene: sceneTool.inputSchema,
+      scene: {
+        ...sceneTool.inputSchema,
+        properties: {
+          ...sceneTool.inputSchema.properties,
+          layer: { enum: ['metro_service'], description: 'Show the Metro service lines for this saved shot.' },
+        },
+      },
       changes: tool.inputSchema.properties.changes,
       stations: tool.inputSchema.properties.stations,
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
@@ -337,6 +343,7 @@ async function dispatch({ method, params }) {
       replayFile(meta.id);
       await setScene(scene);
       const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
+      if (scene.layer === 'metro_service') full.scene.layer = scene.layer;
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
       text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
