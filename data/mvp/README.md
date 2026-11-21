@@ -998,7 +998,7 @@ The [Metro capacity table](metro_capacity.md) gives line departures and nominal 
 
 ## Citywide building polygons and boxes
 
-The two files in `web/data/` describe the same **739,230 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Populated census blocks supply 361,310 generated shapes in previously unmapped blocks and 98,535 in partly mapped blocks with less than 5% mapped roof cover. The binaries retain each shape's source. The builder omits generated roofs that touch mapped school grounds, plazas, parks, sports grounds, green areas, surface parking, or vacant sites.
+The two files in `web/data/` describe the same **739,230 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Populated census blocks supply 361,310 generated shapes in previously unmapped blocks and 98,535 in partly mapped blocks with less than 5% mapped roof cover. The binaries retain each shape's source. The builder excludes mapped school grounds, plazas, parks, sports grounds, green areas, surface parking and vacant sites from generated roof placement. In the published green layer, two generated roofs share a single vertex each with a green polygon. Both intersections have zero area.
 
 | File | Use | Gzip bytes | Inflated bytes |
 | --- | --- | ---: | ---: |
