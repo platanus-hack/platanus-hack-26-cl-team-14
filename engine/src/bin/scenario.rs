@@ -26,7 +26,7 @@ fn main() {
     for a in r["applied"].as_array().unwrap() { println!("applied  {a}"); }
     for a in r["not_modeled"].as_array().unwrap() { println!("not modeled  {a}"); }
     let s = &r["summary"];
-    println!("workers  {} -> {} ({} with a new job point)", s["workers_base"], s["workers_scenario"], s["workers_moved"]);
+    println!("workers  {} -> {} ({} new, {} moved to another job point)", s["workers_base"], s["workers_scenario"], s["workers_new"], s["workers_moved"]);
     println!("boardings/day  {} -> {}", s["boardings_base"], s["boardings_scenario"]);
     for k in ["top_station_gains", "top_station_losses"] {
         println!("{k}");

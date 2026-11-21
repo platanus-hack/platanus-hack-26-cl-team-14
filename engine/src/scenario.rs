@@ -3,7 +3,7 @@
 //! again once (rechoose.rs) and projects the station day once (stations.rs). The map and the MCP tool read the same result.
 use crate::choice::Choice;
 use crate::population::{Person, Point, Population};
-use crate::rechoose::rechoose;
+use crate::rechoose::{Base, rechoose};
 use crate::stations::StationModel;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -38,6 +38,7 @@ pub struct Scenario {
     pop: Population,
     model: StationModel,
     base: State,
+    placed: Base,
     /// Per station and per comuna: id, name, longitude, latitude.
     stations: Vec<(String, String, f64, f64)>,
     comunas: Vec<(f64, f64)>,
@@ -67,7 +68,8 @@ impl Scenario {
         let stations = st.iter().map(|v| (s(&v["id"]), s(&v["name"]), v["longitude"].as_f64().unwrap(), v["latitude"].as_f64().unwrap())).collect();
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
-        let mut sc = Scenario { base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], choice, pop, model, stations, comunas };
+        let placed = Base::new(&choice, &pop);
+        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], choice, pop, model, stations, comunas };
         sc.base = sc.state(&sc.pop);
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -195,13 +197,9 @@ impl Scenario {
             applied.push(note);
         }
 
-        // No change: the baseline, with exact zeros (rechoose alone moves some workers between points of one pair).
-        let (moved, after) = if applied.is_empty() { (0, None) } else {
-            let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
-            let moved = rechoose(c, &mut pop, &weights, &minutes);
-            (moved, Some(self.state(&pop)))
-        };
-        let (b, s) = (&self.base, after.as_ref().unwrap_or(&self.base));
+        let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
+        let moved = rechoose(c, &mut pop, &weights, &minutes, &self.placed);
+        let (b, s) = (&self.base, &self.state(&pop));
 
         let daily = |d: &State, i: usize| d.day[i].iter().sum::<f64>();
         let mut order: Vec<usize> = (0..self.stations.len()).collect();
@@ -238,6 +236,7 @@ impl Scenario {
             "not_modeled": not_modeled,
             "summary": {
                 "workers_base": b.od.iter().sum::<f64>(), "workers_scenario": s.od.iter().sum::<f64>(), "workers_moved": moved,
+                "workers_new": s.od.iter().sum::<f64>() - b.od.iter().sum::<f64>(),
                 "boardings_base": r1(total(b)), "boardings_scenario": r1(total(s)),
                 "top_station_gains": gains, "top_station_losses": losses,
             },
