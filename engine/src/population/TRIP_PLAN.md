@@ -26,3 +26,27 @@ At 2,000 rows, the plan took 33 ms to build. Applying it took 92 ms per state
 (median of three warm release runs). These bytes cover only the two arrays.
 In separate runs, adding and removing 100 workers gave totals of 2,688,914 and
 2,688,714. Repeating the baseline gave identical rows.
+
+## Change rows for the page
+
+Call `population::trip_deltas(&base, &scenario)` on rows from the same plan.
+Keep the sampler's ascending ID order. The result contains one JSON array
+`[id, signed_count_delta, flags]` for each changed group. Match both sets by ID.
+Use the base row for a removed group and the scenario row for an added group.
+
+| Flag bit | Meaning |
+| ---: | --- |
+| 1 | Origin coordinate or commune code changed |
+| 2 | Destination coordinate or commune code changed |
+| 4 | Departure half-hour changed |
+| 8 | Group appeared |
+| 16 | Group disappeared |
+
+A zero flag with a nonzero count change means that only the weight changed.
+A zero count change can accompany changed endpoints or timing. Mode is fixed
+for each ID. Summing signed count changes gives the change in represented workers.
+
+At 2,000 groups, MUT job removal produced 1,591 change rows and 16,924 compact
+JSON bytes. Raising all Las Condes job weights by 20% produced 1,847 rows and
+22,567 bytes. Signed counts summed to zero in both scenarios. The second run
+included two endpoint changes with an unchanged count.

@@ -22,6 +22,40 @@ pub struct TripGroup {
     pub destination_cut: String,
 }
 
+/// JSON array `[id, signed_count_delta, flags]`. Bits 1/2 mark the origin/destination,
+/// 4 the departure half-hour, 8 an added group and 16 a removed group.
+#[derive(Serialize)]
+pub struct TripDelta(pub usize, pub i64, pub u8);
+
+/// Compare two outputs of the same plan, both in ascending ID order.
+pub fn trip_deltas(mut base: &[TripGroup], mut scenario: &[TripGroup]) -> Vec<TripDelta> {
+    let mut out = Vec::new();
+    loop {
+        match (base.first(), scenario.first()) {
+            (Some(b), Some(s)) if b.id == s.id => {
+                let mut flags = 0;
+                if b.origin != s.origin || b.origin_cut != s.origin_cut { flags |= 1; }
+                if b.destination != s.destination || b.destination_cut != s.destination_cut { flags |= 2; }
+                if b.half_hour != s.half_hour { flags |= 4; }
+                let count = s.count as i64 - b.count as i64;
+                if count != 0 || flags != 0 { out.push(TripDelta(s.id, count, flags)); }
+                base = &base[1..];
+                scenario = &scenario[1..];
+            }
+            (Some(b), s) if s.is_none_or(|s| b.id < s.id) => {
+                out.push(TripDelta(b.id, -(b.count as i64), 16));
+                base = &base[1..];
+            }
+            (_, Some(s)) => {
+                out.push(TripDelta(s.id, s.count as i64, 8));
+                scenario = &scenario[1..];
+            }
+            _ => break,
+        }
+    }
+    out
+}
+
 // Interleave the four 1-km coordinates of a home/job pair into one spatial sort key.
 fn point_key(point: &Point) -> u64 {
     let x = ((point.longitude + 180.0) * KM_PER_LON).floor() as u64;
