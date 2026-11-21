@@ -7,6 +7,7 @@ use std::path::Path;
 
 // Mode order of every `[f64; 3]`: public transport (census code 2), car (code 1), all other codes.
 
+#[derive(Clone)]
 pub struct Choice {
     pub n: usize,
     pub cuts: Vec<String>,

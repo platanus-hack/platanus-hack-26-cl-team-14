@@ -1,4 +1,6 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
+#[path = "events.rs"]
+pub(crate) mod events;
 mod fleet;
 mod levels;
 mod riders;
@@ -21,7 +23,8 @@ use bevy::{
 use serde_json::Value;
 use std::{collections::HashMap, fs, io::Read, sync::Arc};
 
-// One moving figure represents 96 workers. The engine's counts stay in persons.
+// Street walkers use one figure per 48 workers. Other modes and station entries use one per 96.
+const PERSONS_PER_STREET_WALKER: f64 = 48.0;
 const PERSONS_PER_MOVER: f64 = 96.0;
 const BIN: f32 = 1800.0;
 const DAY: f32 = 48.0 * BIN;
@@ -629,7 +632,12 @@ fn read_result(
         let id = row["id"].as_u64().unwrap();
         // Stable fractional rounding keeps the same represented people at the same phase on revision.
         let seed = (id as u32).wrapping_mul(2654435761) as f64 / 4294967296.;
-        let copies = (row["count"].as_f64().unwrap() / PERSONS_PER_MOVER + seed).floor() as usize;
+        let scale = if row["mode"] == "walk" {
+            PERSONS_PER_STREET_WALKER
+        } else {
+            PERSONS_PER_MOVER
+        };
+        let copies = (row["count"].as_f64().unwrap() / scale + seed).floor() as usize;
         let (delta, flags) = deltas.get(&id).copied().unwrap_or_default();
         let tint = if flags & 8 != 0 || delta > 0. {
             Paint::Gain
@@ -643,7 +651,7 @@ fn read_result(
         let changed = if flags != 0 {
             copies
         } else {
-            (delta.abs() / PERSONS_PER_MOVER).ceil() as usize
+            (delta.abs() / scale).ceil() as usize
         };
         let bin = row["half_hour"].as_u64().unwrap() as usize;
         let itineraries: Vec<_> = if row["mode"] == "public" {

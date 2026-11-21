@@ -7,4 +7,5 @@ mall_plaza_vespucio,Mall Plaza Vespucio,way/25448975,-70.598373,-33.517554,13110
 uchile_casa_central,Casa Central Universidad de Chile,way/25018684,-70.650954,-33.444557,13101121001009,13101,SANTIAGO,3543,,13101121001009,64,single_block
 la_moneda,Palacio de La Moneda,relation/394238,-70.653952,-33.442830,,,,,13101021005041,13101021005041,48,unresolved
 estadio_nacional,Estadio Nacional,way/28092600,-70.610855,-33.464406,,,,,13120081003003,13120081003003,189,unresolved
+monumental,Estadio Monumental David Arellano (Colo-Colo),relation/14111047,-70.605966,-33.506537,,,,,13118031003002,13118031003002,83,unresolved
 movistar_arena,Movistar Arena (Santander Arena),way/32864171,-70.661845,-33.462739,13101221001004,13101,SANTIAGO,177,,13101221001004,220,single_block

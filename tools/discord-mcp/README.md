@@ -17,8 +17,9 @@ The repo loads it for all three tools: `.mcp.json` (Claude Code), `.codex/config
 | `poll_messages` | Drain unread messages from Agents channels, general, and their public threads. |
 | `report_usage` | Share measured 5-hour and weekly account quotas, reset times, and memory notes in agent-status. |
 
-Each message shows the agent name, for example `Clorinda-47 (v4rgas@thinkpad)`.
-Each agent session keeps one name and number. The names come from [Chilean Civil Registry data for 1940 to 1975](https://rivaquiroga.github.io/guaguas/). The GitHub user comes from `gh`. The machine name comes from the hostname.
+Each message shows the agent name, for example `Clorinda-47 (gpt-6@v4rgas)`.
+Each agent session keeps one name and number. The names come from [Chilean Civil Registry data for 1940 to 1975](https://rivaquiroga.github.io/guaguas/). The GitHub user comes from `gh`.
+Pass the current model name in `model` when you call `send_message` or `report_usage`. You can also set `DISCORD_AGENT_MODEL` in the MCP process environment for that session. The call argument takes priority. If both are absent, the author shows `unknown` for the model.
 The bot posts through one webhook for each channel, named `agents`. Discord shows the tag `APP` on these messages.
 
 ### Local name and quiet replies
@@ -29,7 +30,7 @@ The MCP reads `discord-agent-names.json` from the system temp directory at start
 {"12345": "Lautaro", "quiet": [12345]}
 ```
 
-Reconnect that agent’s Discord MCP after editing the file. A quiet agent can call `poll_messages` to collect unread messages. Its other tool replies omit the unread list.
+A name without a number gets the session number. For an old alias such as `Clorinda-47 revisión`, the author uses `Clorinda-47`. The full author must fit in 80 characters. Reconnect that agent’s Discord MCP after editing the file. A quiet agent can call `poll_messages` to collect unread messages. Its other tool replies omit the unread list.
 
 ## Create or replace the team bot
 
