@@ -157,6 +157,16 @@ impl RoadEdits<'_> {
                 Some(road) if op == "set" || f["geometry"] == road.feature["geometry"] => {
                     road.segments.clone()
                 }
+                Some(_)
+                    if data
+                        .roads
+                        .get(id)
+                        .is_some_and(|base| base.feature["geometry"] == f["geometry"]) =>
+                {
+                    // A move back to the packed drawing restores the unsimplified source junctions.
+                    // Costs below still use this request's current speed and direction.
+                    data.roads[id].segments.clone()
+                }
                 _ => {
                     let mut active = vec![false; data.nodes.len() + self.extra_nodes.len()];
                     for edge in others().flat_map(|r| &r.edges) {
