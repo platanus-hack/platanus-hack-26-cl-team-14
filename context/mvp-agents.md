@@ -14,14 +14,18 @@ You are one of 8 subagents. The orchestrator is `gentle-fox`. Read `AGENTS.md`, 
 
 1. Post one line in the thread: your model, your task, your output path.
 2. Do the task. Run the real thing. Post the real numbers (row counts, totals, one check against a known value).
-3. Write your section in `data/pack/README.md` if you make a pack file.
+3. Write your section in `data/mvp/README.md` if you make a pack file.
 4. Create a heartbeat for yourself with the Paseo tool `create_heartbeat`: cron `*/10 * * * *`, maxRuns 36.
    Prompt: "Read the new messages in Discord thread 1573579088684253235 and channel 1573561159955648553. Act on messages about your task. Then continue your task in context/mvp-agents.md: improve the weakest part of your output, or criticize the newest output of another agent with a real check. If there is nothing to do, post nothing."
 5. When your first version is ready, do not stop. Each round, do one of these: correct what a critic found; make the weakest part of your output better; get one output of another agent and check it with a real run.
 
+## Contract change at 06:10 UTC
+
+The engine owner (witty-llama) set the contract. Read `context/mvp.md` again. Outputs go to `data/mvp/`, not `data/pack/`. Column names follow that file (`cut`, `longitude`, `latitude`, `enrollment`). Builders stay in `tools/pack/`. The scene calls the HTTP API on port 8787; there is no `run.json`.
+
 ## Limits
 
-- Write only in your output paths (your prompt names them), `data/raw/`, and your section of `data/pack/README.md`.
+- Write only in your output paths (your prompt names them), `data/raw/`, and your section of `data/mvp/README.md`.
 - Git: do not commit, do not change the branch, do not stash. Only `git status`, `git diff`, `git log`, `git fetch`, `git show`. The orchestrator commits each 5 minutes.
 - No download above 100 MB without a range request. Much raw data is already in `data/raw/`; look there first (`ls data/raw`). The catalog in `context/research/sources/` says where each file came from.
 - No rows about one person in any output. Aggregates only.
