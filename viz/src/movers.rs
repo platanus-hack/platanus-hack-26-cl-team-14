@@ -191,17 +191,18 @@ fn public_path(row: &Value, tracks: &[RailLine]) -> Arc<Path> {
     Path::new(path, legs)
 }
 
-type LocalKey = (u64, String, [i64; 4]);
+type LocalKey = (u64, String, [u64; 4]);
 
 fn local_key(id: u64, mode: &str, origin: &Value, destination: &Value) -> LocalKey {
     let coords = [&origin[0], &origin[1], &destination[0], &destination[1]].map(|v| {
         let n = v.as_f64().unwrap();
         // The GTFS pack preserves endpoints to five decimal places. OSRM keeps the exact source fields.
-        if mode == "public" {
-            (n * 100000.).round() as i64
+        let endpoint = if mode == "public" {
+            format!("{n:.5}").parse::<f64>().unwrap()
         } else {
-            n.to_bits() as i64
-        }
+            n
+        };
+        endpoint.to_bits()
     });
     (id, mode.to_owned(), coords)
 }
@@ -556,7 +557,6 @@ struct Models {
 
 type Rgb = [u8; 3];
 const GLASS: Rgb = [36, 55, 70];
-const IVORY: Rgb = [249, 237, 210];
 
 fn painted(mut mesh: Mesh, offset: [f32; 3], rgb: Rgb) -> Mesh {
     let color = Color::srgb_u8(rgb[0], rgb[1], rgb[2]).to_linear().to_f32_array();
@@ -669,6 +669,57 @@ const BUS_SLICES: &[&[&str]] = &[
     ],
 ];
 
+const COACH_SLICES: &[&[&str]] = &[
+    &[
+        "...TTT.....................TTT...",
+        "...TTT.....................TTT...",
+        ".................................",
+        ".................................",
+    ],
+    &[
+        "..TTTTTTTTTTTTTTTTTTTTTTTTTTTTT..",
+        ".TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    ],
+    &[
+        ".RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR.",
+        "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+        "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+        "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    ],
+    &[
+        ".PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP.",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    ],
+    &[
+        ".GGGGPPGGGGGPPGGGGGPPGGGGGPPGGGG.",
+        "GPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPG",
+        "GPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPG",
+        "GPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPG",
+    ],
+    &[
+        ".GGGGPPGGGGGPPGGGGGPPGGGGGPPGGGG.",
+        "GPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPG",
+        "GPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPG",
+        "GPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPG",
+    ],
+    &[
+        ".RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR.",
+        ".PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP.",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    ],
+    &[
+        ".................................",
+        "..WWWWWWWWWWWWWWWWWWWWWWWWWWWWW..",
+        ".WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.",
+        ".WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.",
+    ],
+];
+
 fn stacked_vehicle(slices: &[&[&str]], body: Rgb) -> Mesh {
     use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
 
@@ -688,6 +739,7 @@ fn stacked_vehicle(slices: &[&[&str]], body: Rgb) -> Mesh {
     let tint = |key| {
         let [r, g, b] = match key {
             b'P' => body,
+            b'R' => [178, 55, 56],
             b'T' => [28, 39, 47],
             b'G' => [53, 105, 127],
             b'V' => [118, 169, 177],
@@ -781,12 +833,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mats: Res
         coat([0., 1.12, 0.], [36, 134, 171]),
         head([0., 1.97, 0.]),
     ]);
-    let coach = shape([
-        block([13.3, 0.72, 2.92], [0., 0.48, 0.], [187, 46, 52]),
-        block([13.5, 1.52, 2.96], [0., 1.62, 0.], IVORY),
-        block([12.93, 0.97, 3.01], [0., 2.1, 0.], GLASS),
-        block([13.5, 0.47, 3.04], [0., 2.83, 0.], [220, 220, 211]),
-    ]);
+    let coach = stacked_vehicle(COACH_SLICES, [218, 223, 219]);
     let mesh = [
         (Model::Car, car),
         (Model::Bus, bus),
@@ -1078,7 +1125,7 @@ fn draw(
         }
         let scale = size_at(train.pos).min(2.5);
         for n in 0..3 {
-            let d = train.distance - n as f32 * 15.2 * scale;
+            let d = train.distance - n as f32 * 14.3 * scale;
             let Some((p, dir, _)) = train.line.path.at(d, &train.line.path.metres) else {
                 continue;
             };
