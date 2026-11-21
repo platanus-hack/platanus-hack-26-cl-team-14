@@ -1,6 +1,6 @@
 # Extra travel cost by household income
 
-CASEN 2024 can show how the same extra cash cost weighs differently on workers' household budgets. The example uses **CLP 1,000 per affected workday**. This is an assumed price difference. It applies once in the first column and on each of 20 days in the second.
+CASEN 2024 can show how the same extra cash cost weighs differently on workers' household budgets. The example uses **CLP 1,000 per affected workday**. This assumed price difference and the incomes are in November 2024 pesos. The cost columns show one affected day and 20 affected days. Convert any cost observed in a later month to November 2024 pesos with the INE consumer price index before dividing by income. [CASEN income results, slide 7](https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Resultados_ingresos_Casen_2024.pdf) · [INE CPI calculator](https://calculadoraipc.ine.cl/)
 
 | Household income band | Weighted median monthly household income among workers | One day's CLP 1,000 | CLP 20,000 over 20 days |
 | --- | ---: | ---: | ---: |
