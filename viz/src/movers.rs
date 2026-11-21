@@ -530,6 +530,8 @@ struct Group {
     itineraries: Vec<RiderPlan>,
     duration: f32,
     path: Arc<Path>,
+    // Sphere around the path, so a whole off-screen group skips its per-copy work.
+    bounds: (Vec3, f32),
     copies: usize,
     phase: f32,
     changed: usize,
@@ -653,6 +655,13 @@ fn read_result(
             },
             itineraries,
             duration,
+            bounds: {
+                let (lo, hi) = path.points.iter().fold(
+                    (Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)),
+                    |(lo, hi), &p| (lo.min(p), hi.max(p)),
+                );
+                ((lo + hi) * 0.5, lo.distance(hi) * 0.5)
+            },
             path,
             copies,
             phase: seed as f32,
@@ -1023,6 +1032,10 @@ fn draw(
                 continue;
             }
             if since_bin > BIN + g.duration {
+                continue;
+            }
+            // Public riders still count toward train and bus load when off screen.
+            if g.itineraries.is_empty() && !visible(g.bounds.0, g.bounds.1 + 200.) {
                 continue;
             }
             for j in 0..g.copies {
