@@ -8,7 +8,7 @@ Lee del chat el cambio que estima el motor en Universidad de Chile, en subidas p
 
 ## Qué puedes probar hoy
 
-El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. La revisión independiente de ese cálculo sigue pendiente. Crear una estación en otro punto queda fuera del alcance actual. [Configuración y alcance](../../README.md#run-a-scenario-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
+El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. El cálculo de eventos aplica al período completo de retorno. Crear una estación en otro punto queda fuera del alcance actual. [Configuración y alcance](../../README.md#run-a-scenario-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
 
 Necesitas Rust para el motor y Node.js 22 o posterior para el servidor MCP. Desde la raíz del repositorio, inicia el motor en un puerto libre:
 
@@ -28,10 +28,10 @@ En Codex CLI, la prueba con el cliente usó este permiso específico y la llamad
 codex -c 'mcp_servers.santiago.tools.simulate_city.approval_mode="approve"'
 ```
 
-En Claude Code, el permiso documentado es `--allowedTools mcp__santiago__simulate_city`. Falta probarlo en la demo. [Codex](https://developers.openai.com/codex/config-reference), [Claude Code](https://code.claude.com/docs/en/permissions#match-mcp-tools).
+Claude Code ejecutó la pregunta preparada en el ensayo. El permiso documentado es `--allowedTools mcp__santiago__simulate_city`. Falta confirmar ese ajuste específico. [Codex](https://developers.openai.com/codex/config-reference), [Claude Code](https://code.claude.com/docs/en/permissions#match-mcp-tools).
 
 ## Antes de presentar y entregar
 
-- Graba la pregunta preparada desde el chat hasta la ventana. Registra las revisiones del motor, de la ventana y del resultado. La prueba separada de la ventana usó otro escenario. [Evidencia del ensayo](https://discord.com/channels/1573514576400752640/1573688250797658172/1573706508783587425).
+- El ensayo de la pregunta preparada mostró menos subidas en Universidad de Chile y un cambio de alturas en la misma ejecución. Lee la cifra de la estación y su unidad. Queda pendiente grabar el recorrido continuo. [Traza y capturas del ensayo](https://discord.com/channels/1573514576400752640/1573688250797658172/1573712370340204634).
 - Ensaya una pregunta inédita y cronometra ambas con la maqueta aceptada. Queda pendiente aceptar el detalle en la periferia y las personas que caminan en esa misma revisión.
 - El equipo decide el nombre final y la dirección de entrega. «¿Y si Santiago…?» es provisional. El campo `deploy-url` abre el repositorio. Falta el enlace público a la aplicación o a una descarga utilizable. [Ficha](../../platanus-hack-project.jsonc).
