@@ -5,12 +5,9 @@ Read this file first. Then read `context/README.md`.
 
 ## Required before any work
 
-You cannot work without these two things. If one is missing, stop and tell your human.
-
-1. **Ponytail is on.** At the start of each session, load the skill `ponytail`
-   (`.agents/skills/ponytail/`) and keep it on for the full session.
-2. **Discord access.** The `discord` MCP server works: `list_channels` shows
-   `#general`. Setup: `tools/discord-mcp/README.md`.
+The `discord` MCP server must work. Check that `list_channels` shows
+`#general`. If it does not, stop and tell your human.
+Setup: `tools/discord-mcp/README.md`.
 
 ## Mission
 
@@ -68,9 +65,10 @@ You decide all other things: tasks, technical design, code, data, tools.
   that the demo does not show.
 - **Orchestrator and subagents.** In each session, the main model plans and coordinates.
   It gives the work of each task to subagents.
-- **Smallest code.** Ponytail is mandatory on every task.
-  Use `ponytail-review` to review a change. Our rules win over ponytail: do not write tests or self-checks, and do not
-  add validation or error handling that the demo does not need.
+- **Smallest code.** Build only what the demo needs. Do not add self-checks.
+- **Review.** Keep Ponytail skills, including `ponytail-review`, disabled for
+  hackathon work. Apply this rule to delegated workers. Follow the
+  [project review process](context/discord-interaction.md#3-how-to-organise-work).
 - **Research first.** Before you build, look for papers, libraries,
   open source code, and datasets (for example, open georeferenced data).
   Use what exists. Use the skill `research-first`.
