@@ -1,5 +1,7 @@
 //! Follow each public trip through its transfers on the regular-weekday service clock.
 use super::*;
+#[path = "bus_load.rs"]
+pub(super) mod bus_load;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub(super) enum RideKey {
