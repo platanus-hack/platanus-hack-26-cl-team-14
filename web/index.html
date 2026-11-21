@@ -6,486 +6,146 @@
 <script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=block">
 <style>
-  html, body { margin: 0; height: 100%; background: #0a0f24; color: #fff; overflow: hidden;
-    font: 700 28px/1.1 -apple-system, "Helvetica Neue", Arial, sans-serif; }
-  #map { position: absolute; inset: 0; } canvas { background: none !important; }
-  .box { zoom: var(--k); position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; font-variant-numeric: tabular-nums; }
-  small { display: block; font-size: 30px; color: #9fb0d8; }
-  body:not(.s) .s, body:not(.t) .t, body:not(.p) .p, body:not(.e) .e { display: none !important; }
-  #switch { top: 28px; right: 28px; padding: 10px; display: flex; gap: 10px; } #switch { z-index: 1; } #switch button { font-size: 30px; padding: 16px 16px; }
-  button { font: inherit; font-size: 46px; padding: 18px 34px; color: #fff; background: #1c2750; border: 0; border-radius: 16px; cursor: pointer; }
-  body.s #vs, body.t #vt, body.p #vp, body.e #ve, #go, #reset, .site.on { color: #0a0f24; background: #ff7a1a; }
-  #go.on { background: #fff; }
-  .tl { top: 28px; left: 28px; } .big { font-size: 130px; display: inline-block; margin-right: 50px; } .mid { font-size: 96px; } #zname { font-size: 72px; color: #ff7a1a; }
-  #clock { cursor: pointer; }
-  #engine { top: 170px; right: 28px; text-align: right; font-size: 80px; }
-  .panel { bottom: 28px; left: 28px; width: 560px; }
-  .panel button { width: 100%; }
-  .val { font-size: 64px; margin: 18px 0 4px; } .val small { display: inline; }
-  input[type=range] { width: 100%; height: 44px; accent-color: #ff7a1a; }
-  #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; }
-  .more { color: #ff4d6d; } .less { color: #3ddc97; } .model { color: #ffb47a; }
-  i { display: inline-block; width: 26px; height: 26px; border-radius: 50%; margin: 0 8px 0 18px; }
-  html.city-only body { background: #05070d; font-family: "Barlow Condensed", "Arial Narrow", sans-serif; }
-  html.city-only .box, html:not(.city-only) .hud { display: none !important; }
-  .hud { position: absolute; z-index: 1; pointer-events: none; font-variant-numeric: tabular-nums; text-transform: uppercase;
-    text-shadow: 0 0 1.2vw #05070d, 0 0 .4vw #05070d; }
-  #title { top: 2vw; left: 2.5vw; font-size: 6vw; letter-spacing: .04em; }
-  #nm { top: 3vw; right: 2.5vw; font-size: 2.6vw; padding: .5vw 1.2vw; color: #05070d; background: #ffd23f; text-shadow: none; }
-  #nm:empty { display: none; }
-  #read { bottom: 2vw; left: 2.5vw; display: flex; gap: 4vw; align-items: flex-end; }
-  #read b { display: block; font-size: 6.6vw; line-height: .9; } #read span { font-size: 2vw; color: #c9d4e8; }
-  #model { bottom: 2.2vw; right: 2.5vw; font-size: 1.7vw; line-height: 1.25; color: #c9d4e8; text-align: right; }
-  #legend2 { top: 2.6vw; right: 2.5vw; font-size: 2vw; display: flex; gap: 1.6vw; } #legend2 i { width: 1.3vw; height: 1.3vw; margin: 0 .5vw 0 0; }
-  #nm { top: 7vw; }
-  .gain { color: #ff6a1a; } .loss { color: #2fd6ff; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe2bd; color: #1c2438;
+    font: 700 1.9vw/1.15 "Barlow Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  #map { position: absolute; inset: 0; }
+  .hud { position: absolute; z-index: 1; pointer-events: none; padding: .5vw 1.2vw; border-radius: 1vw; background: #fffdf6e8; box-shadow: 0 .3vw 0 #1c243826; }
+  #title { top: 2vw; left: 2vw; font-size: 4.6vw; letter-spacing: .04em; }
+  #side { top: 2vw; right: 2vw; text-align: right; } #side small { display: block; font-size: 1.45vw; color: #4a556e; }
+  #side i { display: inline-block; width: 1.9vw; height: .95vw; border-radius: .5vw; margin: 0 .4vw 0 1.3vw; }
+  #nm { bottom: 13.2vw; left: 2vw; font-size: 2.5vw; background: #ffd23f; } #nm:empty, #read:empty { display: none; }
+  #off { top: 45%; left: 50%; transform: translate(-50%); font-size: 3vw; } #off[hidden] { display: none; }
+  #read { bottom: 2vw; left: 2vw; display: flex; gap: 3.5vw; }
+  #read b { display: block; font-size: 6vw; line-height: .95; }
+  .gain { color: #00934a; } .loss { color: #e0222c; }
 </style>
-<body class="t">
+<body>
 <div id="map"></div>
 <div class="hud" id="title">Santiago</div>
+<div class="hud" id="side"><i style="background:#26355d"></i>auto<i style="background:#f5a300"></i>micro<i style="background:#161a26"></i>metro<i style="background:#8a4fff"></i>bici<i style="background:#ff4f9a"></i>a pie
+  <small>vehículos: representación de los flujos del modelo</small><small>modelo, no medición · © OpenStreetMap contributors</small></div>
 <div class="hud" id="nm"></div>
+<div class="hud" id="off" hidden>sin conexión con el motor</div>
 <div class="hud" id="read"></div>
-<div class="hud" id="legend2"><span><i style="background:#96a5ff"></i>auto</span><span><i style="background:#ffd60a"></i>micro</span><span><i style="background:#fff"></i>metro</span><span><i style="background:#ff78dc"></i>bici</span><span><i style="background:#46ff96"></i>a pie</span></div>
-<div class="hud" id="model">vehículos: representación de los flujos del modelo<br>modelo, no medición · © OpenStreetMap contributors</div>
-<div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button><button id="vp">Puntaje</button><button id="ve">Evento</button></div>
-
-<div class="box tl t" id="clock">
-  <div class="big" id="hhmm">--:--</div>
-  <div class="big" id="now">—</div>
-  <small>subidas en 30 min · Metro Tobalaba · <span id="nowk">observado</span></small>
-  <small>abril 2026, día laboral promedio</small>
-</div>
-<div class="box panel t">
-  <button id="go">Sacar el MUT</button>
-  <div class="val"><span id="n">298</span> <small>viviendas · supuesto</small></div>
-  <input id="slider" type="range" min="0" max="1500" step="2" value="298">
-  <small>MUT · Las Condes · 4.679 empleos</small>
-  <small>modelo · asistencia y Metro: supuesto</small>
-  <small id="legend"><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#fff"></i>base<i style="background:#ff7a1a"></i>escenario</small>
-</div>
-
-<div class="box tl s">
-  <div class="mid" id="zname">—</div>
-  <div class="mid" id="zjobs">—</div><small>trabajan aquí · <span class="zk">observado, Censo 2024</span></small>
-  <div class="mid" id="zpop">—</div><small>viven aquí · <span class="zk">observado, Censo 2024</span></small>
-</div>
-<div class="box panel s">
-  <div class="val"><small>empleos</small> ×<span id="jv">1,0</span></div>
-  <input id="jobs" type="range" min="0.2" max="2" step="0.1" value="1">
-  <div class="val"><small>viviendas</small> ×<span id="hv">1,0</span></div>
-  <input id="housing" type="range" min="0.2" max="2" step="0.1" value="1">
-  <button id="reset">Volver</button>
-  <small style="margin-top:14px"><i style="background:#ff4d6d;margin-left:0"></i>gana empleos<i style="background:#3ddc97"></i>pierde · modelo</small>
-</div>
-
-<div class="box s" style="bottom:28px;right:28px;text-align:right"><small style="color:#fff">reconstrucción del Censo 2024</small><small>+ sensibilidad, sin validar</small></div>
-<div class="box tl p">
-  <div class="big" id="wape">—</div>
-  <small>error absoluto agregado · 31 estaciones que el modelo no vio</small>
-  <small>modelo de estaciones <span id="layer"></span>, todas las medias horas · desarrollo</small>
-  <small>no mide el escenario del MUT</small>
-  <div class="mid" id="hh2" style="margin-top:18px">--:--</div>
-  <small>subidas al Metro en 30 min · abril 2026, día laboral</small>
-  <small><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#ff7a1a"></i>modelo</small>
-</div>
-
-<div class="box tl e">
-  <div class="big" id="hh3" style="display:block">--:--</div>
-  <small>sábado 11 de abril de 2026, observado</small>
-  <div class="big model" id="eadd" style="display:block">—</div>
-  <small>subidas añadidas · patrón de Parque O'Higgins</small>
-  <small><span id="ebins"></span></small>
-  <small>solo la ventana 19:00–23:30 · la llegada no se modela</small>
-</div>
-<div class="box e" style="bottom:28px;right:28px;text-align:right"><div id="erows" style="font-size:46px"></div>
-  <small>subidas en 30 min · observado → con el patrón</small></div>
-<div class="box panel e">
-  <div style="display:flex;gap:10px"><button class="site on" data-id="estadio_nacional" style="font-size:36px">Nacional</button><button class="site" data-id="estadio_monumental" style="font-size:36px">Monumental</button></div>
-  <div class="val"><small>evento hipotético adicional</small> ×<span id="mv">1,0</span></div>
-  <input id="mult" type="range" min="0" max="3" step="0.1" value="1">
-  <small>supuesto: el exceso es del evento</small>
-  <small>supuesto: se repite igual en otro lugar</small>
-  <small>sin validar</small>
-  <small><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#ff7a1a"></i>con el patrón añadido</small>
-</div>
-
-<div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
-<div id="delta" class="box t" style="width:800px;font-size:76px"><span id="dv"></span>
-  <small>Cambio de subidas al día en Tobalaba</small><small>contabilidad del sitio, supuestos visibles</small>
-  <div style="margin-top:10px"><small>sensibilidad del modelo de estaciones <span id="stl"></span>, sin validar</small>
-    <small>cambio al día · base del modelo / observado</small>
-    <div id="st" style="font-size:44px"></div></div>
-  <div style="font-size:44px;margin-top:10px"><span id="car"></span> <small style="display:inline">en auto ·</small> <span id="public"></span> <small style="display:inline">en transp. público</small></div>
-  <small>nuevos residentes que salen al día</small><small>supuesto: reparto modal de Las Condes</small></div>
 <script>
-const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
-const q = new URLSearchParams(location.search);
-const API = (q.get('api') || 'http://localhost:8787') + '/api/';  // ?api=http://localhost:8797 for another engine
-const demo = ['demo', 'v', 't', 'mut', 'j', 'h', 'site', 'm'].some(key => q.has(key));
-document.documentElement.classList.toggle('city-only', !demo);
-const MUT = [-70.6009, -33.4180];
-const FIRST = 11, LAST = 47;  // 05:30 to 23:30
-const HOMES = 298;            // average dwellings of an RM tower of 15 floors or more
-const KZ = 0.02;              // metres of comuna height for each person who works there
-const VIEWS = {
-  t: {longitude: -70.6040, latitude: -33.4218, zoom: 15.2, pitch: 55, bearing: -28},
-  s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15},
-  p: {longitude: -70.77, latitude: -33.45, zoom: 11.1, pitch: 55, bearing: -15},
-  e: {longitude: -70.629, latitude: -33.468, zoom: 13.4, pitch: 55, bearing: -15}};
+// One view and no controls: a toy model of Santiago that renders the result of POST /api/scenario.
+// Each result arrives on the stream GET /api/scenario-events. Every number on the screen is a field of that result.
+const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, PathLayer, ScatterplotLayer, TextLayer, TripsLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
+const API = (new URLSearchParams(location.search).get('api') || 'http://localhost:8787') + '/api/';  // ?api=http://localhost:8797 for another engine
 const $ = id => document.getElementById(id);
-// the panels were laid out at 1600 px of width; they grow with the window so a 1920 projector keeps the same proportions
-(onresize = () => document.documentElement.style.setProperty('--k', innerWidth / 1600))();
-const fmt = (n, d = 0) => n.toLocaleString('es-CL', {maximumFractionDigits: d, minimumFractionDigits: d});
-const height = v => 15 + 4 * Math.sqrt(v);  // square root with a 15 m floor: a bus stop stays visible
-const at = (a, t) => { const i = Math.floor(t), x = a[i], y = a[Math.min(i + 1, 47)]; return x == null || y == null ? x : x + (y - x) * (t - i); };
-const post = (path, body) => fetch(API + path, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.ok ? r.json() : Promise.reject());
-
-let view = 't', score, stops, tob, buildings, ground, communes, t = FIRST, playing = true, active = false, homes = HOMES;
-let site = null, gen = 0;                // last answer of POST /api/site-scenario; number of the newest scenario request
-let world = null, sim = null, sel = '13123', seq = 0;  // GET /api/world, last POST /api/simulate, selected comuna
-
-// footprint of the new tower: a 44 m square on the MUT site
-const d = 0.00024, tower = [{polygon: [[MUT[0] - d, MUT[1] - d * .85], [MUT[0] + d, MUT[1] - d * .85], [MUT[0] + d, MUT[1] + d * .85], [MUT[0] - d, MUT[1] + d * .85]]}];
-
-const deckgl = new DeckGL({
-  container: 'map',
-  views: new MapView({orthographic: true}),
-  initialViewState: VIEWS.t,
-  controller: true,
-  effects: [new LightingEffect({
-    ambient: new AmbientLight({intensity: 1.0}),
-    sun: new DirectionalLight({direction: [-2, -4, -3], intensity: 1.4})})],
-});
-
-const ms = {};  // for each view: the measured time of the last engine answer, or "sin motor"
-function engine(v, r) {
-  ms[v] = r ? [fmt(r.elapsed_ms, 2) + ' ms', 'motor Rust · medido'] : ['sin motor', v == 's' ? ':8787 no responde' : v == 'e' ? 'falta /api/event-scenario' : site ? 'se ve el último escenario válido' : 'falta /api/site-scenario'];
-  draw();
-}
-
-// ---------- Tobalaba ----------
-function siteScenario() {
-  // every parameter is explicit; the engine has no defaults. P = value, kind, source.
-  const P = (value, source_kind, source) => ({value, source_kind, source});
-  const u = 'user_assumption';
-  const g = ++gen;
-  Promise.all([post('site-scenario', {
-    station_id: 'TB-TOB', comuna_cut: '13114', longitude: MUT[0], latitude: MUT[1],
-    // values of clever-heron's reviewed manual run of site.rs (PR #30): illustrative, not a measured preset
-    baseline_jobs: P(4679, u, 'modeled MUT jobs from floor area, data/mvp/jobs.csv; not observed site employment'),
-    baseline_dwellings: P(0, u, 'no dwellings at this site; not a verified count'),
-    jobs_removed: P(4679, u, 'the scenario removes all assumed baseline jobs'),
-    dwellings_added: P(homes, u, 'slider on the page'),
-    parameters: {
-      occupied_share: P(0.9251, 'observed_aggregate', 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; its use for the tower is an assumption'),
-      persons_per_occupied_dwelling: P(2.0847, 'observed_aggregate', 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; its use for the tower is an assumption'),
-      known_commuters_per_resident: P(0.3577, 'observed_aggregate', 'commuters_rm_per_resident, data/mvp/site_inputs.csv, Census 2024; private dwellings; transfer to new households is an assumption'),
-      attendance_home: P(0.8, u, 'not measured daily attendance'),
-      attendance_work: P(0.8, u, 'not measured MUT attendance'),
-      filled_job_share: P(0.9, u, 'not measured vacancy'),
-      metro_entry_share_home: P(0.2, u, 'share of departures with a Metro entry; not the Census public-transport share'),
-      metro_entry_share_work: P(0.2, u, 'not measured worker mode choice'),
-      access_share_home: P(0.8, u, 'share of Metro entries at Tobalaba; not an observed catchment'),
-      access_share_work: P(0.8, u, 'share of Metro entries at Tobalaba; not an observed catchment'),
-      maximum_access_distance_m: P(500, u, 'straight line to a Tobalaba entrance; not a walking route'),
-    },
-    time_profile: 'observed_am_06_10_pm_16_21', population_policy: 'local_increment_unbalanced',
-  }), post('station-scenario', {site_id: 'MUT', dwellings_added: homes, jobs_removed: 4679, occupied_share: 0.9251, persons_per_occupied_dwelling: 2.0847,
-    occupancy_source: 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; transfer assumption'}).catch(() => null),
-  ]).then(([r, st]) => {
-    if (g != gen) return;  // a newer slider value or "Volver" replaced this request
-    site = r; engine('t', r);
-    const dd = r.delta.reduce((a, x) => a + (x || 0), 0);
-    $('dv').textContent = (dd > 0 ? '+' : '') + fmt(dd);
-    $('dv').className = dd > 0 ? 'more' : 'less';
-    const mode = c => fmt(r.resident_commuters_by_mode.find(m => m.mode_code == c).daily_home_departures);
-    $('car').textContent = mode(1); $('public').textContent = mode(2);
-    // second estimate of the same change, from the scored station model: its own label, the Tobalaba station only
-    const x = st && st.stations.find(y => y.id == 'TB-TOB');
-    $('stl').textContent = st ? st.layer : '';
-    $('st').innerHTML = x ? `<span class="model">${x.delta_daily > 0 ? '+' : ''}${fmt(x.delta_daily)}</span> <small style="display:inline">Tobalaba · ${fmt(x.predicted_base_daily)} / ${fmt(x.observed_daily)}</small>`
-      + `<small>${{L4: `reparto igual entre ${st.stations.length} estaciones a menos de 1 km`, L4b: 'reparto por cercanía entre estaciones a menos de 1 km'}[st.layer] || ''}</small>`
-      : '<small>sin respuesta</small>';
-    $('delta').style.display = 'block';
-    draw();
-  }, () => { if (g == gen) engine('t'); });  // a failed call keeps the last valid answer
-}
-
-function tobalaba() {
-  const cols = (id, key, dx, color, r = 18) => new ColumnLayer({id, data: [0].filter(() => at(site[key], t) != null),
-    getPosition: [tob.lon + dx, tob.lat], diskResolution: 20, radius: r, getElevation: () => height(at(site[key], t)),
-    getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
-  return [
-    new GeoJsonLayer({id: 'ground', data: ground, stroked: false,
-      getFillColor: [26, 74, 62], getLineColor: f => /river|canal/.test(f.properties.kind) ? [40, 110, 200] : f.properties.major ? [70, 84, 130] : [38, 48, 86],
-      getLineWidth: f => f.properties.kind == 'river' ? 45 : f.properties.kind == 'canal' ? 10 : f.properties.major ? 16 : 7, lineWidthUnits: 'meters'}),
-    new GeoJsonLayer({id: 'buildings', data: buildings, extruded: true, stroked: false,
-      getElevation: f => f.properties.is_mut && active ? 0 : f.properties.height_m,
-      getFillColor: f => f.properties.is_mut ? [255, 122, 26] : [125, 140, 190],
-      material: {ambient: .45, diffuse: .7, shininess: 8},
-      updateTriggers: {getElevation: active}, transitions: {getElevation: 900}}),
-    new PolygonLayer({id: 'tower', data: tower, extruded: true, getPolygon: o => o.polygon,
-      getElevation: active ? homes * 0.15 : 0, getFillColor: [255, 255, 255],
-      updateTriggers: {getElevation: [active, homes]}, transitions: {getElevation: 900}}),
-    // observed boardings; a half hour with no observation has no column
-    new ColumnLayer({id: 'stops', data: stops.filter(s => at(s.observed, t) != null), getPosition: s => [s.lon, s.lat], diskResolution: 20,
-      radius: 18, getElevation: s => height(at(s.observed, t)), getFillColor: s => s.name ? [0, 229, 255] : [255, 212, 0],
-      material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}}),
-    site && cols('base', 'base', 0.0005, [255, 255, 255]),
-    site && cols('scenario', 'scenario', 0.001, [255, 122, 26], 24),
-    new TextLayer({id: 'names', data: stops.filter(s => s.name), getPosition: s => [s.lon, s.lat, height(at(s.observed, t) || 0)], getPixelOffset: [0, -34],
-      getText: s => s.name, getSize: 36, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255], updateTriggers: {getPosition: t}}),
-    new TextLayer({id: 'label', data: [0], characterSet: 'auto', fontFamily: 'Helvetica, Arial, sans-serif', getPosition: [...MUT, 70], getPixelOffset: [70, -30], getTextAnchor: 'start', getText: () => active ? 'TORRE' : 'MUT',
-      getSize: 44, fontWeight: 800, getColor: [255, 255, 255], background: true, getBackgroundColor: active ? [10, 15, 36] : [255, 122, 26],
-      backgroundPadding: [14, 8], updateTriggers: {getText: active, getBackgroundColor: active}}),
-  ];
-}
-
-// ---------- Santiago ----------
-let changes = new Map(), revision = 0, submitting = false, cityResult = null;
-function syncControls() {
-  const change = changes.get(sel);
-  for (const [control, field, label] of [['jobs', 'jobs_multiplier', 'jv'], ['housing', 'housing_multiplier', 'hv']]) {
-    const value = change?.[field] ?? 1;
-    $(control).value = value;
-    $(label).textContent = fmt(value, 1);
-  }
-}
-
-function applyCityResult(result, external) {
-  if (!result || result.revision <= revision) return;
-  revision = result.revision;
-  cityResult = result;
-  world = result.baseline;
-  sim = result.scenario;
-  changes = new Map(result.summary.changes.map(change => [change.zone_id, change]));
-  if (external && result.summary.changes.length) sel = result.summary.changes[0].zone_id;
-  syncControls();
-  engine('s', result);
-  if (view !== 's') show('s');
-  else draw();
-}
-
-async function runCityScenario() {
-  seq++;
-  if (submitting) return;
-  submitting = true;
-  let submitted;
-  do {
-    submitted = seq;
-    try {
-      const result = await post('simulate', {changes: [...changes.values()]});
-      if (submitted === seq) applyCityResult(result, false);
-    } catch {
-      if (submitted === seq) engine('s');
-    }
-  } while (submitted !== seq);
-  submitting = false;
-}
-
-function simulate() {
-  const j = +$('jobs').value, h = +$('housing').value;
-  if (j === 1 && h === 1) changes.delete(sel);
-  else changes.set(sel, {zone_id: sel, jobs_multiplier: j, housing_multiplier: h});
-  syncControls();
-  runCityScenario();
-}
-
-async function watchCity() {
-  try {
-    const result = await get(API + 'scenario-latest');
-    if (!submitting) applyCityResult(result, true);
-  } catch {
-    // The local engine can start after the browser.
-  } finally {
-    setTimeout(watchCity, 500);
-  }
-}
-
-function santiago() {
-  const zs = sim ? Object.fromEntries(sim.zones.map(z => [z.id, z])) : {};
-  const base = world ? Object.fromEntries(world.zones.map(z => [z.id, z])) : {};
-  const pos = id => [zs[id].longitude, zs[id].latitude, zs[id].jobs * KZ];
-  const z = zs[sel];
-  if (z) {
-    const model = sim.metadata.state != 'observed_baseline';
-    $('zname').textContent = z.name; $('zjobs').textContent = fmt(z.jobs); $('zpop').textContent = fmt(z.population);
-    $('zjobs').className = $('zpop').className = model ? 'mid model' : 'mid';
-    document.querySelectorAll('.zk').forEach(e => e.textContent = model ? 'modelo' : 'observado, Censo 2024');
-  }
-  return [
-    new GeoJsonLayer({id: 'communes', data: communes, extruded: !!sim, pickable: true,
-      getElevation: f => sim ? zs[f.properties.cut].jobs * KZ : 0, getLineColor: [150, 170, 255],
-      getFillColor: f => {
-        const c = f.properties.cut;
-        if (c == sel || !sim) return [255, 122, 26, c == sel ? 255 : 0];
-        const k = Math.sqrt(zs[c].jobs / 5e5), blue = [14 + 60 * k, 20 + 80 * k, 48 + 150 * k];  // more jobs, more light
-        const dj = zs[c].jobs / base[c].jobs - 1, m = Math.min(1, Math.abs(dj) * 4), to = dj > 0 ? [255, 77, 109] : [61, 220, 151];  // red gains jobs, green loses
-        return blue.map((x, i) => x + (to[i] - x) * m);
-      },
-      material: {ambient: .5, diffuse: .7, shininess: 8},
-      onClick: ({object}) => { if (object) { sel = String(object.properties.cut); syncControls(); draw(); } },
-      updateTriggers: {getElevation: sim, getFillColor: [sim, sel]}, transitions: {getElevation: 600}}),
-    // modeled work flows: the selected comuna in full, the rest only when large
-    sim && new ArcLayer({id: 'flows', data: sim.flows.filter(f => f.origin != f.destination && (f.origin == sel || f.destination == sel || f.workers > 6000)),
-      getSourcePosition: f => pos(f.origin), getTargetPosition: f => pos(f.destination),
-      getWidth: f => Math.sqrt(f.workers) / 8 * (1 + .3 * Math.sin(t * 6)), getHeight: .25,  // the pulse is motion only, not travel time
-      getSourceColor: f => f.destination == sel ? [255, 255, 255] : f.origin == sel ? [255, 122, 26] : [120, 140, 220, 60],
-      getTargetColor: f => f.destination == sel || f.origin == sel ? [255, 122, 26] : [120, 140, 220, 60],
-      updateTriggers: {getWidth: t, getSourcePosition: sim, getTargetPosition: sim, getSourceColor: sel, getTargetColor: sel},
-      transitions: {getSourcePosition: 600, getTargetPosition: 600}}),
-  ];
-}
-
-// ---------- Puntaje: the station model against 31 stations that it did not see ----------
-function puntaje() {
-  const col = (id, key, dx, color) => new ColumnLayer({id, data: score.stations.filter(s => at(s.observed, t) != null),
-    getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 220, getElevation: s => at(s[key], t) * 1.5,  // 1.5 m for each boarding, same scale for both
-    getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
-  return [
-    new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 60}),
-    col('obs', 'observed', -0.0026, [0, 229, 255]), col('pred', 'predicted', 0.0026, [255, 122, 26]),
-  ];
-}
-
-// ---------- Evento: an extra hypothetical event at one of two reviewed sites (POST /api/event-scenario) ----------
-let ev = null, egen = 0, esite = 'estadio_nacional';
-const ecam = r => ({...VIEWS.e, longitude: r.longitude - 0.020, latitude: r.latitude + 0.004});  // the selected site sits right of the panels
-function eventScenario() {
-  const g = ++egen, m = +$('mult').value;
-  $('mv').textContent = fmt(m, 1);
-  post('event-scenario', {site_id: esite, multiplier: m}).then(r => { if (g == egen && view == 'e') { if (!ev || ev.site_id != r.site_id) deckgl.setProps({initialViewState: {...ecam(r), transitionDuration: 1200, transitionInterpolator: new FlyToInterpolator()}});
-    ev = r; if (r.elapsed_ms == null) delete ms.e; else engine('e', r); draw(); } }, () => { if (g == egen) engine('e'); });
-}
-const SITES = {estadio_nacional: 'Estadio Nacional', estadio_monumental: 'Estadio Monumental'};
-function evento() {
-  const st = ev ? ev.stations : [], i = Math.min(47, Math.floor(t));
-  const col = (id, key, dx, color) => new ColumnLayer({id, data: st.filter(s => at(s[key], t) != null),
-    getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 90, getElevation: s => at(s[key], t) * 0.35,  // 0.35 m for each boarding, one true scale; chosen so that x3 stays on screen
-    getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
-  return [
-    new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 30}),
-    ev && new deck.ScatterplotLayer({id: 'site', data: [ev], getPosition: v => [v.longitude, v.latitude], getRadius: 160, getFillColor: [255, 255, 255]}),
-    col('eobs', 'observed', -0.0012, [0, 229, 255]), col('escn', 'scenario', 0.0012, [255, 122, 26]),
-    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude, (s.scenario[i] || s.observed[i] || 0) * 0.35], getPixelOffset: [0, -34], getText: s => s.name,
-      getSize: 34, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [255, 255, 255], updateTriggers: {getPosition: [i, ev]}}),
-    ev && new TextLayer({id: 'sitename', data: [ev], getPosition: v => [v.longitude, v.latitude], getPixelOffset: [0, 54], getText: v => SITES[v.site_id],
-      getSize: 30, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [255, 255, 255], parameters: {depthCompare: 'always'}}),
-  ];
-}
-
-// ---------- Movimiento: Metro, cars, buses and walkers. A drawing of the modeled flows, not an engine output ----------
-const LOOP = 16, CAR = [150, 165, 255], BUS = [255, 214, 10], METRO = [255, 255, 255], WALK = [70, 255, 150], BIKE = [255, 120, 220];
+const get = u => fetch(u).then(r => r.json());
+const fmt = (n, d = 0) => n.toLocaleString('es-CL', {maximumFractionDigits: d});
+const signed = v => (v > 0 ? '+' : '') + fmt(v);
+const many = (n, f) => Array.from({length: n}, (_, j) => f(j));
+const hash = (i, j) => { const x = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return x - Math.floor(x); };  // a fixed draw for each thing: the same car stays on the same route in each result
 const KM = (a, b) => Math.hypot((a[0] - b[0]) * 93, (a[1] - b[1]) * 111);
-const along = path => { let d = 0; return path.map((p, i) => d += i && KM(path[i - 1], p)); };
-const hash = (i, j) => { const x = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return x - Math.floor(x); };  // a fixed draw for each thing: the same car stays on the same road in each result
-let moving, moved = {};
+const route = path => { let d = 0; return {path, cum: path.map((p, i) => d += i && KM(path[i - 1], p))}; };
 
-// OSM ways joined at their ends into drives of `max` km or less, with a vertex each 100 m or more
-function drives(ways, max) {
-  const at = new Map(), used = new Set(), out = [];
-  const put = (p, w) => at.set(p + '', [...(at.get(p + '') || []), w]);
-  for (const w of ways) { put(w[0], w); put(w.at(-1), w); }
-  for (let w of ways) {
-    if (used.has(w)) continue;
-    const path = [w[0]]; let len = 0;
-    while (w && len < max) {
-      used.add(w);
-      const points = w[0] + '' == path.at(-1) + '' ? w : w.toReversed();
-      for (const p of points) if (p == points.at(-1) || KM(path.at(-1), p) > .1) { len += KM(path.at(-1), p); path.push(p); }
-      w = at.get(path.at(-1) + '').find(x => !used.has(x));
-    }
-    out.push({path, cum: along(path), len});
-  }
-  return out;
-}
+const GAIN = [0, 168, 84], LOSS = [224, 34, 44], tone = v => v > 0 ? GAIN : LOSS;
+const CAR = [38, 53, 93], BUS = [245, 163, 0], METRO = [22, 26, 38], BIKE = [138, 79, 255], WALK = [255, 79, 154];
+const HOUSE = [[255, 246, 222], [250, 216, 168], [240, 172, 132], [255, 228, 144], [232, 124, 94], [250, 250, 244]], GLASS = [[176, 204, 228], [150, 186, 216], [204, 222, 238]];
+const CITY = [[-70.7991, -33.6324], [-70.5031, -33.3379]];  // where the people of the 34 urban comunas live, data/mvp/README.md
+let cam = {zoom: 10.6}, res = null, data, communes, ground, boxes, real;
+let marks = [], tops = [], hotMin = 100, grown = [], fallen = [], fallenIds = new Set(), risen = true;
+const changed = s => Math.abs(s.delta_daily) >= hotMin;
+const down = b => risen && (b.id ? fallenIds.has(b.id) : fallen.some(q => KM(q, b.p) < .15));  // a block volume by its id, a real footprint by its distance
 
-// All moving things of one result: {path, ts, color, width}. Counts are a rendering density.
+const deckgl = new DeckGL({container: 'map', views: new MapView({orthographic: true}), controller: true,
+  initialViewState: {longitude: -70.65, latitude: -33.48, zoom: 10.6, pitch: 50, bearing: -18},
+  onViewStateChange: ({viewState}) => { cam = viewState; },
+  effects: [new LightingEffect({ambient: new AmbientLight({intensity: 1.15}), sun: new DirectionalLight({direction: [-3, -5, -6], intensity: 1.5})})]});
+
+// ---------- Movement: the things that travel. A drawing of the modeled flows, not an engine output ----------
+const LOOP = 24;
+let moved = {};
+
+// All moving things of one result: {path, ts, color, width}. Each count is a rendering density, with its scale in the comment.
 function moves(r, data) {
-  const trip = (path, cum, start, speed, color, width) => ({path, ts: cum.map(c => start + c / speed), color, width});
-  const many = (n, f) => Array.from({length: n}, (_, j) => f(j));
-  // Cars. Assumption of the drawing: a road has the workers of the nearest comuna point (residents who work + jobs) times
-  // 1 - public share. 1 car on screen = 1,500 workers; a change shows at 10 times that density, in the gain or loss colour.
-  const road = drives => {
-    const km = {};
-    for (const c of drives) {
-      c.zone ??= r.zones.reduce((best, z, i) => KM([z.longitude, z.latitude], c.path[c.path.length >> 1]) < KM([r.zones[best].longitude, r.zones[best].latitude], c.path[c.path.length >> 1]) ? i : best, 0);
-      km[c.zone] = (km[c.zone] || 0) + c.len;
-    }
-    const workers = (z, s) => (z['residents_working_' + s] + z['jobs_' + s]) * (1 - z['public_share_' + s]);
-    return drives.flatMap((c, i) => {
-      const z = r.zones[c.zone], d = workers(z, 'scenario') - workers(z, 'base'), span = LOOP - c.len / .7;
-      const some = (n, color, width, salt) => many(Math.floor(n * LOOP * .7 / km[c.zone] + hash(i, salt)), j => trip(c.path, c.cum, hash(i, salt + j + 1) * span, .7, color, width));
-      return [...some(workers(z, 'scenario') / 1500, CAR, 3, 0), ...some(Math.abs(d) / 150, tone(d), 6, 500)];
-    });
+  // `sets` departures in each loop of 24 s, at fixed random moments; a route longer than one loop has copies in the earlier loops
+  const run = (p, speed, sets, seed, color, width) => {
+    const laps = Math.ceil(p.cum.at(-1) / speed / LOOP), m = Math.floor(sets + hash(seed, 0));
+    return many(m * (laps + 1), j => ({path: p.path, ts: p.cum.map(c => (hash(seed, 1 + j % m) - (j / m | 0)) * LOOP + c / speed), color, width}));
   };
-  // Trains and buses on their real paths: the scheduled departures of the weekday, 1 train for each 10 and 1 bus for each 60
-  const rail = data.transit.flatMap((p, i) => {
-    const metro = p.mode == 'metro', speed = metro ? 2 : 1, laps = Math.ceil(p.cum.at(-1) / speed / LOOP);
-    const m = Math.floor(p.trips.reduce((a, b) => a + b) / (metro ? 10 : 60) + hash(i, 1));
-    return many((laps + 1) * m, j => trip(p.path, p.cum, (j - laps * m + hash(i, 0)) * LOOP / m, speed, metro ? METRO : BUS, metro ? 5 : 3));
+  const MODE = {car: [data.carRoutes, CAR, .6, 4], public: [data.publicRoutes, BUS, .5, 4], bicycle: [data.bicycleRoutes, BIKE, .25, 3], walk: [{}, WALK, .12, 3]};
+  // Groups of workers of the result (trips_scenario), on the street, transit or bicycle route of their comuna pair: 1 departure for each 300 workers.
+  // A group with no route of the pair (same comuna, walk) goes in a straight line between its two points.
+  const riders = r.trips_scenario.flatMap((t, i) => {
+    const [table, color, speed, width] = MODE[t.mode] || [];
+    return table ? run(table[t.origin_cut + '-' + t.destination_cut] || route([t.origin, t.destination]), speed, t.count / 300, i, color, width) : [];
   });
-  // Bicycles on the real cycleways: 1 for each 1.5 km. This density is fixed; the engine has no bicycle result.
-  const bikes = data.bikes.flatMap((c, i) => many(Math.floor(LOOP * .25 / 1.5 + hash(i, 0)), j => trip(c.path, c.cum, hash(i, j + 1) * (LOOP - c.len / .25), .25, BIKE, 2.5)));
+  // A changed comuna pair (flows): its change at 10 times that density, in the gain or loss colour, split by the public share of the home comuna
+  const pub = Object.fromEntries(r.zones.map(z => [z.id, z.public_share_scenario]));
+  const hotRiders = r.flows.flatMap((f, i) => ['car', 'public'].flatMap(mode => {
+    const p = MODE[mode][0][f.origin + '-' + f.destination], share = mode == 'car' ? 1 - pub[f.origin] : pub[f.origin];
+    return p ? run(p, MODE[mode][2], Math.abs(f.scenario - f.base) * share / 30, i + .5, tone(f.scenario - f.base), 7) : [];
+  }));
+  // Trains and buses on their real paths: the scheduled departures of the weekday, 1 train for each 10 and 1 bus for each 100
+  const transit = data.transit.flatMap((p, i) => p.mode == 'metro' ? run(p, 1.1, p.trips.reduce((a, b) => a + b) / 10, i + .25, METRO, 7)
+    : run(p, .5, p.trips.reduce((a, b) => a + b) / 100, i + .25, BUS, 5));
   // A station with a large change: thick trains in the gain or loss colour on the 2.5 km of line at each side of it
   const hot = r.stations.filter(changed), top = Math.max(...hot.map(s => Math.abs(s.delta_daily)));
-  const hotRail = hot.flatMap(s => data.transit.filter(p => p.mode == 'metro').flatMap(p => {
+  const hotRail = hot.flatMap(s => data.transit.filter(p => p.mode == 'metro').flatMap((p, n) => {
     const i = p.path.findIndex(q => KM(q, [s.longitude, s.latitude]) < .4);
     if (i < 0) return [];
     const a = p.cum.findIndex(c => c > p.cum[i] - 2.5), b = p.cum.findLastIndex(c => c < p.cum[i] + 2.5) + 1;
-    return many(8, j => trip(p.path.slice(a, b), p.cum.slice(a, b).map(c => c - p.cum[a]), (j - 4) * LOOP / 4, 2, tone(s.delta_daily), 6 + 10 * Math.sqrt(Math.abs(s.delta_daily) / top)));
+    return run({path: p.path.slice(a, b), cum: p.cum.slice(a, b).map(c => c - p.cum[a])}, 1.1, 5, i + n / 16, tone(s.delta_daily), 8 + 8 * Math.sqrt(Math.abs(s.delta_daily) / top));
   }));
-  // Walkers to each station: 1 trip for each 400 boardings of the day; a change shows at 10 times that density
+  // Walkers to each station: 1 departure for each 300 boardings of the day; a change shows at 10 times that density
   const walk = r.stations.flatMap((s, i) => {
     const some = (n, color, width, salt) => many(Math.round(n), j => {
-      const a = hash(i, salt + j) * 2 * Math.PI, d = .3 + .5 * hash(i, salt + j + .5);
-      return trip([[s.longitude + d * Math.cos(a) / 93, s.latitude + d * Math.sin(a) / 111], [s.longitude, s.latitude]], [0, d], hash(j, salt + i) * (LOOP - 4), .25, color, width);
+      const a = hash(i, salt + j) * 2 * Math.PI, d = .25 + .6 * hash(i, salt + j + .5), start = hash(j, salt + i) * (LOOP - 8);
+      return {path: [[s.longitude + d * Math.cos(a) / 93, s.latitude + d * Math.sin(a) / 111], [s.longitude, s.latitude]], ts: [start, start + d / .12], color, width};
     });
-    return [...some(s.scenario_daily / 400, WALK, 4, 0), ...(changed(s) ? some(Math.abs(s.delta_daily) / 40, tone(s.delta_daily), 6, 5000) : [])];
+    return [...some(s.scenario_daily / 300, WALK, 3, 0), ...(changed(s) ? some(Math.abs(s.delta_daily) / 30, tone(s.delta_daily), 5, 5000) : [])];
   });
-  return {trips: [...road(data.roads), ...bikes, ...walk, ...rail, ...hotRail]};
+  return {trips: [...riders, ...transit, ...walk, ...hotRiders, ...hotRail]};
 }
 
+// data = {transit, carRoutes, publicRoutes, bicycleRoutes}
 function moveLayers(result, data, timeSeconds) {
   if (moved.result != result) moved = {result, ...moves(result, data)};
-  const k = innerWidth / 1920, flat = {parameters: {depthCompare: 'always', depthWriteEnabled: false}, widthUnits: 'pixels'};
+  const k = innerWidth / 1920, top = {parameters: {depthCompare: 'always', depthWriteEnabled: false}};
   return [
-    new deck.PathLayer({id: 'roads', ...flat, data: data.roads, getPath: c => c.path, getColor: [56, 70, 112], getWidth: k}),
-    new deck.PathLayer({id: 'rails', ...flat, data: data.transit.filter(p => p.mode == 'metro'), getPath: p => p.path, getColor: [120, 132, 168], getWidth: 2 * k}),
-    new deck.TripsLayer({id: 'moves', ...flat, data: moved.trips, getPath: x => x.path, getTimestamps: x => x.ts, getColor: x => x.color, getWidth: x => x.width * k,
-      capRounded: true, jointRounded: true, fadeTrail: true, trailLength: 1.6, currentTime: timeSeconds % LOOP}),
+    new PathLayer({id: 'rails', ...top, data: data.transit.filter(p => p.mode == 'metro'), getPath: p => p.path, getColor: p => [...p.rgb, 130], getWidth: 36, widthMinPixels: 3 * k}),
+    // a short tail makes each mover an object, not a line; when the camera is near the tail is shorter and the mover is wider
+    new TripsLayer({id: 'moves', ...top, data: moved.trips, getPath: x => x.path, getTimestamps: x => x.ts, getColor: x => x.color, getWidth: x => x.width, widthUnits: 'pixels', widthScale: k * Math.max(1, 2 ** ((cam.zoom - 11.4) / 2.2)),
+      capRounded: true, fadeTrail: true, trailLength: .45 * 2 ** ((10.8 - cam.zoom) / 2), currentTime: timeSeconds % LOOP}),
   ];
 }
 
-// ---------- Ciudad: all of Santiago, the default view. It only renders the result of POST /api/scenario ----------
-const GAIN = [255, 106, 26], LOSS = [47, 214, 255], FONT = 'Barlow Condensed';
-const CITY = [[-70.7991, -33.6324], [-70.5031, -33.3379]];  // where the people of the 34 urban comunas live, data/mvp/README.md
-let res = null, blocks = [], cam = {zoom: 10}, risen = true, marks = [], tops = [];
-const signed = v => (v > 0 ? '+' : '') + fmt(v);
-const tone = v => v > 0 ? GAIN : LOSS;
-const changed = s => Math.abs(s.delta_daily) >= 100;  // boardings in a day; below this a station keeps the base look
-
+// ---------- City ----------
 function frame(points, wide) {
   const k = innerWidth / 1920, xs = points.map(p => p[0]), ys = points.map(p => p[1]);
   const {longitude, latitude, zoom} = new deck.WebMercatorViewport({width: innerWidth, height: innerHeight}).fitBounds(
     [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]],
-    {padding: wide ? 0 : {top: 260 * k, bottom: 330 * k, left: 220 * k, right: 220 * k}, maxZoom: 12.4});
-  deckgl.setProps({initialViewState: {longitude, latitude, zoom: zoom - (wide ? .05 : .25), pitch: 50, bearing: -15, transitionDuration: 2200, transitionInterpolator: new FlyToInterpolator()}});
+    {padding: wide ? 0 : {top: 300 * k, bottom: 330 * k, left: 260 * k, right: 260 * k}, maxZoom: 12.6});
+  deckgl.setProps({initialViewState: {longitude, latitude, zoom: zoom + (wide ? .3 : -.3), pitch: 50, bearing: -18, transitionDuration: 2400, transitionInterpolator: new FlyToInterpolator()}});
 }
 
 function applyScenario(r) {
-  if (!r || !r.stations || r.revision === res?.revision) return;
   res = r;
   const zone = Object.fromEntries(r.zones.map(z => [z.id, [z.longitude, z.latitude]]));
-  const place = {point: g => [[g.longitude, g.latitude]], block: g => [blocks.find(b => b.id == g.id).p],
-    comuna: g => [zone[g.id]], pair: g => [zone[g.origin], zone[g.destination]]};
+  const station = id => r.stations.find(s => s.id == id), at = b => [b.longitude, b.latitude];
+  const place = {point: g => [[g.longitude, g.latitude]], block: g => [at(r.blocks_changed.find(b => b.id == g.id))], comuna: g => [zone[g.id]],
+    pair: g => [zone[g.origin], zone[g.destination]], station: g => [[station(g.id).longitude, station(g.id).latitude]]};
   const word = {jobs: 'empleos', residents: 'residentes', minutes: 'min'}, op = {add: '', multiply: '×', set: '= '};
   // one mark for each change that the engine applied: its place and the change as the engine read it
   marks = r.applied.map(c => ({p: place[c.target.type](c.target), cut: c.target.type == 'comuna' && c.target.id,
-    text: (c.op == 'add' ? signed(c.value) : op[c.op] + fmt(c.value, 2).replace(/,?0+$/, '')) + ' ' + word[c.kind]}));
+    text: c.kind == 'station' ? (c.value ? 'ABRE ' : 'CIERRA ') + station(c.target.id).name
+      : ((c.op == 'add' ? signed(c.value) : op[c.op] + fmt(c.value, 2)) + ' ' + word[c.kind]).toUpperCase()}));
+  // buildings rise where the engine added jobs or residents (blocks_changed), and fall where it removed them.
+  // Drawing scale: 1 new box for each 1,500 persons of a block, 24 at most; its height grows with the square root of the persons.
+  grown = []; fallen = []; fallenIds = new Set();
+  r.blocks_changed.forEach((b, n) => {
+    const d = b.jobs_delta + b.residents_delta, count = Math.min(24, Math.ceil(d / 1500)), colors = b.jobs_delta > b.residents_delta ? GLASS : HOUSE;
+    if (d < 0) { fallenIds.add(b.id); if (fallen.length < 40) fallen.push(at(b)); }
+    else grown.push(...many(count, j => ({p: [b.longitude + (j && hash(n, j) - .5) * .008, b.latitude + (j && hash(j, n) - .5) * .007],
+      h: 50 + 5 * Math.sqrt(d / count) * (.6 + .8 * hash(n, j + .5)), c: colors[j % 3].map((x, i) => (x + GAIN[i]) / 2)})));
+  });
   const s = r.summary, gain = s.top_station_gains[0], loss = s.top_station_losses[0];
-  tops = [gain, loss].filter(Boolean).map(x => r.stations.find(y => y.name == x.name));
-  const item = (cls, n, text) => `<div><b class="${cls}">${n}</b><span>${text}</span></div>`;
+  hotMin = Math.max(100, ...[gain, loss].map(x => x ? Math.abs(x.delta_daily) / 20 : 0));  // 100 boardings in a day, and 1/20 of the largest change
+  tops = [gain, loss].filter(x => x && Math.abs(x.delta_daily) >= hotMin).map(x => r.stations.find(y => y.name == x.name));  // a label on the map only for a large change
+  const item = (cls, n, text) => `<div><b class="${cls}">${n}</b>${text}</div>`;
   $('read').innerHTML = marks.length
     ? (gain ? item('gain', signed(gain.delta_daily), gain.name + ' · subidas al día') : '')
       + (loss ? item('loss', signed(loss.delta_daily), loss.name + ' · subidas al día') : '')
@@ -494,141 +154,67 @@ function applyScenario(r) {
   const kind = {station: 'estaciones nuevas', event: 'eventos'};
   $('nm').textContent = r.not_modeled.length ? 'El motor aún no simula: ' + [...new Set(r.not_modeled.map(c => kind[c.kind] || c.kind))].join(', ') : '';
   if (marks.length) frame([...marks.flatMap(m => m.p), ...tops.map(x => [x.longitude, x.latitude])]); else frame(CITY, true);
-  risen = false; setTimeout(() => risen = true, 1800);  // the columns move after the camera arrives
+  risen = false; setTimeout(() => risen = true, 2200);  // the buildings move after the camera arrives
 }
 
 function city(now) {
   const k = innerWidth / 1920, pulse = now / 1600 % 1;
-  const g = 40075016 * Math.cos(-33.45 * Math.PI / 180) / 512 / 2 ** cam.zoom * k, px = g / Math.sin(50 * Math.PI / 180);  // metres on the ground and metres of height for one pixel at 1920 px of width
-  const EL = px * 210 / 60000;  // 60,000 boardings in a day = 210 px at 1920 px of width
-  const hot = res ? res.stations.filter(changed) : [], daily = s => risen ? s.scenario_daily : s.base_daily;
-  const zones = res ? Object.fromEntries(res.zones.map(z => [z.id, z])) : {};
+  const zones = Object.fromEntries(res.zones.map(z => [z.id, z]));
   const dz = z => Math.abs(z.jobs_scenario - z.jobs_base) > Math.abs(z.residents_working_scenario - z.residents_working_base)
     ? z.jobs_scenario - z.jobs_base : z.residents_working_scenario - z.residents_working_base;
-  const dzMax = Math.max(1, ...Object.values(zones).map(z => Math.abs(dz(z))));
-  const flows = res ? res.flows.filter(f => f.origin != f.destination).slice(0, 14) : [];
-  const fMax = flows.length && Math.abs(flows[0].scenario - flows[0].base);
-  const label = {fontFamily: FONT, fontWeight: 700, characterSet: 'auto', background: true, getBackgroundColor: [5, 7, 13, 235],
-    backgroundPadding: [14 * k, 6 * k], parameters: {depthCompare: 'always'}};
+  const dzMax = Math.max(1, ...res.zones.map(z => Math.abs(dz(z))));
+  const top = {parameters: {depthCompare: 'always', depthWriteEnabled: false}};
+  const label = {...top, fontFamily: 'Barlow Condensed', fontWeight: 700, characterSet: 'auto', getSize: 46 * k, background: true, backgroundPadding: [14 * k, 6 * k]};
+  const fall = fallen.length && res.revision + ':' + risen;  // the 73,000 buildings are computed again only when some of them fall
+  const solid = {extruded: true, material: {ambient: .55, diffuse: .6, shininess: 4}, getElevation: b => down(b) ? b.h * .08 : b.h, getFillColor: b => down(b) ? [240, 150, 150] : b.c,
+    updateTriggers: {getElevation: fall, getFillColor: fall}, transitions: {getElevation: 1600}};
   return [
-    new GeoJsonLayer({id: 'comunas', data: communes, getLineColor: [86, 104, 150], getLineWidth: 1.5 * k, lineWidthUnits: 'pixels',
-      getFillColor: f => { const z = zones[f.properties.cut], d = z ? dz(z) : 0; return d ? [...tone(d), 20 + 150 * Math.sqrt(Math.abs(d) / dzMax)] : [10, 14, 26]; },
+    new GeoJsonLayer({id: 'comunas', data: communes, getLineColor: [150, 172, 132], getLineWidth: 1.5 * k, lineWidthUnits: 'pixels',
+      getFillColor: f => { const z = zones[f.properties.cut], a = z ? dz(z) / dzMax : 0; return Math.abs(a) > .15 ? tone(a).map(x => 222 + (x - 222) * (.15 + .4 * Math.abs(a))) : [218, 228, 198]; },
       updateTriggers: {getFillColor: res}, transitions: {getFillColor: 900}}),
-    new deck.HexagonLayer({id: 'mass', data: blocks, getPosition: b => b.p, getElevationWeight: b => b.n, getColorWeight: b => b.n,
-      radius: 260, coverage: .86, extruded: true, elevationRange: [0, 1], elevationScale: px * 80, upperPercentile: 98,
-      colorRange: [[26, 34, 58], [36, 48, 80], [50, 66, 106], [66, 86, 134], [88, 112, 166], [124, 150, 204]],
-      material: {ambient: .55, diffuse: .7, shininess: 6}}),
-    ...moveLayers(res, moving, now / 1000),
-    new GeoJsonLayer({id: 'targets', data: communes.features.filter(f => marks.some(m => m.cut == f.properties.cut)), filled: false,
-      getLineColor: [255, 255, 255], getLineWidth: (5 + 3 * Math.sin(pulse * 2 * Math.PI)) * k, lineWidthUnits: 'pixels', parameters: {depthCompare: 'always'}}),
-    new ArcLayer({id: 'flows', data: flows, getSourcePosition: f => [zones[f.origin].longitude, zones[f.origin].latitude],
-      getTargetPosition: f => [zones[f.destination].longitude, zones[f.destination].latitude], getHeight: .35,
-      getWidth: f => (3 + 13 * Math.sqrt(Math.abs(f.scenario - f.base) / fMax)) * k,
-      getSourceColor: f => [...tone(f.scenario - f.base), 40], getTargetColor: f => [...tone(f.scenario - f.base), 255]}),
-    res && new ColumnLayer({id: 'stations', data: res.stations.filter(s => !changed(s)), getPosition: s => [s.longitude, s.latitude],
-      diskResolution: 12, radius: 3.5 * g, getElevation: s => s.base_daily, elevationScale: EL,
-      getFillColor: [236, 242, 255], material: {ambient: .85, diffuse: .3}}),
-    // a changed station: a pale ghost of the base day around a solid column of the scenario day
-    new ColumnLayer({id: 'hot', data: hot, getPosition: s => [s.longitude, s.latitude], diskResolution: 16, radius: 9 * g,
-      getElevation: daily, elevationScale: EL, getFillColor: s => tone(s.delta_daily), material: {ambient: .95, diffuse: .2},
-      updateTriggers: {getElevation: risen}, transitions: {getElevation: 1600}}),
-    new ColumnLayer({id: 'ghost', data: hot, getPosition: s => [s.longitude, s.latitude], diskResolution: 16, radius: 12 * g,
-      getElevation: s => s.base_daily, elevationScale: EL, getFillColor: [255, 255, 255, 46], material: false}),
-    new ColumnLayer({id: 'beam', data: marks.flatMap(m => m.cut ? [] : m.p), getPosition: p => p, diskResolution: 8, radius: 3 * g,
-      getElevation: 1, elevationScale: px * 520, getFillColor: [255, 255, 255], material: false}),
-    new deck.ScatterplotLayer({id: 'ring', data: marks.flatMap(m => m.cut ? [] : m.p), getPosition: p => p, filled: false, stroked: true,
-      getRadius: (20 + 90 * pulse) * k, radiusUnits: 'pixels', getLineWidth: 7 * k, lineWidthUnits: 'pixels', getLineColor: [255, 255, 255, 255 * (1 - pulse)],
-      parameters: {depthCompare: 'always'}, updateTriggers: {getLineColor: pulse}}),
-    new TextLayer({id: 'tops', ...label, data: risen ? tops : [], getPosition: s => [s.longitude, s.latitude, Math.max(s.base_daily, s.scenario_daily) * EL],
-      getText: s => s.name + '  ' + signed(s.delta_daily), getSize: 50 * k, getColor: s => tone(s.delta_daily), getPixelOffset: [0, -46 * k], updateTriggers: {getPosition: EL}}),
-    new TextLayer({id: 'marks', ...label, data: marks, getPosition: m => m.p[0], getText: m => m.text, getSize: 50 * k, getColor: [5, 7, 13],
-      getBackgroundColor: [255, 255, 255], getPixelOffset: [0, 70 * k]}),
+    new GeoJsonLayer({id: 'ground', data: ground, stroked: true, getFillColor: [178, 216, 160],
+      getLineColor: f => /river|canal/.test(f.properties.kind) ? [112, 178, 232] : [255, 255, 255],
+      getLineWidth: f => f.properties.kind == 'river' ? 45 : f.properties.major ? 15 : 7, lineWidthUnits: 'meters'}),
+    new PathLayer({id: 'roads', data: data.roads, getPath: f => f.geometry.coordinates, getColor: f => f.properties.kind == 'motorway' ? [255, 222, 150] : [255, 255, 255],
+      getWidth: f => f.properties.kind == 'motorway' ? 34 : 20, widthMinPixels: 1.3 * k}),
+    new deck.SolidPolygonLayer({id: 'boxes', ...solid, data: boxes, getPolygon: b => b.square}),
+    new deck.SolidPolygonLayer({id: 'real', ...solid, data: real, getPolygon: f => f.polygon}),
+    new ColumnLayer({id: 'grown', extruded: true, material: solid.material, diskResolution: 4, radius: 85, angle: 45, flatShading: true, data: grown, getPosition: b => b.p,
+      getElevation: b => risen ? b.h : 0, getFillColor: b => b.c, updateTriggers: {getElevation: risen}, transitions: {getElevation: 2600}}),
+    new GeoJsonLayer({id: 'targets', ...top, data: communes.features.filter(f => marks.some(m => m.cut == f.properties.cut)), filled: false,
+      getLineColor: [28, 36, 56], getLineWidth: (5 + 3 * Math.sin(pulse * 2 * Math.PI)) * k, lineWidthUnits: 'pixels'}),
+    ...moveLayers(res, data, now / 1000),
+    // a station: white disc. A closed station: grey. A station with a large change: a large disc in the gain or loss colour
+    new ScatterplotLayer({id: 'stations', ...top, data: res.stations, getPosition: s => [s.longitude, s.latitude], radiusUnits: 'pixels', lineWidthUnits: 'pixels', stroked: true,
+      getRadius: s => (changed(s) ? 11 : 5) * k, getLineWidth: 2 * k, getLineColor: [28, 36, 56],
+      getFillColor: s => changed(s) ? tone(s.delta_daily) : s.scenario_daily ? [255, 255, 255] : [130, 136, 150], updateTriggers: {getRadius: res, getFillColor: res}}),
+    new ScatterplotLayer({id: 'ring', ...top, data: [...marks.flatMap(m => m.cut ? [] : m.p), ...tops.map(s => [s.longitude, s.latitude])], getPosition: p => p, filled: false, stroked: true,
+      getRadius: (16 + 80 * pulse) * k, radiusUnits: 'pixels', getLineWidth: 7 * k, lineWidthUnits: 'pixels', getLineColor: [28, 36, 56, 255 * (1 - pulse)], updateTriggers: {getLineColor: pulse}}),
+    new TextLayer({id: 'tops', ...label, data: tops, getPosition: s => [s.longitude, s.latitude], getText: s => s.name + '  ' + signed(s.delta_daily),
+      getColor: [255, 255, 255], getBackgroundColor: s => tone(s.delta_daily), getPixelOffset: [0, -70 * k]}),
+    new TextLayer({id: 'marks', ...label, data: marks, getPosition: m => m.p[0], getText: m => m.text, getColor: [255, 255, 255], getBackgroundColor: [28, 36, 56], getPixelOffset: [0, 120 * k]}),
   ];
 }
 
-async function startCity() {
-  const [c, csv, roads, transit, cycleways] = await Promise.all([get('../data/mvp/communes.geojson'), fetch('../data/mvp/blocks.csv').then(r => r.text()),
-    get('../data/mvp/roads.geojson'), get('data/transit_paths.json'), get('../data/mvp/cycleways.geojson'), document.fonts.load('700 50px "' + FONT + '"')]);
-  communes = c;
-  const ways = file => file.features.map(f => f.geometry.coordinates);
-  moving = {roads: drives(ways(roads), 8), bikes: drives(ways(cycleways), 3), transit: transit.map(p => ({...p, cum: along(p.path)}))};
-  blocks = csv.trim().split('\n').slice(1).map(l => l.split(',')).map(r => ({id: r[0], p: [+r[2], +r[3]], n: +r[4]}));
-  deckgl.setProps({onViewStateChange: ({viewState}) => { cam = viewState; }});
-  frame(CITY, true);
-  applyScenario(await get(API + 'scenario-latest') || await post('scenario', {changes: []}));
-  new EventSource(API + 'scenario-events').addEventListener('scenario', e => applyScenario(JSON.parse(e.data)));
-  (function loop(now) { deckgl.setProps({layers: city(now)}); requestAnimationFrame(loop); })(0);
-}
-
-// ---------- page ----------
-function draw() {
-  if (view == 't') {
-    const i = Math.floor(t), now = (site ? site.scenario : tob.observed)[i];
-    $('hhmm').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
-    $('now').textContent = now == null ? '—' : fmt(now);
-    $('now').className = site ? 'big model' : 'big';
-    $('nowk').textContent = now == null ? 'sin dato' : site ? 'modelo' : 'observado';
-    const day = Math.max(0, Math.sin((t - 13) / 28 * Math.PI));  // 0 at 06:30 and 20:30, 1 near 13:30
-    document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
-  } else document.body.style.background = '';
-  if (view == 'e') {
-    const i = Math.min(47, Math.floor(t)); $('hh3').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
-    $('eadd').textContent = ev ? '+' + fmt(ev.assigned_mass) : '—';
-    $('erows').innerHTML = ev ? ev.stations.map(s => `<div>${s.name} <span class="model">${s.scenario[i] == null ? 'sin dato' : fmt(s.observed[i]) + ' → ' + fmt(s.scenario[i])}</span></div>`).join('') : '';
-    $('ebins').textContent = ev ? ev.known_template_bins + ' de ' + ev.window_bins + ' medias horas con dato' : '';
-  }
-  if (view == 'p') { const i = Math.floor(t); $('hh2').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00'); }
-  $('engine').style.display = ms[view] ? 'block' : 'none';
-  if (ms[view]) [$('ms').textContent, $('msk').textContent] = ms[view];
-  deckgl.setProps({layers: view == 't' ? tobalaba() : view == 's' ? santiago() : view == 'p' ? puntaje() : evento()});
-}
-
-function tick() {
-  if (playing) { t += 1 / 50; if (view == 'e' ? t >= 48 || t < 38 : t >= LAST) t = view == 'e' ? 38 : FIRST; draw(); }  // Evento shows only its window, 19:00 to 23:30  // about 0.85 s for each half hour
-  requestAnimationFrame(tick);
-}
-
-function show(v) {
-  view = v; document.body.className = v;
-  if (v != 'e') egen++;  // an event answer that arrives after the user left the tab is dropped
-  deckgl.setProps({initialViewState: {...(v == 'e' && ev ? ecam(ev) : VIEWS[v]), transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
-  draw();
-}
-
-$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t'); $('vp').onclick = () => show('p'); $('ve').onclick = () => { if (t < 38) t = 38; show('e'); eventScenario(); };
-$('mult').oninput = eventScenario;
-document.querySelectorAll('.site').forEach(b => b.onclick = () => { esite = b.dataset.id; document.querySelectorAll('.site').forEach(x => x.classList.toggle('on', x == b)); eventScenario(); });
-$('clock').onclick = () => playing = !playing;
-$('slider').oninput = e => { homes = +e.target.value; $('n').textContent = fmt(homes); if (active) siteScenario(); else draw(); };
-$('go').onclick = () => {
-  active = !active;
-  $('go').textContent = active ? 'Volver al MUT' : 'Sacar el MUT';
-  $('go').className = active ? 'on' : '';
-  if (active) return siteScenario();
-  gen++; site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
-};
-$('jobs').oninput = $('housing').oninput = simulate;
-$('reset').onclick = () => { changes.clear(); syncControls(); runCityScenario(); };
-
-const get = u => fetch(u).then(r => r.json());
-if (!demo) startCity(); else Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
-    .map(u => get((/^(stops|ground)/.test(u) ? 'data/' : '../data/mvp/') + u))).then(([sc, bus, ...r]) => {
-  score = sc; $('wape').textContent = fmt(sc.wape_bins * 100) + '%'; $('layer').textContent = sc.layer;  // one reviewed run of the station model, from tools/pack/station_score_run.py
-  [ground, communes] = r.splice(-2);
-  // the diorama tile: keep the buildings inside the frame of the ground extract
-  buildings = r.pop().features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
-  // Metro: three reviewed station files (PR #29), 48 bins, null where there is no observation
-  stops = [...r.map(o => ({name: o.station.name, lon: o.station.longitude, lat: o.station.latitude, observed: o.half_hour_bins.LABORAL})), ...bus];
-  tob = stops[0];
-  if (q.has('t')) { t = +q.get('t'); playing = false; }
-  if (q.has('mut')) $('go').onclick();
-  if (q.has('j')) $('jobs').value = q.get('j');
-  if (q.has('site')) document.querySelector(`.site[data-id=${q.get('site')}]`).onclick();
-  if (q.has('m')) $('mult').value = q.get('m');
-  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || 't');
-  tick();
-  get(API + 'world').then(w => { world ??= w; sim ??= w; syncControls(); draw(); }, () => engine('s'));
-  watchCity();
-});
+(async () => {
+  const [roads, volumes, foot, transit, cars, publics, bicycles] = await Promise.all([get('../data/mvp/roads.geojson'),
+    ...['city_blocks', 'city_footprints', 'transit_paths', 'car_routes', 'public_routes', 'bicycle_routes'].map(f => get('data/' + f + '.json')), document.fonts.load('700 46px "Barlow Condensed"')]);
+  [communes, ground] = await Promise.all([get('../data/mvp/communes.geojson'), get('data/ground.geojson')]);
+  const table = (routes, path = v => v) => Object.fromEntries(Object.entries(routes).map(([key, v]) => [key, route(path(v))]));
+  data = {roads: roads.features, transit: transit.map(p => ({...p, ...route(p.path), rgb: p.color.match(/\w\w/g).map(x => parseInt(x, 16))})),
+    carRoutes: table(cars), publicRoutes: table(publics, v => v.path), bicycleRoutes: table(bicycles)};
+  // Buildings. In the frame of city_footprints.json: the real OpenStreetMap footprints, 2.5 times their height (a toy city reads from far).
+  // In the rest of the city: one volume for each census block (city_blocks.json: lon, lat, side, height, comuna, block). Heights are a display assumption.
+  const [w, south, e, north] = foot.bounds, pick = (set, i) => set[hash(i, 3) * set.length | 0];
+  real = foot.buildings.map((f, i) => { const h = f.height_m || f.levels * foot.metres_per_level || foot.default_height_m; return {polygon: f.polygon, p: f.polygon[0][0], h: h * 2.5, c: pick(h > 30 ? GLASS : HOUSE, i)}; });
+  boxes = volumes.filter(([x, y]) => x < w || x > e || y < south || y > north).map(([x, y, side, h, , id], i) => { const a = side * .65 / 93000, b = side * .65 / 111000;
+    return {id, h, c: pick(HOUSE, i), square: [[x - a, y - b], [x + a, y - b], [x + a, y + b], [x - a, y + b]]}; });
+  // The stream gives the last result at each connection, also after an engine restart. With no engine the browser tries again.
+  const stream = new EventSource(API + 'scenario-events');
+  stream.addEventListener('scenario', e => applyScenario(JSON.parse(e.data)));
+  stream.onerror = () => $('off').hidden = false;
+  stream.onopen = async () => { $('off').hidden = true; await get(API + 'scenario-latest') || fetch(API + 'scenario', {method: 'POST', headers: {'content-type': 'application/json'}, body: '{"changes":[]}'}); };
+  (function loop(now) { if (res) deckgl.setProps({layers: city(now)}); requestAnimationFrame(loop); })(0);
+})();
 </script>
 </html>
