@@ -961,6 +961,12 @@ cd ../../..
 python3 -I tools/pack/city_footprints.py
 ```
 
+## April weekday bus validation and Metro supply
+
+The [bus target](../validation/bus_boardings_2026_04/README.md) gives observed boardings for each stop and half hour. It includes a comuna summary with the number of stops that reported. Use the same observed stops when scoring a comuna.
+
+The [Metro capacity table](metro_capacity.md) gives line departures and nominal train places where verified. For station comparisons, use the [station service table and indicator rule](metro_station_service.md). It counts departures at the station where passengers can board.
+
 ## Citywide building polygons and boxes
 
 The two files in `web/data/` describe the same **654,666 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Census blocks with no mapped footprint supply 375,281 generated shapes. The binaries retain each shape's source.
