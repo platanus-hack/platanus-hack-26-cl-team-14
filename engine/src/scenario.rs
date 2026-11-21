@@ -5,6 +5,8 @@ use crate::choice::Choice;
 use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripGroup, TripPlan, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::{StationAccess, planned::PlannedStations};
+use santiago_scenario_core::{buildings::Buildings, editable_transit::LineCatalog, roads::RoadGraph};
+use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap};
@@ -50,6 +52,9 @@ pub struct Scenario {
     data_dir: PathBuf,
     choice: Choice,
     car_ownership: Option<CarOwnership>,
+    buildings: Option<Buildings>,
+    roads: RoadGraph,
+    lines: OnceLock<Option<LineCatalog>>,
     pop: Population,
     /// Public-transport share of the commuters of each home comuna (mode 2 of mode_share.csv), as the station fit (L2).
     share: Vec<f64>,
@@ -90,10 +95,35 @@ fn plain(s: &str) -> String {
     s.trim().to_uppercase().chars().map(|c| match c { 'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' | 'Ü' => 'U', 'Ñ' => 'N', c => c }).collect()
 }
 
+fn change_workers(pop: &mut Population, ids: &[usize], k: f64, after: f64) -> f64 {
+    if k == 0.0 { return 0.0; }
+    if k > 0.0 {
+        // New workers on the home points in proportion to the new weights. u32::MAX = no job yet (rechoose.rs).
+        let (mut cum, mut done) = (0.0, 0.0);
+        for &i in ids {
+            cum += k * pop.homes[i].weight / after;
+            let q = cum.round() - done;
+            done += q;
+            pop.persons.extend((0..q as u32).map(|_| Person { home: i as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE }));
+        }
+        k
+    } else {
+        // Workers leave, evenly over the workers that live on the target.
+        let mut hit = vec![false; pop.homes.len()];
+        for &i in ids { hit[i] = true; }
+        let live: Vec<usize> = (0..pop.persons.len()).filter(|&i| !pop.persons[i].student && hit[pop.persons[i].home as usize]).collect();
+        let gone = (-k as usize).min(live.len());
+        for j in 0..gone { pop.persons[live[j * live.len() / gone]].home = u32::MAX; }
+        pop.persons.retain(|p| p.home != u32::MAX);
+        -(gone as f64)
+    }
+}
+
 impl Scenario {
     pub fn load(dir: &Path) -> Scenario {
         let choice = Choice::load(dir);
         let car_ownership = dir.join("eod_car_mode.csv").is_file().then(|| CarOwnership::load(dir, &choice.cuts));
+        let buildings = (dir.join("building_permits.csv").is_file() && dir.join("site_inputs.csv").is_file()).then(|| Buildings::load(dir));
         let pop = Population::build(dir);
         let mut modes = vec![(0.0, 0.0); choice.n];
         for r in csv::Reader::from_path(dir.join("mode_share.csv")).unwrap().into_records().map(|r| r.unwrap()) {
@@ -115,13 +145,49 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), choice, car_ownership, pop, share, access, planned, stations, comunas };
+        let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
         sc.base = sc.state(&sc.pop, &Network::new(&sc.access));
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
         for p in &sc.pop.homes { residents[sc.ix(&p.cut)] += p.weight; }
         sc.ratio = (0..n).map(|o| sc.base.od[o * n..][..n].iter().sum::<f64>() / residents[o]).collect();
         sc
+    }
+
+    // Allocate whole workers once from the final resident stocks. Carry fractional workers
+    // between home blocks in the same comuna. Keep baseline workers when no stock changed.
+    fn apply_net_residents(&self, pop: &mut Population) {
+        let mut cumulative = vec![0.0_f64; self.choice.n];
+        let mut deltas = vec![0_i64; pop.homes.len()];
+        for (home, point) in pop.homes.iter().enumerate() {
+            let before = self.pop.homes.get(home).map_or(0.0, |p| p.weight);
+            if point.weight == before { continue; }
+            let cut = self.ix(&point.cut);
+            let previous = cumulative[cut];
+            cumulative[cut] += (point.weight - before) * self.ratio[cut];
+            deltas[home] = (cumulative[cut].round() - previous.round()) as i64;
+        }
+        if deltas.iter().any(|&d| d < 0) {
+            let mut counts = vec![0_u64; deltas.len()];
+            let mut seen = vec![0_u64; deltas.len()];
+            for p in pop.persons.iter().filter(|p| !p.student) {
+                counts[p.home as usize] += 1;
+            }
+            pop.persons.retain(|p| {
+                let h = p.home as usize;
+                if p.student || deltas[h] >= 0 { return true; }
+                let remove = deltas[h].unsigned_abs().min(counts[h]);
+                let i = seen[h];
+                seen[h] += 1;
+                // Spread removals evenly among the workers at this home block.
+                (i * remove).div_ceil(counts[h]) == (seen[h] * remove).div_ceil(counts[h])
+            });
+        }
+        for (home, delta) in deltas.into_iter().enumerate() {
+            pop.persons.extend((0..delta).map(|_| Person {
+                home: home as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE,
+            }));
+        }
     }
 
     fn ix(&self, cut: &str) -> usize { self.choice.cuts.iter().position(|c| c == cut).unwrap() }
@@ -187,14 +253,120 @@ impl Scenario {
         let mut minutes = c.minutes.clone();
         let (mut applied, mut not_modeled) = (vec![], vec![]);
         let mut network = Network::new(&self.access);
+        let mut building_edits = self.buildings.as_ref().map(Buildings::edits);
+        let mut road_edits = self.roads.edits();
+        let mut line_edits = if changes.iter().any(|v| v["kind"] == "line") {
+            self.lines.get_or_init(|| self.data_dir.join("editable_transit.json").is_file()
+                .then(|| LineCatalog::load(&self.data_dir))).as_ref().map(LineCatalog::edits)
+        } else { None };
+        // For an outage keep the last finite graph time. None means this pair had no graph baseline.
+        let mut transit_reference: HashMap<usize, Option<f64>> = HashMap::new();
+        let mut building_residents = false;
+        let mut direct_workers_changed = false;
+        let mut city_edits = Vec::new();
         let mut car_shares = BTreeMap::new();
         let mut requests = vec![];
 
-        // Expand one permit request at its position in the list. Its child changes
-        // reuse the ordinary resident path and appear as one aggregate in the reply.
+        // Apply derived stock changes at the parent edit’s position in the request.
         let mut pending: Vec<_> = changes.iter().rev().cloned().map(|change| (change, false)).collect();
-        while let Some((change, permit_child)) = pending.pop() {
+        while let Some((change, stock_child)) = pending.pop() {
             let raw = &change;
+            if raw["kind"] == "road" || raw["kind"] == "line" {
+                let is_line = raw["kind"] == "line";
+                let edit = if is_line {
+                    line_edits.as_mut().ok_or_else(|| "Line edits need editable_transit.json.".to_owned())
+                        .and_then(|edits| edits.apply(raw))
+                } else { road_edits.apply(raw) };
+                let mut note = raw.clone();
+                match edit {
+                    Ok(mut edit) => {
+                        if is_line {
+                            for pair in edit["effects"]["pairs"].as_array_mut().unwrap() {
+                                let index = self.ix(pair["origin_cut"].as_str().unwrap()) * n
+                                    + self.ix(pair["destination_cut"].as_str().unwrap());
+                                let reference = transit_reference.entry(index).or_insert(pair["before_minutes"].as_f64());
+                                match (*reference, pair["after_minutes"].as_f64()) {
+                                    (Some(last), Some(next)) => {
+                                        let before = minutes[index].max(1.0);
+                                        minutes[index] += next - last;
+                                        pair["choice_minutes_delta"] = json!(minutes[index].max(1.0) - before);
+                                        *reference = Some(next);
+                                    }
+                                    _ => {
+                                        pair["choice_minutes_delta"] = Value::Null;
+                                        pair["choice_effect_unavailable"] = json!(if reference.is_none() {
+                                            "No finite baseline transit path for this comuna pair."
+                                        } else { "The edited transit graph has no path for this comuna pair." });
+                                    }
+                                }
+                            }
+                        }
+                        note["understood"] = json!({"id":edit["id"],"city_edit_index":city_edits.len()});
+                        applied.push(note);
+                        city_edits.push(edit);
+                    }
+                    Err(reason) => {
+                        note["reason"] = json!(reason);
+                        not_modeled.push(note);
+                    }
+                }
+                continue;
+            }
+            if raw["kind"] == "building" {
+                let mut note = raw.clone();
+                let edit = building_edits.as_mut()
+                    .ok_or_else(|| "Building edits need building_permits.csv and site_inputs.csv.".to_owned())
+                    .and_then(|edits| edits.apply(raw));
+                match edit {
+                    Ok(edit) => {
+                        let blocks = edit["effects"]["blocks"].as_array().unwrap();
+                        // A prior stock edit may have removed the residents/jobs this footprint would debit.
+                        // Reject the whole edit before changing either end of a move.
+                        let conflict = blocks.iter().any(|b| {
+                            [("jobs_delta", &pop.jobs), ("residents_delta", &pop.homes)].iter().any(|(field, points)| {
+                                let delta = b[*field].as_f64().unwrap_or(0.0);
+                                delta < 0.0 && points.iter().find(|p| b["block_id"] == p.id)
+                                    .map_or(0.0, |p| p.weight) + delta < -1e-8
+                            })
+                        });
+                        if conflict {
+                            // Restore the footprint overlay from the earlier accepted edits in this request.
+                            let mut restored = self.buildings.as_ref().unwrap().edits();
+                            for previous in applied.iter().filter(|v: &&Value| v["kind"] == "building") {
+                                restored.apply(previous).unwrap();
+                            }
+                            building_edits = Some(restored);
+                            note["reason"] = json!("The building would withdraw more jobs or residents than remain on its block.");
+                            not_modeled.push(note);
+                            continue;
+                        }
+                        for b in blocks {
+                            let id = b["block_id"].as_str().unwrap();
+                            for (field, points) in [("jobs_delta", &mut pop.jobs), ("residents_delta", &mut pop.homes)] {
+                                let Some(delta) = b[field].as_f64().filter(|d| *d != 0.0) else { continue };
+                                let index = points.iter().position(|p| p.id == id).unwrap_or_else(|| {
+                                    points.push(Point { id: id.to_owned(), cut: b["cut"].as_str().unwrap().to_owned(),
+                                        longitude: b["longitude"].as_f64().unwrap(), latitude: b["latitude"].as_f64().unwrap(), weight: 0.0 });
+                                    points.len() - 1
+                                });
+                                let stock = &mut points[index].weight;
+                                if field == "residents_delta" {
+                                    building_residents = true;
+                                }
+                                *stock = (*stock + delta).max(0.0);
+                            }
+                        }
+                        note["understood"] = json!({"id":edit["id"],"city_edit_index":city_edits.len()});
+                        applied.push(note);
+                        city_edits.push(edit);
+                    }
+                    Err(reason) => {
+                        note["reason"] = json!(reason);
+                        not_modeled.push(note);
+                    }
+                }
+                continue;
+            }
             if raw["kind"] == "cars" {
                 let mut note = raw.clone();
                 match self.change_car_share(raw, &mut car_shares) {
@@ -268,7 +440,7 @@ impl Scenario {
                 continue;
             }
             // A block that is not in the table of its kind (for example residents at a job-only block such as the MUT).
-            if raw["target"]["type"] == "block" && !(if kind == "jobs" { &self.pop.jobs } else { &self.pop.homes }).iter().any(|p| p.id == key) {
+            if raw["target"]["type"] == "block" && !(if kind == "jobs" { &pop.jobs } else { &pop.homes }).iter().any(|p| p.id == key) {
                 let mut v = raw.clone();
                 v["reason"] = json!(format!("Block {key} has no {kind} in the engine data. Use a point target or another block."));
                 not_modeled.push(v);
@@ -301,6 +473,7 @@ impl Scenario {
             let scale = |v: &mut [Point], ids: &[usize], baseline: &[Point]| {
                 let before: f64 = ids.iter().map(|&i| v[i].weight).sum();
                 let after = op(before);
+                if before == after { return Some((before, after)); }
                 if ids.len() == 1 {
                     v[ids[0]].weight = after;
                 } else if before > 0.0 {
@@ -332,25 +505,12 @@ impl Scenario {
                         continue;
                     };
                     let k = ((after - before) * self.ratio[self.ix(&cut)]).round();
-                    let workers = if k > 0.0 {
-                        // New workers on the home points in proportion to the new weights. u32::MAX = no job yet (rechoose.rs).
-                        let (mut cum, mut done) = (0.0, 0.0);
-                        for &i in &ids {
-                            cum += k * pop.homes[i].weight / after;
-                            let q = cum.round() - done;
-                            done += q;
-                            pop.persons.extend((0..q as u32).map(|_| Person { home: i as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE }));
-                        }
-                        k
+                    let workers = if building_residents {
+                        None
                     } else {
-                        // Workers leave, evenly over the workers that live on the target.
-                        let mut hit = vec![false; pop.homes.len()];
-                        for &i in &ids { hit[i] = true; }
-                        let live: Vec<usize> = (0..pop.persons.len()).filter(|&i| !pop.persons[i].student && hit[pop.persons[i].home as usize]).collect();
-                        let gone = (-k as usize).min(live.len());
-                        for j in 0..gone { pop.persons[live[j * live.len() / gone]].home = u32::MAX; }
-                        pop.persons.retain(|p| p.home != u32::MAX);
-                        -(gone as f64)
+                        let workers = change_workers(&mut pop, &ids, k, after);
+                        direct_workers_changed |= workers != 0.0;
+                        Some(workers)
                     };
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "residents_before": r1(before), "residents_after": r1(after), "workers_added": workers });
                     if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.homes[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
@@ -361,15 +521,28 @@ impl Scenario {
                         Target::Comuna { id } => { let q = self.ix(id); (0..n).filter(|&o| o != q).flat_map(|o| [o * n + q, q * n + o]).collect() }
                         _ => unreachable!(),
                     };
-                    let before: f64 = cells.iter().map(|&i| minutes[i]).sum();
-                    for &i in &cells { minutes[i] = op(minutes[i]).max(1.0); } // a trip is 1 minute or more
+                    let before: f64 = cells.iter().map(|&i| if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).sum();
+                    for &i in &cells { minutes[i] = op(if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).max(1.0); } // a trip is 1 minute or more
                     let after: f64 = cells.iter().map(|&i| minutes[i]).sum();
                     note["understood"] = json!({ "pairs": cells.len(), "mean_minutes_before": r1(before / cells.len() as f64), "mean_minutes_after": r1(after / cells.len() as f64) });
                 }
             }
-            if !permit_child { applied.push(note); }
+            if !stock_child { applied.push(note); }
         }
 
+        if building_residents {
+            // Direct edits can precede the first building in the same request.
+            if direct_workers_changed { pop.persons.clone_from(&self.pop.persons); }
+            self.apply_net_residents(&mut pop);
+            for note in applied.iter_mut().filter(|v| v["kind"] == "residents") {
+                if let Some(workers) = note["understood"].get_mut("workers_added") {
+                    *workers = Value::Null;
+                }
+            }
+        }
+        for index in transit_reference.keys() {
+            minutes[*index] = minutes[*index].max(1.0);
+        }
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
         let mut car_choice = None;
         if let Some(cars) = &self.car_ownership {
@@ -388,6 +561,12 @@ impl Scenario {
             json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions))
         }).collect();
         let mut assumptions = ASSUMPTIONS.map(Value::from).to_vec();
+        if building_residents {
+            assumptions.push(json!("Building and direct resident edits share one final worker allocation. Summary workers_new gives the net change across the request."));
+        }
+        if city_edits.iter().any(|edit| edit["kind"] == "line") {
+            assumptions.push(json!("Exploratory station boardings after a transit line edit. The station model uses worker origins, job destinations and baseline public transport shares. Ridership on the edited service is unknown."));
+        }
         if !car_shares.is_empty() {
             assumptions.push(json!("The 2012 Santiago travel survey links household access to a car with the mode used to travel to work. The model uses this survey association to estimate commuter counts by mode and home comuna."));
         }
@@ -401,7 +580,7 @@ impl Scenario {
             for (i, p) in v.iter().enumerate() {
                 let d = p.weight - old.get(i).map_or(0.0, |q| q.weight);
                 if d.abs() <= 1e-9 { continue; }
-                let id = old.get(i).map(|q| &q.id);
+                let id = (!p.id.starts_with("new")).then_some(&p.id);
                 let key = id.cloned().unwrap_or_else(|| format!("{} {}", r6(p.longitude), r6(p.latitude)));
                 let j = *at.entry(key).or_insert_with(|| {
                     rows.push((json!({ "id": id, "cut": p.cut, "longitude": p.longitude, "latitude": p.latitude }), [0.0; 2]));
@@ -458,6 +637,7 @@ impl Scenario {
         let trips = self.plan.sample(&pop);
         let mut result = json!({
             "applied": applied,
+            "city_edits": city_edits,
             "not_modeled": not_modeled,
             "summary": {
                 "station_job_weights_file": self.access.job_weights_file(),

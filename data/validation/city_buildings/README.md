@@ -100,3 +100,15 @@ fn building_block(bytes: &[u8], col: usize, row: usize, i: usize) -> Option<(u64
 ```
 
 Rebuild after the mesh preparation and fill steps with `python3 -B tools/pack/building_block_ids.py`. Its optional argument specifies another raw fill directory. It matches source assignments to the exact quantized exterior and hole coordinates of each published polygon. Mapped and generated shapes have separate lookup keys. All 739,230 source and mesh records match. Six identical source geometries have duplicate records, each with the same block assignment. Within-tile raw feature order can differ from the published order. Use the sidecar and both meshes from the same build.
+
+## Census polygons for building edits
+
+`data/mvp/building_blocks.geojson.gz` stores the Metropolitan Region census boundaries used to locate a new or moved footprint. Each WGS84 GeoJSON feature has a Polygon or MultiPolygon, the INE strings `block_id` and `cut`, and an interior point in `longitude` and `latitude`. Use the polygon for the spatial join. The point is for displaying or locating an assigned block. The published building sidecar remains the source of the baseline assignments.
+
+The exporter reads both INE layers, keeps holes and components, and preserves the boundary detail. It repairs invalid geometry and unions polygon pieces that share an INE key. Census containers without geometry have no feature. A block boundary carries no information about the use, floor area, employment or residents of an individual building. [INE RM cartography, Census 2024](https://storage.googleapis.com/bktdescargascenso2024/Cartografia/GPKG/Cartografia_censo2024_R13.zip)
+
+From the repository root, run the exporter on the extracted GeoPackage.
+
+```sh
+uv run --with fiona --with 'shapely>=2' --with pyproj python tools/pack/editable_census_blocks.py /path/to/Cartografia_censo2024_R13.gpkg
+```
