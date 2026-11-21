@@ -1024,7 +1024,7 @@ fn draw(
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
-    let mut surface_paint = HashMap::new();
+    let mut surface_load = std::collections::BTreeMap::new();
     for batch in pool.0.values_mut() {
         batch.used = 0;
     }
@@ -1076,8 +1076,9 @@ fn draw(
                         }
                         Some(RiderState::Riding(RideKey::Surface { template, start })) => {
                             let key = (template, start + bin.div_euclid(48) * DAY as i32);
+                            let applied = surface_load.entry(key).or_insert(Paint::Plain);
                             if paint != Paint::Plain {
-                                surface_paint.insert(key, paint);
+                                *applied = paint;
                             }
                             None
                         }
@@ -1117,24 +1118,26 @@ fn draw(
             }
         }
     }
-    routes.riders.for_each_surface(now, |key, p, dir, kind| {
-        if visible(p, 100.) {
-            let model = if kind == Vehicle::Rail {
-                Model::Coach
-            } else {
-                Model::Bus
-            };
-            place(
-                model,
-                surface_paint.get(&key).copied().unwrap_or_default(),
-                pose(
-                    p + right(dir) * 1.6 + Vec3::Y * 0.25,
-                    dir,
-                    Vec3::splat(size_at(p)),
-                ),
-            );
+    for ((template, start), paint) in surface_load {
+        if let Some((p, dir, kind)) = routes.riders.surface_pose(template, start, now) {
+            if visible(p, 100.) {
+                let model = if kind == Vehicle::Rail {
+                    Model::Coach
+                } else {
+                    Model::Bus
+                };
+                place(
+                    model,
+                    paint,
+                    pose(
+                        p + right(dir) * 1.6 + Vec3::Y * 0.25,
+                        dir,
+                        Vec3::splat(size_at(p)),
+                    ),
+                );
+            }
         }
-    });
+    }
     for train in trains.into_iter().flatten() {
         if !visible(train.pos, 125.) {
             continue;

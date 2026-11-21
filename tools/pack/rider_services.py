@@ -22,11 +22,7 @@ with ZipFile(feed_path) as z:
     stops={r['stop_id']:r for r in table('stops')}
     windows=defaultdict(list)
     for r in table('frequencies'):
-        if r['trip_id'] in trips:
-            windows[r['trip_id']].append((
-                time_seconds(r['start_time']), time_seconds(r['end_time']),
-                int(r['headway_secs']), int(r.get('exact_times') or 0),
-            ))
+        if r['trip_id'] in trips:windows[r['trip_id']].append([time_seconds(r['start_time']),time_seconds(r['end_time']),int(r['headway_secs'])])
     calls=defaultdict(list)
     for r in table('stop_times'):
         tid=r['trip_id']
@@ -114,23 +110,18 @@ for k in surface_keys:
     route,direction,shape,sids=k
     axis=project_stops(shapes[shape],sids)
     pi=len(patterns); patterns.append([shape_idx[shape],axis])
-    timings = defaultdict(lambda: (set(), set()))
+    ids=defaultdict(set)
     for tid in groups[k]:
         cs=calls[tid];first=cs[0][3]
         off=tuple((a-first,d-first) for _,s,a,d in cs)
-        fixed, headways = timings[off]
-        if tid not in windows:
-            fixed.add(first)
-        for start, end, interval, exact in windows[tid]:
-            if exact:
-                fixed.update(range(start, end, interval))
-            else:
-                headways.add((start, end, interval))
+        if tid in windows:
+            for a,b,h in windows[tid]:
+                ids[off].update(range(a,b,h))
+        else:ids[off].add(first)
     indices=[]
-    for off, (fixed, headways) in sorted(timings.items()):
-        # Fixed times and frequency windows have distinct meanings in GTFS.
+    for off,starts in sorted(ids.items()):
         indices.append(len(templates))
-        templates.append([pi, off, sorted(fixed), routes[route]['route_type'], sorted(headways)])
+        templates.append([pi,off,sorted(starts),routes[route]['route_type']])
     ptn_index[k]=indices
 legs=[]
 for (service,first,last),os in sorted(opts.items()):

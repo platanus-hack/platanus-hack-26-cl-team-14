@@ -293,33 +293,16 @@ impl RiderNetwork {
         end
     }
 
-    pub(super) fn for_each_surface(
+    pub(super) fn surface_pose(
         &self,
+        template: usize,
+        start: i32,
         now: f32,
-        mut draw: impl FnMut((usize, i32), Vec3, Vec3, Vehicle),
-    ) {
-        for (template, service) in self.surface.iter().enumerate() {
-            let Some(&latest) = service.starts.last() else { continue };
-            let first = service.run.calls.first().unwrap().arrival;
-            let last = service.run.calls.last().unwrap().departure;
-            // GTFS starts belong to a service day and can extend beyond midnight.
-            let first_day = ((now - last - latest as f32) / DAY).ceil() as i32;
-            let last_day = ((now - first - service.starts[0] as f32) / DAY).floor() as i32;
-            for day in first_day..=last_day {
-                let offset = day * DAY as i32;
-                let time = now - offset as f32;
-                let from = service.starts.partition_point(|&s| (s as f32) < time - last);
-                let to = service.starts.partition_point(|&s| (s as f32) <= time - first);
-                for &start in &service.starts[from..to] {
-                    let start = start + offset;
-                    if let Some(d) = service.run.distance(now - start as f32)
-                        && let Some((p, dir, _)) = service.path.at(d, &service.path.metres)
-                    {
-                        draw((template, start), p, dir, service.vehicle);
-                    }
-                }
-            }
-        }
+    ) -> Option<(Vec3, Vec3, Vehicle)> {
+        let service = &self.surface[template];
+        let d = service.run.distance(now - start as f32)?;
+        let (p, dir, _) = service.path.at(d, &service.path.metres)?;
+        Some((p, dir, service.vehicle))
     }
 }
 
