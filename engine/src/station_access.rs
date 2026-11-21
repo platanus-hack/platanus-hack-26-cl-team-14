@@ -76,6 +76,21 @@ impl BusAccess {
     }
 }
 
+// Geometry is independent of the number of people at this point.
+struct PointAccess {
+    walk: Vec<(usize, f64)>,
+    walk_sum: f64,
+    bus: Option<usize>,
+}
+
+impl PointAccess {
+    fn new(stations: &[Station], bus: &BusAccess, links: &[Option<(usize, f64)>], x: f64, y: f64) -> Self {
+        let (walk, walk_sum) = parents_in_reach(stations, x, y, WALK_RADIUS_M, true);
+        let bus = if walk.is_empty() { bus.fastest(x, y, links, stations) } else { None };
+        Self { walk, walk_sum, bus }
+    }
+}
+
 #[derive(Clone, Default)]
 struct Mass {
     walk: [f64; 2],
@@ -86,6 +101,7 @@ pub struct StationAccess {
     stations: Vec<Station>,
     fit: Fit,
     bus: BusAccess,
+    points: HashMap<(u64, u64), PointAccess>,
     pub bus_scale: f64,
     pub bus_mix: f64,
     pub training_cells: usize,
@@ -97,8 +113,14 @@ impl StationAccess {
         let stations: Vec<Station> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
         let (_, _, fit) = predict(data, &stations, WALK_RADIUS_M, true, true, true, true);
         let bus = BusAccess::load(data, &stations);
-        let mut model = Self { stations, fit, bus, bus_scale: 0.0, bus_mix: 0.0, training_cells: 0 };
+        let mut model = Self { stations, fit, bus, points: HashMap::new(), bus_scale: 0.0, bus_mix: 0.0, training_cells: 0 };
         let (homes, jobs) = model.baseline_points(data);
+        let links: Vec<_> = model.bus.stops.iter().map(|s| s.links.first().copied()).collect();
+        for &(x, y, _) in homes.iter().chain(&jobs) {
+            model.points.entry((x.to_bits(), y.to_bits())).or_insert_with(|| {
+                PointAccess::new(&model.stations, &model.bus, &links, x, y)
+            });
+        }
         let masses = model.place(&homes, &jobs, &model.all_parent_ids());
         let mut cells = Vec::new();
         for (i, s) in model.stations.iter().enumerate().filter(|(_, s)| !s.holdout) {
@@ -141,20 +163,31 @@ impl StationAccess {
 
     fn place(&self, homes: &[PointMass], jobs: &[PointMass], active: &HashSet<String>) -> Vec<Mass> {
         let open: Vec<_> = self.stations.iter().map(|s| active.contains(&s.id)).collect();
+        let all_open = open.iter().all(|&o| o);
         let links: Vec<_> = self.bus.stops.iter().map(|s| s.links.iter().find(|(i, _)| open[*i]).copied()).collect();
         let mut masses = vec![Mass::default(); self.stations.len()];
         for (half, points) in [homes, jobs].into_iter().enumerate() {
             for &(x, y, mass) in points {
                 if mass == 0.0 { continue; }
-                let (mut near, _) = parents_in_reach(&self.stations, x, y, WALK_RADIUS_M, true);
-                near.retain(|(i, _)| open[*i]);
-                if near.is_empty() {
-                    if let Some(i) = self.bus.fastest(x, y, &links, &self.stations) {
-                        masses[i].bus[half] += mass;
-                    }
+                let fresh;
+                let point = if let Some(p) = self.points.get(&(x.to_bits(), y.to_bits())) {
+                    p
                 } else {
-                    let sum: f64 = near.iter().map(|n| n.1).sum();
-                    for (i, w) in near { masses[i].walk[half] += mass * w / sum; }
+                    fresh = PointAccess::new(&self.stations, &self.bus, &links, x, y);
+                    &fresh
+                };
+                let walks = || point.walk.iter().copied().filter(|&(i, _)| open[i]);
+                let sum = if all_open { point.walk_sum } else { walks().map(|(_, w)| w).sum() };
+                if sum > 0.0 {
+                    for (i, w) in walks() { masses[i].walk[half] += mass * w / sum; }
+                } else {
+                    // A closure can only remove bus routes. An open winner is still fastest.
+                    let bus = if point.walk.is_empty() && point.bus.is_none_or(|i| open[i]) {
+                        point.bus
+                    } else {
+                        self.bus.fastest(x, y, &links, &self.stations)
+                    };
+                    if let Some(i) = bus { masses[i].bus[half] += mass; }
                 }
             }
         }

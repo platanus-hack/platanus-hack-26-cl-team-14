@@ -85,24 +85,52 @@ fn group_counts(sizes: [usize; 5], budget: usize) -> [usize; 5] {
     counts
 }
 
-fn representative(points: &[Point], indices: impl Iterator<Item = usize> + Clone, count: usize) -> &Point {
-    let (mut lon, mut lat) = (0.0, 0.0);
-    for i in indices.clone() {
-        lon += points[i].longitude;
-        lat += points[i].latitude;
-    }
-    let (lon, lat) = (lon / count as f64, lat / count as f64);
-    let distance = |p: &Point| ((p.longitude - lon) * KM_PER_LON).powi(2)
-        + ((p.latitude - lat) * KM_PER_LAT).powi(2);
-    indices.map(|i| &points[i]).min_by(|a, b| distance(a).total_cmp(&distance(b))).unwrap()
+fn coordinates(points: &[Point]) -> Vec<[f64; 2]> {
+    points.iter().map(|p| [p.longitude, p.latitude]).collect()
 }
 
-fn visit_workers(pop: &Population, mut visit: impl FnMut(usize, u64, u32)) {
+fn representatives(members: &[(u32, u32)], homes: &[[f64; 2]], jobs: &[[f64; 2]]) -> (usize, usize) {
+    let mut origin = [0.0; 2];
+    let mut destination = [0.0; 2];
+    for &(h, j) in members {
+        let home = homes[h as usize];
+        let job = jobs[j as usize];
+        for k in 0..2 {
+            origin[k] += home[k];
+            destination[k] += job[k];
+        }
+    }
+    let mean = |x| x / members.len() as f64;
+    let origin = origin.map(mean);
+    let destination = destination.map(mean);
+    let distance = |p: [f64; 2], center: [f64; 2]| {
+        ((p[0] - center[0]) * KM_PER_LON).powi(2) + ((p[1] - center[1]) * KM_PER_LAT).powi(2)
+    };
+    let mut home = members[0].0 as usize;
+    let mut job = members[0].1 as usize;
+    let mut home_distance = distance(homes[home], origin);
+    let mut job_distance = distance(jobs[job], destination);
+    for &(h, j) in &members[1..] {
+        let hd = distance(homes[h as usize], origin);
+        let jd = distance(jobs[j as usize], destination);
+        if hd.total_cmp(&home_distance).is_lt() {
+            home = h as usize;
+            home_distance = hd;
+        }
+        if jd.total_cmp(&job_distance).is_lt() {
+            job = j as usize;
+            job_distance = jd;
+        }
+    }
+    (home, job)
+}
+
+fn visit_workers(pop: &Population, mut visit: impl FnMut(usize, u64, &super::Person)) {
     let homes: Vec<_> = pop.homes.iter().map(point_key).collect();
     let jobs: Vec<_> = pop.jobs.iter().map(|p| point_key(p) << 2).collect();
-    for (i, p) in pop.persons.iter().enumerate().filter(|(_, p)| !p.student) {
+    for p in pop.persons.iter().filter(|p| !p.student) {
         let mode = match p.mode { 1..=4 => (p.mode - 1) as usize, _ => 4 };
-        visit(mode, homes[p.home as usize] | jobs[p.dest as usize], i as u32);
+        visit(mode, homes[p.home as usize] | jobs[p.dest as usize], p);
     }
 }
 
@@ -150,9 +178,11 @@ impl TripPlan {
             let slots = &self.slots[mode];
             if !slots.is_empty() {
                 let bin = slots.partition_point(|s| s.start <= key) - 1;
-                bins[mode][bin].push(person);
+                bins[mode][bin].push((person.home, person.dest));
             }
         });
+        let homes = coordinates(&pop.homes);
+        let jobs = coordinates(&pop.jobs);
         let mut out = Vec::new();
         for (mode, bins) in bins.iter_mut().enumerate() {
             // Fold a singleton into the adjacent occupied interval of the same mode.
@@ -172,9 +202,8 @@ impl TripPlan {
                 previous = Some(i);
             }
             for (members, slot) in bins.iter().zip(&self.slots[mode]).filter(|(m, _)| m.len() >= 2) {
-                let persons = members.iter().map(|&i| &pop.persons[i as usize]);
-                let origin = representative(&pop.homes, persons.clone().map(|p| p.home as usize), members.len());
-                let destination = representative(&pop.jobs, persons.map(|p| p.dest as usize), members.len());
+                let (home, job) = representatives(members, &homes, &jobs);
+                let (origin, destination) = (&pop.homes[home], &pop.jobs[job]);
                 out.push(TripGroup {
                     id: slot.id, origin: [origin.longitude, origin.latitude],
                     destination: [destination.longitude, destination.latitude],

@@ -32,27 +32,27 @@ fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
     csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
 }
 
-/// Cumulative weights of each comuna's points, for systematic sampling.
-struct Sampler { by_cut: HashMap<String, (Vec<u32>, Vec<f64>)>, next: HashMap<String, f64>, step: f64 }
+/// Cumulative point weights and the sampling position in one comuna.
+#[derive(Default)]
+struct Sampler { ids: Vec<u32>, cumulative: Vec<f64>, next: f64 }
 
 impl Sampler {
-    fn new(points: &[Point], step: f64) -> Sampler {
-        let mut by_cut: HashMap<String, (Vec<u32>, Vec<f64>)> = HashMap::new();
+    fn by_cut(points: &[Point]) -> HashMap<&str, Sampler> {
+        let mut by_cut: HashMap<&str, Sampler> = HashMap::new();
         for (i, p) in points.iter().enumerate().filter(|(_, p)| p.weight > 0.0) {
-            let e = by_cut.entry(p.cut.clone()).or_default();
-            let c = e.1.last().copied().unwrap_or(0.0) + p.weight;
-            e.0.push(i as u32);
-            e.1.push(c);
+            let sampler = by_cut.entry(p.cut.as_str()).or_default();
+            let cumulative = sampler.cumulative.last().copied().unwrap_or(0.0) + p.weight;
+            sampler.ids.push(i as u32);
+            sampler.cumulative.push(cumulative);
         }
-        Sampler { by_cut, next: HashMap::new(), step }
+        by_cut
     }
-    fn take(&mut self, cut: &str) -> u32 {
-        let (ids, cum) = &self.by_cut[cut];
-        let total = *cum.last().unwrap();
-        let k = self.next.entry(cut.to_string()).or_insert(0.0);
-        let at = ((*k + 0.5) * self.step).fract() * total;
-        *k += 1.0;
-        ids[cum.partition_point(|&c| c <= at).min(ids.len() - 1)]
+
+    fn take(&mut self, step: f64) -> u32 {
+        let total = *self.cumulative.last().unwrap();
+        let at = ((self.next + 0.5) * step).fract() * total;
+        self.next += 1.0;
+        self.ids[self.cumulative.partition_point(|&c| c <= at).min(self.ids.len() - 1)]
     }
 }
 
@@ -68,22 +68,24 @@ impl Population {
         // Different irrational steps keep home and destination ranks from moving together inside each OD row.
         let home_step = 0.618_033_988_749_894_9;
         let destination_step = std::f64::consts::SQRT_2 - 1.0;
-        let (mut hw, mut hst) = (Sampler::new(&homes, home_step), Sampler::new(&homes, home_step));
-        let (mut js, mut ss) = (Sampler::new(&jobs, destination_step), Sampler::new(&schools, destination_step));
+        let (mut hw, mut hst) = (Sampler::by_cut(&homes), Sampler::by_cut(&homes));
+        let (mut js, mut ss) = (Sampler::by_cut(&jobs), Sampler::by_cut(&schools));
         let internal = |d: &str| d.starts_with("13");
         let workers: Vec<ModeOd> = rows::<ModeOd>(&data.join("mode_od.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
         let students: Vec<SchoolOd> = rows::<SchoolOd>(&data.join("school_od.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
         let mut persons = Vec::with_capacity(4_100_000);
         for r in &workers {
-            if !hw.by_cut.contains_key(&r.origin_cut) || !js.by_cut.contains_key(&r.destination_cut) { continue; }
+            let Some(home) = hw.get_mut(r.origin_cut.as_str()) else { continue };
+            let Some(dest) = js.get_mut(r.destination_cut.as_str()) else { continue };
             for _ in 0..r.commuters as u32 {
-                persons.push(Person { home: hw.take(&r.origin_cut), dest: js.take(&r.destination_cut), student: false, mode: r.mode });
+                persons.push(Person { home: home.take(home_step), dest: dest.take(destination_step), student: false, mode: r.mode });
             }
         }
         for r in &students {
-            if !hst.by_cut.contains_key(&r.origin_cut) || !ss.by_cut.contains_key(&r.destination_cut) { continue; }
+            let Some(home) = hst.get_mut(r.origin_cut.as_str()) else { continue };
+            let Some(dest) = ss.get_mut(r.destination_cut.as_str()) else { continue };
             for _ in 0..r.students as u32 {
-                persons.push(Person { home: hst.take(&r.origin_cut), dest: ss.take(&r.destination_cut), student: true, mode: -1 });
+                persons.push(Person { home: home.take(home_step), dest: dest.take(destination_step), student: true, mode: -1 });
             }
         }
         Population { homes, jobs, schools, persons }
