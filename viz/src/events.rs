@@ -390,11 +390,13 @@ fn spawn_crowd(
                         end: 1,
                         vehicle: Vehicle::Walk,
                         scheduled: None,
+                        walk_path: None,
                     },
                     Leg {
                         end,
                         vehicle: mode,
                         scheduled: None,
+                        walk_path: None,
                     },
                 ],
             )
