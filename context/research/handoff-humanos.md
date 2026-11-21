@@ -1,6 +1,6 @@
 # Cómo presentar santiaguito.cl
 
-Abre el [guion de tres minutos](pitch-proposal.md). Escribe esta pregunta desde el chat configurado para la demo:
+Usa esta pregunta del primer ensayo para comprobar el arranque del chat y de la maqueta. El caso principal ahora es el intercambio MUT ↔ Monumental. [Decisión de presentación](https://discord.com/channels/1573514576400752640/1573688250797658172/1573733563491291157).
 
 > ¿Cómo cambiarían los viajes al trabajo en Santiago si Estación Central tuviera la mitad más de residentes y Las Condes la mitad más de empleos?
 
@@ -8,23 +8,17 @@ Lee del chat el cambio que estima el motor en Universidad de Chile, en subidas p
 
 ## Qué puedes probar hoy
 
-El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. El cálculo de eventos aplica al período completo de retorno. Crear una estación en otro punto queda fuera del alcance actual. [Configuración y alcance](../../README.md#run-a-scenario-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
+El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. El cálculo de eventos aplica al período completo de retorno. El chat ya puede estimar entradas en nuevos puntos de Metro. Esta función estima demanda del modelo. [PR #193](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/193), [configuración y alcance](../../README.md#ask-a-question-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
 
-Necesitas Rust para el motor y Node.js 22 o posterior para el servidor MCP. Desde la raíz del repositorio, inicia el motor en un puerto libre:
-
-```sh
-cargo run --release --manifest-path engine/Cargo.toml --bin santiago-scenario-core -- data/mvp 8790
-```
-
-Abre el cliente desde ese repositorio. Configura el servidor MCP `santiago` con `SANTIAGO_API_URL=http://127.0.0.1:8790`. En la ventana nativa, usa `SANTIAGO_ENGINE=http://127.0.0.1:8790`. Los tres componentes deben usar la misma dirección del motor.
-
-La maqueta nativa en Bevy está en `main`. Usa `rustc` 1.97.1 o posterior. Abre otra terminal en la raíz del mismo repositorio:
+Instala Rust 1.97.1 o posterior con Cargo, curl y Node.js 22 o posterior. Desde la raíz del repositorio, inicia el motor y la maqueta:
 
 ```sh
-SANTIAGO_ENGINE=http://127.0.0.1:8790 cargo run --manifest-path viz/Cargo.toml
+./run.sh
 ```
 
-La vista lee los archivos de `web/data/`. Sigue pendiente fijar la revisión aceptada para presentar. [Maqueta nativa](../../viz/README.md).
+Si el puerto 8787 está ocupado, usa `PORT=8790 ./run.sh`. Abre el chat desde el mismo repositorio. Configura el servidor MCP `santiago` con el valor de `SANTIAGO_API_URL` que imprime el lanzador. Usa Ctrl+C en la terminal del lanzador para cerrar el motor y la ventana.
+
+La tecla M cambia la maqueta entre superficie y subterráneo. La vista lee los archivos de `web/data/`. Sigue pendiente fijar la revisión aceptada para presentar. [Lanzador](../../README.md#run-the-native-santiago-demo), [maqueta](../../viz/README.md).
 
 ### Permiso para la herramienta en el cliente
 

@@ -1,6 +1,6 @@
 # santiaguito.cl
 
-Propuesta para el equipo que presenta. El equipo humano decide el guion en [context/pitch.md](../pitch.md).
+Guion del primer ensayo de Estación Central y Las Condes. El equipo humano decide el guion en [context/pitch.md](../pitch.md). El caso principal cambió al intercambio MUT ↔ Monumental. [Nueva dirección](https://discord.com/channels/1573514576400752640/1573688250797658172/1573733563491291157).
 
 | Tiempo | Qué decimos | Qué mostramos |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ Propuesta para el equipo que presenta. El equipo humano decide el guion en [cont
 | 1:45–2:45 | «¿Qué cambiarían ustedes en Santiago? Puede ser dónde se vive, dónde se trabaja, cuánto tarda un viaje o si cierra una estación». | Escribimos una pregunta del jurado. El agente usa la misma herramienta y explica el resultado. La maqueta muestra el efecto que estime el motor. |
 | 2:45–3:00 | «Una decisión en un barrio puede cambiar el viaje de alguien que vive lejos. Hagamos la pregunta antes de construir». | Dejamos la ciudad a la vista. |
 
-La persona que presenta escribe en el chat. La maqueta queda a la vista sin controles, tarjetas ni texto. El resultado del motor dirige el movimiento. El agente explica en el chat lo que el motor puede calcular de la pregunta. [Decisión del equipo](../decisions/20261121-1351-native-city-and-chat.md).
+La persona que presenta escribe la pregunta en el chat. La maqueta muestra el resultado sin tarjetas. La tecla M alterna superficie y subterráneo. El motor dirige la animación del escenario. El agente explica en el chat lo que el motor puede calcular de la pregunta. [Decisión del equipo](../decisions/20261121-1351-native-city-and-chat.md), [vista subterránea](../decisions/20261121-1457-subway-view.md).
 
 ## Qué probó el ensayo y qué falta
 
@@ -20,7 +20,7 @@ La persona que presenta escribe en el chat. La maqueta queda a la vista sin cont
 
 ## Si el jurado pregunta
 
-- **¿Qué simula hoy?** El motor en Rust aplica una lista de cambios de residentes, empleos y tiempos de viaje a 2.688.814 trabajadores sintéticos. Puede cerrar o reabrir estaciones existentes. El PR #137 agregó estimaciones de eventos, diferencias de viajes y series por media hora al resultado del motor. El chat recibe el resumen. Crear una estación en otro punto sigue pendiente. [Datos](../../data/mvp/README.md), [herramienta](../../tools/santiago-mcp/server.mjs), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
+- **¿Qué simula hoy?** El motor en Rust aplica una lista de cambios de residentes, empleos y tiempos de viaje a 2.688.814 trabajadores sintéticos. Puede cerrar o reabrir estaciones existentes. El PR #137 agregó estimaciones de eventos, diferencias de viajes y series por media hora al resultado del motor. El chat recibe el resumen. El chat ya puede estimar entradas en puntos de Metro que el escenario agrega. [PR #193](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/193), [datos](../../data/mvp/README.md), [herramienta](../../tools/santiago-mcp/server.mjs), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
 - **¿Cuánto se acerca a las subidas observadas?** En las mismas 31 estaciones que quedaron fuera del ajuste, el error absoluto por media hora, como porcentaje del total observado, fue 44,6 % en el modelo anterior y 41,8 % con acceso en bus. Los pesos de empleo de abril de 2026 dieron 41,1 % con la opción de la herramienta de línea de comandos. El chat sigue usando el ajuste de 41,8 %. [Modelo anterior](../decisions/20261121-0845-presentation-freeze.md), [comparación con los pesos de abril](../../engine/README.md#april-weights-for-station-access).
 - **¿Qué pasó en Los Libertadores?** Cerrar las estaciones de Quilicura elevó las subidas estimadas allí. Las subidas observadas bajaron al abrirlas en 2023. El aumento modelado por día laboral fue de 3.047, 12.113 o 18.020 subidas con un máximo en bus de 20, 30 o 40 minutos, respectivamente. En la extensión de Línea 2, el modelo estimó un 38,8 % más de subidas que las observadas en las cuatro estaciones nuevas. [Comparación y sensibilidad](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/92abe21a0115a635c966657cd5bdaf56dc6b1f05/context/research/station-access-l9.md).
 - **¿Qué pasó con el evento en Parque O’Higgins?** Para el evento del 11 de abril de 2026, la prensa informó alrededor de 13.000 asistentes. Con esa asistencia, el modelo estimó cerca de la mitad del exceso de subidas respecto de estaciones comparables. Ese exceso puede incluir otros viajes del sábado. La hora de término sigue sin confirmar. Para un evento nuevo, el motor estima la demanda del período completo de retorno por separado. La hora que indica el usuario no cambia el servicio de transporte del escenario. [Comparación y límites](event-attendance-april-2026.md).
