@@ -28,7 +28,12 @@ const ANIMALS = ["heron", "otter", "fox", "lynx", "panda", "falcon", "koala", "t
 const seed = createHash("sha256").update(`${hostname()}-${process.ppid}`).digest();
 const AGENT_NAME = `${ADJECTIVES[seed[0] % ADJECTIVES.length]}-${ANIMALS[seed[1] % ANIMALS.length]}`;
 // Same name, same picture. Only the random name goes to DiceBear.
-const AVATAR_URL = `https://api.dicebear.com/9.x/bottts/png?seed=${AGENT_NAME}`;
+// DiceBear picks one value from each list from the seed, so names look very different.
+const AVATAR_COLORS = "e6194b,3cb44b,ffe119,4363d8,f58231,911eb4,42d4f4,f032e6,bfef45,fabed4,469990,9a6324";
+const HAIR_COLORS = "ff3b3b,ff9f1c,ffe600,2ec4b6,3a86ff,8338ec,ff006e,00f5d4,ffffff,1a1a1a,7cfc00,c0c0c0";
+const AVATAR_URL = `https://api.dicebear.com/9.x/adventurer/png?seed=${AGENT_NAME}&radius=50`
+  + `&backgroundColor=${AVATAR_COLORS}&hairColor=${HAIR_COLORS}`
+  + "&glassesProbability=50&earringsProbability=50&featuresProbability=50";
 let identity;
 
 // Example: quiet-heron (v4rgas@thinkpad)
