@@ -4,7 +4,7 @@ Draft for the three-minute pitch. Allow 25 seconds after the presenter submits t
 
 ## Research brief
 
-Metro announced the full closure at 19:20 on Friday, 18 October 2019. The network stayed closed until Monday, 21 October, when 20 Line 1 stations reopened. The closure covered the weekend. The period also had curfews, street disruptions, and changes to bus service. [DTPM 2019 report, chapter 7](https://www.dtpm.cl/descargas/memoria/InformeGestion_2019_DTPM.pdf#page=109)
+Metro announced the full closure at 19:20 on Friday, 18 October 2019. The network stayed closed until Monday, 21 October, when 20 Line 1 stations reopened. The closure covered the weekend. The period also had curfews, street disruptions, and changes to bus service. [DTPM 2019 report, chapter 7](https://www.dtpm.cl/descargas/memoria/InformeGestion_2019_DTPM.pdf#page=56)
 
 Use 19–20 October to check that the full closure shows zero active stations. The DTPM public trip catalog has April and August samples for 2019. Its crisis totals cover 16 October to 31 December. A comparison of changes in travel needs counts for the closure and a comparable reference window. [V1 evidence review](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/343)
 
