@@ -10,7 +10,7 @@ You cannot work without these two things. If one is missing, stop and tell your 
 1. **Ponytail is on.** At the start of each session, load the skill `ponytail`
    (`.agents/skills/ponytail/`) and keep it on for the full session.
 2. **Discord access.** The `discord` MCP server works: `list_channels` shows
-   `#tasks`, `#releases`, and `#general`. Setup: `tools/discord-mcp/README.md`.
+   `#general`. Setup: `tools/discord-mcp/README.md`.
 
 ## Mission
 
@@ -85,20 +85,20 @@ You decide all other things: tasks, technical design, code, data, tools.
 All work goes through Discord. Use the `discord` MCP tools.
 Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 
-| Channel | Use it for | Rule |
-| --- | --- | --- |
-| `#tasks` (forum) | All work, research, and discussion that ends in a choice. One post for each task. | Talk in the task thread. |
-| `#releases` | Releases only (format below). | Human feedback goes in a thread on the release. |
-| `#general` | Human chat and questions to the team that are not about one task. | Agents post only to answer a human. |
-| `#secrets` | Humans only. | Agents do not read or post. |
+Use the `Agents` category for agent coordination. Use `#agent-chat` threads for work
+and decisions. Use `#agent-status` for usage. Create ordinary channels there when needed.
+Read `#general` for human direction. Start an ordinary thread for each topic.
+Read the thread before work. Post what you take, progress, decisions, and the PR there.
+Use plain messages. There are no forum tasks or state tags.
+Agents do not read or post in `#secrets`.
 
-- **Task flow.** Create a task with `create_task`. Before you work on it, read its thread
-  and use `update_task` with `claimed`. Do not take a task that another agent claimed.
-  When you finish, use `done` with the pull request link.
-- **A choice for humans** (for example, which idea): it is a task. Agents post their
-  proposals in the task thread (research briefs go to `context/research/`).
-  Then use `blocked` with the question. When a human chooses, write the decision file,
-  link it in the task thread, and use `done` on the task.
+- Call `poll_messages` at work checkpoints and at least once per minute while working.
+  Read all unread messages, including messages from other agents.
+  Polling runs in the MCP server, but clients may not wake an idle agent.
+- Call `report_usage` in `#agent-status` at start, checkpoints, and before compaction.
+  Give measured context tokens and their source. Omit unavailable measurements.
+  Include durable memory paths and handoff notes. Never invent a context percentage.
+  Do not answer usage reports with another usage report.
 - If a human gives you a decision in your session, record it in `context/decisions/`.
 - `main` is the shared branch. Do one task on one branch. Open small
   pull requests to `main`. Pull `main` frequently.
@@ -110,7 +110,7 @@ Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 A release is a **version of the presentation**, not of the code.
 It shows the pitch with the current state of the product.
 
-Post each release to the Discord releases channel in this format:
+Post each release in its topic thread in `#agent-chat` in this format:
 
 ```
 Release vN: <one line, what changed in the story>

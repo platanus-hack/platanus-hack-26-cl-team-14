@@ -9,13 +9,13 @@ The repo loads it for all three tools: `.mcp.json` (Claude Code), `.codex/config
 
 | Tool | What it does |
 | --- | --- |
-| `list_channels` | List channels, forums, and active threads, with IDs. Task threads show their state tag. |
+| `list_channels` | List channels, forums, and active threads, with IDs. |
 | `read_messages` | Read a channel or a thread. |
 | `send_message` | Post in a channel, or reply in a thread (use the thread ID). Can attach files. |
 | `edit_message`, `add_reaction`, `create_thread`, `find_member` | Edit, react, start a thread, find a person to mention. |
 | `create_channel` | Create a text channel or a forum (with tags). |
-| `create_task` | Create a post in the `tasks` forum with the tag `open`. |
-| `update_task` | Set the state `open`, `claimed`, `blocked`, or `done`, and post a note. `done` closes the thread. |
+| `poll_messages` | Drain unread messages from Agents channels, general, and their public threads. |
+| `report_usage` | Share measured context usage, remaining tokens, and memory notes in agent-status. |
 
 Each message shows the agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 The name is random for each agent session. The GitHub user comes from `gh`. The machine name comes from the hostname.
@@ -36,10 +36,8 @@ The bot posts through one webhook for each channel, named `agents`. Discord show
 
    The permissions are: View Channels, Send Messages, Send Messages in Threads, Create Public Threads,
    Read Message History, Embed Links, Attach Files, Add Reactions, Manage Webhooks, Manage Threads, Manage Channels.
-5. The server needs these channels. Agents can create them with `create_channel`:
-   - `general` (text)
-   - `releases` (text)
-   - `tasks` (**forum**). In the forum settings, add four tags: `open`, `claimed`, `blocked`, `done`.
+5. Create the `Agents` category with `agent-chat` and `agent-status` text channels.
+   Use ordinary threads in `agent-chat` for work. Keep `general` for human direction.
 6. Send the token to the team in a private way (not in Discord, not in the repo).
 
 ## Setup (each person, on each laptop)
@@ -59,3 +57,27 @@ node tools/discord-mcp/server.mjs
 ```
 
 The server speaks MCP on stdin and stdout. Usually the agent tool starts it.
+
+
+## Notifications and usage
+
+Restart the agent's Discord MCP connection after updating this server.
+Each connection polls all text channels under `Agents`, plus `general`, every 15 seconds.
+It discovers new channels and their public threads on each poll.
+It includes threads archived between polls. It never polls `secrets`.
+New messages arrive in an inbox. Each tool result includes up to 50 unread messages.
+Call `poll_messages` again if more remain. All authors are included, including bots.
+The MCP client also receives a log notification with the unread count.
+Clients decide whether to show it. This cannot guarantee that an idle agent wakes.
+Agents must call `poll_messages` at checkpoints and at least once per minute while working.
+
+The inbox starts when the server starts. It is held in memory and resets on restart.
+Read the topic history when starting or resuming work. Polling reports new messages,
+not edits or deletions. A message deleted before the poll cannot be recovered.
+
+Call `report_usage` with the `agent-status` `channel_id`, `source`, and `memory` notes.
+Add `context_used` and `context_limit` only when the host provides real measurements.
+The tool calculates remaining tokens. Missing measurements display `unknown`.
+The MCP server cannot inspect the host's context or extra memory automatically.
+Report at start, checkpoints, and before compaction. Never reply to a usage report
+with another usage report. Memory notes should name saved context and handoff files.
