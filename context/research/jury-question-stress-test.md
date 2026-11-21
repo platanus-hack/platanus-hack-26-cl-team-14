@@ -10,7 +10,7 @@ Twelve unprepared questions went through the real MCP server (`tools/santiago-mc
 | 10,000 new apartments in Quilicura | comuna residents add | Plaza Quilicura +981 (3,778 new workers at the comuna rate) |
 | Remote work: Las Condes loses 30% of jobs | comuna jobs ×0.7 | Manquehue −13,552; centre stations up about +1,000 each |
 | Highway: Maipú → Santiago 15 min faster | pair minutes −15 | Universidad de Chile +2,910; Plaza Maipú −2,645 |
-| Remove the MUT | point jobs set 0 | Tobalaba −3,432 (5,216 workers moved). **Before the fix: 0, silently** |
+| Remove the MUT by coordinates (−70.6017, −33.4180) | point jobs set 0 | The nearest-point rule took block 13114131008007 (35 m, 5,215 jobs), **not** the registered MUT block 13114131009033: Tobalaba −3,432 is for that neighbour block. For the MUT, use the named place `mut` (`data/mvp/named_places.csv`): Tobalaba −2,547.9, 4,681 workers moved |
 | Concert, 60,000 at Estadio Nacional | event | `events[]` only; station deltas stay 0 by design |
 | New Metro station in Lo Barnechea | station at a point | `not_modeled`, with a clear reason |
 | Mix: close Baquedano, Providencia jobs ×1.2, Puente Alto–Santiago +10 min | 3 changes | Baquedano −20,727; Salvador +11,327 |
@@ -19,7 +19,7 @@ Twelve unprepared questions went through the real MCP server (`tools/santiago-mc
 
 ## Defect found and fixed
 
-A point target matched only a point with the same coordinates to 6 decimals. Any other point became a new place with 0 jobs. So "remove / reduce this existing place" at the agent's coordinates was in `applied` but did nothing. Now, if the change gives 0 on an empty point (`set 0`, `multiply`, `add` ≤ 0), the engine uses the nearest existing point within 500 m. `applied[].understood.jobs_before` shows what it took. New buildings keep the new-point rule.
+A point target matched only a point with the same coordinates to 6 decimals. Any other point became a new place with 0 jobs. So "remove / reduce this existing place" at the agent's coordinates was in `applied` but did nothing. Now, if the change gives 0 on an empty point (`set 0`, `multiply`, `add` ≤ 0), the engine uses the nearest existing point within 500 m. `applied[].understood` shows the block it took (`block`, `block_distance_m`) and `jobs_before`. The nearest block is not always the named place: for a named place, use `named_places.csv`. New buildings keep the new-point rule.
 
 ## Limits for the presenter
 
