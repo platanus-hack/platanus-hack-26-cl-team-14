@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cierre total del Metro · Tobalaba</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b1018; color: #f0f4fa; font: 600 24px system-ui, sans-serif; }
+  main { max-width: 1600px; margin: auto; padding: clamp(16px, 3vw, 48px); }
+  h1 { font-size: clamp(34px, 5vw, 76px); letter-spacing: -.045em; margin: 0 0 .25em; }
+  header p { margin: 0 0 1.1em; color: #bccadc; }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(12px, 2vw, 32px); }
+  section { min-width: 0; border: 1px solid #435369; border-radius: 18px; overflow: hidden; }
+  h2 { margin: 0; padding: .45em .65em; background: #182434; font-size: clamp(22px, 3vw, 44px); }
+  section:first-child h2 { color: #a0f7e1; }
+  section:last-child h2 { color: #ffb1a9; }
+  canvas { display: block; width: 100%; background: #111c29; }
+  footer { margin-top: .8em; color: #aab8ca; font-size: clamp(16px, 1.7vw, 24px); }
+  @media (max-width: 620px) { .views { grid-template-columns: 1fr; } }
+</style>
+<main>
+  <header>
+    <h1>Cierre total del Metro</h1>
+    <p>Tobalaba, Santiago</p>
+  </header>
+  <div class="views">
+    <section>
+      <h2>Con servicio</h2>
+      <canvas id="open" width="720" height="490" role="img" aria-label="Mapa de Tobalaba con las líneas L1 y L4 activas"></canvas>
+    </section>
+    <section>
+      <h2>Sin servicio</h2>
+      <canvas id="closed" width="720" height="490" role="img" aria-label="El mismo mapa, con ambas líneas discontinuas y la estación cerrada"></canvas>
+    </section>
+  </div>
+  <footer>Maqueta · Trazados de DTPM y OpenStreetMap</footer>
+</main>
+<script type="module">
+  const data = '../web/data/';
+  const [ground, tracks, mut] = await Promise.all([
+    fetch(data + 'ground.geojson').then(response => response.json()),
+    fetch(data + 'metro_tracks.geojson.gz').then(response =>
+      new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).json()
+    ),
+    fetch(data + 'mut_parts.geojson').then(response => response.json()),
+  ]);
+  const station = [-70.60148, -33.41816];
+  const project = ([lon, lat]) => [
+    360 + (lon - station[0]) * 0.835 * 82000,
+    250 - (lat - station[1]) * 82000,
+  ];
+  function path(ctx, points) {
+    ctx.beginPath();
+    points.forEach((point, i) => {
+      const [x, y] = project(point);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+  }
+
+  for (const canvas of document.querySelectorAll('canvas')) {
+    const closed = canvas.id === 'closed';
+    const ctx = canvas.getContext('2d');
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (const { geometry, properties } of ground.features) {
+      if (properties.kind === 'park') {
+        path(ctx, geometry.coordinates[0]);
+        ctx.fillStyle = '#203b34';
+        ctx.fill();
+      } else if (properties.kind === 'road' || properties.kind === 'river') {
+        path(ctx, geometry.coordinates);
+        ctx.strokeStyle = properties.kind === 'river' ? '#20546c' : '#304359';
+        ctx.lineWidth = properties.kind === 'river' ? 22 : properties.major ? 5 : 2;
+        ctx.stroke();
+      }
+    }
+
+    for (const { geometry } of mut.features) {
+      path(ctx, geometry.coordinates[0]);
+      ctx.fillStyle = '#607187';
+      ctx.fill();
+    }
+
+    for (const line of ['L1', 'L4']) {
+      const segments = tracks.features.filter(feature => feature.properties.line === line && feature.properties.direction === 0);
+      for (const { geometry } of segments) {
+        path(ctx, geometry.coordinates);
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#111c29';
+        ctx.lineWidth = 17;
+        ctx.stroke();
+        ctx.setLineDash(closed ? [12, 12] : []);
+        ctx.strokeStyle = closed ? '#8c9bad' : line === 'L1' ? '#ff818e' : '#7ecfff';
+        ctx.lineWidth = closed ? 5 : 9;
+        ctx.stroke();
+      }
+    }
+
+    const [x, y] = project(station);
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(x, y, 22, 0, Math.PI * 2);
+    ctx.fillStyle = '#111c29';
+    ctx.fill();
+    ctx.strokeStyle = closed ? '#ffb1a9' : '#a0f7e1';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    if (closed) {
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y - 8);
+      ctx.lineTo(x + 8, y + 8);
+      ctx.moveTo(x + 8, y - 8);
+      ctx.lineTo(x - 8, y + 8);
+      ctx.stroke();
+    }
+    ctx.font = '700 30px system-ui';
+    ctx.strokeStyle = '#111c29';
+    ctx.lineWidth = 8;
+    ctx.fillStyle = '#f0f4fa';
+    ctx.strokeText('MUT', x + 55, y - 68);
+    ctx.fillText('MUT', x + 55, y - 68);
+  }
+</script>
+</html>
