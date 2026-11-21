@@ -23,6 +23,7 @@ cases = {
     "minutes": [minutes], "multiplier": [jobs],
     **{s: [ch] for s, ch in stations.items()}, "three-stations": list(stations.values()),
     "combined": [mut, quilicura, maipu, stations["PQU"]],
+    "event-maipu": [{**change("event", maipu["target"], "set", 1500), "assumed_end_half_hour": 40}],
 }
 
 
@@ -40,6 +41,13 @@ def run(port, directory, baseline):
                 raw = response.read()
             duration = (time.perf_counter() - start) * 1000
             data = json.loads(raw)
+            if name == "event-maipu" and len(data["events"]) != 1:
+                raise SystemExit("The event response must contain the modeled event")
+            if len(data["stations"]) != 126 or not isinstance(data["trips_delta"], list):
+                raise SystemExit(f"{name}: incomplete station or trip response")
+            for station in data["stations"]:
+                if len(station["base_half_hour"]) != 48 or len(station["scenario_half_hour"]) != 48:
+                    raise SystemExit(f"{name}: incomplete half-hour series for {station['id']}")
             elapsed = data.pop("elapsed_ms")
             del data["revision"]
             canonical = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
