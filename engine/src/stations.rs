@@ -1,0 +1,95 @@
+//! L0 station prediction (clever-heron's v0 contract, 06:58 UTC): work mass from the internal
+//! work OD, split inside each comuna by block population (homes) and by modeled jobs (work places),
+//! each point to its nearest Metro parent. 00:00-12:00 from homes, 12:00-24:00 from jobs, times a
+//! training-only half-hour profile, times one scale fitted on training stations.
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::Path;
+
+#[derive(Deserialize)]
+struct Od { origin_cut: String, destination_cut: String, workers: f64 }
+#[derive(Deserialize)]
+struct Block { cut: String, longitude: f64, latitude: f64, population: f64 }
+#[derive(Deserialize)]
+struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
+#[derive(Deserialize)]
+pub struct Station { pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
+
+#[derive(Serialize)]
+pub struct Report { pub scale: f64, pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64 }
+
+fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
+    csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
+}
+
+/// Nearest parent by local flat metres; returns (index, distance).
+fn nearest(st: &[Station], x: f64, y: f64) -> (usize, f64) {
+    let kx = 111_320.0 * (-33.45f64).to_radians().cos();
+    st.iter().enumerate()
+        .map(|(i, s)| (i, ((s.longitude - x) * kx).hypot((s.latitude - y) * 110_540.0)))
+        .min_by(|a, b| a.1.total_cmp(&b.1)).unwrap()
+}
+
+/// Spread each comuna total over its points by weight, add each point's share to its nearest station.
+/// Points farther than `radius` metres from their nearest parent add nothing (L1); their mass is not redistributed.
+fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, dist: &mut Vec<(f64, f64)>) -> Vec<f64> {
+    let mut wsum: HashMap<&str, f64> = HashMap::new();
+    for p in pts { *wsum.entry(&p.0).or_default() += p.3; }
+    let mut m = vec![0.0; st.len()];
+    for p in pts {
+        if p.3 == 0.0 { continue; }
+        let v = total.get(&p.0).copied().unwrap_or(0.0) * p.3 / wsum[p.0.as_str()];
+        let (i, d) = nearest(st, p.1, p.2);
+        dist.push((d, v));
+        if d <= radius { m[i] += v; }
+    }
+    m
+}
+
+pub fn predict(data: &Path, st: &[Station], radius: f64) -> (Vec<Vec<f64>>, Report) {
+    let (mut home, mut work) = (HashMap::new(), HashMap::new());
+    for f in rows::<Od>(&data.join("work_od.csv")) {
+        if !f.destination_cut.starts_with("13") { continue; } // RM-internal only, as main.rs
+        *home.entry(f.origin_cut).or_insert(0.0) += f.workers;
+        *work.entry(f.destination_cut).or_insert(0.0) += f.workers;
+    }
+    let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
+    let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
+    let mut dist = Vec::new();
+    let h = mass(st, &home, &blocks, radius, &mut dist);
+    let j = mass(st, &work, &jobs, radius, &mut dist);
+
+    // Profile p_t: mean over training stations observed at t, normalized to 1 inside each half.
+    let train: Vec<&Vec<Option<f64>>> = st.iter().filter(|s| !s.holdout).map(|s| s.laboral.as_ref().unwrap()).collect();
+    let mut p = vec![0.0; 48];
+    let mut support = vec![0; 48];
+    for t in 0..48 {
+        let v: Vec<f64> = train.iter().filter_map(|b| b[t]).collect();
+        support[t] = v.len();
+        if !v.is_empty() { p[t] = v.iter().sum::<f64>() / v.len() as f64; }
+    }
+    for half in [0..24, 24..48] {
+        let s: f64 = p[half.clone()].iter().sum();
+        for t in half { p[t] /= s; }
+    }
+    let q: Vec<Vec<f64>> = (0..st.len()).map(|i| (0..48).map(|t| p[t] * if t < 24 { h[i] } else { j[i] }).collect()).collect();
+
+    // One scale over the observed training cells.
+    let (mut obs, mut mod_, mut cells) = (0.0, 0.0, 0);
+    for (i, s) in st.iter().enumerate().filter(|(_, s)| !s.holdout) {
+        for (t, o) in s.laboral.as_ref().unwrap().iter().enumerate() {
+            if let Some(o) = o { obs += o; mod_ += q[i][t]; cells += 1; }
+        }
+    }
+    let a = obs / mod_;
+    dist.sort_by(|x, y| x.0.total_cmp(&y.0));
+    let w: f64 = dist.iter().map(|d| d.1).sum();
+    let mut qs = [0.0; 5];
+    for (k, f) in [0.1, 0.25, 0.5, 0.75, 0.9].iter().enumerate() {
+        let mut acc = 0.0;
+        qs[k] = dist.iter().find(|d| { acc += d.1; acc >= f * w }).unwrap().0.round();
+    }
+    let report = Report { scale: a, training_stations: train.len(), training_cells: cells, profile_support: support,
+        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum() };
+    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report)
+}
