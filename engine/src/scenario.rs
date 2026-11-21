@@ -533,6 +533,9 @@ impl Scenario {
             json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions))
         }).collect();
         let mut assumptions = ASSUMPTIONS.map(Value::from).to_vec();
+        if city_edits.iter().any(|edit| edit["kind"] == "line") {
+            assumptions.push(json!("Exploratory station boardings after a transit line edit. The station model uses worker origins, job destinations and baseline public transport shares. Ridership on the edited service is unknown."));
+        }
         if !car_shares.is_empty() {
             assumptions.push(json!("The 2012 Santiago travel survey links household access to a car with the mode used to travel to work. The model uses this survey association to estimate commuter counts by mode and home comuna."));
         }
