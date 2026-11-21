@@ -1,3 +1,4 @@
+#![allow(dead_code)] // each binary uses a different half of this module
 //! L0 station prediction (clever-heron's v0 contract, 06:58 UTC): work mass from the internal
 //! work OD, split inside each comuna by block population (homes) and by modeled jobs (work places),
 //! each point to its nearest Metro parent. 00:00-12:00 from homes, 12:00-24:00 from jobs, times a
@@ -15,7 +16,7 @@ struct Block { cut: String, longitude: f64, latitude: f64, population: f64 }
 #[derive(Deserialize)]
 struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
 #[derive(Deserialize)]
-pub struct Station { pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
+pub struct Station { pub id: String, pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
 
 #[derive(Serialize)]
 pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64 }
@@ -50,7 +51,7 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
 
 /// `classes`: L7, two station classes with their own profile.
 /// `public_share`: L2, weight each OD pair by the share of public-transport commuters (mode 2) of its home comuna.
-pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool) -> (Vec<Vec<f64>>, Report) {
+pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool) -> (Vec<Vec<f64>>, Report, Fit) {
     let mut share: HashMap<String, (f64, f64)> = HashMap::new();
     for m in rows::<Mode>(&data.join("mode_share.csv")) {
         let e = share.entry(m.cut).or_default();
@@ -127,5 +128,128 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
     let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
         distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum() };
-    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report)
+    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share })
+}
+
+/// The frozen parts of a fit that a scenario reuses: baseline classes, profiles, scale, radius, mode shares.
+pub struct Fit { class: Vec<usize>, p: Vec<Vec<f64>>, a: f64, radius: f64, share: HashMap<String, (f64, f64)>, public_share: bool }
+
+const MUT_BLOCK: &str = "13114131009033";
+const MUT_CUT: &str = "13114";
+
+#[derive(Deserialize)]
+struct ArtifactStation { id: String, predicted: Vec<f64> }
+#[derive(Deserialize)]
+struct Artifact { layer: String, stations_args: Vec<String>, wape_bins: f64, #[serde(default)] model_source_sha256: String,
+    #[serde(default)] input_sha256: HashMap<String, String>, #[serde(default)] target_sha256: String,
+    #[serde(default)] scorer_sha256: String, #[serde(default)] observed_cells: usize, stations: Vec<ArtifactStation> }
+
+/// Frozen score: target bytes of PR #35 and the scorer of PR #42 (tools/pack/check_score.py).
+const TARGET_SHA256: &str = "ecd8131fac2bfcf401bb5700dda7a7a0a31534990b8b962134d31449651ef5a3";
+const SCORER_SHA256: &str = "ea807561049a3e62a847455b98863594744ae1768201a498f3d720af2991dcaa";
+
+/// Files the fit reads; their hashes must equal the artifact's before its score is shown.
+const FIT_INPUTS: [&str; 5] = ["work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json"];
+
+fn sha256(bytes: &[u8]) -> String {
+    use sha2::Digest;
+    sha2::Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn layer_of(args: &[String]) -> Option<&'static str> {
+    match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), _ => None,
+    }
+}
+#[derive(Deserialize)]
+struct Commune { cut: String, population: f64 }
+#[derive(Deserialize)]
+struct JobRow { block_id: String, longitude: f64, latitude: f64, jobs: f64 }
+
+/// The accepted station model, fitted once with the arguments of `station_score_run.json`.
+pub struct StationModel {
+    st: Vec<Station>, base: Vec<Vec<f64>>, fit: Fit, layer: String, args: Vec<String>, wape_bins: Option<f64>,
+    mut_point: (f64, f64), mut_jobs: f64, commuters_per_resident: f64, home_public_share: f64, job_public_factor: f64,
+}
+
+#[derive(Deserialize)]
+pub struct MutRequest { pub site_id: String, pub dwellings_added: f64, pub jobs_removed: f64, pub occupied_share: f64, pub persons_per_occupied_dwelling: f64, pub occupancy_source: String }
+
+#[derive(Serialize)]
+pub struct HomeConversion { occupied_share: f64, persons_per_occupied_dwelling: f64, occupancy_source: String, commuters_per_resident: f64, public_share: f64 }
+#[derive(Serialize)]
+pub struct StationChange { id: String, name: String, predicted_base: Vec<f64>, predicted_scenario: Vec<f64> }
+#[derive(Serialize)]
+pub struct MutResponse {
+    site_id: String, dwellings_added: f64, jobs_removed: f64, layer: String, model_args: Vec<String>,
+    /// None when the artifact does not hold this exact fit (other arguments or other inputs).
+    wape_bins: Option<f64>, scope_label: &'static str, assumptions: [&'static str; 3], delta_home_mass: f64, delta_job_mass: f64,
+    home_conversion: HomeConversion, job_public_factor: f64, stations: Vec<StationChange>,
+}
+
+impl StationModel {
+    pub fn new(data: &Path) -> StationModel {
+        let art: Artifact = serde_json::from_reader(std::fs::File::open(data.join("station_score_run.json")).unwrap()).unwrap();
+        let st: Vec<Station> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
+        let has = |k: &str| art.stations_args.iter().any(|x| x == k);
+        let radius = art.stations_args.first().and_then(|r| r.parse().ok()).unwrap_or(f64::INFINITY);
+        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"));
+        // The stored score belongs to this fit only if: same model source, frozen target bytes and scorer, 1,123 cells, same input bytes, the label of these
+        // arguments, all 31 frozen held-out stations present, and exactly the same held-out predictions.
+        let held: std::collections::BTreeSet<&str> = st.iter().filter(|s| s.holdout).map(|s| s.id.as_str()).collect();
+        let listed: std::collections::BTreeSet<&str> = art.stations.iter().map(|a| a.id.as_str()).collect();
+        let same = art.model_source_sha256 == sha256(include_bytes!("stations.rs"))
+            && art.target_sha256 == TARGET_SHA256 && sha256(&std::fs::read(data.join("metro_observations.json")).unwrap()) == TARGET_SHA256
+            && art.scorer_sha256 == SCORER_SHA256 && art.observed_cells == 1123
+            && FIT_INPUTS.iter().all(|f| art.input_sha256.get(*f) == Some(&sha256(&std::fs::read(data.join(f)).unwrap())))
+            && layer_of(&art.stations_args) == Some(art.layer.as_str())
+            && held.len() == 31 && listed == held && art.stations.len() == 31
+            && art.stations.iter().all(|a| st.iter().position(|s| s.id == a.id).is_some_and(|i| base[i] == a.predicted));
+        let m = |cut: &str| if fit.public_share { let (p, t) = fit.share[cut]; p / t } else { 1.0 };
+        let (mut out, mut inb, mut inb_w) = (0.0, 0.0, 0.0);
+        for f in rows::<Od>(&data.join("work_od.csv")) {
+            if !f.destination_cut.starts_with("13") { continue; }
+            if f.origin_cut == MUT_CUT { out += f.workers; }
+            if f.destination_cut == MUT_CUT { inb += f.workers; inb_w += f.workers * m(&f.origin_cut); }
+        }
+        let pop = rows::<Commune>(&data.join("communes.csv")).into_iter().find(|c| c.cut == MUT_CUT).unwrap().population;
+        let row = rows::<JobRow>(&data.join("jobs.csv")).into_iter().find(|j| j.block_id == MUT_BLOCK).unwrap();
+        StationModel {
+            layer: art.layer, args: art.stations_args, wape_bins: same.then_some(art.wape_bins),
+            mut_point: (row.longitude, row.latitude), mut_jobs: row.jobs, commuters_per_resident: out / pop,
+            home_public_share: m(MUT_CUT), job_public_factor: inb_w / inb, st, base, fit,
+        }
+    }
+
+    /// MUT only: new dwellings become home mass, removed jobs leave job mass, both at the MUT jobs row,
+    /// through the frozen fit. The MUT parent is always returned; at zero change both arrays are equal.
+    pub fn mut_scenario(&self, r: MutRequest) -> Result<MutResponse, String> {
+        if r.site_id != "MUT" { return Err("site_id must be MUT".into()); }
+        if !(r.dwellings_added >= 0.0 && r.dwellings_added.is_finite()) { return Err("dwellings_added must be finite and >= 0".into()); }
+        if !(0.0..=self.mut_jobs).contains(&r.jobs_removed) { return Err(format!("jobs_removed must be in 0..={}", self.mut_jobs)); }
+        if !(0.0..=1.0).contains(&r.occupied_share) { return Err("occupied_share must be in 0..=1".into()); }
+        if !(r.persons_per_occupied_dwelling >= 0.0 && r.persons_per_occupied_dwelling.is_finite()) { return Err("persons_per_occupied_dwelling must be finite and >= 0".into()); }
+        let dh = r.dwellings_added * r.occupied_share * r.persons_per_occupied_dwelling * self.commuters_per_resident * self.home_public_share;
+        let dj = -r.jobs_removed * self.job_public_factor;
+        let (i, d) = nearest(&self.st, self.mut_point.0, self.mut_point.1);
+        let mut stations = Vec::new();
+        if d <= self.fit.radius {
+            let p = &self.fit.p[self.fit.class[i]];
+            let scen = (0..48).map(|t| self.base[i][t] + self.fit.a * p[t] * if t < 24 { dh } else { dj }).collect();
+            stations.push(StationChange { id: self.st[i].id.clone(), name: self.st[i].name.clone(), predicted_base: self.base[i].clone(), predicted_scenario: scen });
+        }
+        Ok(MutResponse {
+            site_id: r.site_id, dwellings_added: r.dwellings_added, jobs_removed: r.jobs_removed, layer: self.layer.clone(),
+            model_args: self.args.clone(), wape_bins: self.wape_bins, scope_label: "error del modelo base, no del escenario",
+            assumptions: [
+                "The scale was fitted so that work mass explains all boardings of a station; applying it to removed jobs is an unvalidated sensitivity, not a per-worker Metro probability.",
+                "Mode 2 shares are transferred from home comunas (residents) and from origin comunas (arriving workers); they are not observed at this site.",
+                "jobs_removed are modeled jobs of jobs.csv; mall visitors and other trips are not in the model.",
+            ],
+            delta_home_mass: dh, delta_job_mass: dj,
+            home_conversion: HomeConversion { occupied_share: r.occupied_share, persons_per_occupied_dwelling: r.persons_per_occupied_dwelling,
+                occupancy_source: r.occupancy_source, commuters_per_resident: self.commuters_per_resident, public_share: self.home_public_share },
+            job_public_factor: self.job_public_factor, stations,
+        })
+    }
 }
