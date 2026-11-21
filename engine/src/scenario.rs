@@ -642,13 +642,13 @@ impl Scenario {
                 if !base.student && !in_window(i, base) { p.mode = base.mode; }
             }
         }
-        // Workers and mode changes by age band and household size (rechoose changes `mode` only for a new mode class).
+        // Count broad mode changes after the closure window and fine modes are applied.
         // Per group: workers, changed mode, public transport (mode 2) before, left public transport.
         let mut by_trait = [[[0_u32; 4]; 5]; 2];
         for (p, &before) in pop.persons.iter().zip(&modes_before).filter(|(p, _)| !p.student && p.age_band != UNKNOWN) {
             for (t, v) in [(0, p.age_band), (1, p.household_size - 1)] {
                 by_trait[t][v as usize][0] += 1;
-                by_trait[t][v as usize][1] += u32::from(p.mode != before);
+                by_trait[t][v as usize][1] += u32::from(crate::rechoose::class(p.mode) != crate::rechoose::class(before));
                 by_trait[t][v as usize][2] += u32::from(before == 2);
                 by_trait[t][v as usize][3] += u32::from(before == 2 && p.mode != 2);
             }
