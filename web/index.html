@@ -61,8 +61,9 @@
 <div class="box s" style="bottom:28px;right:28px;text-align:right"><small style="color:#fff">reconstrucción del Censo 2024</small><small>+ sensibilidad, sin validar</small></div>
 <div class="box tl p">
   <div class="big" id="wape">—</div>
-  <small>error absoluto agregado · 31 estaciones reservadas</small>
-  <small>el modelo no vio sus subidas · puntaje de desarrollo</small>
+  <small>error absoluto agregado · 31 estaciones que el modelo no vio</small>
+  <small>modelo de estaciones <span id="layer"></span>, todas las medias horas · desarrollo</small>
+  <small>no mide el escenario del MUT</small>
   <div class="mid" id="hh2" style="margin-top:18px">--:--</div>
   <small>subidas al Metro en 30 min · abril 2026, día laboral</small>
   <small><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#ff7a1a"></i>modelo</small>
@@ -85,7 +86,7 @@ const KZ = 0.02;              // metres of comuna height for each person who wor
 const VIEWS = {
   t: {longitude: -70.6040, latitude: -33.4205, zoom: 15.2, pitch: 55, bearing: -28},
   s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15},
-  p: {longitude: -70.72, latitude: -33.47, zoom: 11.2, pitch: 55, bearing: -15}};
+  p: {longitude: -70.77, latitude: -33.45, zoom: 11.1, pitch: 55, bearing: -15}};
 const $ = id => document.getElementById(id);
 const fmt = (n, d = 0) => n.toLocaleString('es-CL', {maximumFractionDigits: d, minimumFractionDigits: d});
 const height = v => 15 + 4 * Math.sqrt(v);  // square root with a 15 m floor: a bus stop stays visible
@@ -283,7 +284,7 @@ $('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(
 const get = u => fetch(u).then(r => r.json());
 Promise.all(['score.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
     .map(u => get((/^(score|stops|ground)/.test(u) ? 'data/' : '../data/mvp/') + u))).then(([sc, bus, ...r]) => {
-  score = sc; $('wape').textContent = fmt(sc.wape_bins * 100) + '%';  // the number of tools/pack/check_score.py
+  score = sc; $('wape').textContent = fmt(sc.wape_bins * 100) + '%'; $('layer').textContent = sc.layer;  // the number of tools/pack/check_score.py
   [ground, communes] = r.splice(-2);
   // the diorama tile: keep the buildings inside the frame of the ground extract
   buildings = r.pop().features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
