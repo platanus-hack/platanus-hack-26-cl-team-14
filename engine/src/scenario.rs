@@ -450,6 +450,7 @@ impl Scenario {
             let scale = |v: &mut [Point], ids: &[usize], baseline: &[Point]| {
                 let before: f64 = ids.iter().map(|&i| v[i].weight).sum();
                 let after = op(before);
+                if before == after { return Some((before, after)); }
                 if ids.len() == 1 {
                     v[ids[0]].weight = after;
                 } else if before > 0.0 {
@@ -474,8 +475,17 @@ impl Scenario {
                     if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.jobs[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
                 Kind::Residents => {
-                    if !building_home_weights.is_empty() { self.apply_building_workers(&mut pop, &mut building_home_weights); }
                     let (ids, cut) = points(&mut pop.homes);
+                    if !building_home_weights.is_empty() {
+                        let current = ids.iter().map(|&i| pop.homes[i].weight).sum();
+                        if op(current) != current {
+                            // Only a real stock change at a shared home needs its workers up to date.
+                            // Other blocks keep accumulating their building edits until job choice.
+                            let mut shared: BTreeMap<_, _> = ids.iter()
+                                .filter_map(|i| building_home_weights.remove_entry(i)).collect();
+                            if !shared.is_empty() { self.apply_building_workers(&mut pop, &mut shared); }
+                        }
+                    }
                     let Some((before, after)) = scale(&mut pop.homes, &ids, &self.pop.homes) else {
                         note["reason"] = json!("The comuna has no baseline block weights for this increase.");
                         not_modeled.push(note);
