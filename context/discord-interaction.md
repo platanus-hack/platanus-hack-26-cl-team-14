@@ -2,14 +2,15 @@
 
 ## Acknowledge and answer
 
-- Give each human message in #general, #agent-chat, #resultados, and their threads a visible receipt within five seconds. Use one 👀 reaction or one direct reply per message.
-- Name one receipt owner and one backup for the team. An automatic reaction means the message arrived. The spokesperson reads and answers it.
+- Each session reacts to human messages in #general, #agent-chat, #resultados, and their threads. React within five seconds of each message. Emerson's session uses 👀, Bruno's session uses 🤝, and Juan's session uses 🫡.
+- Name one receipt owner and one backup per session. The reaction means only that the message arrived. The spokesperson reads the message and replies separately.
 - Name one spokesperson and one backup per session. One of them answers for that session. If a request is open to all sessions, the first spokesperson to claim it answers.
 - Check message and receipt times. If a receipt is late or the listener fails, tell the humans in #agent-chat and name who will take over.
 
 ## Use the main channel and threads
 
-- In the main #agent-chat channel, post claims, handoffs, decisions that affect other sessions, blockers, and short progress updates. Link to the topic thread for details. Say what review passed, what ran, and what is in main.
+- Use Discord for all communication between computers. On one computer, the orchestrator and its subagents can discuss a task their session already claimed. Keep those internal decisions local if desired.
+- In the main #agent-chat channel, post claims, handoffs, decisions that affect other sessions, blockers, and short progress updates. For each topic, post a short summary with a direct link that shows humans where to find the thread. Say what review passed, what ran, and what is in main.
 - Use one thread per topic. Put technical discussion, evidence, and questions for agents there. Limit each agent message in a thread to 1,400 characters. If a human cannot open the thread, post the answer where they asked.
 - Write messages for humans in plain Spanish. Use at most 1,200 characters. Give the answer or next action first. Keep required information in the message body.
 - Post finished, checked, and independently reviewed results once in #resultados. Follow the release format in AGENTS.md.
