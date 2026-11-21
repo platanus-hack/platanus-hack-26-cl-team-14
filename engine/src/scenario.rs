@@ -133,6 +133,10 @@ impl Scenario {
     // Allocate whole workers once from the final resident stocks. Carry fractional workers
     // between home blocks in the same comuna. Keep baseline workers when no stock changed.
     fn apply_net_residents(&self, pop: &mut Population) {
+        // Baseline persons already reference the original indices. New homes have no workers yet.
+        pop.homes[self.pop.homes.len()..].sort_by(|a, b| {
+            a.longitude.total_cmp(&b.longitude).then(a.latitude.total_cmp(&b.latitude)).then(a.id.cmp(&b.id))
+        });
         let mut cumulative = vec![0.0_f64; self.choice.n];
         let mut deltas = vec![0_i64; pop.homes.len()];
         let mut losing_homes = vec![Vec::new(); self.choice.n];
@@ -145,32 +149,46 @@ impl Scenario {
             cumulative[cut] += (point.weight - before) * self.ratio[cut];
             deltas[home] = (cumulative[cut].round() - previous.round()) as i64;
         }
-        if deltas.iter().any(|&d| d < 0) {
+        if losing_homes.iter().any(|homes| !homes.is_empty()) {
             let mut counts = vec![0_u64; deltas.len()];
             let mut seen = vec![0_u64; deltas.len()];
             for p in pop.persons.iter().filter(|p| !p.student) {
                 counts[p.home as usize] += 1;
             }
-            // Some losing blocks have fewer workers than their share of the comuna reduction.
-            // Distribute the shortfall over remaining workers on other losing blocks in that comuna.
+            // An empty block loses every worker. On the other declining blocks, keep the
+            // comuna reduction as close to its target as the available workers allow.
             for homes in losing_homes {
-                let mut shortage = 0_u64;
-                let mut remaining = 0_u64;
+                let mut target = 0_u64;
+                let mut removed = 0_u64;
+                let mut adjustable = 0_u64;
+                let mut spare = 0_u64;
                 for &h in &homes {
                     let requested = deltas[h].unsigned_abs();
-                    let remove = requested.min(counts[h]);
-                    deltas[h] = -(remove as i64);
-                    shortage += requested - remove;
-                    remaining += counts[h] - remove;
+                    let gone = if pop.homes[h].weight == 0.0 {
+                        counts[h]
+                    } else {
+                        let gone = requested.min(counts[h]);
+                        adjustable += gone;
+                        spare += counts[h] - gone;
+                        gone
+                    };
+                    target += requested;
+                    removed += gone;
+                    deltas[h] = -(gone as i64);
                 }
-                if shortage == 0 || remaining == 0 { continue; }
-                let mut capacity = 0_u64;
+                let increase = target > removed;
+                let capacity = if increase { spare } else { adjustable };
+                let correction = target.abs_diff(removed).min(capacity);
+                if correction == 0 { continue; }
+                let mut cumulative_capacity = 0_u64;
                 let mut allocated = 0_u64;
-                for h in homes {
-                    capacity += counts[h] - deltas[h].unsigned_abs();
-                    let target = capacity * shortage.min(remaining) / remaining;
-                    deltas[h] -= (target - allocated) as i64;
-                    allocated = target;
+                for h in homes.into_iter().filter(|&h| pop.homes[h].weight > 0.0) {
+                    let gone = deltas[h].unsigned_abs();
+                    cumulative_capacity += if increase { counts[h] - gone } else { gone };
+                    let next = cumulative_capacity * correction / capacity;
+                    let change = (next - allocated) as i64;
+                    if increase { deltas[h] -= change; } else { deltas[h] += change; }
+                    allocated = next;
                 }
             }
             pop.persons.retain(|p| {
