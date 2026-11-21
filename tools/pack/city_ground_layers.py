@@ -1,4 +1,4 @@
-"""Build the Santiago residential street and green-area layers from the cached urban OSM extract."""
+"""Build the Santiago ground layers from the cached urban OSM extract."""
 import gzip
 import json
 import subprocess
@@ -92,6 +92,7 @@ COPY (
           f"{out.stat().st_size:,} gzip bytes. {dict(counts)}")
 
 
-RAW.mkdir(parents=True, exist_ok=True)
-build("residential_streets", STREETS, "highway", False)
-build("green_areas", GREEN, GREEN_KIND, True)
+if __name__ == "__main__":
+    RAW.mkdir(parents=True, exist_ok=True)
+    build("residential_streets", STREETS, "highway", False)
+    build("green_areas", GREEN, GREEN_KIND, True)
