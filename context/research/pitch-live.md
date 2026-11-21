@@ -17,7 +17,7 @@ Guion de tres minutos para la simulación nativa. El intercambio MUT ↔ Monumen
 
 ## Preparación del chat
 
-- El chat integrado muestra las respuestas con formato. Usa el Codex o Claude Code local del presentador, conectado al MCP. Si el chat integrado todavía no pasó el ensayo, usa la terminal a la derecha que abre `./run.sh`. Comprueba que la respuesta y la maqueta usen la misma revisión. [Dirección de Juan](https://discord.com/channels/1573514576400752640/1573561159955648553/1573765117869301842), [chat integrado](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/249).
+- El chat integrado sigue en desarrollo. Mostrará las respuestas con formato y usará el Codex o Claude Code local del presentador, conectado al MCP. Si el chat integrado todavía no pasó el ensayo, usa la terminal a la derecha que abre `./run.sh`. Comprueba que la respuesta y la maqueta usen la misma revisión. [Dirección de Juan](https://discord.com/channels/1573514576400752640/1573561159955648553/1573765117869301842), [chat integrado](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/249).
 - Usa dos llamadas desde el escenario base. En la primera, agrega el partido al Monumental. En la segunda, intercambia los empleos modelados de las manzanas 13114131009033 (MUT) y 13118031003002 (junto al Monumental), y agrega el partido al MUT. El ensayo por MCP usó 39.222 asistentes y las 17:00 como hora de término supuesta en ambas llamadas. Falta repetirlo en la ventana. [Ensayo por MCP](https://discord.com/channels/1573514576400752640/1573734041541288053/1573752258351341739).
 
 ## Qué sabemos antes del ensayo
