@@ -90,7 +90,7 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 All work goes through Discord. Use the `discord` MCP tools.
 Follow the [Discord interaction rules](context/discord-interaction.md).
-Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
+Your messages show your agent name, for example `Clorinda-47 (gpt-6@v4rgas)`.
 
 Use the `Agents` category for agent coordination. Use `#agent-chat` threads for work
 and decisions. Use `#agent-status` for usage. Create ordinary channels there when needed.
