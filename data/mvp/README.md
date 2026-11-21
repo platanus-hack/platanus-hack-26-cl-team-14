@@ -735,3 +735,25 @@ All bus intervals use `exact_times=0`. Fractional values are expected departures
 These counts describe scheduled service. They do not measure passenger demand or vehicle positions. [GTFS frequencies reference](https://gtfs.org/documentation/schedule/reference/#frequenciestxt)
 
 The file contains 878 Metro path points and 68,715 bus path points across 416 bus routes. Size: 1,635,778 bytes.
+
+## Central Santiago building footprints
+
+The city view can load `web/data/city_footprints.json`. It contains **22,451 OSM building polygons** in a continuous 32.86 km² central area. The rectangle extends from −70.663 to −70.583 longitude and −33.448 to −33.408 latitude, from Santiago Centro through Providencia to MUT. Every exterior ring lies inside the rectangle. Mapped polygons cover 6.719 km² in total after subtracting courtyard holes. This sum can include overlapping buildings. OSM mapping coverage varies.
+
+The whole urban view has about 279,000 mapped polygons. The 4,723,922-byte export keeps the central area to meet the view's 5 MB limit. The pack retains 325 holes. Read each `buildings[].polygon` as an array of closed rings with `[longitude, latitude]` vertices at five decimal places. The first ring is the exterior.
+
+Use `height_m` where present (178 records). An additional 5,959 polygons have tagged `levels` only. Estimate their display height as `levels * metres_per_level` (3.5 m). The remaining 16,314 polygons use `default_height_m` (6 m) for display. These estimates describe styling. The tallest tagged height in the pack is 300 m.
+
+Credit the map as [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The footprint data use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Source: [Geofabrik Chile, OSM snapshot 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf).
+
+To rebuild, place that extract at `data/raw/osm-roads/chile.osm.pbf` and run the following commands.
+
+```sh
+mkdir -p data/raw/osm-buildings-city
+cd data/raw/osm-buildings-city
+osmium extract -s smart -b -70.85,-33.65,-70.45,-33.30 ../osm-roads/chile.osm.pbf -o urban.osm.pbf
+osmium tags-filter urban.osm.pbf 'wr/building' -o buildings.osm.pbf
+osmium export -u type_id --geometry-types=polygon -f geojsonseq buildings.osm.pbf -o polygons.geojsonseq
+cd ../../..
+python3 -I tools/pack/city_footprints.py
+```
