@@ -66,6 +66,69 @@ fn project(p: Point, a: Point, b: Point) -> (f64, Point) {
     (t, [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])])
 }
 
+// A vertex inserted on the drawn chord splits the cost of its original source
+// edge. The chord can be several metres away from the unsimplified source edge.
+fn apportion_splits(
+    chain: &[usize],
+    old_len: usize,
+    spans: &[Span<'_>],
+    position: impl Fn(usize) -> Point,
+    lengths: &mut [f64],
+) {
+    let mut start = 0;
+    for end in 1..chain.len() {
+        if chain[end] >= old_len {
+            continue;
+        }
+        let from = chain[start];
+        let to = chain[end];
+        let run = start..end;
+        start = end;
+        if run.len() < 2 || from >= old_len || from == to {
+            continue;
+        }
+        for span in spans {
+            let Some(edge) = span
+                .source
+                .iter()
+                .find(|s| (s.from == from && s.to == to) || (s.from == to && s.to == from))
+            else {
+                continue;
+            };
+            let along = |n| {
+                if n == span.source[0].from {
+                    0.
+                } else if n == span.source.last().unwrap().to {
+                    1.
+                } else {
+                    project(position(n), span.start, span.end).0
+                }
+            };
+            let (a, b) = (along(from), along(to));
+            if a == b {
+                continue;
+            }
+            let mut boundaries = vec![0.];
+            for &n in &chain[run.start + 1..end] {
+                let p = position(n);
+                let (t, q) = project(p, span.start, span.end);
+                let fraction = (t - a) / (b - a);
+                if metres(p, q) > 0.000001 || !(0.0..1.0).contains(&fraction) {
+                    break;
+                }
+                boundaries.push(edge.metres * fraction);
+            }
+            if boundaries.len() == run.len() && boundaries.windows(2).all(|w| w[1] > w[0]) {
+                boundaries.push(edge.metres);
+                for (length, cost) in lengths[run.clone()].iter_mut().zip(boundaries.windows(2)) {
+                    *length = cost[1] - cost[0];
+                }
+                break;
+            }
+        }
+    }
+}
+
 pub(super) fn segments(
     previous: Option<&Road>,
     after: &Value,
@@ -212,19 +275,23 @@ pub(super) fn segments(
                 added[n - old_len]
             }
         };
-        for pair in chain.windows(2) {
-            let (from, to) = (pair[0], pair[1]);
-            if from == to {
-                continue;
-            }
-            let length = prior_lengths
-                .get(&(from.min(to), from.max(to)))
-                .copied()
-                .unwrap_or_else(|| metres(position(from), position(to)));
+        chain.dedup();
+        let mut lengths: Vec<_> = chain
+            .windows(2)
+            .map(|pair| {
+                let (from, to) = (pair[0], pair[1]);
+                prior_lengths
+                    .get(&(from.min(to), from.max(to)))
+                    .copied()
+                    .unwrap_or_else(|| metres(position(from), position(to)))
+            })
+            .collect();
+        apportion_splits(&chain, old_len, &spans, position, &mut lengths);
+        for (pair, length) in chain.windows(2).zip(lengths) {
             if length > 0. {
                 segments.push(Segment {
-                    from,
-                    to,
+                    from: pair[0],
+                    to: pair[1],
                     metres: length,
                 });
             }
