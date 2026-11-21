@@ -956,3 +956,18 @@ osmium export -u type_id --geometry-types=polygon -f geojsonseq buildings.osm.pb
 cd ../../..
 python3 -I tools/pack/city_footprints.py
 ```
+
+## Residential streets and mapped green areas
+
+The native view can read two gzip-compressed GeoJSON FeatureCollections under `web/data/`. Both cover the full Santiago roads rectangle (longitude −70.85 to −70.45, latitude −33.65 to −33.30). Each feature has `osm_type`, numeric `osm_id`, and `kind`. Named objects also have `name`. A source object may have several clipped parts. Coordinates use WGS84 longitude and latitude to five decimals.
+
+| File | Geometry | Source objects | Output parts | Vertices | Raw bytes | Gzip bytes |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `residential_streets.geojson.gz` | LineString | 79,194 ways | 79,269 | 190,009 | 17,091,934 | 2,151,553 |
+| `green_areas.geojson.gz` | Polygon | 20,264 ways and relations | 20,332 | 145,745 | 5,957,929 | 899,381 |
+
+The street layer adds 29,245 `residential` and 50,024 `living_street` parts. These simplified paths total approximately 9,531 km. They supplement the major roads in `roads.geojson`. This layer describes street geometry. [OSM residential streets](https://wiki.openstreetmap.org/wiki/Tag:highway%3Dresidential) · [OSM living streets](https://wiki.openstreetmap.org/wiki/Tag:highway%3Dliving_street).
+
+Green areas retain 110 holes. The `kind` values are `park`, `garden`, `nature_reserve`, `recreation_ground`, `wood`, `meadow`, `grass`, `village_green`, `grassland`, `scrub`, and `heath`. Mapped forests, woods, and tree cover share the class `wood`. Parks and reserves describe mapped land use, so a park can contain paved areas. Features can overlap across classes. The pack includes Parque O’Higgins (72.04 ha) and Parque Forestal (16.08 ha). [OSM parks](https://wiki.openstreetmap.org/wiki/Tag:leisure%3Dpark).
+
+The builder repairs invalid geometry, clips it to the viewport, and simplifies in UTM zone 19S. Tolerances are 3 m for streets and 4 m for green areas. After rounding, all released features passed the GEOS validity and bounds checks. Run `python3 tools/pack/city_ground_layers.py data/raw/osm-buildings-city/urban.osm.pbf` with osmium and DuckDB Spatial. The command reuses the cached [Geofabrik Chile snapshot](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf) from 2026-11-20 at 21:21 UTC and took 7.67 s locally. Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
