@@ -2,6 +2,8 @@
 use super::*;
 #[path = "bus_load.rs"]
 pub(super) mod bus_load;
+use std::collections::HashSet;
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub(super) enum RideKey {
     Metro { track: usize, run: usize },
@@ -105,7 +107,7 @@ pub(super) struct RiderNetwork {
     by_endpoints: HashMap<(String, [i64; 4]), usize>,
     options: Vec<RideOptions>,
     surface: Vec<SurfaceService>,
-    articulated_0800: Option<usize>,
+    articulated_starts: HashSet<(usize, i32)>,
 }
 
 fn ride_key(service: &str, from: &Value, to: &Value) -> (String, [i64; 4]) {
@@ -169,10 +171,19 @@ impl RiderNetwork {
                 }
             })
             .collect();
-        // DTPM U19 Annex 4, row 3092. This plan applies to the March feed.
-        // https://www.dtpm.cl/descargas/pops26/PO%202026(28Feb%20al%2013Nov)%20U19%20-%20Anexo%204.xlsx
-        let march_feed = data["source_sha256"] == "f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b";
-        let mut articulated_0800 = None;
+        // DTPM class C denotes articulated buses. Older packs have no fleet assignments.
+        let articulated_starts = data["planned_buses"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|bus| {
+                bus["dtpm_type"].as_str().is_some_and(|kind| kind.starts_with('C'))
+            })
+            .map(|bus| {
+                let start = bus["start"].as_i64().unwrap() as i32;
+                (row_index(&bus["template"]), start.rem_euclid(DAY as i32))
+            })
+            .collect();
         let mut by_endpoints = HashMap::new();
         let mut options = Vec::new();
         for row in data["legs"].as_array().unwrap() {
@@ -210,15 +221,9 @@ impl RiderNetwork {
                 }
             }
             let leg_key = ride_key(row[0].as_str().unwrap(), &row[1], &row[2]);
-            // The service also runs in the opposite direction at the same time.
-            let return_210 = march_feed && leg_key.0 == "210"
-                && leg_key.1 == [-7059498, -3353051, -7060015, -3351938];
             for candidate in row[4].as_array().unwrap() {
                 let template = row_index(&candidate[0]);
                 let service = &surface[template];
-                if return_210 && service.starts.contains(&28800) {
-                    articulated_0800 = Some(template);
-                }
                 let b = &service.run.calls[row_index(&candidate[1])];
                 let e = &service.run.calls[row_index(&candidate[2])];
                 for &start in &service.starts {
@@ -258,7 +263,7 @@ impl RiderNetwork {
         }
         Self {
             by_endpoints,
-            articulated_0800,
+            articulated_starts,
             options,
             surface,
         }
@@ -306,7 +311,9 @@ impl RiderNetwork {
     }
 
     pub(super) fn bus_rear(&self, template: usize, start: i32, now: f32, front: Vec3, heading: Vec3) -> Option<(Vec3, Vec3)> {
-        if Some(template) != self.articulated_0800 || start.rem_euclid(DAY as i32) != 28800 { return None; }
+        if !self.articulated_starts.contains(&(template, start.rem_euclid(DAY as i32))) {
+            return None;
+        }
         let service = &self.surface[template];
         let distance = service.run.distance(now - start as f32)?;
         Some(service.path.articulated_rear(distance, front, heading, BUS_FRONT_TO_HINGE, BUS_TAIL_HALF))
