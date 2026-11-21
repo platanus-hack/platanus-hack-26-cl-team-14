@@ -2,7 +2,6 @@
 use super::*;
 #[path = "bus_load.rs"]
 pub(super) mod bus_load;
-use std::collections::HashSet;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub(super) enum RideKey {
@@ -107,7 +106,7 @@ pub(super) struct RiderNetwork {
     by_endpoints: HashMap<(String, [i64; 4]), usize>,
     options: Vec<RideOptions>,
     surface: Vec<SurfaceService>,
-    articulated_starts: HashSet<(usize, i32)>,
+    articulated_starts: HashMap<(usize, i32), articulated::BusCurve>,
 }
 
 fn ride_key(service: &str, from: &Value, to: &Value) -> (String, [i64; 4]) {
@@ -181,7 +180,10 @@ impl RiderNetwork {
             })
             .map(|bus| {
                 let start = bus["start"].as_i64().unwrap() as i32;
-                (row_index(&bus["template"]), start.rem_euclid(DAY as i32))
+                let template = row_index(&bus["template"]);
+                let service = &surface[template];
+                let curve = articulated::BusCurve::new(&service.path, &service.run);
+                ((template, start.rem_euclid(DAY as i32)), curve)
             })
             .collect();
         let mut by_endpoints = HashMap::new();
@@ -311,12 +313,10 @@ impl RiderNetwork {
     }
 
     pub(super) fn bus_rear(&self, template: usize, start: i32, now: f32, front: Vec3, heading: Vec3) -> Option<(Vec3, Vec3)> {
-        if !self.articulated_starts.contains(&(template, start.rem_euclid(DAY as i32))) {
-            return None;
-        }
-        let service = &self.surface[template];
-        let distance = service.run.distance(now - start as f32)?;
-        Some(service.path.articulated_rear(distance, front, heading, BUS_FRONT_TO_HINGE, BUS_TAIL_HALF))
+        let curve = self.articulated_starts.get(&(template, start.rem_euclid(DAY as i32)))?;
+        let (_, _, rear_heading) = curve.pose(now - start as f32)?;
+        let hinge = front - heading * BUS_FRONT_TO_HINGE;
+        Some((hinge - rear_heading * BUS_TAIL_HALF, rear_heading))
     }
 
     pub(super) fn surface_pose(
@@ -325,6 +325,10 @@ impl RiderNetwork {
         start: i32,
         now: f32,
     ) -> Option<(Vec3, Vec3, Vehicle)> {
+        if let Some(curve) = self.articulated_starts.get(&(template, start.rem_euclid(DAY as i32))) {
+            let (p, heading, _) = curve.pose(now - start as f32)?;
+            return Some((p, heading, Vehicle::Bus));
+        }
         let service = &self.surface[template];
         let d = service.run.distance(now - start as f32)?;
         let (p, dir) = if service.vehicle == Vehicle::Bus {
