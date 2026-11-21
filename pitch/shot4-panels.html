@@ -5,35 +5,29 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Toma 4 · Tres preguntas</title>
 <style>
-:root{--midnight:#101b34;--blue:#24375d;--vellum:#faf4df;--yellow:#ffdc78;--red:#ff6b5a;--cyan:#7fd8ff}
+:root{--midnight:#101b34;--vellum:#faf4df;--yellow:#ffdc78;--red:#ff6b5a;--cyan:#7fd8ff}
 *{box-sizing:border-box;margin:0}
 html,body{height:100%;background:var(--midnight);color:var(--vellum);font:600 16px/1.1 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
 #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;gap:2vw;padding:4vh 3vw 16vh}
-.panel{position:relative;flex:0 0 30vw;height:100%;border-radius:28px;background:radial-gradient(120% 90% at 50% 40%,#1c2c50,#0b1428);box-shadow:0 0 0 3px #2c4270 inset;overflow:hidden;opacity:0;transform:scale(.6) translateY(8vh)}
+.panel{position:relative;flex:0 0 30vw;height:100%;border-radius:28px;background:radial-gradient(120% 90% at 50% 40%,#1c2c50,#0b1428);box-shadow:0 0 0 3px #2c4270 inset;overflow:hidden;opacity:0}
 .panel svg{position:absolute;inset:0;width:100%;height:100%}
 .com{fill:#1d3159;stroke:#5a78b0;stroke-width:2}
 .hot{fill:#3f68b0}
+.tag{position:absolute;top:1.2vh;left:50%;transform:translateX(-50%);font-size:20px;padding:4px 10px;border-radius:999px;background:#ffffff1a;opacity:.7}
 .title{position:absolute;top:4.6vh;left:0;right:0;text-align:center;font-size:clamp(26px,2.4vw,48px);font-weight:800;letter-spacing:-.01em}
+.sub{position:absolute;top:calc(4.6vh + clamp(32px,2.9vw,58px));left:0;right:0;text-align:center;font-size:clamp(22px,1.5vw,30px);color:var(--yellow)}
 .big{position:absolute;bottom:3vh;left:0;right:0;text-align:center}
 .num{display:block;font-size:clamp(64px,6.4vw,128px);font-weight:900;font-variant-numeric:tabular-nums;color:var(--yellow);letter-spacing:-.03em}
 .unit{display:block;font-size:clamp(24px,1.6vw,32px);opacity:.9;margin-top:.6vh}
-.tag{position:absolute;top:1.2vh;left:50%;transform:translateX(-50%);font-size:20px;padding:4px 10px;border-radius:999px;background:#ffffff1a;opacity:.7}
-#tagline{position:fixed;left:0;right:0;bottom:5vh;text-align:center;font-size:clamp(34px,3.6vw,72px);font-weight:900;opacity:0;transform:translateY(3vh)}
+#tagline{position:fixed;left:0;right:0;bottom:5vh;text-align:center;font-size:clamp(34px,3.6vw,72px);font-weight:900;opacity:0}
 #tagline b{color:var(--yellow)}
 .ask{position:absolute;left:8%;right:8%;bottom:6vh;padding:2.2vh 1.6vw;border-radius:20px;background:var(--vellum);color:var(--midnight);font-size:clamp(22px,1.9vw,38px);font-weight:800;min-height:1.4em}
-.cursor{display:inline-block;width:.12em;height:1em;background:var(--midnight);vertical-align:-.12em;animation:blink 1s steps(1) infinite}
-.qmark{position:absolute;top:24%;left:0;right:0;text-align:center;font-size:clamp(140px,14vw,280px);font-weight:900;color:var(--yellow);opacity:.95}
-@keyframes blink{50%{opacity:0}}
-@keyframes ring{0%{r:10;opacity:1}100%{r:90;opacity:0}}
-@keyframes dash{to{stroke-dashoffset:0}}
-@keyframes fade{50%{opacity:.25}}
-.ring{fill:none;stroke:var(--yellow);stroke-width:5;animation:ring 1.8s ease-out infinite}
-.arc{fill:none;stroke:var(--cyan);stroke-width:4;stroke-linecap:round;stroke-dasharray:600;stroke-dashoffset:600;opacity:.85}
-.go .arc{animation:dash 1.6s ease-out forwards}
+.cursor{display:inline-block;width:.12em;height:1em;background:var(--midnight);vertical-align:-.12em}
+.qmark{position:absolute;top:24%;left:0;right:0;text-align:center;font-size:clamp(140px,14vw,280px);font-weight:900;color:var(--yellow)}
+.ring{fill:none;stroke:var(--yellow);stroke-width:5}
 .station{fill:var(--red);stroke:var(--vellum);stroke-width:4}
-.go .station{animation:fade 1.2s ease-in-out infinite}
 .label{fill:var(--vellum);font-size:30px;font-weight:800;paint-order:stroke;stroke:#0b1428;stroke-width:8px}
-.in{transition:opacity .9s ease,transform 1.1s cubic-bezier(.2,.8,.2,1);opacity:1!important;transform:none!important}
+.chip{fill:var(--yellow);font-size:34px;font-weight:900;paint-order:stroke;stroke:#0b1428;stroke-width:9px}
 </style>
 </head>
 <body>
@@ -41,29 +35,32 @@ html,body{height:100%;background:var(--midnight);color:var(--vellum);font:600 16
   <section class="panel" id="p1">
     <svg viewBox="160 40 760 760"><g class="map"></g>
       <g id="crowd"></g>
-      <circle class="ring" cx="636" cy="291" r="10"/><circle class="ring" cx="636" cy="291" r="10" style="animation-delay:.9s"/>
+      <circle class="ring" id="r1" cx="636" cy="291" r="10"/><circle class="ring" id="r2" cx="636" cy="291" r="10"/>
       <circle cx="636" cy="291" r="13" fill="var(--yellow)"/>
       <text class="label" x="660" y="270">MUT</text>
     </svg>
-    <div class="title">Estadio en el MUT</div><div class="tag">ensayo</div>
-    <div class="big"><span class="num" data-to="-2548">0</span><span class="unit">subidas / día laboral<br>Metro Tobalaba</span></div>
+    <div class="tag">ensayo</div>
+    <div class="title">Estadio en el MUT</div>
+    <div class="sub">al retirar sus empleos</div>
+    <div class="big"><span class="num" data-to="2548">0</span><span class="unit">subidas / día laboral<br>Metro Tobalaba</span></div>
   </section>
   <section class="panel" id="p2">
     <svg viewBox="160 40 760 760"><g class="map"></g>
-      <path class="arc" d="M360 436 Q520 220 800 255"/>
-      <path class="arc" d="M345 455 Q540 300 810 275" style="animation-delay:.25s"/>
-      <path class="arc" d="M375 420 Q500 160 790 240" style="animation-delay:.5s"/>
-      <circle class="station" cx="493" cy="381" r="16"/>
+      <circle class="station" id="uch" cx="493" cy="381" r="16"/>
       <text class="label" x="493" y="350" text-anchor="middle">U. de Chile</text>
+      <text class="chip" x="350" y="520" text-anchor="middle">+50% residentes</text>
+      <text class="chip" x="790" y="225" text-anchor="middle">+50% empleos</text>
     </svg>
-    <div class="title">Est. Central → Las Condes</div><div class="tag">ensayo</div>
-    <div class="big"><span class="num" data-to="-1284">0</span><span class="unit">subidas / día laboral<br>Metro U. de Chile</span></div>
+    <div class="tag">ensayo</div>
+    <div class="title">Est. Central y Las Condes</div>
+    <div class="sub">más casas allá, más trabajo acá</div>
+    <div class="big"><span class="num" data-to="1284">0</span><span class="unit">subidas / día laboral<br>Metro U. de Chile</span></div>
   </section>
   <section class="panel" id="p3">
     <svg viewBox="160 40 760 760"><g class="map"></g></svg>
     <div class="title">Su pregunta</div>
     <div class="qmark">?</div>
-    <div class="ask"><span id="typed"></span><span class="cursor"></span></div>
+    <div class="ask"><span id="typed"></span><span class="cursor" id="cur"></span></div>
   </section>
 </div>
 <div id="tagline">Pregunta <b>antes</b> de construir.</div>
@@ -74,59 +71,49 @@ for (const s of document.querySelectorAll('.panel')) {
   const g = s.querySelector('.map'), hot = HOT[s.id] || [];
   g.innerHTML = Object.entries(P).map(([c, d]) => `<path class="com${hot.includes(c) ? ' hot' : ''}" d="${d}"/>`).join('');
 }
+// Deterministic crowd: seeded so every run and every MP4 frame match.
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 const crowd = document.getElementById('crowd');
 const dots = Array.from({length: 140}, (_, i) => {
   const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   c.setAttribute('r', 4); c.setAttribute('fill', ['#ffdc78', '#7fd8ff', '#ff6b5a', '#faf4df'][i % 4]);
   crowd.appendChild(c);
-  return {a: Math.random() * 6.283, v: 40 + Math.random() * 260, d: Math.random() * 1.5};
+  return {c, a: rnd() * 6.283, v: 40 + rnd() * 260, d: rnd() * 1.5};
 });
-let t0 = 0;
-function crowdFrame(t) {
-  const s = (t - t0) / 1000;
-  dots.forEach((p, i) => {
-    const k = Math.max(0, Math.min(1, (s - p.d) / 3.5)), e = 1 - (1 - k) ** 3;
-    const c = crowd.children[i];
-    c.setAttribute('cx', 636 + Math.cos(p.a) * p.v * e);
-    c.setAttribute('cy', 291 + Math.sin(p.a) * p.v * e);
-    c.setAttribute('opacity', k >= 1 ? .35 : 1);
-  });
-  requestAnimationFrame(crowdFrame);
-}
-function count(el) {
-  const to = +el.dataset.to, st = performance.now();
-  const f = t => { const k = Math.max(0, Math.min(1, (t - st) / 1400)), e = 1 - (1 - k) ** 3;
-    el.textContent = (to < 0 ? '−' : '') + Math.round(Math.abs(to) * e).toLocaleString('es-CL');
-    if (k < 1) requestAnimationFrame(f); };
-  requestAnimationFrame(f);
-}
 const QS = ['¿Y si cerramos Los Libertadores?', '¿Y si Maipú tuviera el doble de empleos?', '¿Y si hay un concierto en el Parque O’Higgins?'];
-let typer;
-function type(qi = 0, n = 0) {
-  const q = QS[qi % QS.length], el = document.getElementById('typed');
-  el.textContent = q.slice(0, n);
-  typer = setTimeout(() => n < q.length ? type(qi, n + 1) : setTimeout(() => type(qi + 1, 0), 1600), n < q.length ? 55 : 0);
+const clamp = k => Math.max(0, Math.min(1, k)), ease = k => 1 - (1 - clamp(k)) ** 3;
+const enter = (el, t0, t) => { const e = ease((t - t0) / 1.1);
+  el.style.opacity = e; el.style.transform = `scale(${.6 + .4 * e}) translateY(${8 * (1 - e)}vh)`; };
+const fmt = n => '−' + Math.round(n).toLocaleString('es-CL');
+function typing(t) { // t seconds since panel 3 entered
+  let q = 0;
+  for (;;) { const dur = QS[q % QS.length].length * .055 + 3.5;
+    if (t < dur) return QS[q % QS.length].slice(0, Math.floor(t / .055)); t -= dur; q++; }
 }
-const later = (ms, f) => setTimeout(f, ms);
-function play() {
-  clearTimeout(typer);
-  document.querySelectorAll('.in,.go').forEach(e => e.classList.remove('in', 'go'));
-  document.querySelectorAll('.num').forEach(e => e.textContent = '0');
-  document.getElementById('typed').textContent = '';
-  later(300, () => { p1.classList.add('in'); t0 = performance.now(); count(p1.querySelector('.num')); });
-  later(2600, () => { p2.classList.add('in', 'go'); count(p2.querySelector('.num')); });
-  later(5000, () => { p3.classList.add('in'); type(); });
-  later(7600, () => tagline.classList.add('in'));
+// The whole shot is a function of time t (seconds), so replay and frame capture are exact.
+function render(t) {
+  enter(p1, .3, t); enter(p2, 2.6, t); enter(p3, 5, t);
+  const tg = ease((t - 7.6) / 1.1); tagline.style.opacity = tg; tagline.style.transform = `translateY(${3 * (1 - tg)}vh)`;
+  p1.querySelector('.num').textContent = fmt(2548 * ease((t - .3) / 1.4));
+  p2.querySelector('.num').textContent = fmt(1284 * ease((t - 2.6) / 1.4));
+  for (const [r, off] of [[r1, 0], [r2, .9]]) { const f = ((t + off) % 1.8) / 1.8;
+    r.setAttribute('r', 10 + 80 * f); r.setAttribute('opacity', 1 - f); }
+  for (const p of dots) { const k = clamp((t - .3 - p.d) / 3.5), e = 1 - (1 - k) ** 3;
+    p.c.setAttribute('cx', 636 + Math.cos(p.a) * p.v * e); p.c.setAttribute('cy', 291 + Math.sin(p.a) * p.v * e);
+    p.c.setAttribute('opacity', k >= 1 ? .35 : 1); }
+  uch.setAttribute('opacity', t < 2.6 ? 1 : .6 + .4 * Math.cos((t - 2.6) * 5.2));
+  typed.textContent = t < 5 ? '' : typing(t - 5);
+  cur.style.opacity = Math.floor(t * 2) % 2 ? 0 : 1;
 }
-requestAnimationFrame(crowdFrame);
-if (location.hash === '#end') { // still frame for captures and a static slide
-  document.body.insertAdjacentHTML('beforeend', '<style>*{transition:none!important}.arc{animation:none!important;stroke-dashoffset:0!important}</style>');
-  [p1, p2, p3, tagline].forEach(e => e.classList.add('in')); p2.classList.add('go');
-  document.querySelectorAll('.num').forEach(e => e.textContent = '−' + Math.abs(+e.dataset.to).toLocaleString('es-CL'));
-  typed.textContent = QS[0]; t0 = -1e5;
-} else play();
-addEventListener('keydown', e => e.key === ' ' && play());
-addEventListener('click', play);
+window.seek = render;
+let start = performance.now();
+const end = location.hash === '#end';
+const loop = now => { render(end ? 9.6 : (now - start) / 1000); requestAnimationFrame(loop); };
+if (!/capture/.test(location.hash)) requestAnimationFrame(loop);
+else render(0);
+const replay = () => { start = performance.now(); };
+addEventListener('keydown', e => (e.key === ' ' || e.key === 'r') && replay());
+addEventListener('click', replay);
 </script>
 </body>
 </html>
