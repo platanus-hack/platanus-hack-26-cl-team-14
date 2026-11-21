@@ -1208,3 +1208,31 @@ python3 tools/pack/local_mover_routes.py /path/to/quilicura-20k-rust.json 19341 
 ```
 
 The source result SHA-256 is `c9a41d56111e8c79abf4b859e2c1a8e3637e76aec3d72dd8ffe8a28711be4def`. The JSON also contains `source_sha256` and `max_snap_m`. Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The path geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
+## Vehicle types and colours for the miniature
+
+Use the trip group's `origin_cut` and a fixed seed to draw a class and a colour. These independent draws approximate how vehicles look. Permits describe the issuing municipality. Owners can choose where to pay. Alhué issued 52,079 private-car permits in 2024 for 2,770 resident households (18.8 per household). [INE and Census definitions](../../context/research/vehicle-fleet.md)
+
+| Draw | Comuna input | Fallback |
+| --- | --- | --- |
+| Type | `car_mix.csv` contains all 52 RM comunas. Shares use all 2024 motorized permits. | CUT `13` in the same file is the official RM total. If the view shows only a subset of classes, divide each selected share by their sum. |
+| Passenger body | After drawing the combined automobile class in Pudahuel, sample `car_bodies.csv`. In 2023, 16.90% of the 29,670 eligible cars had the municipal label SUV, 14.88% hatchback and 13.82% sedán. Another 34.82% had the generic automóvil label. | Keep the combined class wherever a source does not establish the body proportions. |
+| Colour | `car_colours.csv` contains passenger-car permit shares only where the source identifies vehicle class and colour. | `car_colour_proxy.csv`, CUT `13`, gives the colour mix of a regional used-car advertising sample. Missing comunas stay absent from the municipal file. |
+
+In Vitacura 17.66% of motorized permits were pickups. In La Pintana the figure was 12.82%. INE combines automobiles, station wagons and all-terrain vehicles in one class. That share cannot tell the view how many sedans or SUVs to draw. Pudahuel's 2023 permits include 29,670 distinct passenger cars, with white at 23.9% and an unknown colour for 0.84%. Its sample excludes pickups and motorcycles. Applying its colours to other vehicle types is a display assumption. Keep unknown visible as a data category. If the view requires a paint colour, sample from the known shares divided by their sum. [Vehicle classes](car_mix.md) · [Municipal colour source and rebuild](car_colours.md)
+
+The municipal search verified files for five issuing authorities: Huechuraba, La Reina, Maipú, Peñalolén and Pudahuel. Pudahuel was the only verified municipal file with observed colours. The public permit files of the other 47 authorities remain unresolved. [Coverage and years for all 52 CUTs](../../context/research/car-permit-coverage.md)
+
+### Regional colour fallback and national comparison
+
+Bright Data published a Chileautos sample on 15 January 2026. The downloadable file contains 1,000 distinct ads. Of these, 596 list the Metropolitana de Santiago region. We kept 463 used vehicles in explicit passenger-car, SUV or light-truck categories. Blank and heavy-vehicle categories are outside the denominator. Four selected ads omit colour and one colour label is ambiguous. White accounts for 149/463 (32.2%), grey for 103/463 (22.2%) and silver for 62/463 (13.4%). Geography follows the listing. Of the selected ads, 340 have plausible posting dates from January 2021 through November 2025. The other 123 use placeholder dates. Every selected ad has the same seller-type label, “Vendedor de autos.” Distinct posting IDs can still describe the same vehicle. The publisher does not give a probability sampling design. This proxy estimates the appearance of the listed vehicles. Regional fleet colours remain unmeasured. [Snapshot and publisher](https://github.com/luminati-io/Chileautos-Cars-dataset-samples/tree/0ddf2e01af5ce5b793494bf44491e43dae38d100)
+
+To reproduce the regional file, download the pinned source into the ignored raw directory and run the builder from the repository root. The source CSV has SHA-256 `6a9adb3b4d37304038bb8b2732da4685dde338c6ed14fc928dc583a2b23f4f8e`. Only the aggregate shares enter the pack.
+
+```sh
+mkdir -p data/raw/car-reference
+curl -fsSL 'https://raw.githubusercontent.com/luminati-io/Chileautos-Cars-dataset-samples/0ddf2e01af5ce5b793494bf44491e43dae38d100/Chileautos%20Chile%20-%20Cars%20Listings.csv' -o data/raw/car-reference/offer-sample.csv
+python3 -B tools/pack/car_colour_proxy.py data/raw/car-reference/offer-sample.csv
+```
+
+A national industry study by acuanto.cl found 17,241 white (32.3%) and 14,257 grey (26.7%) among 53,445 active used-car ads with reported colour. Colour was available for 85% of all ads. The study observed Chilean listings from 8 July 2026 and published its results on 19 August. Its national figures give context for the regional sample. They do not establish colour shares by comuna. [Study and methodology](https://acuanto.cl/estudios/colores)
