@@ -189,7 +189,7 @@ impl LineEdits<'_> {
             "assumptions": [
                 "The weekday graph uses half the first-stop headway estimated from starts from 08:00 to 09:00 on 13 April 2026. It omits patterns without starts in that window and does not estimate stop-level service from earlier trips.",
                 "Access and egress use straight-line walks up to 1 km. Stop transfers use straight-line walks up to 300 m.",
-                "The graph measures travel between comuna population points. Null means no route in this graph.",
+                "The graph measures travel between comuna population points. A route must include at least one transit segment. Null means no such route in this graph.",
                 "A geometry-only move keeps service times and the stop order. If an edited pattern omits dwell times for new stops, it uses zero dwell."
             ]
         }))
@@ -213,7 +213,10 @@ impl LineEdits<'_> {
         if raw["op"] == "move" && raw.get("geometry").is_none() {
             return Err("A line move needs a replacement geometry.".into());
         }
-        if before.is_none() || properties.get("stop_ids").is_some() {
+        let stops_changed = properties
+            .get("stop_ids")
+            .is_some_and(|stops| before.is_none_or(|pattern| *stops != json!(pattern.stop_ids)));
+        if stops_changed {
             fields["shape_id"] = Value::Null;
             let stops = properties["stop_ids"].as_array().map_or(0, Vec::len);
             fields["dwell_minutes"] = json!(vec![0.0; stops]);
@@ -272,7 +275,7 @@ impl LineEdits<'_> {
                 return Err("Line geometry needs at least two WGS84 positions.".into());
             }
             pattern.geometry = Some(geometry.clone());
-        } else if properties.get("stop_ids").is_none() {
+        } else if !stops_changed {
             pattern.geometry = before.and_then(|pattern| pattern.geometry.clone());
         }
         Ok(pattern)

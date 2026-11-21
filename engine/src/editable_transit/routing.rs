@@ -7,7 +7,24 @@ const TRANSFER_METRES: f64 = 300.0;
 const ACCESS_METRES: f64 = 1_000.0;
 const WALK_METRES_PER_MINUTE: f64 = 80.0;
 
-type Edges = Vec<Vec<(usize, f64)>>;
+type Edges = Vec<Vec<Edge>>;
+
+#[derive(Clone)]
+struct Edge {
+    next: usize,
+    minutes: f64,
+    ride: bool,
+}
+
+impl Edge {
+    fn transfer(next: usize, minutes: f64) -> Self {
+        Self {
+            next,
+            minutes,
+            ride: false,
+        }
+    }
+}
 
 fn metres(a: [f64; 2], b: [f64; 2]) -> f64 {
     let latitude = ((a[1] + b[1]) * 0.5).to_radians();
@@ -47,8 +64,8 @@ impl Routing {
                             let distance = metres(point, coordinates[j]);
                             if distance <= TRANSFER_METRES {
                                 let minutes = distance / WALK_METRES_PER_MINUTE;
-                                walk[i].push((j, minutes));
-                                walk[j].push((i, minutes));
+                                walk[i].push(Edge::transfer(j, minutes));
+                                walk[j].push(Edge::transfer(i, minutes));
                             }
                         }
                     }
@@ -57,8 +74,8 @@ impl Routing {
         }
         for (i, stop) in stops.values().enumerate() {
             if let Some(&parent) = stop.parent_id.as_ref().and_then(|id| ids.get(id)) {
-                walk[i].push((parent, 0.0));
-                walk[parent].push((i, 0.0));
+                walk[i].push(Edge::transfer(parent, 0.0));
+                walk[parent].push(Edge::transfer(i, 0.0));
             }
         }
         let access = communes
@@ -98,14 +115,18 @@ impl Routing {
                 let arrival = first + 2 * i;
                 let departure = arrival + 1;
                 if pattern.pickup_type[i] == 0 {
-                    edges[stop].push((departure, headway * 0.5));
+                    edges[stop].push(Edge::transfer(departure, headway * 0.5));
                 }
                 if pattern.drop_off_type[i] == 0 {
-                    edges[arrival].push((stop, 0.0));
+                    edges[arrival].push(Edge::transfer(stop, 0.0));
                 }
-                edges[arrival].push((departure, pattern.dwell_minutes[i]));
+                edges[arrival].push(Edge::transfer(departure, pattern.dwell_minutes[i]));
                 if let Some(&ride) = pattern.segment_minutes.get(i) {
-                    edges[departure].push((arrival + 2, ride));
+                    edges[departure].push(Edge {
+                        next: arrival + 2,
+                        minutes: ride,
+                        ride: true,
+                    });
                 }
             }
         }
@@ -115,7 +136,7 @@ impl Routing {
             for (destination, stops) in self.access.iter().enumerate() {
                 let best = stops
                     .iter()
-                    .map(|&(stop, egress)| distances[stop] + egress)
+                    .map(|&(stop, egress)| distances[stop][1] + egress)
                     .fold(f64::INFINITY, f64::min);
                 matrix.push((origin != destination && best.is_finite()).then_some(best));
             }
@@ -128,6 +149,7 @@ impl Routing {
 struct Label {
     minutes: f64,
     node: usize,
+    rode: bool,
 }
 
 impl Eq for Label {}
@@ -138,6 +160,7 @@ impl Ord for Label {
             .minutes
             .total_cmp(&self.minutes)
             .then_with(|| self.node.cmp(&other.node))
+            .then_with(|| self.rode.cmp(&other.rode))
     }
 }
 
@@ -147,24 +170,36 @@ impl PartialOrd for Label {
     }
 }
 
-fn shortest(edges: &Edges, sources: &[(usize, f64)]) -> Vec<f64> {
-    let mut distance = vec![f64::INFINITY; edges.len()];
+fn shortest(edges: &Edges, sources: &[(usize, f64)]) -> Vec<[f64; 2]> {
+    let mut distance = vec![[f64::INFINITY; 2]; edges.len()];
     let mut queue = BinaryHeap::new();
     for &(node, minutes) in sources {
-        distance[node] = minutes;
-        queue.push(Label { minutes, node });
+        distance[node][0] = minutes;
+        queue.push(Label {
+            minutes,
+            node,
+            rode: false,
+        });
     }
-    while let Some(Label { minutes, node }) = queue.pop() {
-        if minutes > distance[node] {
+    while let Some(Label {
+        minutes,
+        node,
+        rode,
+    }) = queue.pop()
+    {
+        if minutes > distance[node][usize::from(rode)] {
             continue;
         }
-        for &(next, cost) in &edges[node] {
-            let candidate = minutes + cost;
-            if candidate < distance[next] {
-                distance[next] = candidate;
+        for edge in &edges[node] {
+            let rode = rode || edge.ride;
+            let next_distance = &mut distance[edge.next][usize::from(rode)];
+            let candidate = minutes + edge.minutes;
+            if candidate < *next_distance {
+                *next_distance = candidate;
                 queue.push(Label {
                     minutes: candidate,
-                    node: next,
+                    node: edge.next,
+                    rode,
                 });
             }
         }
