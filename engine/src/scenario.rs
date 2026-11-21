@@ -209,6 +209,7 @@ impl Scenario {
         for (home, delta) in deltas.into_iter().enumerate() {
             pop.persons.extend((0..delta).map(|_| Person {
                 home: home as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE,
+                age_band: crate::population::UNKNOWN, household_size: crate::population::UNKNOWN,
             }));
         }
     }
