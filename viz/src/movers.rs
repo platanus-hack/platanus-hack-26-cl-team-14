@@ -292,6 +292,7 @@ struct Routes {
     tracks: Vec<RailLine>,
     riders: RiderNetwork,
     entrances: stations::Entrances,
+    station_walk_routes: street_people::WalkRoutes,
     streets: StreetIndex,
     cycleways: StreetIndex,
 }
@@ -424,6 +425,7 @@ impl Routes {
             tracks,
             riders,
             entrances,
+            station_walk_routes: street_people::WalkRoutes::load(),
             cars: table("web/data/car_routes.json", Vehicle::Car),
             bikes: table("web/data/bicycle_routes.json", Vehicle::Bicycle),
             streets: StreetIndex::load("data/mvp/roads.geojson", true),
