@@ -19,6 +19,8 @@ pub struct CarOwnership {
     rate: Vec<[f64; 2]>,
     /// [without, with a car] mode shares of each comuna.
     shares: Vec<[[f64; 3]; 2]>,
+    /// Source of (base share, trip rates and mode shares) of each comuna: "comuna" or "region" (pooled values).
+    pub source: Vec<(&'static str, &'static str)>,
 }
 
 const MIN_SAMPLE: u32 = 30;
@@ -40,14 +42,15 @@ impl CarOwnership {
             for k in 0..2 { for j in 0..3 { all.trips[k][j].0 += r.trips[k][j].0; all.trips[k][j].1 += r.trips[k][j].1; } }
         }
         let pooled = (all.trips.map(|g| norm(g.map(|x| x.1))), rate([all.households - all.with_car, all.with_car], &all.trips));
-        let mut c = CarOwnership { base: vec![], rate: vec![], shares: vec![] };
+        let mut c = CarOwnership { base: vec![], rate: vec![], shares: vec![], source: vec![] };
         for cut in cuts {
-            let (h, (s, r)) = match rows.get(cut) {
+            let (h, (s, r), src) = match rows.get(cut) {
                 Some(r) if r.trips.iter().all(|g| g.iter().map(|x| x.0).sum::<u32>() >= MIN_SAMPLE) =>
-                    (r.with_car / r.households, (r.trips.map(|g| norm(g.map(|x| x.1))), rate([r.households - r.with_car, r.with_car], &r.trips))),
-                Some(r) => (r.with_car / r.households, pooled),
-                None => (all.with_car / all.households, pooled),
+                    (r.with_car / r.households, (r.trips.map(|g| norm(g.map(|x| x.1))), rate([r.households - r.with_car, r.with_car], &r.trips)), ("comuna", "comuna")),
+                Some(r) => (r.with_car / r.households, pooled, ("comuna", "region")),
+                None => (all.with_car / all.households, pooled, ("region", "region")),
             };
+            c.source.push(src);
             c.base.push(h);
             c.shares.push(s);
             c.rate.push(r);

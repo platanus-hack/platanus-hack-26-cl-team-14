@@ -168,7 +168,9 @@ impl Scenario {
             return Err("The resulting share of households with access to a car must be between 0 and 1.");
         }
         shares.insert(origin, after);
-        Ok(json!({ "comuna": self.choice.names[origin], "household_car_share_before": before, "household_car_share_after": after }))
+        let (base_source, rates_source) = cars.source[origin];
+        Ok(json!({ "comuna": self.choice.names[origin], "household_car_share_before": before, "household_car_share_after": after,
+            "base_share_source": base_source, "trip_rates_source": rates_source }))
     }
 
     /// Apply stock, time, station access, and event changes to the same city. Return each unsupported
@@ -472,6 +474,7 @@ impl Scenario {
             result["car_mode_changes"] = car_shares.iter().map(|(&origin, &share)| json!({
                 "id": c.cuts[origin], "name": c.names[origin],
                 "household_car_share_base": cars.base[origin], "household_car_share_scenario": share,
+                "base_share_source": cars.source[origin].0, "trip_rates_source": cars.source[origin].1,
                 "workers_base": counts(b.modes[origin]), "workers_scenario": counts(s.modes[origin]),
             })).collect();
         }
