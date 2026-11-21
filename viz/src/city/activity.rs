@@ -8,6 +8,7 @@ pub struct HeightScales {
     keys: Vec<u16>,
     dictionary: Vec<(u64, u16)>,
     scales: Vec<f32>,
+    changed: Vec<bool>,
     previous: Vec<f32>,
     pub started: f32,
     revision: Option<u64>,
@@ -41,6 +42,7 @@ impl HeightScales {
             keys,
             dictionary,
             scales: vec![1.0; n],
+            changed: vec![false; n],
             previous: vec![1.0; n],
             started: -10.,
             revision: None,
@@ -55,6 +57,12 @@ impl HeightScales {
             let k = usize::from(key);
             (self.previous[k], self.scales[k])
         }
+    }
+
+    pub fn tile_changed(&self, tile: usize) -> bool {
+        self.keys[self.offsets[tile]..self.offsets[tile + 1]]
+            .iter()
+            .any(|&k| k != u16::MAX && self.changed[k as usize])
     }
 
     pub fn progress(&self, now: f32) -> f32 {
@@ -150,6 +158,7 @@ impl HeightScales {
                 }
                 1.0
             };
+            self.changed[i] = self.scales[i] != scale || self.previous[i] != scale;
             self.scales[i] = scale;
             if scale != 1.0 {
                 matched += 1;

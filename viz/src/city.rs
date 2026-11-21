@@ -2,7 +2,7 @@ mod activity;
 mod facade;
 mod ground;
 mod terrain;
-use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes, MorphWeights};
+use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
 pub use terrain::terrain_from_xz;
@@ -234,7 +234,7 @@ pub(crate) struct Buildings {
     material: Handle<StandardMaterial>,
     facade_material: Handle<StandardMaterial>,
     pub ready: bool,
-    controller: Entity,
+    dirty: Vec<bool>,
     heights: activity::HeightScales,
 }
 
@@ -358,9 +358,7 @@ pub fn load_buildings(
         perceptual_roughness: 0.9,
         ..default()
     });
-    let controller = commands
-        .spawn(MorphWeights::new(vec![1.], None).unwrap())
-        .id();
+    let dirty = vec![false; tiles.len()];
     commands.insert_resource(Buildings {
         boxes,
         polygons,
@@ -368,10 +366,13 @@ pub fn load_buildings(
         material,
         facade_material,
         ready: false,
-        controller,
+        dirty,
         heights: activity::HeightScales::load(Path::new("web/data/city_building_block_ids.bin.gz")),
     });
 }
+
+#[derive(Component)]
+pub(crate) struct HeightTransition(f32);
 
 pub(crate) fn draw_buildings(
     mut commands: Commands,
@@ -380,15 +381,15 @@ pub(crate) fn draw_buildings(
     mut rig: ResMut<crate::Rig>,
     scenario: Res<crate::net::Scenario>,
     time: Res<Time>,
-    mut weights: Query<&mut MorphWeights>,
+    mut weights: Query<(&HeightTransition, &mut MeshMorphWeights)>,
     mut named: Query<(&NamedBuilding, &mut Transform)>,
 ) {
     if scenario.is_changed()
         && let Some(focus) = buildings.heights.update(&scenario.0, time.elapsed_secs())
     {
-        for tile in &mut buildings.tiles {
-            if let Some((_, e)) = tile.take() {
-                commands.entity(e).despawn();
+        for tile in 0..buildings.tiles.len() {
+            if buildings.tiles[tile].is_some() && buildings.heights.tile_changed(tile) {
+                buildings.dirty[tile] = true;
             }
         }
         if !rig.fixed
@@ -402,9 +403,16 @@ pub(crate) fn draw_buildings(
         let (from, to) = buildings.heights.scale(key.0, key.1);
         transform.scale.y = from + (to - from) * progress;
     }
-    let mut weight = weights.get_mut(buildings.controller).unwrap();
-    if weight.weights()[0] != progress {
-        weight.weights_mut()[0] = progress;
+    for (transition, mut morph) in &mut weights {
+        let t = ((time.elapsed_secs() - transition.0) / 1.2).clamp(0., 1.);
+        let t = t * t * (3. - 2. * t);
+        if let MeshMorphWeights::Value { weights } = morph.as_ref()
+            && weights[0] != t
+        {
+            if let MeshMorphWeights::Value { weights } = &mut *morph {
+                weights[0] = t;
+            }
+        }
     }
     let mut jobs = Vec::new();
     for tile in 0..buildings.tiles.len() {
@@ -420,7 +428,7 @@ pub(crate) fn draw_buildings(
         } else {
             Some(Detail::Far)
         };
-        if buildings.tiles[tile].map(|t| t.0) == desired {
+        if !buildings.dirty[tile] && buildings.tiles[tile].map(|t| t.0) == desired {
             continue;
         }
         jobs.push((d, tile, desired));
@@ -428,6 +436,7 @@ pub(crate) fn draw_buildings(
     buildings.ready = jobs.is_empty();
     jobs.sort_by(|a, b| a.0.total_cmp(&b.0));
     for (_, tile, detail) in jobs.into_iter().take(8) {
+        buildings.dirty[tile] = false;
         if let Some((_, entity)) = buildings.tiles[tile].take() {
             commands.entity(entity).despawn();
         }
@@ -451,7 +460,12 @@ pub(crate) fn draw_buildings(
                 MeshMaterial3d(mat.clone()),
             ));
             if animated {
-                chunk.insert(MeshMorphWeights::Reference(buildings.controller));
+                chunk.insert((
+                    MeshMorphWeights::Value {
+                        weights: vec![progress],
+                    },
+                    HeightTransition(buildings.heights.started),
+                ));
             }
             let entity = chunk.id();
             buildings.tiles[tile] = Some((detail, entity));
