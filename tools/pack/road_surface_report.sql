@@ -184,3 +184,43 @@ COPY (
            round(max(centre_offset_m),2) AS max_offset_m,round(sum(weight_m),1) AS missed_metres
     FROM missed_detail GROUP BY ALL ORDER BY camera,mode,missed_metres DESC
 ) TO 'data/raw/road-surface/missed_routes.csv' (HEADER);
+
+-- Probe the raw buffered ways on each side of the disputed edge. Compare to the actual opposite tile.
+CREATE TEMP TABLE probes AS
+WITH normals AS (
+    SELECT *, CASE WHEN opposite_tile=present_tile+1 THEN 1 WHEN opposite_tile=present_tile-1 THEN -1 ELSE 0 END AS dx,
+              CASE WHEN opposite_tile=present_tile+20 THEN 1 WHEN opposite_tile=present_tile-20 THEN -1 ELSE 0 END AS dy
+    FROM seam_samples
+)
+SELECT id,present_tile,opposite_tile,structure,road_use,layer,weight_m,d,
+       ST_Translate(point,-dx*d,-dy*d) AS inside, ST_Translate(point,dx*d,dy*d) AS opposite
+FROM normals CROSS JOIN (VALUES (0.15),(0.50)) p(d);
+-- Select nearby source ways before buffering. The unrounded, unclipped metric buffer is the reference.
+CREATE TEMP TABLE probe_ways AS
+WITH near AS (
+    SELECT DISTINCT w.osm_id FROM ways w JOIN probes p
+      ON ST_DWithin(w.line,p.opposite,w.width_m/2+1.1)
+      AND w.structure=p.structure AND w.layer=p.layer AND w.road_use=p.road_use
+)
+SELECT w.osm_id,w.structure,w.layer,w.road_use,ST_Buffer(w.line,w.width_m/2,6) AS g
+FROM ways w SEMI JOIN near n USING(osm_id);
+CREATE TEMP TABLE probe_flags AS
+SELECT p.*, EXISTS (SELECT 1 FROM probe_ways w WHERE w.structure=p.structure AND w.layer=p.layer
+                    AND w.road_use=p.road_use AND ST_Covers(w.g,p.inside)) AS raw_present,
+            EXISTS (SELECT 1 FROM probe_ways w WHERE w.structure=p.structure AND w.layer=p.layer
+                    AND w.road_use=p.road_use AND ST_Covers(w.g,p.opposite)) AS raw_opposite,
+            EXISTS (SELECT 1 FROM actual a WHERE a.tile=p.opposite_tile AND a.structure=p.structure
+                    AND a.layer=p.layer AND a.road_use=p.road_use AND ST_Covers(a.geom,degrees(p.opposite))) AS packed_opposite
+FROM probes p;
+SELECT present_tile,opposite_tile,structure,road_use,layer,d AS probe_m,raw_present,raw_opposite,packed_opposite,
+       round(sum(weight_m),3) AS seam_length_m FROM probe_flags
+GROUP BY ALL ORDER BY seam_length_m DESC;
+
+-- Keep the denominators for each public bus shape. Compare only pairs present in both series.
+COPY (
+    SELECT s.camera,s.route_id,s.source,count(*) AS samples,round(sum(s.weight_m),1) AS sampled_m,
+           round(sum(CASE WHEN h.id IS NULL THEN s.weight_m ELSE 0 END),1) AS outside_m,
+           round(100*sum(CASE WHEN h.id IS NULL THEN s.weight_m ELSE 0 END)/sum(s.weight_m),2) AS outside_pct
+    FROM samples s LEFT JOIN hits h ON h.id=s.id AND h.variant='candidate'
+    WHERE s.mode='bus' GROUP BY ALL ORDER BY camera,route_id,source
+) TO 'data/raw/road-surface/bus_shape_coverage.csv' (HEADER);

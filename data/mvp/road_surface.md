@@ -72,3 +72,13 @@ Rerun the report with the same camera CSV and generated pack. It reuses the save
 For each missed bus or car sample, the report checks whether a hidden tunnel polygon covers it, whether it lies inside the raw unsimplified centerline width or close to the modeled edge, and whether the old width on the **same OSM way** would cover it. The legacy-width check requires the displayed legacy way to cover that sample too. The report then identifies samples reached only by the legacy path and samples outside both displays. The categories are mutually exclusive, in that order. Tunnel coverage is a plan-view match. It does not establish that a vehicle used a tunnel.
 
 `data/raw/road-surface/missed_routes.csv` groups the remaining evidence by camera, mode, route ID and nearest visible OSM motor way. The offsets use the original raw centerline. A bus can depart from the mapped road because its schedule geometry is coarse; these data alone cannot establish the actual vehicle position. The current output uses representative GTFS bus paths with every third shape vertex and local OSRM paths simplified at 3 m. Keep narrow streets and tunnel classification intact until the measurements identify the cause.
+
+The seam report also compares the unrounded, unclipped source buffers on **both** sides of each disputed tile edge. It probes 0.15 m and 0.50 m into each side in the local UTM east or north direction. A sample with `raw_present=true`, `raw_opposite=true` and `packed_opposite=false` identifies missing candidate coverage at that probe distance. A source surface present on one side only can legitimately terminate at a tile edge. The probe classifies the sampled locations and still reports the length along the seam.
+
+To separate GTFS vertex thinning from other bus offsets, pass the cached March feed used by the transit-path builder as a second argument:
+
+```sh
+python3 -B tools/pack/road_surface_report.py cameras.csv /absolute/path/to/GTFS_20260321_v3.zip > data/raw/road-surface/alignment-causes.csv
+```
+
+The diagnostic reproduces the published rounding and every-third-vertex rule. It adds a full bus shape only when its re-thinned sequence matches exactly and the original full geometry is unambiguous. Compare `gtfs` with `gtfs_full_matched` by camera and route in `data/raw/road-surface/bus_shape_coverage.csv`. Each series reports its own sampled metres inside that camera. A residual on the full shape establishes disagreement between the source schedule geometry and the modeled surface. Neither source measures an observed bus trajectory.
