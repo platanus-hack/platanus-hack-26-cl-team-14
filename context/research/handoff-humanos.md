@@ -8,7 +8,7 @@ Lee del chat el cambio que estima el motor en Universidad de Chile, en subidas p
 
 ## Descarga pública
 
-Descarga el ZIP de macOS con Apple Silicon o Linux x86_64. Descomprímelo y ejecuta `./run.sh` desde esa carpeta. El lanzador requiere curl. En Linux, la maqueta requiere glibc 2.44 o posterior. Para usar el chat, instala Node.js 22 o posterior y sigue `README.txt` del ZIP. [santiaguito.cl v0.1.0](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/releases/tag/v0.1.0).
+Descarga el ZIP de macOS con Apple Silicon o Linux x86_64. Descomprímelo y ejecuta `./run.sh` desde esa carpeta. El lanzador requiere curl. En Linux, la maqueta requiere glibc 2.44 o posterior, un escritorio X11 y un controlador Vulkan. Para usar el chat, instala Node.js 22 o posterior. Sigue `README.txt` en el ZIP de macOS y `README.md` en el de Linux. [santiaguito.cl v0.1.0](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/releases/tag/v0.1.0).
 
 ## Qué puedes probar hoy
 
