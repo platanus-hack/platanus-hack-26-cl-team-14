@@ -50,9 +50,14 @@ fn main() {
             Vec::new()
         } else {
             let catalog = PlannedStations::load(data);
-            let selected = catalog.select(&selectors);
-            assert!(!selected.physical_ids.is_empty(), "no matching design stations");
-            selected.additions
+            let unknown: Vec<_> = selectors.iter()
+                .filter(|s| catalog.select(std::slice::from_ref(*s)).physical_ids.is_empty())
+                .collect();
+            if !unknown.is_empty() {
+                eprintln!("Unknown design station selectors: {unknown:?}");
+                std::process::exit(2);
+            }
+            catalog.select(&selectors).additions
         };
         model.project_with_additions(&homes, &pts(&pop.jobs, &j), &active, &additions)
     } else {
