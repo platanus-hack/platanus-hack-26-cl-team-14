@@ -126,10 +126,15 @@ impl Path {
     }
 
     fn at(&self, value: f32, axis: &[f32]) -> Option<(Vec3, Vec3, Vehicle)> {
-        if value < 0. || value >= *axis.last()? {
+        let last = *axis.last()?;
+        if value < 0. || value > last || last == 0. {
             return None;
         }
-        let end = axis.partition_point(|&v| v <= value);
+        let end = if value == last {
+            axis.partition_point(|&v| v < last)
+        } else {
+            axis.partition_point(|&v| v <= value)
+        };
         let from = self.points[end - 1];
         let to = self.points[end];
         let t = (value - axis[end - 1]) / (axis[end] - axis[end - 1]);
@@ -178,17 +183,11 @@ impl RailRun {
     }
 }
 
-#[derive(Default)]
-struct StopCalls {
-    distance: f32,
-    departures: Vec<f32>,
-}
-
 struct RailLine {
     levels: levels::Levels,
     path: Arc<Path>,
     runs: Vec<RailRun>,
-    stops: Vec<StopCalls>,
+    stops: Vec<Option<f32>>,
     longest: f32,
     stations: Vec<String>,
 }
@@ -230,22 +229,11 @@ impl RailLine {
             .iter()
             .map(|r| r.calls.last().unwrap().departure - r.calls[0].arrival)
             .fold(0., f32::max);
-        let mut stops = Vec::from_iter(
-            row["parent_station_ids"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|_| StopCalls::default()),
-        );
+        let mut stops = vec![None; row["parent_station_ids"].as_array().unwrap().len()];
         for run in &runs {
-            // A terminal arrival cannot take new riders on this run.
-            for call in &run.calls[..run.calls.len() - 1] {
-                stops[call.station].distance = call.distance;
-                stops[call.station].departures.push(call.departure);
+            for call in &run.calls {
+                stops[call.station] = Some(call.distance);
             }
-        }
-        for stop in &mut stops {
-            stop.departures.sort_unstable_by(f32::total_cmp);
         }
         Self {
             levels: levels::Levels::load(row, track_levels, &path),
@@ -322,23 +310,23 @@ fn public_path(row: &Value, riders: &RiderNetwork) -> Arc<Path> {
     // A walk to or from a Metro leg touches a published entrance. A direct interchange
     // between Metro lines stays inside the station.
     let segs = row["segments"].as_array().unwrap();
+    let scheduled: Vec<_> = segs.iter().map(|s| riders.leg(row, s)).collect();
     for (i, seg) in segs.iter().enumerate().filter(|(_,s)| s["mode"]=="metro") {
-        let id = riders.leg(row,seg).unwrap();
+        let id = scheduled[i].unwrap();
         let board = seg["start"].as_u64().unwrap() as usize;
         let exit = seg["end"].as_u64().unwrap() as usize;
-        if board > 0 && i > 0 && segs[i-1]["mode"]=="walk" && (i<2 || segs[i-2]["mode"]!="metro") {
-            path[board] = riders.gate(id,false,path[board-1]);
+        let previous = scheduled[..i].iter().rev().flatten().next().copied();
+        let next = scheduled[i + 1..].iter().flatten().next().copied();
+        if i > 0 && segs[i - 1]["mode"] == "walk" && !riders.interchange(previous, Some(id)) {
+            path[board] = riders.gate(id, false, path[board.saturating_sub(1)]);
         }
-        if exit+1<path.len() && i+1<segs.len() && segs[i+1]["mode"]=="walk" && (i+2>=segs.len() || segs[i+2]["mode"]!="metro") {
-            path[exit] = riders.gate(id,true,path[exit+1]);
+        if i + 1 < segs.len() && segs[i + 1]["mode"] == "walk" && !riders.interchange(Some(id), next) {
+            path[exit] = riders.gate(id, true, path[(exit + 1).min(path.len() - 1)]);
         }
     }
-    let legs = row["segments"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|leg| Leg {
-            scheduled: riders.leg(row, leg),
+    let legs = segs.iter().zip(scheduled)
+        .map(|(leg, scheduled)| Leg {
+            scheduled,
             end: leg["end"].as_u64().unwrap() as usize,
             vehicle: match leg["mode"].as_str().unwrap() {
                 "walk" => Vehicle::Walk,
@@ -588,9 +576,10 @@ fn read_result(
         return;
     }
     let r = &result.0;
+    let stations = r["stations"].as_array().unwrap();
     replay.clock_offset.get_or_insert_with(|| {
         let mut boardings = [0.; 48];
-        for station in r["stations"].as_array().unwrap() {
+        for station in stations {
             for (total, count) in boardings
                 .iter_mut()
                 .zip(station["base_half_hour"].as_array().unwrap())
@@ -604,6 +593,22 @@ fn read_result(
             .unwrap();
         peak as f32 * BIN - time.elapsed_secs()
     });
+    let mut closed = std::collections::HashSet::new();
+    for change in r["applied"].as_array().into_iter().flatten().filter(|c| c["kind"] == "station") {
+        let state = &change["understood"];
+        // Planned lines, corridors and proposed points use their own IDs and have no GTFS runs.
+        if state.get("id").is_some() {
+            continue;
+        }
+        let Some(name) = state["station"].as_str() else { continue };
+        let Some(station) = stations.iter().find(|s| s["name"] == name) else { continue };
+        let id = station["id"].as_str().unwrap();
+        if state["state"] == "closed" {
+            closed.insert(id);
+        } else {
+            closed.remove(id);
+        }
+    }
     let mut deltas = HashMap::new();
     for d in r["trips_delta"].as_array().into_iter().flatten() {
         deltas.insert(
@@ -650,10 +655,11 @@ fn read_result(
         };
         let bin = row["half_hour"].as_u64().unwrap() as usize;
         let itineraries: Vec<_> = if row["mode"] == "public" {
+            let legs = routes.riders.accessible_legs(&path, &closed);
             (0..copies)
                 .map(|j| {
                     let start = bin as f32 * BIN + departure_offset(seed as f32, j);
-                    RiderPlan::build(&path, start, &routes.riders)
+                    RiderPlan::build(&path, legs, start, j, &routes)
                 })
                 .collect()
         } else {
@@ -686,9 +692,7 @@ fn read_result(
             },
         });
     }
-    replay.platforms = r["stations"]
-        .as_array()
-        .unwrap()
+    replay.platforms = stations
         .iter()
         .filter(|station| routes.entrances.contains_key(station["id"].as_str().unwrap()))
         .map(|station| Station::new(station, &routes))
@@ -1055,19 +1059,9 @@ fn draw(
                 };
                 let movement = if let Some(plan) = g.itineraries.get(j) {
                     match plan.at(age, &g.path) {
-                        Some(RiderState::Walking(p, dir)) => Some((p, dir, Vehicle::Walk)),
-                        // Station boardings already draw Metro queues. Bus stops use their trip copies.
-                        Some(RiderState::Waiting(_, Some(_))) => None,
-                        Some(RiderState::Waiting(stop, None)) => {
-                            if visible(stop, 70.) {
-                                let along = ((j % 5) as f32 - 2.) * 1.4;
-                                let across = ((j / 5 % 3) as f32 - 1.) * 1.2;
-                                let p = stop + Vec3::new(along, 0.25, across);
-                                place(
-                                    Model::Person,
-                                    paint,
-                                    pose(p, Vec3::X, Vec3::splat(size_at(p) * presence)),
-                                );
+                        Some(RiderState::Walking(p, dir) | RiderState::Waiting(p, dir)) => {
+                            if visible(p, 100.) && (subway.0 || p.y >= terrain_from_xz(p.x, p.z) - 0.6) {
+                                place(Model::Person, paint, pose(p, dir, Vec3::splat(1.2 * presence)));
                             }
                             None
                         }
