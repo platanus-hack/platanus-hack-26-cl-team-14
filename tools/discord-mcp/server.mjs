@@ -2,7 +2,7 @@
 // Discord MCP server for the team agents. No dependencies: Node 22+ only.
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { hostname } from "node:os";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { createInterface } from "node:readline";
@@ -14,7 +14,7 @@ const API_URL = "https://discord.com/api/v10";
 const CHANNEL_TYPES_WITH_CONTENT = new Set([0, 5, 15]); // text, announcement, forum
 const THREAD_TYPES = new Set([10, 11, 12]);
 const MAX_MESSAGE_LENGTH = 2000;
-const MAX_RATE_LIMIT_RETRIES = 3;
+const MAX_ATTEMPTS = 3;
 const MAX_FILES = 10;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // Discord limit for a server without boost
 const ENV_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", ".env");
@@ -196,17 +196,22 @@ const TOOLS = [
 ];
 
 function savedToken() {
-  process.loadEnvFile(ENV_PATH);
-  return process.env.DISCORD_BOT_TOKEN;
+  if (existsSync(ENV_PATH)) process.loadEnvFile(ENV_PATH);
+  const configured = process.env.DISCORD_BOT_TOKENS?.split(",").map(value => value.trim()).filter(Boolean);
+  if (configured?.length > 1) throw new Error("Configure one bot for this server. Discord API limits apply to this application.");
+  return configured?.[0] ?? process.env.DISCORD_BOT_TOKEN;
 }
 
-const routeCounts = new Map();
-function recordCall(method, path, response, body) {
-  if (!process.env.DISCORD_REST_METRICS) return;
-  const route = method + " " + path.split("?")[0]
+function routeName(method, path) {
+  return method + " " + path.split("?")[0]
     .replace(/(\/webhooks\/\d+)\/[^/]+/, "$1/:token")
     .replace(/\/\d+(?=\/|$)/g, "/:id")
     .replace(/(\/reactions\/)[^/]+/, "$1:emoji");
+}
+
+const routeCounts = new Map();
+function recordCall(route, response, body) {
+  if (!process.env.DISCORD_REST_METRICS) return;
   const count = (routeCounts.get(route) ?? 0) + 1;
   routeCounts.set(route, count);
   console.error(JSON.stringify({
@@ -217,8 +222,19 @@ function recordCall(method, path, response, body) {
   }));
 }
 
+const cooldowns = new Map();
+const buckets = new Map();
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 async function discord(path, { auth = true, token = auth ? savedToken() : undefined, json, ...request } = {}) {
-  for (let attempt = 0; ; attempt++) {
+  if (auth && !token) throw new Error(ASK_FOR_TOKEN);
+  const route = routeName(request.method ?? "GET", path);
+  const major = path.match(/^\/(?:channels|guilds|webhooks)\/(\d+)/)?.[1] ?? "";
+  const global = auth ? "bot" : "webhooks";
+  const key = () => `${buckets.get(route) ?? route}/${major}`;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let delay;
+    while ((delay = Math.max(cooldowns.get(global) ?? 0, cooldowns.get(key()) ?? 0) - Date.now()) > 0) await wait(delay);
     const response = await fetch(`${API_URL}${path}`, {
       ...request,
       ...(json && { body: JSON.stringify(json) }),
@@ -229,10 +245,21 @@ async function discord(path, { auth = true, token = auth ? savedToken() : undefi
       },
     });
     const body = response.status === 204 ? {} : await response.json().catch(() => ({}));
-    recordCall(request.method ?? "GET", path, response, body);
+    recordCall(route, response, body);
+    const bucket = response.headers.get("x-ratelimit-bucket");
+    if (bucket) buckets.set(route, bucket);
+    const pause = (scope, seconds) => {
+      const until = Date.now() + Math.ceil(seconds * 1000);
+      cooldowns.set(scope, Math.max(until, cooldowns.get(scope) ?? 0));
+    };
+    if (response.headers.get("x-ratelimit-remaining") === "0") {
+      pause(key(), Number(response.headers.get("x-ratelimit-reset-after")) || 0);
+    }
     if (response.ok) return body;
-    if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
-      await new Promise((resolve) => setTimeout(resolve, (body.retry_after ?? 1) * 1000));
+    if (response.status === 429) {
+      const seconds = Math.max(Number(body.retry_after) || 0, Number(response.headers.get("retry-after")) || 0) || 1;
+      pause(body.global || response.headers.has("x-ratelimit-global") ? global : key(), seconds);
+      if (attempt === MAX_ATTEMPTS) throw new Error(`Discord limited ${route} after ${attempt} attempts. Retry after ${seconds} seconds.`);
       continue;
     }
     if (response.status === 401) throw new Error(`Discord rejected the token. ${ASK_FOR_TOKEN}`);
