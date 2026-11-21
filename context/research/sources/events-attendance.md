@@ -132,7 +132,7 @@ corrected the Pauta/Clinic entries, which were opened and did return real page b
 - Check: VERIFIED-ROWS (2026-11-21, HTTP 200, 5,164 bytes; read individual holiday records: Jan 1 Año Nuevo, Apr 3 Viernes Santo, Apr 4 Sábado Santo, each with the full field set described above).
 - Role: INPUT.
 - Limits: third-party mirror, not the government's own text (Ley N° 2.977 / BCN LeyChile is the legal source of truth, not checked for a machine-readable feed in this session). Chile is reported to have 16 national holidays in 2026 and either 16, 17, or 19 in 2027 depending on the outlet — the 2027 count is genuinely disputed in press as of Nov 2026 pending confirmation of a special one-off holiday (Ley N° 20.983, Sept 17 type).
-- Use in the simulation: INPUT. Baseline calendar for "no-school, no-work" days, which changes the people-at-home vs people-in-transit mix on ~16 days/year nationwide.
+- Use in the simulation: INPUT. Candidate holiday calendar after checking dates against official rules. Holidays change trip patterns; they do not eliminate all work or school trips.
 
 ### School calendar (Mineduc) — Región Metropolitana term dates
 - Link: https://www.mineduc.cl/?p=42248
