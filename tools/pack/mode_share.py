@@ -7,10 +7,9 @@ destination. So the rows of one comuna sum to that comuna's total in work_od.csv
 
 It also writes mode_share_by_workplace.csv, the same counts split by `p44_lug_trab`:
 2 works in this comuna, 3 works in another comuna. The two populations travel very
-differently (the RM shares are 32.2% and 61.2% public transport), so a model that sends
-a cross-comuna flow is a candidate for the code 3 share in place of the comuna average,
-as a refinement to preregister and score. Summing the split
-file over `work_place` reproduces mode_share.csv exactly.
+differently (the RM shares are 32.2% and 61.2% public transport). The code 3 share
+is a candidate refinement for cross-comuna flows, to preregister and score before
+changing a fitted model. Summing over `work_place` reproduces mode_share.csv exactly.
 
 A person row carries the work comuna as well, so the same pass also writes mode_od.csv,
 the mode of each origin-destination pair. That file needs no transfer: it observes how
