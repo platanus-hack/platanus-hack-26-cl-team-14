@@ -1,4 +1,5 @@
 mod city;
+mod focus;
 mod movers;
 mod net;
 mod pixels;
@@ -26,7 +27,17 @@ impl Plugin for MiniatureCamera {
             .insert_resource(WinitSettings::continuous())
             .insert_resource(ClearColor(DAY_SKY))
             .add_systems(Startup, setup)
-            .add_systems(Update, (navigate, aim).chain())
+            .add_systems(
+                Update,
+                (
+                    focus::select.run_if(resource_changed::<net::Scenario>),
+                    navigate,
+                    focus::advance,
+                    aim,
+                )
+                    .chain()
+                    .before(city::draw_buildings),
+            )
             .add_systems(Last, measure);
     }
 }
@@ -60,6 +71,7 @@ pub struct Rig {
     pub target: Vec3,
     pub distance: f32,
     fixed: bool,
+    flight: Option<focus::Flight>,
 }
 
 impl Default for Rig {
@@ -67,6 +79,7 @@ impl Default for Rig {
         let focus = env::var("SANTIAGO_FOCUS").unwrap_or_else(|_| "-70.6505,-33.443".into());
         let (lon, lat) = focus.split_once(',').unwrap();
         Self {
+            flight: None,
             fixed: env::var_os("SANTIAGO_CAPTURE").is_some()
                 || env::var_os("SANTIAGO_LOCK_CAMERA").is_some(),
             target: world(lon.trim().parse().unwrap(), lat.trim().parse().unwrap()),
@@ -180,10 +193,12 @@ fn navigate(
         })
         .sum();
     if scroll != 0.0 {
+        rig.flight = None;
         rig.distance = (rig.distance * (-scroll).exp()).clamp(55.0, 95_000.0);
     }
     let delta: Vec2 = motion.read().map(|ev| ev.delta).sum();
     if mouse.pressed(MouseButton::Left) && delta != Vec2::ZERO {
+        rig.flight = None;
         let camera = pose(&rig);
         let right = *camera.right();
         let forward = Vec3::new(-0.32, 0., -0.51).normalize();

@@ -71,12 +71,12 @@ impl HeightScales {
     }
 
     // Every engine publication is a complete scenario relative to its own baseline.
-    // 'Some' means the render caller should invalidate its cached tile meshes.
-    // The optional coordinates are set only for a later revision with mapped changes.
-    pub fn update(&mut self, result: &Value, now: f32) -> Option<Option<[f64; 2]>> {
-        let revision = result["revision"].as_u64()?;
+    pub fn update(&mut self, result: &Value, now: f32) -> bool {
+        let Some(revision) = result["revision"].as_u64() else {
+            return false;
+        };
         if self.revision == Some(revision) {
-            return None;
+            return false;
         }
         let t = self.progress(now);
         if t == 1.0 {
@@ -121,10 +121,8 @@ impl HeightScales {
         let changed: HashMap<u64, &Value> = rows("blocks_changed")
             .filter_map(|v| Some((numeric_id(&v["id"])?, v)))
             .collect();
-        let mut focus = None;
         let mut matched = 0;
         let mut unresolved = 0;
-        let mut mapped_comunas = std::collections::HashSet::new();
         for (i, &(block, cut)) in self.dictionary.iter().enumerate() {
             let mut matches = rules.iter().filter(|&&(target, id, _)| {
                 if target == "block" {
@@ -166,38 +164,18 @@ impl HeightScales {
             self.scales[i] = scale;
             if scale != 1.0 {
                 matched += 1;
-                mapped_comunas.insert(u64::from(cut));
-                if focus.is_none() {
-                    focus = changed.get(&block).and_then(|row| location(row));
-                }
             }
         }
-        // A comuna-wide change can exceed the 300 block rows returned by the engine.
-        // Prefer the comuna's coordinates over a single manzana in that case.
-        if let Some(place) = rules.iter().find_map(|&(target, id, _)| {
-            if target != "comuna" || !mapped_comunas.contains(&id) {
-                return None;
-            }
-            rows("zones")
-                .find(|z| numeric_id(&z["id"]) == Some(id))
-                .and_then(location)
-        }) {
-            focus = Some(place);
-        }
-
         eprintln!(
             "Scenario {revision}: activity height changed in {matched} assigned blocks; {unresolved} overlapping or conflicting blocks kept baseline. Height ratio 0.35–3; net changes without a base use 0.75/1.25."
         );
         if !has_previous {
             self.previous.copy_from_slice(&self.scales);
         }
-        Some(if has_previous { focus } else { None })
+        true
     }
 }
 
 fn numeric_id(value: &Value) -> Option<u64> {
     value.as_str()?.parse().ok()
-}
-fn location(value: &Value) -> Option<[f64; 2]> {
-    Some([value["longitude"].as_f64()?, value["latitude"].as_f64()?])
 }

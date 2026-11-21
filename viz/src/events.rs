@@ -197,10 +197,12 @@ fn refresh(
         let offset = crate::pose(&rig).translation - rig.target;
         let street_focus = slot.venue + Vec3::new(offset.x, 0., offset.z).normalize() * 70.;
         let frontage = frontage(&routes.streets, street_focus);
-        if !rig.fixed && Some(slot) == focus {
+        if !rig.fixed && result["scene"].is_null() && Some(slot) == focus {
             let curb = frontage.nearest(street_focus).0;
-            rig.target = slot.venue.midpoint(curb);
-            rig.distance = 460_f32.max(220. + 2.5 * slot.venue.distance(curb));
+            rig.fly_to(
+                slot.venue.midpoint(curb),
+                460_f32.max(220. + 2.5 * slot.venue.distance(curb)),
+            );
         }
         spawn_crowd(
             &mut commands,
