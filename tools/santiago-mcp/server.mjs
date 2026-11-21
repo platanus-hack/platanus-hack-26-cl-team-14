@@ -52,6 +52,11 @@ const point = { type: 'array', items: { type: 'number' }, minItems: 2, maxItems:
 const path = { type: 'array', items: point, minItems: 2 };
 const numbers = { type: 'array', items: { type: 'number' } };
 const stopRules = { type: 'array', items: { type: 'integer', minimum: 0, maximum: 3 } };
+const lineProperties = {
+  mode: { enum: ['bus', 'metro'] }, stop_ids: { type: 'array', items: { type: 'string' } },
+  segment_minutes: numbers, dwell_minutes: numbers, headway_minutes: { type: ['number', 'null'], exclusiveMinimum: 0, description: 'Use a positive headway for new service. Use null to restore a null catalog headway.' },
+  pickup_type: stopRules, drop_off_type: stopRules,
+};
 const featureChanges = [
   {
     kind: 'building',
@@ -70,14 +75,12 @@ const featureChanges = [
     kind: 'line',
     description: 'Edit one directed bus or Metro service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing.',
     target: idTarget, geometries: ['LineString'],
-    properties: {
-      mode: { enum: ['bus', 'metro'] }, stop_ids: { type: 'array', items: { type: 'string' } },
-      segment_minutes: numbers, dwell_minutes: numbers, headway_minutes: { type: ['number', 'null'], exclusiveMinimum: 0, description: 'Use a positive headway for new service. Use null to restore a null catalog headway.' },
-      pickup_type: stopRules, drop_off_type: stopRules,
-    },
+    properties: lineProperties,
   },
 ].map(({ kind, description, target, geometries, properties }) => ({
-  type: 'object', description, required: ['kind', 'target', 'op'],
+  type: 'object', description, required: ['kind', 'target', 'op'], additionalProperties: false,
+  if: { properties: { op: { const: 'set' } } },
+  then: { required: ['properties'], properties: { properties: { minProperties: 1 } } },
   properties: {
     kind: { enum: [kind] }, target, op: { enum: ['add', 'set', 'move', 'remove'] },
     properties: { type: 'object', properties, additionalProperties: false },
@@ -251,6 +254,12 @@ async function dispatch({ method, params }) {
     }
     const placesUsed = [];
     for (const change of params.arguments.changes ?? []) {
+      if (change.kind === 'line' && change.op === 'set') {
+        const fields = Object.keys(change.properties ?? {});
+        if ('value' in change || !fields.length || fields.some(key => !Object.hasOwn(lineProperties, key))) {
+          throw new Error('Set a line property in properties, such as {"headway_minutes":5}.');
+        }
+      }
       if (change.target?.type !== 'place') continue;
       const place = places[change.target.id];
       // A named place is a job block; a residents change there would ask the engine for a home block it does not have.
