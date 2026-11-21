@@ -1,0 +1,404 @@
+destination_raw,classification,workers,reported_this_enumeration_commune,reported_other_commune,reported_foreign,reported_ignored,name_legacy,current_cut_primary,current_aggregate_cuts,harmonization
+1101,known_external_domestic,469,141,328,0,0,Iquique,1101,1101;1107,aggregate_parent_and_later_child
+1102,known_external_domestic,1,0,1,0,0,Camiña,1402,1402,code_changed_same_commune
+1103,known_external_domestic,3,0,3,0,0,Colchane,1403,1403,code_changed_same_commune
+1104,known_external_domestic,272,10,262,0,0,Huara,1404,1404,code_changed_same_commune
+1105,known_external_domestic,243,192,51,0,0,Pica,1405,1405,code_changed_same_commune
+1106,known_external_domestic,78,37,41,0,0,Pozo Almonte,1401,1401,code_changed_same_commune
+1201,known_external_domestic,194,75,119,0,0,Arica,15101,15101,code_changed_same_commune
+1202,known_external_domestic,1,0,1,0,0,Camarones,15102,15102,code_changed_same_commune
+1301,known_external_domestic,217,1,216,0,0,Putre,15201,15201,code_changed_same_commune
+1302,known_external_domestic,1,0,1,0,0,General Lagos,15202,15202,code_changed_same_commune
+2101,known_external_domestic,2213,1266,947,0,0,Antofagasta,2101,2101,same_code
+2102,known_external_domestic,26,9,17,0,0,Mejillones,2102,2102,same_code
+2103,known_external_domestic,57,47,10,0,0,Sierra Gorda,2103,2103,same_code
+2104,known_external_domestic,93,79,14,0,0,Taltal,2104,2104,same_code
+2201,known_external_domestic,1014,449,565,0,0,Calama,2201,2201,same_code
+2202,known_external_domestic,2,0,2,0,0,Ollagüe,2202,2202,same_code
+2203,known_external_domestic,69,56,13,0,0,San Pedro de Atacama,2203,2203,same_code
+2301,known_external_domestic,35,20,15,0,0,Tocopilla,2301,2301,same_code
+2302,known_external_domestic,21,7,14,0,0,María Elena,2302,2302,same_code
+3101,known_external_domestic,322,101,221,0,0,Copiapó,3101,3101,same_code
+3102,known_external_domestic,24,9,15,0,0,Caldera,3102,3102,same_code
+3103,known_external_domestic,93,51,42,0,0,Tierra Amarilla,3103,3103,same_code
+3201,known_external_domestic,23,8,15,0,0,Chañaral,3201,3201,same_code
+3202,known_external_domestic,97,69,28,0,0,Diego de Almagro,3202,3202,same_code
+3301,known_external_domestic,93,44,49,0,0,Vallenar,3301,3301,same_code
+3302,known_external_domestic,8,4,4,0,0,Alto del Carmen,3302,3302,same_code
+3303,known_external_domestic,383,1,382,0,0,Freirina,3303,3303,same_code
+3304,known_external_domestic,11,7,4,0,0,Huasco,3304,3304,same_code
+4101,known_external_domestic,332,99,233,0,0,La Serena,4101,4101,same_code
+4102,known_external_domestic,139,47,92,0,0,Coquimbo,4102,4102,same_code
+4103,known_external_domestic,6,0,6,0,0,Andacollo,4103,4103,same_code
+4104,known_external_domestic,38,27,11,0,0,La Higuera,4104,4104,same_code
+4105,known_external_domestic,13,2,11,0,0,Paiguano,4105,4105,same_code
+4106,known_external_domestic,84,35,49,0,0,Vicuña,4106,4106,same_code
+4201,known_external_domestic,57,16,41,0,0,Illapel,4201,4201,same_code
+4202,known_external_domestic,17,2,15,0,0,Canela,4202,4202,same_code
+4203,known_external_domestic,105,20,85,0,0,Los Vilos,4203,4203,same_code
+4204,known_external_domestic,385,234,151,0,0,Salamanca,4204,4204,same_code
+4301,known_external_domestic,123,28,95,0,0,Ovalle,4301,4301,same_code
+4302,known_external_domestic,22,10,12,0,0,Combarbalá,4302,4302,same_code
+4303,known_external_domestic,51,18,33,0,0,Monte Patria,4303,4303,same_code
+4304,known_external_domestic,12,2,10,0,0,Punitaqui,4304,4304,same_code
+4305,known_external_domestic,6,1,5,0,0,Río Hurtado,4305,4305,same_code
+5101,known_external_domestic,1325,96,1229,0,0,Valparaíso,5101,5101,same_code
+5102,known_external_domestic,334,43,291,0,0,Casablanca,5102,5102,same_code
+5103,known_external_domestic,127,8,119,0,0,Concón,5103,5103,same_code
+5104,known_external_domestic,3,1,2,0,0,Juan Fernández,5104,5104,same_code
+5105,known_external_domestic,121,66,55,0,0,Puchuncaví,5105,5105,same_code
+5106,known_external_domestic,157,21,136,0,0,Quilpué,5801,5801,code_changed_same_commune
+5107,known_external_domestic,95,38,57,0,0,Quintero,5107,5107,same_code
+5108,known_external_domestic,54,4,50,0,0,Villa Alemana,5804,5804,code_changed_same_commune
+5109,known_external_domestic,931,113,818,0,0,Viña del Mar,5109,5109,same_code
+5201,known_external_domestic,11,1,10,0,0,Isla de Pascua,5201,5201,same_code
+5301,known_external_domestic,796,96,700,0,0,Los Andes,5301,5301,same_code
+5302,known_external_domestic,22,9,13,0,0,Calle Larga,5302,5302,same_code
+5303,known_external_domestic,34,2,32,0,0,Rinconada,5303,5303,same_code
+5304,known_external_domestic,27,10,17,0,0,San Esteban,5304,5304,same_code
+5401,known_external_domestic,113,26,87,0,0,La Ligua,5401,5401,same_code
+5402,known_external_domestic,61,13,48,0,0,Cabildo,5402,5402,same_code
+5403,known_external_domestic,52,19,33,0,0,Papudo,5403,5403,same_code
+5404,known_external_domestic,24,4,20,0,0,Petorca,5404,5404,same_code
+5405,known_external_domestic,177,45,132,0,0,Zapallar,5405,5405,same_code
+5501,known_external_domestic,253,42,211,0,0,Quillota,5501,5501,same_code
+5502,known_external_domestic,194,13,181,0,0,Calera,5502,5502,same_code
+5503,known_external_domestic,35,1,34,0,0,Hijuelas,5503,5503,same_code
+5504,known_external_domestic,21,3,18,0,0,La Cruz,5504,5504,same_code
+5505,known_external_domestic,80,16,64,0,0,Limache,5802,5802,code_changed_same_commune
+5506,known_external_domestic,65,11,54,0,0,Nogales,5506,5506,same_code
+5507,known_external_domestic,54,18,36,0,0,Olmué,5803,5803,code_changed_same_commune
+5601,known_external_domestic,853,55,798,0,0,San Antonio,5601,5601,same_code
+5602,known_external_domestic,305,58,247,0,0,Algarrobo,5602,5602,same_code
+5603,known_external_domestic,123,30,93,0,0,Cartagena,5603,5603,same_code
+5604,known_external_domestic,178,52,126,0,0,El Quisco,5604,5604,same_code
+5605,known_external_domestic,74,19,55,0,0,El Tabo,5605,5605,same_code
+5606,known_external_domestic,157,15,142,0,0,Santo Domingo,5606,5606,same_code
+5701,known_external_domestic,345,50,295,0,0,San Felipe,5701,5701,same_code
+5702,known_external_domestic,50,4,46,0,0,Catemu,5702,5702,same_code
+5703,known_external_domestic,61,10,51,0,0,Llaillay,5703,5703,same_code
+5704,known_external_domestic,26,1,25,0,0,Panquehue,5704,5704,same_code
+5705,known_external_domestic,19,5,14,0,0,Putaendo,5705,5705,same_code
+5706,known_external_domestic,39,2,37,0,0,Santa María,5706,5706,same_code
+6101,known_external_domestic,2436,97,2339,0,0,Rancagua,6101,6101,same_code
+6102,known_external_domestic,115,29,86,0,0,Codegua,6102,6102,same_code
+6103,known_external_domestic,17,6,11,0,0,Coinco,6103,6103,same_code
+6104,known_external_domestic,42,10,32,0,0,Coltauco,6104,6104,same_code
+6105,known_external_domestic,25,8,17,0,0,Doñihue,6105,6105,same_code
+6106,known_external_domestic,146,12,134,0,0,Graneros,6106,6106,same_code
+6107,known_external_domestic,145,36,109,0,0,Las Cabras,6107,6107,same_code
+6108,known_external_domestic,107,15,92,0,0,Machalí,6108,6108,same_code
+6109,known_external_domestic,37,5,32,0,0,Malloa,6109,6109,same_code
+6110,known_external_domestic,164,39,125,0,0,Mostazal,6110,6110,same_code
+6111,known_external_domestic,21,3,18,0,0,Olivar,6111,6111,same_code
+6112,known_external_domestic,22,8,14,0,0,Peumo,6112,6112,same_code
+6113,known_external_domestic,38,5,33,0,0,Pichidegua,6113,6113,same_code
+6114,known_external_domestic,19,1,18,0,0,Quinta de Tilcoco,6114,6114,same_code
+6115,known_external_domestic,415,53,362,0,0,Rengo,6115,6115,same_code
+6116,known_external_domestic,107,27,80,0,0,Requínoa,6116,6116,same_code
+6117,known_external_domestic,127,39,88,0,0,San Vicente,6117,6117,same_code
+6201,known_external_domestic,53,19,34,0,0,Pichilemu,6201,6201,same_code
+6202,known_external_domestic,34,3,31,0,0,La Estrella,6202,6202,same_code
+6203,known_external_domestic,54,8,46,0,0,Litueche,6203,6203,same_code
+6204,known_external_domestic,27,13,14,0,0,Marchihue,6204,6204,same_code
+6205,known_external_domestic,76,14,62,0,0,Navidad,6205,6205,same_code
+6206,known_external_domestic,14,3,11,0,0,Paredones,6206,6206,same_code
+6301,known_external_domestic,399,41,358,0,0,San Fernando,6301,6301,same_code
+6302,known_external_domestic,75,7,68,0,0,Chépica,6302,6302,same_code
+6303,known_external_domestic,61,7,54,0,0,Chimbarongo,6303,6303,same_code
+6304,known_external_domestic,27,8,19,0,0,Lolol,6304,6304,same_code
+6305,known_external_domestic,67,22,45,0,0,Nancagua,6305,6305,same_code
+6306,known_external_domestic,49,23,26,0,0,Palmilla,6306,6306,same_code
+6307,known_external_domestic,45,10,35,0,0,Peralillo,6307,6307,same_code
+6308,known_external_domestic,48,3,45,0,0,Placilla,6308,6308,same_code
+6309,known_external_domestic,9,2,7,0,0,Pumanque,6309,6309,same_code
+6310,known_external_domestic,105,12,93,0,0,Santa Cruz,6310,6310,same_code
+7101,known_external_domestic,377,78,299,0,0,Talca,7101,7101,same_code
+7102,known_external_domestic,106,40,66,0,0,Constitución,7102,7102,same_code
+7103,known_external_domestic,48,30,18,0,0,Curepto,7103,7103,same_code
+7104,known_external_domestic,8,3,5,0,0,Empedrado,7104,7104,same_code
+7105,known_external_domestic,29,2,27,0,0,Maule,7105,7105,same_code
+7106,known_external_domestic,12,3,9,0,0,Pelarco,7106,7106,same_code
+7107,known_external_domestic,6,3,3,0,0,Pencahue,7107,7107,same_code
+7108,known_external_domestic,24,3,21,0,0,Río Claro,7108,7108,same_code
+7109,known_external_domestic,39,7,32,0,0,San Clemente,7109,7109,same_code
+7110,known_external_domestic,30,9,21,0,0,San Rafael,7110,7110,same_code
+7201,known_external_domestic,76,25,51,0,0,Cauquenes,7201,7201,same_code
+7202,known_external_domestic,13,5,8,0,0,Chanco,7202,7202,same_code
+7203,known_external_domestic,19,13,6,0,0,Pelluhue,7203,7203,same_code
+7301,known_external_domestic,389,52,337,0,0,Curicó,7301,7301,same_code
+7302,known_external_domestic,14,1,13,0,0,Hualañé,7302,7302,same_code
+7303,known_external_domestic,42,24,18,0,0,Licantén,7303,7303,same_code
+7304,known_external_domestic,68,18,50,0,0,Molina,7304,7304,same_code
+7305,known_external_domestic,17,3,14,0,0,Rauco,7305,7305,same_code
+7306,known_external_domestic,32,20,12,0,0,Romeral,7306,7306,same_code
+7307,known_external_domestic,21,6,15,0,0,Sagrada Familia,7307,7307,same_code
+7308,known_external_domestic,52,9,43,0,0,Teno,7308,7308,same_code
+7309,known_external_domestic,14,9,5,0,0,Vichuquén,7309,7309,same_code
+7401,known_external_domestic,133,32,101,0,0,Linares,7401,7401,same_code
+7402,known_external_domestic,29,11,18,0,0,Colbún,7402,7402,same_code
+7403,known_external_domestic,52,19,33,0,0,Longaví,7403,7403,same_code
+7404,known_external_domestic,64,16,48,0,0,Parral,7404,7404,same_code
+7405,known_external_domestic,23,9,14,0,0,Retiro,7405,7405,same_code
+7406,known_external_domestic,114,24,90,0,0,San Javier,7406,7406,same_code
+7407,known_external_domestic,24,7,17,0,0,Villa Alegre,7407,7407,same_code
+7408,known_external_domestic,20,1,19,0,0,Yerbas Buenas,7408,7408,same_code
+8101,known_external_domestic,491,78,413,0,0,Concepción,8101,8101,same_code
+8102,known_external_domestic,62,13,49,0,0,Coronel,8102,8102,same_code
+8103,known_external_domestic,8,1,7,0,0,Chiguayante,8103,8103,same_code
+8104,known_external_domestic,1520,1,1519,0,0,Florida,8104,8104,same_code
+8105,known_external_domestic,2,1,1,0,0,Hualqui,8105,8105,same_code
+8106,known_external_domestic,33,4,29,0,0,Lota,8106,8106,same_code
+8107,known_external_domestic,30,3,27,0,0,Penco,8107,8107,same_code
+8108,known_external_domestic,43,35,8,0,0,San Pedro de la Paz,8108,8108,same_code
+8109,known_external_domestic,10,4,6,0,0,Santa Juana,8109,8109,same_code
+8110,known_external_domestic,192,80,112,0,0,Talcahuano,8110,8110;8112,aggregate_parent_and_later_child
+8111,known_external_domestic,50,15,35,0,0,Tomé,8111,8111,same_code
+8201,known_external_domestic,48,21,27,0,0,Lebu,8201,8201,same_code
+8202,known_external_domestic,27,11,16,0,0,Arauco,8202,8202,same_code
+8203,known_external_domestic,105,25,80,0,0,Cañete,8203,8203,same_code
+8204,known_external_domestic,4,1,3,0,0,Contulmo,8204,8204,same_code
+8205,known_external_domestic,38,14,24,0,0,Curanilahue,8205,8205,same_code
+8206,known_external_domestic,8,4,4,0,0,Los Alamos,8206,8206,same_code
+8207,known_external_domestic,5,2,3,0,0,Tirúa,8207,8207,same_code
+8301,known_external_domestic,238,65,173,0,0,Los Angeles,8301,8301,same_code
+8302,known_external_domestic,6,1,5,0,0,Antuco,8302,8302,same_code
+8303,known_external_domestic,32,11,21,0,0,Cabrero,8303,8303,same_code
+8304,known_external_domestic,17,6,11,0,0,Laja,8304,8304,same_code
+8305,known_external_domestic,42,6,36,0,0,Mulchén,8305,8305,same_code
+8306,known_external_domestic,19,6,13,0,0,Nacimiento,8306,8306,same_code
+8307,known_external_domestic,4,0,4,0,0,Negrete,8307,8307,same_code
+8308,known_external_domestic,4,0,4,0,0,Quilaco,8308,8308,same_code
+8309,known_external_domestic,7,4,3,0,0,Quilleco,8309,8309,same_code
+8310,known_external_domestic,2,1,1,0,0,San Rosendo,8310,8310,same_code
+8311,known_external_domestic,196,128,68,0,0,Santa Bárbara,8311,8311;8314,aggregate_parent_and_later_child
+8312,known_external_domestic,17,8,9,0,0,Tucapel,8312,8312,same_code
+8313,known_external_domestic,89,10,79,0,0,Yumbel,8313,8313,same_code
+8401,known_external_domestic,185,30,155,0,0,Chillán,16101,16101,code_changed_same_commune
+8402,known_external_domestic,39,7,32,0,0,Bulnes,16102,16102,code_changed_same_commune
+8403,known_external_domestic,7,5,2,0,0,Cobquecura,16202,16202,code_changed_same_commune
+8404,known_external_domestic,10,2,8,0,0,Coelemu,16203,16203,code_changed_same_commune
+8405,known_external_domestic,29,13,16,0,0,Coihueco,16302,16302,code_changed_same_commune
+8406,known_external_domestic,10,1,9,0,0,Chillán Viejo,16103,16103,code_changed_same_commune
+8407,known_external_domestic,75,3,72,0,0,El Carmen,16104,16104,code_changed_same_commune
+8408,known_external_domestic,12,0,12,0,0,Ninhue,16204,16204,code_changed_same_commune
+8409,known_external_domestic,16,4,12,0,0,Ñiquén,16303,16303,code_changed_same_commune
+8410,known_external_domestic,6,3,3,0,0,Pemuco,16105,16105,code_changed_same_commune
+8411,known_external_domestic,4,2,2,0,0,Pinto,16106,16106,code_changed_same_commune
+8412,known_external_domestic,7,2,5,0,0,Portezuelo,16205,16205,code_changed_same_commune
+8413,known_external_domestic,15,2,13,0,0,Quillón,16107,16107,code_changed_same_commune
+8414,known_external_domestic,9,2,7,0,0,Quirihue,16201,16201,code_changed_same_commune
+8415,known_external_domestic,12,1,11,0,0,Ránquil,16206,16206,code_changed_same_commune
+8416,known_external_domestic,99,21,78,0,0,San Carlos,16301,16301,code_changed_same_commune
+8417,known_external_domestic,12,7,5,0,0,San Fabián,16304,16304,code_changed_same_commune
+8418,known_external_domestic,39,5,34,0,0,San Ignacio,16108,16108,code_changed_same_commune
+8419,known_external_domestic,18,1,17,0,0,San Nicolás,16305,16305,code_changed_same_commune
+8420,known_external_domestic,3,2,1,0,0,Treguaco,16207,16207,code_changed_same_commune
+8421,known_external_domestic,85,17,68,0,0,Yungay,16109,16109,code_changed_same_commune
+9101,known_external_domestic,293,58,235,0,0,Temuco,9101,9101,same_code
+9102,known_external_domestic,23,12,11,0,0,Carahue,9102,9102,same_code
+9103,known_external_domestic,13,8,5,0,0,Cunco,9103,9103,same_code
+9104,known_external_domestic,7,3,4,0,0,Curarrehue,9104,9104,same_code
+9105,known_external_domestic,25,11,14,0,0,Freire,9105,9105,same_code
+9106,known_external_domestic,26,3,23,0,0,Galvarino,9106,9106,same_code
+9107,known_external_domestic,16,3,13,0,0,Gorbea,9107,9107,same_code
+9108,known_external_domestic,45,12,33,0,0,Lautaro,9108,9108,same_code
+9109,known_external_domestic,42,6,36,0,0,Loncoche,9109,9109,same_code
+9110,known_external_domestic,3,1,2,0,0,Melipeuco,9110,9110,same_code
+9111,known_external_domestic,36,17,19,0,0,Nueva Imperial,9111,9111;9121,aggregate_parent_and_later_child
+9112,known_external_domestic,30,4,26,0,0,Padre Las Casas,9112,9112,same_code
+9113,known_external_domestic,7,2,5,0,0,Perquenco,9113,9113,same_code
+9114,known_external_domestic,25,9,16,0,0,Pitrufquén,9114,9114,same_code
+9115,known_external_domestic,80,34,46,0,0,Pucón,9115,9115,same_code
+9116,known_external_domestic,21,10,11,0,0,Saavedra,9116,9116,same_code
+9117,known_external_domestic,24,14,10,0,0,Teodoro Schmidt,9117,9117,same_code
+9118,known_external_domestic,12,2,10,0,0,Toltén,9118,9118,same_code
+9119,known_external_domestic,26,6,20,0,0,Vilcún,9119,9119,same_code
+9120,known_external_domestic,106,48,58,0,0,Villarrica,9120,9120,same_code
+9201,known_external_domestic,57,15,42,0,0,Angol,9201,9201,same_code
+9202,known_external_domestic,37,15,22,0,0,Collipulli,9202,9202,same_code
+9203,known_external_domestic,104,3,101,0,0,Curacautín,9203,9203,same_code
+9204,known_external_domestic,6,0,6,0,0,Ercilla,9204,9204,same_code
+9205,known_external_domestic,12,2,10,0,0,Lonquimay,9205,9205,same_code
+9206,known_external_domestic,10,6,4,0,0,Los Sauces,9206,9206,same_code
+9207,known_external_domestic,17,5,12,0,0,Lumaco,9207,9207,same_code
+9208,known_external_domestic,5,1,4,0,0,Purén,9208,9208,same_code
+9209,known_external_domestic,21,12,9,0,0,Renaico,9209,9209,same_code
+9210,known_external_domestic,26,5,21,0,0,Traiguén,9210,9210,same_code
+9211,known_external_domestic,65,6,59,0,0,Victoria,9211,9211,same_code
+10003,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+10009,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+10023,foreign_reported,2,0,0,2,0,,,,not_domestic_cut
+10029,foreign_reported,3,0,0,3,0,,,,not_domestic_cut
+10034,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+10035,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+10036,foreign_reported,3,0,0,3,0,,,,not_domestic_cut
+10042,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+10044,foreign_reported,14,0,0,14,0,,,,not_domestic_cut
+10050,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+10057,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+10101,known_external_domestic,481,186,295,0,0,Puerto Montt,10101,10101,same_code
+10102,known_external_domestic,71,48,23,0,0,Calbuco,10102,10102,same_code
+10103,known_external_domestic,11,7,4,0,0,Cochamó,10103,10103,same_code
+10104,known_external_domestic,18,9,9,0,0,Fresia,10104,10104,same_code
+10105,known_external_domestic,51,27,24,0,0,Frutillar,10105,10105,same_code
+10106,known_external_domestic,12,7,5,0,0,Los Muermos,10106,10106,same_code
+10107,known_external_domestic,12,3,9,0,0,Llanquihue,10107,10107,same_code
+10108,known_external_domestic,13,10,3,0,0,Maullín,10108,10108,same_code
+10109,known_external_domestic,43,7,36,0,0,Puerto Varas,10109,10109,same_code
+10201,known_external_domestic,85,19,66,0,0,Castro,10201,10201,same_code
+10202,known_external_domestic,26,8,18,0,0,Ancud,10202,10202,same_code
+10203,known_external_domestic,7,4,3,0,0,Chonchi,10203,10203,same_code
+10205,known_external_domestic,2,1,1,0,0,Dalcahue,10205,10205,same_code
+10206,known_external_domestic,2,0,2,0,0,Puqueldón,10206,10206,same_code
+10207,known_external_domestic,13,8,5,0,0,Queilén,10207,10207,same_code
+10208,known_external_domestic,68,49,19,0,0,Quellón,10208,10208,same_code
+10209,known_external_domestic,16,1,15,0,0,Quemchi,10209,10209,same_code
+10210,known_external_domestic,5,2,3,0,0,Quinchao,10210,10210,same_code
+10301,known_external_domestic,336,63,273,0,0,Osorno,10301,10301,same_code
+10302,known_external_domestic,21,5,16,0,0,Puerto Octay,10302,10302,same_code
+10303,known_external_domestic,225,8,217,0,0,Purranque,10303,10303,same_code
+10304,known_external_domestic,11,7,4,0,0,Puyehue,10304,10304,same_code
+10305,known_external_domestic,17,5,12,0,0,Río Negro,10305,10305,same_code
+10306,known_external_domestic,4,1,3,0,0,San Juan de la Costa,10306,10306,same_code
+10307,known_external_domestic,144,1,143,0,0,San Pablo,10307,10307,same_code
+10401,known_external_domestic,8,2,6,0,0,Chaitén,10401,10401,same_code
+10402,known_external_domestic,5,2,3,0,0,Futaleufú,10402,10402,same_code
+10403,known_external_domestic,10,7,3,0,0,Hualaihué,10403,10403,same_code
+10404,known_external_domestic,9,5,4,0,0,Palena,10404,10404,same_code
+10501,known_external_domestic,258,86,172,0,0,Valdivia,14101,14101,code_changed_same_commune
+10502,known_external_domestic,7,3,4,0,0,Corral,14102,14102,code_changed_same_commune
+10503,known_external_domestic,13,6,7,0,0,Futrono,14202,14202,code_changed_same_commune
+10504,known_external_domestic,43,19,24,0,0,La Unión,14201,14201,code_changed_same_commune
+10505,known_external_domestic,12,4,8,0,0,Lago Ranco,14203,14203,code_changed_same_commune
+10506,known_external_domestic,9,6,3,0,0,Lanco,14103,14103,code_changed_same_commune
+10507,known_external_domestic,81,10,71,0,0,Los Lagos,14104,14104,code_changed_same_commune
+10508,known_external_domestic,6,1,5,0,0,Máfil,14105,14105,code_changed_same_commune
+10509,known_external_domestic,89,30,59,0,0,Mariquina,14106,14106,code_changed_same_commune
+10510,known_external_domestic,59,1,58,0,0,Paillaco,14107,14107,code_changed_same_commune
+10511,known_external_domestic,57,12,45,0,0,Panguipulli,14108,14108,code_changed_same_commune
+10512,known_external_domestic,45,7,38,0,0,Río Bueno,14204,14204,code_changed_same_commune
+11101,known_external_domestic,110,64,46,0,0,Coihaique,11101,11101,same_code
+11102,known_external_domestic,6,5,1,0,0,Lago Verde,11102,11102,same_code
+11201,known_external_domestic,75,53,22,0,0,Aisén,11201,11201,same_code
+11202,known_external_domestic,19,9,10,0,0,Cisnes,11202,11202,same_code
+11203,known_external_domestic,3,2,1,0,0,Guaitecas,11203,11203,same_code
+11301,known_external_domestic,20,9,11,0,0,Cochrane,11301,11301,same_code
+11302,known_external_domestic,13,0,13,0,0,O'Higgins,11302,11302,same_code
+11303,known_external_domestic,4,4,0,0,0,Tortel,11303,11303,same_code
+11401,known_external_domestic,16,6,10,0,0,Chile Chico,11401,11401,same_code
+11402,known_external_domestic,9,7,2,0,0,Río Ibáñez,11402,11402,same_code
+12101,known_external_domestic,162,60,102,0,0,Punta Arenas,12101,12101,same_code
+12102,known_external_domestic,1,0,1,0,0,Laguna Blanca,12102,12102,same_code
+12104,known_external_domestic,47,5,42,0,0,San Gregorio,12104,12104,same_code
+12201,known_external_domestic,3,1,2,0,0,Navarino,12201,12201,same_code
+12202,known_external_domestic,1,0,1,0,0,Antártica,12202,12202,same_code
+12301,known_external_domestic,58,48,10,0,0,Porvenir,12301,12301,same_code
+12302,known_external_domestic,163,4,159,0,0,Primavera,12302,12302,same_code
+12303,known_external_domestic,3,0,3,0,0,Timaukel,12303,12303,same_code
+12401,known_external_domestic,43,8,35,0,0,Natales,12401,12401,same_code
+12402,known_external_domestic,9,0,9,0,0,Torres del Paine,12402,12402,same_code
+13101,internal_rm52,375122,42778,332344,0,0,Santiago,13101,13101,same_code
+13102,internal_rm52,29970,6517,23453,0,0,Cerrillos,13102,13102,same_code
+13103,internal_rm52,15236,9794,5442,0,0,Cerro Navia,13103,13103,same_code
+13104,internal_rm52,20374,9200,11174,0,0,Conchalí,13104,13104,same_code
+13105,internal_rm52,21524,11632,9892,0,0,El Bosque,13105,13105,same_code
+13106,internal_rm52,54651,11821,42830,0,0,Estación Central,13106,13106,same_code
+13107,internal_rm52,26597,5927,20670,0,0,Huechuraba,13107,13107,same_code
+13108,internal_rm52,36176,6470,29706,0,0,Independencia,13108,13108,same_code
+13109,internal_rm52,23482,7361,16121,0,0,La Cisterna,13109,13109,same_code
+13110,internal_rm52,59220,27419,31801,0,0,La Florida,13110,13110,same_code
+13111,internal_rm52,17119,8326,8793,0,0,La Granja,13111,13111,same_code
+13112,internal_rm52,18686,10545,8141,0,0,La Pintana,13112,13112,same_code
+13113,internal_rm52,31010,9581,21429,0,0,La Reina,13113,13113,same_code
+13114,internal_rm52,172827,41706,131121,0,0,Las Condes,13114,13114,same_code
+13115,internal_rm52,28626,14050,14576,0,0,Lo Barnechea,13115,13115,same_code
+13116,internal_rm52,17144,7210,9934,0,0,Lo Espejo,13116,13116,same_code
+13117,internal_rm52,9627,5409,4218,0,0,Lo Prado,13117,13117,same_code
+13118,internal_rm52,37021,8705,28316,0,0,Macul,13118,13118,same_code
+13119,internal_rm52,75585,41423,34162,0,0,Maipú,13119,13119,same_code
+13120,internal_rm52,71168,13689,57479,0,0,Ñuñoa,13120,13120,same_code
+13121,internal_rm52,16667,7799,8868,0,0,Pedro Aguirre Cerda,13121,13121,same_code
+13122,internal_rm52,29231,16324,12907,0,0,Peñalolén,13122,13122,same_code
+13123,internal_rm52,181194,20332,160862,0,0,Providencia,13123,13123,same_code
+13124,internal_rm52,39091,14076,25015,0,0,Pudahuel,13124,13124,same_code
+13125,internal_rm52,51738,12628,39110,0,0,Quilicura,13125,13125,same_code
+13126,internal_rm52,34890,10869,24021,0,0,Quinta Normal,13126,13126,same_code
+13127,internal_rm52,50366,15164,35202,0,0,Recoleta,13127,13127,same_code
+13128,internal_rm52,31085,11050,20035,0,0,Renca,13128,13128,same_code
+13129,internal_rm52,31793,7735,24058,0,0,San Joaquín,13129,13129,same_code
+13130,internal_rm52,41690,7552,34138,0,0,San Miguel,13130,13130,same_code
+13131,internal_rm52,11986,5838,6148,0,0,San Ramón,13131,13131,same_code
+13132,internal_rm52,54687,12821,41866,0,0,Vitacura,13132,13132,same_code
+13201,internal_rm52,56334,40055,16279,0,0,Puente Alto,13201,13201,same_code
+13202,internal_rm52,6013,3284,2729,0,0,Pirque,13202,13202,same_code
+13203,internal_rm52,3519,2726,793,0,0,San José de Maipo,13203,13203,same_code
+13301,internal_rm52,21645,14299,7346,0,0,Colina,13301,13301,same_code
+13302,internal_rm52,15802,7615,8187,0,0,Lampa,13302,13302,same_code
+13303,internal_rm52,5200,3595,1605,0,0,Tiltil,13303,13303,same_code
+13401,internal_rm52,59117,31357,27760,0,0,San Bernardo,13401,13401,same_code
+13402,internal_rm52,21651,14923,6728,0,0,Buin,13402,13402,same_code
+13403,internal_rm52,6092,3508,2584,0,0,Calera de Tango,13403,13403,same_code
+13404,internal_rm52,13932,11533,2399,0,0,Paine,13404,13404,same_code
+13501,internal_rm52,26229,23863,2366,0,0,Melipilla,13501,13501,same_code
+13502,internal_rm52,1343,1254,89,0,0,Alhué,13502,13502,same_code
+13503,internal_rm52,6473,5654,819,0,0,Curacaví,13503,13503,same_code
+13504,internal_rm52,2365,2098,267,0,0,María Pinto,13504,13504,same_code
+13505,internal_rm52,2115,1709,406,0,0,San Pedro,13505,13505,same_code
+13601,internal_rm52,14966,10135,4831,0,0,Talagante,13601,13601,same_code
+13602,internal_rm52,5802,4679,1123,0,0,El Monte,13602,13602,same_code
+13603,internal_rm52,6141,4948,1193,0,0,Isla de Maipo,13603,13603,same_code
+13604,internal_rm52,7249,3815,3434,0,0,Padre Hurtado,13604,13604,same_code
+13605,internal_rm52,11615,8539,3076,0,0,Peñaflor,13605,13605,same_code
+20004,foreign_reported,63,0,0,63,0,,,,not_domestic_cut
+20005,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+20010,foreign_reported,11,0,0,11,0,,,,not_domestic_cut
+20011,foreign_reported,18,0,0,18,0,,,,not_domestic_cut
+20014,foreign_reported,6,0,0,6,0,,,,not_domestic_cut
+20016,foreign_reported,3,0,0,3,0,,,,not_domestic_cut
+20017,foreign_reported,4,0,0,4,0,,,,not_domestic_cut
+20018,foreign_reported,17,0,0,17,0,,,,not_domestic_cut
+20020,foreign_reported,45,0,0,45,0,,,,not_domestic_cut
+20024,foreign_reported,2,0,0,2,0,,,,not_domestic_cut
+20027,foreign_reported,5,0,0,5,0,,,,not_domestic_cut
+20036,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+20037,foreign_reported,10,0,0,10,0,,,,not_domestic_cut
+20039,foreign_reported,2,0,0,2,0,,,,not_domestic_cut
+20040,foreign_reported,2,0,0,2,0,,,,not_domestic_cut
+20041,foreign_reported,3,0,0,3,0,,,,not_domestic_cut
+20042,foreign_reported,46,0,0,46,0,,,,not_domestic_cut
+20043,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+20044,foreign_reported,2,0,0,2,0,,,,not_domestic_cut
+20048,foreign_reported,6,0,0,6,0,,,,not_domestic_cut
+20051,foreign_reported,8,0,0,8,0,,,,not_domestic_cut
+20052,foreign_reported,6,0,0,6,0,,,,not_domestic_cut
+30011,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+30013,foreign_reported,2,0,0,2,0,,,,not_domestic_cut
+30015,foreign_reported,3,0,0,3,0,,,,not_domestic_cut
+30016,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+30018,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+30021,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+30028,foreign_reported,2,0,0,2,0,,,,not_domestic_cut
+30039,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+40001,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+40002,foreign_reported,9,0,0,9,0,,,,not_domestic_cut
+40005,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+40011,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+40014,foreign_reported,20,0,0,20,0,,,,not_domestic_cut
+40017,foreign_reported,12,0,0,12,0,,,,not_domestic_cut
+40019,foreign_reported,39,0,0,39,0,,,,not_domestic_cut
+40020,foreign_reported,2,0,0,2,0,,,,not_domestic_cut
+40025,foreign_reported,7,0,0,7,0,,,,not_domestic_cut
+40031,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+40033,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+40034,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+40035,foreign_reported,32,0,0,32,0,,,,not_domestic_cut
+40036,foreign_reported,3,0,0,3,0,,,,not_domestic_cut
+40041,foreign_reported,17,0,0,17,0,,,,not_domestic_cut
+40042,foreign_reported,5,0,0,5,0,,,,not_domestic_cut
+40044,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+50002,foreign_reported,3,0,0,3,0,,,,not_domestic_cut
+50005,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+50023,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+50026,foreign_reported,1,0,0,1,0,,,,not_domestic_cut
+99999,unknown_destination,202489,0,16569,0,185920,,,,not_domestic_cut
