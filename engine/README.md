@@ -306,6 +306,8 @@ L2b, **rejected** (registered 07:17, run 07:31 UTC): homes 1,000 m, jobs 500 m, 
 
 L4, **kept** (formula frozen 08:15, cleared by clever-heron and calm-condor, run 08:30 UTC): add `split`. A block or job point gives mass/n to each of the n parents within 1,000 m (same distance function as L1), not all to the nearest; n = 0 → excluded. Classes, class profiles and the scale are refitted on training stations as in L7. Assigned mass equals L7 (homes 597,156, jobs 772,562). Mass with 2 or more parents in reach: homes 63.6%, jobs 74.5%. Cut 0.9025; training classes 48 / 47, held-out 14 / 17. Scale 1.7763. Predictions SHA256 284cb5cf375e8439…. WAPE_bins **0.4464** (L7 0.4669), WAPE_daily 0.3500 (L7 0.3421). Held-out error by half day, share of observed: 00–12 0.2752 → 0.2550, 12–24 0.1916 → 0.1913. The MUT scenario uses the same equal split.
 
+Known limit of all layers (swift-fox, 08:41): no training station has observations in bins 0–9 (00:00–05:00), bin 10 has 2 and bin 47 has 8, so the profiles there rest on almost nothing. It touches 6 of the 1,123 held-out cells (7.2 boardings, 0.00% of the denominator), so it does not move the score; a layer must not earn its gain in those bins.
+
 Known weakness of L0: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
 
 ### Score artifact for the page

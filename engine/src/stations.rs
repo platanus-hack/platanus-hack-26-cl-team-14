@@ -33,14 +33,23 @@ fn nearest(st: &[Station], x: f64, y: f64) -> (usize, f64) {
         .min_by(|a, b| a.1.total_cmp(&b.1)).unwrap()
 }
 
+/// Parents within `radius` of (x, y) with raw weights and their sum: 1 each (L4), or 1/max(d, 50 m) (L4b).
+/// The share of parent k is w_k / sum.
+fn parents_in_reach(st: &[Station], x: f64, y: f64, radius: f64, inverse: bool) -> (Vec<(usize, f64)>, f64) {
+    let kx = 111_320.0 * (-33.45f64).to_radians().cos();
+    let near: Vec<(usize, f64)> = (0..st.len()).map(|k| (k, ((st[k].longitude - x) * kx).hypot((st[k].latitude - y) * 110_540.0)))
+        .filter(|&(_, d)| d <= radius).map(|(k, d)| (k, if inverse { 1.0 / d.max(50.0) } else { 1.0 })).collect();
+    let tot = near.iter().map(|n| n.1).sum();
+    (near, tot)
+}
+
 /// Spread each comuna total over its points by weight, add each point's share to its nearest station.
 /// Points farther than `radius` metres from their nearest parent add nothing (L1); their mass is not redistributed.
 /// `split` (L4): a point gives mass/n to each of the n parents within `radius`, not all to the nearest.
 /// Returns the station masses and the share of assigned mass whose point has 2 or more parents within the radius.
-fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, split: bool, dist: &mut Vec<(f64, f64)>) -> (Vec<f64>, f64) {
+fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, split: bool, inverse: bool, dist: &mut Vec<(f64, f64)>) -> (Vec<f64>, f64) {
     let mut wsum: HashMap<&str, f64> = HashMap::new();
     for p in pts { *wsum.entry(&p.0).or_default() += p.3; }
-    let kx = 111_320.0 * (-33.45f64).to_radians().cos();
     let mut m = vec![0.0; st.len()];
     let (mut multi, mut assigned) = (0.0, 0.0);
     for p in pts {
@@ -49,10 +58,10 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
         let (i, d) = nearest(st, p.1, p.2);
         dist.push((d, v));
         if !split { if d <= radius { m[i] += v; } continue; }
-        let near: Vec<usize> = (0..st.len()).filter(|&k| ((st[k].longitude - p.1) * kx).hypot((st[k].latitude - p.2) * 110_540.0) <= radius).collect();
+        let (near, tot) = parents_in_reach(st, p.1, p.2, radius, inverse);
         if !near.is_empty() { assigned += v; }
         if near.len() >= 2 { multi += v; }
-        for &k in &near { m[k] += v / near.len() as f64; }
+        for &(k, w) in &near { m[k] += v * w / tot; }
     }
     (m, if assigned > 0.0 { multi / assigned } else { 0.0 })
 }
@@ -60,7 +69,8 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
 /// `classes`: L7, two station classes with their own profile.
 /// `public_share`: L2, weight each OD pair by the share of public-transport commuters (mode 2) of its home comuna.
 /// `split`: L4, equal split of each point among all parents within the radius.
-pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool) -> (Vec<Vec<f64>>, Report, Fit) {
+/// `inverse`: L4b, with `split`, shares are 1/max(d, 50 m) normalized instead of equal parts.
+pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool, inverse: bool) -> (Vec<Vec<f64>>, Report, Fit) {
     let mut share: HashMap<String, (f64, f64)> = HashMap::new();
     for m in rows::<Mode>(&data.join("mode_share.csv")) {
         let e = share.entry(m.cut).or_default();
@@ -77,8 +87,8 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
     let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
     let mut dist = Vec::new();
-    let (h, multi_h) = mass(st, &home, &blocks, radius, split, &mut dist);
-    let (j, multi_j) = mass(st, &work, &jobs, radius, split, &mut dist);
+    let (h, multi_h) = mass(st, &home, &blocks, radius, split, inverse, &mut dist);
+    let (j, multi_j) = mass(st, &work, &jobs, radius, split, inverse, &mut dist);
 
     // L7: class 1 ("work") if J/H inside the radius is above the training median, else class 0 ("home").
     let ratio: Vec<f64> = (0..st.len()).map(|i| if h[i] == 0.0 { f64::INFINITY } else { j[i] / h[i] }).collect();
@@ -137,11 +147,11 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
     let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
         distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), mass_share_with_2_or_more_parents: [multi_h, multi_j] };
-    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share, split })
+    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share, split, inverse })
 }
 
 /// The frozen parts of a fit that a scenario reuses: baseline classes, profiles, scale, radius, mode shares.
-pub struct Fit { class: Vec<usize>, p: Vec<Vec<f64>>, a: f64, radius: f64, share: HashMap<String, (f64, f64)>, public_share: bool, split: bool }
+pub struct Fit { class: Vec<usize>, p: Vec<Vec<f64>>, a: f64, radius: f64, share: HashMap<String, (f64, f64)>, public_share: bool, split: bool, inverse: bool }
 
 const MUT_BLOCK: &str = "13114131009033";
 const MUT_CUT: &str = "13114";
@@ -167,7 +177,7 @@ fn sha256(bytes: &[u8]) -> String {
 
 fn layer_of(args: &[String]) -> Option<&'static str> {
     match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
-        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), ["1000", "public", "classes", "split"] => Some("L4"), _ => None,
+        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), ["1000", "public", "classes", "split"] => Some("L4"), ["1000", "public", "classes", "split", "inverse"] => Some("L4b"), _ => None,
     }
 }
 #[derive(Deserialize)]
@@ -202,7 +212,7 @@ impl StationModel {
         let st: Vec<Station> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
         let has = |k: &str| art.stations_args.iter().any(|x| x == k);
         let radius = art.stations_args.first().and_then(|r| r.parse().ok()).unwrap_or(f64::INFINITY);
-        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"), has("split"));
+        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"), has("split"), has("inverse"));
         // The stored score belongs to this fit only if: same model source, frozen target bytes and scorer, 1,123 cells, same input bytes, the label of these
         // arguments, all 31 frozen held-out stations present, and exactly the same held-out predictions.
         let held: std::collections::BTreeSet<&str> = st.iter().filter(|s| s.holdout).map(|s| s.id.as_str()).collect();
@@ -240,16 +250,15 @@ impl StationModel {
         if !(r.persons_per_occupied_dwelling >= 0.0 && r.persons_per_occupied_dwelling.is_finite()) { return Err("persons_per_occupied_dwelling must be finite and >= 0".into()); }
         let dh = r.dwellings_added * r.occupied_share * r.persons_per_occupied_dwelling * self.commuters_per_resident * self.home_public_share;
         let dj = -r.jobs_removed * self.job_public_factor;
-        // Same assignment rule as the fit: nearest parent, or (L4) an equal split among all parents within the radius.
+        // Same assignment rule as the fit: nearest parent, or (L4/L4b) a split among all parents within the radius.
         let (i, d) = nearest(&self.st, self.mut_point.0, self.mut_point.1);
-        let kx = 111_320.0 * (-33.45f64).to_radians().cos();
-        let near: Vec<usize> = if self.fit.split {
-            (0..self.st.len()).filter(|&k| ((self.st[k].longitude - self.mut_point.0) * kx).hypot((self.st[k].latitude - self.mut_point.1) * 110_540.0) <= self.fit.radius).collect()
-        } else if d <= self.fit.radius { vec![i] } else { vec![] };
+        let near: Vec<(usize, f64)> = if self.fit.split {
+            let (n, tot) = parents_in_reach(&self.st, self.mut_point.0, self.mut_point.1, self.fit.radius, self.fit.inverse);
+            n.into_iter().map(|(k, w)| (k, w / tot)).collect()
+        } else if d <= self.fit.radius { vec![(i, 1.0)] } else { vec![] };
         let mut stations = Vec::new();
-        for &i in &near {
+        for &(i, w) in &near {
             let p = &self.fit.p[self.fit.class[i]];
-            let w = 1.0 / near.len() as f64;
             let scen = (0..48).map(|t| self.base[i][t] + self.fit.a * p[t] * w * if t < 24 { dh } else { dj }).collect();
             stations.push(StationChange { id: self.st[i].id.clone(), name: self.st[i].name.clone(), predicted_base: self.base[i].clone(), predicted_scenario: scen });
         }
