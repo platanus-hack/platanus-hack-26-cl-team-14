@@ -300,8 +300,10 @@ Score at first run: WAPE_bins 0.5001, WAPE_daily 0.4198 (trivial training-mean p
 
 L2 (formula frozen at 07:11 UTC, cleared by clever-heron 07:13): add `public` after the radius. Each RM-internal OD pair is multiplied by the mode-2 share of its home comuna (`mode_share.csv`, all rows, −99 in the denominator), on the home side and the job side. Assumption: the home comuna's share applies to all its internal destinations; destination-specific shares are not observed. Mode 2 is broad public transport, not Metro. Assigned mass: homes 597,156, jobs 772,562. Scale 1.7865. WAPE_bins **0.4688**, WAPE_daily 0.3429.
 
+L2b, **rejected** (registered 07:17, run 07:31 UTC): homes 1,000 m, jobs 500 m, else L2. Code `5288e37` on branch `feat/station-l2b` (not merged), args `1000/500 public`, `jobs.csv` of main `ef34915`, predictions SHA256 `657736c0993c425151592db99e44c2d4f393a241873ebfba7cd267f1075a5a64`. WAPE_bins 0.5202, WAPE_daily 0.3808: worse than L2, so not kept.
+
 Known weakness of L0: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
 
 ### Score artifact for the page
 
-`python3 -I tools/pack/station_score_run.py L2 1000 public` runs the binary and the frozen scorer, then writes `data/mvp/station_score_run.json`: layer, arguments, model and scorer commits, run time, target and prediction SHA256, `wape_bins`, `wape_daily`, and for each of the 31 held-out stations `id,name,longitude,latitude,observed[48]` (nulls kept), `predicted[48]`, `observed_daily`, `predicted_daily` (both over the observed cells only). Observed values are joined after the run; they never enter Rust. One run per file.
+`python3 -I tools/pack/station_score_run.py 1000 public` (L2; the label comes from the arguments) runs the binary and the frozen scorer, then writes `data/mvp/station_score_run.json`: layer, arguments, model and scorer commits, run time, target and prediction SHA256, `wape_bins`, `wape_daily` (full precision; values are not rounded), and for each of the 31 held-out stations `id,name,longitude,latitude,observed[48]` (nulls kept), `predicted[48]`, `observed_daily`, `predicted_daily` (both over the observed cells only). Observed values are joined after the run; they never enter Rust. One run per file.
