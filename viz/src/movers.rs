@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
 };
 use serde_json::Value;
-use std::{collections::HashMap, fs, sync::Arc};
+use std::{collections::HashMap, fs, io::Read, sync::Arc};
 
 // One moving figure represents 96 workers. The engine's counts stay in persons.
 const PERSONS_PER_MOVER: f64 = 96.0;
@@ -139,6 +139,7 @@ struct Routes {
     cars: Table,
     bikes: Table,
     public: Table,
+    local: HashMap<LocalKey, Arc<Path>>,
     tracks: Vec<RailLine>,
     streets: StreetIndex,
     cycleways: StreetIndex,
@@ -155,6 +156,106 @@ fn table(file: &str, mode: Vehicle) -> Table {
         .iter()
         .map(|(key, row)| (key.clone(), Path::single(points(row), mode)))
         .collect()
+}
+
+fn public_path(row: &Value, tracks: &[RailLine]) -> Arc<Path> {
+    let path = points(&row["path"]);
+    let legs = row["segments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|leg| Leg {
+            end: leg["end"].as_u64().unwrap() as usize,
+            vehicle: match leg["mode"].as_str().unwrap() {
+                "walk" => Vehicle::Walk,
+                "bus" => Vehicle::Bus,
+                "metro" => {
+                    let first = path[leg["start"].as_u64().unwrap() as usize];
+                    let last = path[leg["end"].as_u64().unwrap() as usize];
+                    tracks
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, t)| t.service == leg["service"].as_str().unwrap())
+                        .find_map(|(track, t)| {
+                            let board = t.path.nearest(first).2;
+                            let exit = t.path.nearest(last).2;
+                            (board < exit).then_some(Vehicle::Metro { track, board, exit })
+                        })
+                        .unwrap()
+                }
+                "rail" => Vehicle::Rail,
+                mode => panic!("unknown public route mode {mode}"),
+            },
+        })
+        .collect();
+    Path::new(path, legs)
+}
+
+type LocalKey = (u64, String, [i64; 4]);
+
+fn local_key(id: u64, mode: &str, origin: &Value, destination: &Value) -> LocalKey {
+    let coords = [&origin[0], &origin[1], &destination[0], &destination[1]].map(|v| {
+        let n = v.as_f64().unwrap();
+        // The GTFS pack preserves endpoints to five decimal places. OSRM keeps the exact source fields.
+        if mode == "public" {
+            (n * 100000.).round() as i64
+        } else {
+            n.to_bits() as i64
+        }
+    });
+    (id, mode.to_owned(), coords)
+}
+
+fn gzip_json(file: &str) -> Value {
+    let mut bytes = Vec::new();
+    flate2::read::GzDecoder::new(fs::File::open(file).unwrap())
+        .read_to_end(&mut bytes)
+        .unwrap();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+fn local_routes(tracks: &[RailLine]) -> HashMap<LocalKey, Arc<Path>> {
+    let mut local = HashMap::new();
+    let active = gzip_json("web/data/local_mover_routes.json.gz");
+    for g in active["groups"].as_array().unwrap() {
+        let mode = g["mode"].as_str().unwrap();
+        let kind = match mode {
+            "car" => Vehicle::Car,
+            "bicycle" => Vehicle::Bicycle,
+            "walk" => Vehicle::Walk,
+            _ => unreachable!(),
+        };
+        let mut line = points(&active["paths"][g["route"].as_u64().unwrap() as usize]);
+        if kind == Vehicle::Walk {
+            // The close view shows the first block of the real walking route.
+            let mut remaining = 180.;
+            for i in 1..line.len() {
+                let length = line[i - 1].distance(line[i]);
+                if length > remaining {
+                    line[i] = line[i - 1].lerp(line[i], remaining / length);
+                    line.truncate(i + 1);
+                    break;
+                }
+                remaining -= length;
+            }
+        }
+        let key = local_key(g["id"].as_u64().unwrap(), mode, &g["origin"], &g["destination"]);
+        local.insert(key, Path::single(line, kind));
+    }
+    let gtfs = gzip_json("web/data/local_public_routes.json.gz");
+    let records = gtfs["paths"].as_array().unwrap();
+    let paths: Vec<_> = records.iter().map(|r| public_path(r, tracks)).collect();
+    for state in ["base", "scenario"] {
+        for (id, index) in gtfs["groups"][state].as_object().unwrap() {
+            let i = index.as_u64().unwrap() as usize;
+            let line = records[i]["path"].as_array().unwrap();
+            local.insert(
+                local_key(id.parse().unwrap(), "public", &line[0], line.last().unwrap()),
+                paths[i].clone(),
+            );
+        }
+    }
+    local
 }
 
 impl Routes {
@@ -185,41 +286,12 @@ impl Routes {
             .as_object()
             .unwrap()
             .iter()
-            .map(|(key, row)| {
-                let path = points(&row["path"]);
-                let legs = row["segments"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|leg| Leg {
-                        end: leg["end"].as_u64().unwrap() as usize,
-                        vehicle: match leg["mode"].as_str().unwrap() {
-                            "walk" => Vehicle::Walk,
-                            "bus" => Vehicle::Bus,
-                            "metro" => {
-                                let first = path[leg["start"].as_u64().unwrap() as usize];
-                                let last = path[leg["end"].as_u64().unwrap() as usize];
-                                tracks
-                                    .iter()
-                                    .enumerate()
-                                    .filter(|(_, t)| t.service == leg["service"].as_str().unwrap())
-                                    .find_map(|(track, t)| {
-                                        let board = t.path.nearest(first).2;
-                                        let exit = t.path.nearest(last).2;
-                                        (board < exit).then_some(Vehicle::Metro { track, board, exit })
-                                    })
-                                    .unwrap()
-                            }
-                            "rail" => Vehicle::Rail,
-                            mode => panic!("unknown public route mode {mode}"),
-                        },
-                    })
-                    .collect();
-                (key.clone(), Path::new(path, legs))
-            })
+            .map(|(key, row)| (key.clone(), public_path(row, &tracks)))
             .collect();
+        let local = local_routes(&tracks);
         Self {
             public,
+            local,
             tracks,
             cars: table("web/data/car_routes.json", Vehicle::Car),
             bikes: table("web/data/bicycle_routes.json", Vehicle::Bicycle),
@@ -235,6 +307,10 @@ impl Routes {
             row["destination_cut"].as_str()?
         );
         let mode = row["mode"].as_str()?;
+        let key = local_key(row["id"].as_u64()?, mode, &row["origin"], &row["destination"]);
+        if let Some(path) = self.local.get(&key) {
+            return Some(path.clone());
+        }
         let table = match mode {
             "car" => Some(&self.cars),
             "bicycle" => Some(&self.bikes),
@@ -362,6 +438,7 @@ struct Platform {
     pos: Vec3,
     dir: Vec3,
     daily: f64,
+    half_hour: Vec<f64>,
     delta: Vec<f32>,
 }
 
@@ -443,6 +520,12 @@ fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut 
                 pos,
                 dir,
                 daily: s["scenario_daily"].as_f64().unwrap(),
+                half_hour: s["scenario_half_hour"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|v| v.as_f64().unwrap())
+                    .collect(),
                 delta: s["delta"]
                     .as_array()
                     .into_iter()
@@ -1024,8 +1107,13 @@ fn draw(
             Paint::Plain,
             pose(center, p.dir, Vec3::new(52., 1., 6.)),
         );
-        // Platform figures represent daily boardings; the engine publishes only changes by half hour.
-        let count = (p.daily / 1600.).round() as usize;
+        // With a half-hour profile each figure uses the same scale as a moving group.
+        // Results that publish daily totals show one figure per 1,600 daily boardings.
+        let count = p
+            .half_hour
+            .get(slot as usize)
+            .map_or(p.daily / 1600., |n| n / PERSONS_PER_MOVER)
+            .round() as usize;
         let delta = p.delta.get(slot as usize).copied().unwrap_or_default();
         let accent = if delta > 0. {
             Paint::Gain
