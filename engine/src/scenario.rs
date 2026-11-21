@@ -1,12 +1,14 @@
 //! One entry point for any question about the city: a list of structured changes -> the full day of all persons.
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
-//! again once (rechoose.rs) and projects the station day once (stations.rs). The map and the MCP tool read the same result.
+//! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
 use crate::population::{Person, Point, Population};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::StationModel;
+use crate::stations::access::StationAccess;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::collections::HashSet;
 use std::path::Path;
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
@@ -37,6 +39,7 @@ pub struct Scenario {
     choice: Choice,
     pop: Population,
     model: StationModel,
+    access: StationAccess,
     base: State,
     placed: Base,
     /// Per station and per comuna: id, name, longitude, latitude.
@@ -46,12 +49,13 @@ pub struct Scenario {
     ratio: Vec<f64>,
 }
 
-const ASSUMPTIONS: [&str; 7] = [
+const ASSUMPTIONS: [&str; 8] = [
     "Persons are synthetic and consistent with the Census 2024 margins. They are not microdata.",
-    "The station model (L4b) is fitted on the baseline. Its scale, classes and profiles do not change.",
+    "The station model (L9) is fitted on the baseline. Its scale, classes and profiles do not change.",
     "Travel times are comuna to comuna and lower than survey times. The effect of a time change is an unvalidated sensitivity; the size and direction of its error are unknown.",
     "A mode change does not reach the stations yet: stations use the baseline public share of the home comuna.",
     "Open city for residents: more or fewer residents change the total of workers, with the baseline workers per resident of the comuna.",
+    "Station access (L9): a walk within 1,000 m, or else one bus. A closed station does not change the travel minutes between comunas or the job choice.",
     "Students do not choose again.",
     "All values are model values, not measured values.",
 ];
@@ -63,14 +67,15 @@ impl Scenario {
         let choice = Choice::load(dir);
         let pop = Population::build(dir);
         let model = StationModel::new(dir);
+        let access = StationAccess::load(dir);
         let st: Vec<Value> = serde_json::from_reader(std::fs::File::open(dir.join("metro_training.json")).unwrap()).unwrap();
         let s = |v: &Value| v.as_str().unwrap().to_string();
         let stations = st.iter().map(|v| (s(&v["id"]), s(&v["name"]), v["longitude"].as_f64().unwrap(), v["latitude"].as_f64().unwrap())).collect();
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], choice, pop, model, stations, comunas };
-        sc.base = sc.state(&sc.pop);
+        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], choice, pop, model, access, stations, comunas };
+        sc.base = sc.state(&sc.pop, &sc.access.all_parent_ids());
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
         for p in &sc.pop.homes { residents[sc.ix(&p.cut)] += p.weight; }
@@ -86,7 +91,8 @@ impl Scenario {
         self.pop.homes.iter().min_by(|a, b| d(a).total_cmp(&d(b))).unwrap().cut.clone()
     }
 
-    fn state(&self, pop: &Population) -> State {
+    /// `open`: the GTFS parent ids of the open stations.
+    fn state(&self, pop: &Population, open: &HashSet<String>) -> State {
         let n = self.choice.n;
         let home: Vec<usize> = pop.homes.iter().map(|p| self.ix(&p.cut)).collect();
         let work: Vec<usize> = pop.jobs.iter().map(|p| self.ix(&p.cut)).collect();
@@ -101,12 +107,13 @@ impl Scenario {
             j[p.dest as usize] += share[o];
         }
         let pts = |v: &[Point], m: &[f64]| v.iter().zip(m).map(|(p, &x)| (p.longitude, p.latitude, x)).collect::<Vec<_>>();
-        let day = self.model.project_points(&pts(&pop.homes, &h), &pts(&pop.jobs, &j)).into_iter().map(|x| x.2).collect();
+        let day = self.access.project_points(&pts(&pop.homes, &h), &pts(&pop.jobs, &j), open).into_iter().map(|x| x.2).collect();
         State { od, public, day }
     }
 
-    /// `changes`: JSON objects of the shape of `Change`. A kind that the engine does not model (for example
-    /// "station", "event") goes to `not_modeled`, unchanged, and the other changes run.
+    /// `changes`: JSON objects of the shape of `Change`, or `{"kind":"station","target":{"type":"station","id":<GTFS parent id or name>},
+    /// "op":"set","value":0 or 1}` (0 = closed, 1 = open). A kind that the engine does not model (for example "event", a new
+    /// station at a point) goes to `not_modeled`, unchanged, and the other changes run.
     pub fn run(&self, changes: &[Value]) -> Value {
         let t = std::time::Instant::now();
         let (c, n) = (&self.choice, self.choice.n);
@@ -114,13 +121,23 @@ impl Scenario {
         let mut pop = Population { homes: copy(&self.pop.homes), jobs: copy(&self.pop.jobs), schools: vec![], persons: self.pop.persons.clone() };
         let mut minutes = c.minutes.clone();
         let (mut applied, mut not_modeled) = (vec![], vec![]);
+        let mut open = self.access.all_parent_ids();
 
         for raw in changes {
             let kind = raw["kind"].as_str().unwrap_or("");
+            let key = raw["target"]["id"].as_str().unwrap_or("");
+            if let Some((id, name, ..)) = self.stations.iter().find(|s| kind == "station" && (s.0 == key || s.1 == key.to_uppercase())) {
+                let closed = raw["value"].as_f64() == Some(0.0);
+                if closed { open.remove(id); } else { open.insert(id.clone()); }
+                let mut v = raw.clone();
+                v["understood"] = json!({ "station": name, "state": if closed { "closed" } else { "open" } });
+                applied.push(v);
+                continue;
+            }
             if !["jobs", "residents", "minutes"].contains(&kind) {
                 let mut v = raw.clone();
                 v["reason"] = json!(match kind {
-                    "station" => "The engine does not model new, closed or changed stations and lines yet.",
+                    "station" => "Only existing stations can be closed or reopened. The engine does not model new stations or lines.",
                     "event" => "The engine does not model events yet. It models one usual work day.",
                     _ => "The engine does not know this kind of change.",
                 });
@@ -199,7 +216,7 @@ impl Scenario {
 
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
         let moved = rechoose(c, &mut pop, &weights, &minutes, &self.placed);
-        let (b, s) = (&self.base, &self.state(&pop));
+        let (b, s) = (&self.base, &self.state(&pop, &open));
 
         let daily = |d: &State, i: usize| d.day[i].iter().sum::<f64>();
         let mut order: Vec<usize> = (0..self.stations.len()).collect();
