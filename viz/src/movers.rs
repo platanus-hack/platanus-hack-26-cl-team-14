@@ -5,6 +5,7 @@ mod fleet;
 mod levels;
 mod riders;
 mod stations;
+mod street_people;
 use riders::{RideKey, RiderNetwork, RiderPlan, RiderState};
 use stations::Station;
 
