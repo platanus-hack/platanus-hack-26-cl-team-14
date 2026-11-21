@@ -761,17 +761,13 @@ fn block(size: [f32; 3], at: [f32; 3], rgb: Rgb) -> Mesh {
     painted(Mesh::from(Cuboid::new(size[0], size[1], size[2])), at, rgb)
 }
 
-fn head(at: [f32; 3]) -> Mesh {
-    painted(Sphere::new(0.31).mesh().ico(1).unwrap(), at, [248, 189, 137])
-}
-
-fn coat(at: [f32; 3], rgb: Rgb) -> Mesh {
+fn oval(radii: [f32; 3], at: [f32; 3], rgb: Rgb) -> Mesh {
     painted(
-        Capsule3d::new(0.38, 0.5)
+        Sphere::new(1.)
             .mesh()
-            .longitudes(8)
-            .latitudes(4)
-            .build(),
+            .ico(1)
+            .unwrap()
+            .scaled_by(Vec3::from_array(radii)),
         at,
         rgb,
     )
@@ -846,10 +842,23 @@ fn setup(
     });
     assert!(rate.is_finite() && rate > 0., "Playback rate must be finite and positive");
     commands.insert_resource(PlaybackRate(rate));
+    let coat = [36, 134, 171];
+    let skin = [248, 189, 137];
+    let arm = |side: f32| {
+        oval([0.065, 0.325, 0.065], [0.; 3], coat)
+            .rotated_by(Quat::from_rotation_x(-0.20 * side))
+            .translated_by(Vec3::new(0.04 * side, 1.125, 0.22 * side))
+    };
     let person = shape([
-        block([0.44, 0.58, 0.51], [0., 0.3, 0.], GLASS),
-        coat([0., 1.12, 0.], [36, 134, 171]),
-        head([0., 1.97, 0.]),
+        oval([0.10, 0.125, 0.095], [0., 1.625, 0.], skin),
+        block([0.105, 0.14, 0.11], [0., 1.485, 0.], skin),
+        oval([0.15, 0.36, 0.23], [0., 1.15, 0.], coat),
+        arm(1.),
+        arm(-1.),
+        oval([0.09, 0.43, 0.085], [-0.05, 0.49, 0.095], GLASS),
+        oval([0.09, 0.43, 0.085], [0.05, 0.49, -0.095], GLASS),
+        block([0.23, 0.10, 0.13], [-0.01, 0.05, 0.095], GLASS),
+        block([0.23, 0.10, 0.13], [0.09, 0.05, -0.095], GLASS),
     ]);
     let sprites: [(Model, &[u8], u32); 3] = [
         (Model::Bus, include_bytes!("../assets/bus.png"), 27),
