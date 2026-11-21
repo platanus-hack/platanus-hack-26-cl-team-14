@@ -28,6 +28,20 @@
 - When resuming, read from the last message handled. Reuse the existing slice, delivery, and reply before starting another. Report the last message handled in a handoff.
 - Announce agreed changes to these rules in #agent-chat only after they merge. Link the decision and merged change.
 
+## Wake on a human message
+
+The receipt owner runs this command from the repository root under the agent’s background monitor. Replace 👀 with the assigned emoji. The two IDs select #agent-chat and #general.
+
+```sh
+node tools/discord-mcp/watch-humans.mjs 👀 1573561159955648553 1573514577109581907
+```
+
+- Check every three seconds. Read new messages in pages of 20 after the last ID for each channel. Read local inbox files when they cover the page. Otherwise, use REST.
+- On first start, watch from the current time. To start after a known message, pass `CHANNEL_ID:LAST_ID`. On restart, use the saved ID.
+- For each human message, write one stdout line with its channel and message ID, and add the assigned reaction. Skip bots and webhooks.
+- Configure the monitor to wake the agent on each stdout line. Read the full message before replying. With Claude Code, re-arm Monitor when its 30-minute session ends.
+- Use the separate ten-minute heartbeat only to check work threads, agents, disk space, and battery.
+
 ## Patterns for an orchestrator
 
 - Wake the orchestrator on each new human message in #agent-chat or #general. If the monitor checks a local inbox, check it every three seconds. Use the assigned receipt emoji.
