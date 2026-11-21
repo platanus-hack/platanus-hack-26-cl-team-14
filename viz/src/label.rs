@@ -32,11 +32,29 @@ fn draw(mut commands: Commands, scenario: Res<Scenario>, mut fonts: ResMut<Asset
         ))
         .with_children(|row| {
             row.spawn((
-                Text::new(label),
-                TextFont { font: font.into(), font_size: FontSize::Px(56.), ..default() },
-                TextColor(Color::WHITE),
                 BackgroundColor(Color::srgba(0.05, 0.07, 0.09, 0.85)),
-                Node { padding: UiRect::axes(px(28), px(12)), ..default() },
-            ));
+                Node {
+                    max_width: percent(92),
+                    padding: UiRect::axes(px(28), px(12)),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    row_gap: px(4),
+                    ..default()
+                },
+            ))
+            .with_children(|panel| {
+                panel.spawn((
+                    Text::new(label),
+                    TextFont { font: font.clone().into(), font_size: FontSize::Px(56.), ..default() },
+                    TextColor(Color::WHITE),
+                ));
+                if let Some(detail) = scenario.0["label_detail"].as_str() {
+                    panel.spawn((
+                        Text::new(detail),
+                        TextFont { font: font.into(), font_size: FontSize::Px(24.), ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                }
+            });
         });
 }
