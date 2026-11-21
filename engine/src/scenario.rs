@@ -136,7 +136,7 @@ impl Scenario {
 
     /// `changes`: JSON objects of the shape of `Change`, or `{"kind":"station","target":{"type":"station","id":<GTFS parent id or name>},
     /// "op":"set","value":0 or 1}` (0 = closed, 1 = open), or `{"kind":"event","target":{"type":"point","longitude":..,"latitude":..},
-    /// "value":<attendance>,"assumed_end_half_hour":0..47}` (attendance.rs). A kind that the engine does not model (for example a new
+    /// "op":"set","value":<attendance>,"assumed_end_half_hour":0..47}` (attendance.rs). A kind that the engine does not model (for example a new
     /// station at a point) goes to `not_modeled`, unchanged, and the other changes run.
     pub fn run(&self, changes: &[Value]) -> Value {
         let t = std::time::Instant::now();
@@ -160,8 +160,9 @@ impl Scenario {
                 applied.push(v);
                 continue;
             }
-            if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event", raw["target"]["longitude"].as_f64(),
-                raw["target"]["latitude"].as_f64(), raw["value"].as_f64(), raw["assumed_end_half_hour"].as_u64()) {
+            if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event" && raw["target"]["type"] == "point" && raw["op"] == "set",
+                raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| v >= 0.0),
+                raw["assumed_end_half_hour"].as_u64().filter(|&e| e < 48)) {
                 let venue_cut = self.cut_at(longitude, latitude);
                 let mut v = raw.clone();
                 v["understood"] = json!({ "comuna": c.names[self.ix(&venue_cut)], "attendance": attendance });
@@ -173,7 +174,7 @@ impl Scenario {
                 let mut v = raw.clone();
                 v["reason"] = json!(match kind {
                     "station" => "A station change needs target type station, op set and value 0 or 1. Only existing stations can be closed or reopened. The engine does not model new stations or lines.",
-                    "event" => "An event change needs a point target, the attendance as value and assumed_end_half_hour (0 to 47).",
+                    "event" => "An event change needs a point target, op set, the attendance (0 or more) as value and an integer assumed_end_half_hour (0 to 47).",
                     _ => "The engine does not know this kind of change.",
                 });
                 not_modeled.push(v);

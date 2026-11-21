@@ -25,7 +25,7 @@ pub struct AttendanceProjection {
     potential_metro_users: Option<f64>,
     metro_users_with_network_access: Option<f64>,
     window: &'static str,
-    assumptions: [&'static str; 3],
+    assumptions: [&'static str; 5],
 }
 
 /// Call once per event after rechoose and fine-mode assignment, with the scenario's active Metro parent set.
@@ -64,6 +64,8 @@ pub fn project(pop: &Population, access: &StationAccess, active: &HashSet<String
             "Attendees take the home comunas and travel modes of workers employed in the venue comuna in the changed city.",
             "Santiago EOD 2012 normal Saturday trips with only public stages supply the conditional share with any Metro stage.",
             "The event transfers weekday 08:00 walking and one-bus access to the return period. End time and attendance are scenario inputs.",
+            "The event estimate is demand for the whole return period. It is separate from the commuter station totals: the station deltas and the trip deltas do not include it.",
+            "The end half hour does not select the service of that hour. The estimate is the same for an end at 20:00 and at 23:00.",
         ],
     }
 }

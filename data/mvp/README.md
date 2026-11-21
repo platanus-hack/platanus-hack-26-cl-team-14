@@ -961,6 +961,41 @@ cd ../../..
 python3 -I tools/pack/city_footprints.py
 ```
 
+## Higher education enrollment
+
+`higher_ed.csv` contains all 137 SIES campus groups in the Metropolitan Region for 2026.
+The July 10 release has 805,359 registrations across undergraduate, graduate and post-title programs.
+The three modality columns sum to `enrollment`: 523,602 in person, 36,806 hybrid and 244,951 remote.
+Each registration belongs to the reported campus. It does not establish residence, attendance on April 15 or a Metro trip.
+[MINEDUC/SIES enrollment release](https://www.mifuturo.cl/bases-de-datos-de-matriculados/)
+
+Run `python3 tools/pack/higher_ed.py` from the repository root with curl and bsdtar installed.
+The builder downloads aggregate program counts and geocoded teaching addresses into ignored `data/raw/higher_ed/`.
+It groups program counts by institution, campus and reported comuna CUT. Coordinates use WGS84 longitude and latitude.
+The ministry geocoded SIES addresses in October 2020. Campus names must match within the institution and comuna.
+For several matching buildings within 500 m, the builder selects the building with the smallest total distance to the others.
+A blank point means the campus has only remote registrations or the builder could not identify one teaching location.
+A verified address uses the institution page and geocode recorded in [the address table](../../tools/pack/higher_ed_addresses.csv).
+The campus point represents a site. Students can attend other buildings.
+[MINEDUC geocoded teaching addresses](https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6)
+
+The pack places 68 campus groups with 346,778 in-person and 17,012 hybrid registrations.
+The 69 groups without a point include 12 fully remote groups. The other 57 have in-person or hybrid registrations.
+Some large groups cover several campuses. Universidad de Chile reports 45,937 in-person registrations at “Santiago”.
+The ministry directory lists its teaching buildings across multiple comunas. That group has no point.
+SIES assigns AIEP Bellavista to Santiago (CUT 13101), but its verified address lies in Providencia (13123).
+All 67 other points fall within the reported CUT in `communes.geojson`. AIEP San Joaquín falls inside 13129
+even though the 2020 address directory assigns 13118. ENAC lists three teaching buildings within about 340 m.
+Its point uses Alameda 2182. The UANDES point marks its main campus in Las Condes.
+Clinical training can take place elsewhere. [UANDES clinical center in San Bernardo](https://salud.uandes.cl/)
+Exclude remote registrations when using this table to choose trip destinations.
+
+## April weekday bus validation and Metro supply
+
+The [bus target](../validation/bus_boardings_2026_04/README.md) gives observed boardings for each stop and half hour. It includes a comuna summary with the number of stops that reported. Use the same observed stops when scoring a comuna.
+
+The [Metro capacity table](metro_capacity.md) gives line departures and nominal train places where verified. For station comparisons, use the [station service table and indicator rule](metro_station_service.md). It counts departures at the station where passengers can board.
+
 ## Citywide building polygons and boxes
 
 The two files in `web/data/` describe the same **654,666 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Census blocks with no mapped footprint supply 375,281 generated shapes. The binaries retain each shape's source.
@@ -995,7 +1030,7 @@ Tagged dimensions are map attributes. The remaining heights and all generated sh
 
 ## Santiago landmarks
 
-`web/data/santiago_landmarks.geojson` contains eight public landmarks (14,810 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
+`web/data/santiago_landmarks.geojson` contains nine public landmarks (15,778 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
 
 | ID | City-view geometry | Official reference |
 | --- | --- | --- |
@@ -1007,8 +1042,13 @@ Tagged dimensions are map attributes. The remaining heights and all generated sh
 | `parque_forestal` | Mapped park boundary. | [Municipal tourism office identifies Parque Forestal](https://www.santiagoturismo.cl/es/parque-forestal/) |
 | `parque_ohiggins` | Mapped park boundary. | [Municipal tourism office identifies Parque O’Higgins](https://www.santiagoturismo.cl/es/parque-ohiggins/) |
 | `rio_mapocho` | Main river centreline inside the Santiago roads view. | [Environment Ministry record for Río Mapocho](https://sistemahumedales.mma.gob.cl/HumedalesUrbanos/DetailsPublico/114) |
+| `movistar_arena` | Santander Arena footprint inside Parque O’Higgins. OSM way 32864171 has one exterior ring, no holes, and no height or levels tag. | [Venue operator](https://www.santanderarena.cl/sobre-nosotros) · [April 2026 event ticket lists Movistar Arena](https://www.puntoticket.com/red-bull-batalla-internacional-2026) |
 
-The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
+The arena keeps the event-era ID `movistar_arena`. Its `name` is the current Santander Arena, and `former_name` is Movistar Arena. OSM also gives the roof colour (`roof_color` = `#e2dfdf`) and Wikidata ID (`wikidata` = `Q3302708`).
+
+The arena operator describes a “cúpula de 50 metros de altura”. The municipal tourism office gives 45 m for the same dome. The layer uses the operator's 50 m at the dome apex (`height_m` = 50, `height_source` = `venue_operator`, `height_scope` = `dome`). Neither source gives the height at the edge of the roof. [Venue operator](https://www.santanderarena.cl/sobre-nosotros) · [Santiago Turismo](https://www.santiagoturismo.cl/es/movistar-arena/)
+
+Other `height_m` values come from OSM structure-height tags. The `elevation_m` field gives a tagged summit elevation above sea level. The builder omits dimensions without a source. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
 
 Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
 
@@ -1039,3 +1079,42 @@ farther from the venue. The aggregate provides no participant origins or event a
 ```sh
 python3 -I tools/pack/saturday_public_metro.py --survey /path/to/EOD_STGO
 ```
+
+## Residential streets and mapped green areas
+
+The native view can read two gzip-compressed GeoJSON FeatureCollections under `web/data/`. Both cover the full Santiago roads rectangle (longitude −70.85 to −70.45, latitude −33.65 to −33.30). Each feature has `osm_type`, numeric `osm_id`, and `kind`. Named objects also have `name`. A source object may have several clipped parts. Coordinates use WGS84 longitude and latitude to five decimals.
+
+| File | Geometry | Source objects | Output parts | Vertices | Raw bytes | Gzip bytes |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `residential_streets.geojson.gz` | LineString | 79,194 ways | 79,269 | 190,009 | 17,091,934 | 2,151,553 |
+| `green_areas.geojson.gz` | Polygon | 20,264 ways and relations | 20,332 | 145,745 | 5,957,929 | 899,381 |
+
+The street layer adds 29,245 `residential` and 50,024 `living_street` parts. These simplified paths total approximately 9,531 km. They supplement the major roads in `roads.geojson`. This layer describes street geometry. [OSM residential streets](https://wiki.openstreetmap.org/wiki/Tag:highway%3Dresidential) · [OSM living streets](https://wiki.openstreetmap.org/wiki/Tag:highway%3Dliving_street).
+
+Green areas retain 110 holes. The `kind` values are `park`, `garden`, `nature_reserve`, `recreation_ground`, `wood`, `meadow`, `grass`, `village_green`, `grassland`, `scrub`, and `heath`. Mapped forests, woods, and tree cover share the class `wood`. Parks and reserves describe mapped land use, so a park can contain paved areas. Features can overlap across classes. The pack includes Parque O’Higgins (72.04 ha) and Parque Forestal (16.08 ha). [OSM parks](https://wiki.openstreetmap.org/wiki/Tag:leisure%3Dpark).
+
+The builder repairs invalid geometry, clips it to the viewport, and simplifies in UTM zone 19S. Tolerances are 3 m for streets and 4 m for green areas. After rounding, all released features passed the GEOS validity and bounds checks. Run `python3 tools/pack/city_ground_layers.py data/raw/osm-buildings-city/urban.osm.pbf` with osmium and DuckDB Spatial. The command reuses the cached [Geofabrik Chile snapshot](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf) from 2026-11-20 at 21:21 UTC and took 7.67 s locally. Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
+## Santiago surface elevation
+
+`web/data/terrain.i16` contains 481 columns × 421 rows. Read each value as a little-endian signed 16-bit integer in metres above EGM2008. The first sample is the northwest corner, at (-70.85, -33.30). Longitude increases with column and latitude decreases with row. Both bounds are sample centres. The full urban box includes the east and south edges at (-70.45, -33.65). Use `web/data/terrain.json` for the grid spacing, dimensions, coordinate system, bounds, and attribution.
+
+The grid retains the native 3-arcsecond spacing, about 77 m east–west and 92 m north–south in Santiago. The builder rounds each source height to the nearest metre. All 202,501 samples have data. The 405,002-byte grid ranges from 404 to 2,995 m. Its sample nearest the Cerro San Cristóbal summit is 870 m, compared with the reported 880 m summit elevation. The nearest sample to Plaza de Armas is 568 m. [San Cristóbal Hill reference and summit coordinates](https://en.wikipedia.org/wiki/San_Crist%C3%B3bal_Hill)
+
+Copernicus GLO-90 is a digital surface model. Elevations include trees, buildings, and other structures. The AWS release is from 2021. Its WorldDEM source mainly uses radar acquisitions from 2011–2015. [Dataset registry](https://registry.opendata.aws/copernicus-dem/) · [Copernicus product and licence](https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM)
+
+Required credit for the derived grid: produced using Copernicus WorldDEM-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved
+
+To rebuild, download the 5,131,205-byte [source GeoTIFF](https://copernicus-dem-90m.s3.amazonaws.com/Copernicus_DSM_COG_30_S34_00_W071_00_DEM/Copernicus_DSM_COG_30_S34_00_W071_00_DEM.tif) into `data/raw/copernicus-dem/` with its original filename. SHA-256: `5fec8634dd8d5433b13c1766a4948518457dba29a90f4cb676cf7852dd71a800`. Run `python3 -I tools/pack/terrain.py` from the repo root.
+
+## City tree points
+
+`web/data/city_trees.bin.gz` contains one point per mapped `natural=tree` node. Inflate the gzip stream, then read four bytes per tree. The first two bytes encode unsigned little-endian x, and the next two encode unsigned little-endian y. There is no header. Longitude is `(x - 7085000) / 100000`, latitude is `(y - 3365000) / 100000`. This is the coordinate grid of the city building tiles.
+
+All 77,296 tree nodes in the urban extract fall inside the inclusive box [-70.85, -33.65, -70.45, -33.30]. The 77,296 records occupy 309,184 bytes before compression. Quantization gives 77,266 distinct positions. Separate nodes can share the same rounded position. The map is an incomplete inventory of Santiago's trees.
+
+Of these nodes, 3,185 (4.12%) have a `height` tag. Of the 3,185 values, 3,184 give a numeric height, with or without a metre suffix, and one says `single`. The binary contains positions only. The source also has 491 `natural=tree_row` ways. They represent lines of trees and do not supply an individual point count. The builder excludes them. [OSM tree tags](https://wiki.openstreetmap.org/wiki/Tag:natural%3Dtree) · [OSM tree row tags](https://wiki.openstreetmap.org/wiki/Tag:natural%3Dtree_row)
+
+Run `python3 -I tools/pack/city_trees.py data/raw/osm-buildings-city/urban.osm.pbf` with osmium-tool installed. The input is the same urban extract used for the building mesh. Its SHA-256 is `4a1cfdb3ffdfdb58cbc6247ab36cac38ad2dc35509b5c1e102a7e53461234cb3`.
+
+Credit the map as [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The point data use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). [Geofabrik Chile snapshot, November 20, 2026](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf)

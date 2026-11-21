@@ -1,0 +1,20 @@
+institution_code,campus,cut,address,longitude,latitude,address_source,coordinate_source
+11,CAMPUS REPUBLICA,13101,Alameda 2240,-70.6669537,-33.4478952,https://www.academia.cl/mapa/,https://maps.app.goo.gl/VZzKyrPQNopyp4Z38
+11,CASA CENTRAL (CONDELL),13123,Condell 343,-70.627954,-33.437899,https://www.academia.cl/servicios-al-estudiante/registro-curricular/horarios-y-puntos-de-atencion/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+19,CAMPUS MELIPILLA,13501,José Massoud Sarquis 482,-71.2144504,-33.6727094,https://udla.cl/universidad/campus/melipilla/,https://maps.app.goo.gl/5n6f89B563KgxmnUA
+31,CAMPUS EL LLANO,13130,Ramón Subercaseaux 1404,-70.653362,-33.484679,https://www.uautonoma.cl/sedes/el-llano-subercaseaux-santiago/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+34,CASA CENTRAL (SANTIAGO),13114,Monseñor Álvaro del Portillo 12455,-70.508281,-33.402614,https://admision.uandes.cl/admision-2026,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+45,SEDE SANTIAGO (S.C. APOQUINDO),13114,Av. Plaza 680,-70.500925,-33.391848,https://www.udd.cl/dircom/web/campusUDD/sede-resb-stgo/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+71,CASA CENTRAL (SANTIAGO),13106,Av. Libertador Bernardo O'Higgins 3363,-70.679421223,-33.450571846,https://www.usach.cl/campus-mapa,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+82,CASA CENTRAL (SANTIAGO),13120,José Pedro Alessandri 774,-70.59799,-33.461389,https://sisa.umce.cl/user/login,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+85,SEDE MACUL,13120,José Pedro Alessandri 1242,-70.597207,-33.466187,https://www.utem.cl/universidad/infraestructura/campus/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+100,SEDE LA GRANJA,13111,Av. Américo Vespucio 315,-70.6279013,-33.543424,https://portal.inacap.cl/sede-la-granja,https://portal.inacap.cl/sede-la-granja
+116,SEDE SAN JOAQUIN,13129,Av. Vicuña Mackenna 4835,-70.616471,-33.498956,https://www.tupuedes.cl/sedes/ipcft-san-joaquin/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+116,SEDE SANTIAGO,13101,Vergara 165,-70.662219,-33.449353,https://www.tupuedes.cl/sedes/ipcft-santiago-centro/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+143,SEDE BELLAVISTA,13101,Bellavista 0121,-70.634433,-33.435038,https://www.aiep.cl/sede/aiep-bellavista/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+143,SEDE SAN BERNARDO,13401,San José 672,-70.707540,-33.595759,https://www.aiep.cl/sede/aiep-san-bernardo/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+143,SEDE SAN JOAQUIN,13129,Av. Vicuña Mackenna 4685,-70.616718,-33.497032,https://www.aiep.cl/sede/aiep-san-joaquin/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+218,CASA CENTRAL (SANTIAGO),13101,Av. Libertador Bernardo O'Higgins 2182,-70.666172,-33.448040,https://enac.cl/contacto/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+260,SEDE PUENTE ALTO,13201,Av. Troncal San Francisco 0331,-70.558346,-33.588311,https://www.tupuedes.cl/sedes/cft-puente-alto/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+260,SEDE SAN JOAQUIN,13129,Av. Vicuña Mackenna 4835,-70.616471,-33.498956,https://www.tupuedes.cl/sedes/ipcft-san-joaquin/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
+260,SEDE SANTIAGO,13101,Vergara 165,-70.662219,-33.449353,https://www.tupuedes.cl/sedes/ipcft-santiago-centro/,https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6
