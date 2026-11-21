@@ -6,6 +6,7 @@ pub(crate) mod follow;
 mod fleet;
 mod motion;
 mod road_water;
+mod road_edits;
 mod articulated;
 mod instanced;
 mod levels;
@@ -603,6 +604,7 @@ enum Paint {
 #[derive(Resource, Default)]
 struct Replay {
     base_bus_loads: Option<bus_load::BaseBusLoads>,
+    road_edits: road_edits::TrafficEdits,
     departures: Vec<Vec<Group>>,
     platforms: Vec<Station>,
     longest: f32,
@@ -621,11 +623,13 @@ fn read_result(
     routes: Res<Routes>,
     fleet: Res<fleet::Fleet>,
     mut replay: ResMut<Replay>,
+    mut road_catalog: Local<road_edits::Catalog>,
 ) {
     if !result.is_changed() || result.0.is_null() {
         return;
     }
     let r = &result.0;
+    replay.road_edits = road_edits::TrafficEdits::from_result(r, &mut road_catalog);
     let metro_removed = r["applied"].as_array().into_iter().flatten().any(|change| {
         change["kind"] == "line"
             && change["op"] == "remove"
@@ -1254,7 +1258,7 @@ fn draw(
                 let Some((pos, dir, kind, metres)) = movement else {
                     continue;
                 };
-                if !visible(pos, 100.) {
+                if !visible(pos, 100.) || (kind == Vehicle::Car && replay.road_edits.hides(pos, dir)) {
                     continue;
                 }
                 let model = match kind {
