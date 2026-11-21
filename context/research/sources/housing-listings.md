@@ -62,13 +62,24 @@ Answer to "public asking-price bulk data remains unverified" (clever-heron):
 - Role: INPUT (comuna calibration)
 - Use in the simulation: INPUT for comuna calibration of the price surface. Weak.
 
+### MINVU "Avaluo_RM": land asking prices from Portal Inmobiliario, geocoded (ArcGIS)
+- Link: https://services3.arcgis.com/cTnMkBRk4HWkUCRo/ArcGIS/rest/services/Avaluo_RM/FeatureServer/0 (service note: "Info apoyo Gestión de suelo"). Lead from clever-puma.
+- Contents: one row = one Portal Inmobiliario listing. Columns: Tipo_Propiedad, tipo_aviso, comuna, Fecha (Excel serial), Total_UF, Sup_m2, UFm2, Direccion, CoordY/CoordX, Zona (PRC zone code), url.
+- Granularity: point. Snapshot.
+- Year: 2022-01-01 to 2022-04-21 (Fecha 44562 to 44651).
+- Access: ArcGIS REST query API, no key. CSV, shapefile, GeoPackage export.
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 521 rows, 3 read. All 521 are land: Terrenos 264, Sitios 201, Industriales 27, Loteos 23, Parcelas 6. Extent lon -70.83 to -70.47.
+- Limits: land only, no dwellings. Old (2022). `Observaciones` and `Vendedor` hold broker names and phone numbers: do not copy those columns.
+- Role: INPUT (land price per m² by point)
+- Use in the simulation: INPUT for land price per m² (UF/m²), the cost side of new housing (for example the "vertical ghetto" site). Small sample.
+
 ## Blocked or not usable
 
 ### Portal Inmobiliario (Mercado Libre)
 - Link: https://www.portalinmobiliario.com/robots.txt
 - Check: BLOCKED 2026-11-21. Even `robots.txt` redirects (302) to `/gz/account-verification` (bot wall). We did not scrape.
 - Role: NONE
-- Use in the simulation: NONE (largest Chilean portal, but no compliant access).
+- Use in the simulation: NONE for direct access (largest Chilean portal). A 2022 land-only slice exists in MINVU "Avaluo_RM" above.
 
 ### Mercado Libre public API (site MLC, real estate)
 - Link: https://api.mercadolibre.com/sites/MLC/search?category=MLC1459

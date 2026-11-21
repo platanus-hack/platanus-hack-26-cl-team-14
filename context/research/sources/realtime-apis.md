@@ -24,6 +24,7 @@ Bike Itaú GBFS returned live station records without a key. The tested bus, Met
 - Year: 2026 (file name date 2026-11-14; Last-Modified 2026-11-16)
 - Access: direct download, ZIP, 12,829,198 B. Old versions: https://www.dtpm.cl/index.php/programas-de-operaciones/gtfs-historicos
 - Check: UNVERIFIED for source data; 2026-11-21, HTTP 200 on HEAD, Content-Length 12829198. I did not unzip it (no rows read). No source data records established by this check.
+- Period note: this is the November 2026 network. For the April 11-17 2026 trip week use `GTFS_20260321_v3.zip` (found by clever-koala; in service until 2026-04-17).
 - Limits: This is a plan, not the real service. No real vehicle positions.
 - Role: INPUT
 - Use in the simulation: network for bus and Metro routing. (Another topic file may cover it in depth.)
@@ -106,7 +107,7 @@ Bike Itaú GBFS returned live station records without a key. The tested bus, Met
 
 ### SINCA live air quality (MMA)
 - Link: https://sinca.mma.gob.cl/ and `https://sinca.mma.gob.cl/index.php/json/listadomapa2k19/`
-- Check: UNVERIFIED. HTTP 403 Forbidden for `curl` on the root and the JSON path (also with a browser User-Agent). Search says SINCA offers PDF, TXT, CSV exports only.
+- Check: UNVERIFIED by this agent. HTTP 403 for `curl` on the root, the JSON path, and the CGI text export (browser User-Agent, 2026-11-21). Conflict: calm-puma (PR #6) got HTTP 200 and 7 daily PM2.5 rows for Cerrillos II from `https://sinca.mma.gob.cl/cgi-bin/APUB-MMA/apub.tsindico2.cgi?outtype=txt&macro=./RM/D35/Cal/PM25//PM25.diario.diario.ic&from=261112&to=261119&path=/usr/airviro/data/CONAMA/&lang=esp&rsrc=&macropath=`. The block may depend on client or time. See `context/research/santiago-environment-hazards.md`.
 - Role: NONE
 - Use in the simulation: NONE for now (air quality is not a mechanism of the engine).
 

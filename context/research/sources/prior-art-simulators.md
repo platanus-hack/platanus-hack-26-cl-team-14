@@ -59,9 +59,9 @@ Reported timings for other cities and GPU models are recorded below with their e
 
 ### DTPM transit assignment model, March 2020 (EMME)
 - Link: https://www.dtpm.cl/index.php/documentos/modelos-de-demanda
-- Contents: the real model that DTPM uses for buses, Metro, and Metrotren. Three periods: morning peak (PMA), off-peak (FPU), evening peak (PTA). One hour of demand each. Supply: operating programme of March 2020. Demand: bip! transactions of one working week of August 2019, adjusted to passenger counts on buses and Metro of September and October 2019.
+- Contents: the model that DTPM uses for buses, Metro, and Metrotren. Three periods: morning peak (PMA), off-peak (FPU), evening peak (PTA). One hour of demand each. Supply: operating programme of March 2020. Demand: bip! transactions of one working week of August 2019, adjusted to passenger counts on buses and Metro of September and October 2019. The OD matrix file `emmemat/mf70.emx` (FPU) is a raw table of 3000 × 3000 float32 values: one value is the trips from one zone index to another in the hour.
 - Granularity: zone (OD matrix), link and line (network). One hour for each period.
-- Year: 2019 demand, 2020 supply. An older model (July 2018 supply, August 2017 demand) is on the same page as `.rar` files on `dtpm.gob.cl`; we did not open them.
+- Year: 2019 demand, 2020 supply. An older model (July 2018 supply, August 2017 demand) is on the same page as `.rar` files on `dtpm.gob.cl`. We did not open them; critic quiet-panda says the link answers HTTP 200 after a 301.
 - Access: direct download. `Modelo_PMA_DTPM.zip` 499,450,085 bytes; `Modelo_FPU_DTPM.zip` 68,345,154 bytes; `Modelo_PTA_DTPM.zip` 258,825,867 bytes; description PDF 114,875 bytes.
 - Check: VERIFIED-BYTES 2026-11-21, HTTP 200. The model records are not readable. FPU archive: 40 files, 190 MB open. PDF read (2 pages). But the network and the matrices are in `emmebank.zip` and `emmemat.zip`, the binary format of EMME. The SQLite file `Database/13.db` has tables `nodes` and `links` with 0 rows. `data_tables.db` has only empty SpatiaLite tables. Readable text: the fare macro (bus 700, Metro 720, values in CLP) and the transfer penalties for Metro nodes.
 - Role: INPUT, not usable now
@@ -134,10 +134,13 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Limits: it is for Brazil. No Santiago or Chile version was found in this search: GitHub search `eqasim chile` gives 0 results, and the eqasim organisation has no Chile repository (search summary).
 - Use in the simulation: INPUT as method. The sequence of census synthesis, survey-chain matching and spatial allocation is a candidate method. This catalog does not select an implementation.
 
-### SUMO scenario of Santiago
-- Link: https://api.github.com/search/repositories?q=santiago+sumo
-- Check: UNVERIFIED (negative result) 2026-11-21. 1 result, not related. Web search also found none.
-- Use in the simulation: NONE. The hint was wrong.
+### Searches with no useful result (one line each)
+- SUMO scenario of Santiago: GitHub search `santiago sumo` gives 1 result, not related. One web search found none. Use: NONE.
+- Synthetic population of Santiago from EOD plus Census: GitHub search `santiago synthetic population` gives 0 results. Two web searches found only the MATSim cloning. Use: NONE.
+- eqasim for Chile: GitHub search `eqasim chile` gives 0 results. Use: NONE.
+- Metro de Santiago demand model: one web search, no public model or file found. Use: NONE.
+- Agent simulator of COVID-19 in Santiago, https://arxiv.org/abs/2005.09556: abstract opened, no data or code link found. Use: NONE.
+- Optimizing city-scale traffic, https://arxiv.org/abs/1906.05093: abstract opened. A search summary says it uses about 665 thousand vehicles in Santiago, which is the MATSim v2b count. No new data. Use: NONE.
 
 ### Synthetic population of Santiago from EOD plus Census (IPF or equal)
 - Link: https://api.github.com/search/repositories?q=santiago+synthetic+population
@@ -200,4 +203,4 @@ Reported timings for other cities and GPU models are recorded below with their e
 2. **Half of the speed table is not verified.** The MOSS, MATSim Berlin, and AgentTorch numbers come from search summaries or from memory. We did not run MATSim Santiago, thus we have no run time for the only Santiago simulator.
 3. **The closed models are documented from summaries.** For ESTRAUS and MUSSA, the zone counts and group counts come from search summaries of MOP reports that we did not open. We did not ask SECTRA for the files (a request under the transparency law is possible but slow).
 
-Not checked: the content of `v1.zip` and `v2a.zip`; the DTPM PMA and PTA archives; the 2018 DTPM model; if an open reader for `emmebank` exists; the EOD Drive files; theses of U. de Chile and PUC that used MATSim Santiago after 2016; Fosco and Zurita 2021 (PLoS ONE, lockdown agent model); models inside private firms (Citymovil, Steer, Telefónica).
+Not checked: the content of `v1.zip` and `v2a.zip`; the DTPM PMA and PTA archives; the 2018 DTPM model; `wsp-balsa` or any reader for `emmebank`; the EOD Drive files; theses of U. de Chile and PUC that used MATSim Santiago after 2016; Fosco and Zurita 2021 (PLoS ONE, lockdown agent model); models inside private firms (Citymovil, Steer, Telefónica).

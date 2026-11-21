@@ -20,9 +20,9 @@ exists only inside academic agreements or government contracts. App vendors (Waz
 - Role: TARGET (mobility index, not trip count)
 
 ### Meta Movement Distribution Maps (HDX)
-- Link: https://data.humdata.org/dataset/movement-distribution
+- Link: https://data.humdata.org/dataset/movement-distribution (the HTML page answers HTTP 202 to curl; use the API: https://data.humdata.org/api/3/action/package_show?id=movement-distribution, HTTP 200, lists the file URLs)
 - Contents: one row = polygon × day × distance band. Columns: gadm_id, gadm_name, country, polygon_level, home_to_ping_distance_category (0, (0,10), [10,100), 100+ km), distance_category_ping_fraction, ds. Facebook app users with location on.
-- Granularity: GADM level 2 = province (Santiago, Cordillera, Maipo, Melipilla, Talagante, Chacabuco). Daily.
+- Granularity: GADM level 2 = province (Santiago, Cordillera, Maipo, Melipilla, Talagante, Chacabuco). Daily. Checked in the rows: `metro_area` is empty in all 68,716 Chile rows, `sub_region_2` has 55 distinct values and all are provinces; no comuna name appears.
 - Year: 2020 to 2026, new file each 2 weeks. Latest file 2026-10-16 to 2026-11-01.
 - Access: direct download. CSV, 174 MB per 2-week file (world), Chile rows 3,672 per file.
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 3,672 Chile rows. `tools/scrape/meta-movement-distribution.py`.
@@ -31,7 +31,7 @@ exists only inside academic agreements or government contracts. App vendors (Waz
 - Role: TARGET
 
 ### Meta Movement Range Maps (HDX)
-- Link: https://data.humdata.org/dataset/movement-range-maps
+- Link: https://data.humdata.org/dataset/movement-range-maps (API: https://data.humdata.org/api/3/action/package_show?id=movement-range-maps)
 - Contents: one row = polygon × day. Columns: ds, country, polygon_source, polygon_id, polygon_name, all_day_bing_tiles_visited_relative_change, all_day_ratio_single_tile_users, baseline_name, baseline_type.
 - Granularity: GADM level 2 = province (52 polygons in Chile, 6 in the Metropolitan Region). Daily.
 - Year: 2020-03-01 to 2022-05-22.
@@ -83,6 +83,17 @@ exists only inside academic agreements or government contracts. App vendors (Waz
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 31 Chile rows. `data/raw/meta-commuting-zones/all.csv` (curl, no script).
 - Limits: one polygon for all of Santiago. No flows inside the zone.
 - Use in the simulation: NONE. Only confirms the study area border.
+- Role: NONE
+
+### Meta Data for Good: Chile movement between administrative regions (partner only)
+- Link: https://ghdx.healthdata.org/print/474406 (GHDx record "Chile Coronavirus Disease Prevention Map: Movement Between Administrative Regions, 2020-2022")
+- Contents: flows between GADM polygons from Facebook users. Never on HDX; only for Data for Good partners.
+- Granularity: GADM level 2 = province in Chile (comuna is GADM level 3). 8 hours.
+- Year: 2020 to 2022. Deprecated.
+- Access: closed partner programme.
+- Check: UNVERIFIED (not opened; record found by search).
+- Limits: gone, and province level.
+- Use in the simulation: NONE.
 - Role: NONE
 
 ## Closed: academic agreements (no download, by design)

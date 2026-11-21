@@ -13,6 +13,8 @@ FILES = {
 DIR = pathlib.Path("data/raw/mineduc-od")
 
 
+# shortcut: MINEDUC ships RAR and the standard library cannot read it, so this calls
+# bsdtar. Upgrade when MINEDUC publishes ZIP, or when the repo accepts a RAR dependency.
 def member(archive, pattern):
     names = subprocess.run(["bsdtar", "-tf", str(DIR / archive)],
                            capture_output=True, text=True).stdout.splitlines()

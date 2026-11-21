@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Pull Santiago (RM) building-permit points from the Observatorio de Ciudades UC
-mirror of INE georeferenced permits (2010-2018). Standard library only.
+"""Pull Santiago (RM) building-permit points from INE's official georeferenced
+permit layer (PE_NACIONAL, 2010-2025). Standard library only.
 
-One row = one permit point with dwellings (CANTIDAD_U), floors (NUM_PISOS),
-m2 (SUPERFICIE), and use (USO_DESTIN). Output: data/raw/ine_permits/rm_permits.json.
+One row = one permit point with units (CANTIDAD_UNIDAD), floors (NUM_PISOS),
+m2 (SUPERFICIE), and use (USO_DESTINO). Output: data/raw/ine_permits/rm_permits.json.
 
 Run: python3 -I tools/scrape/ine_permits.py
 """
@@ -13,8 +13,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-BASE = ("https://services9.arcgis.com/kKJR3Qt68ohAWuet/arcgis/rest/services/"
-        "Permisos_edificacion_2010_2018/FeatureServer/0/query")
+# INE official org (gisine1). Layer 1 = permits; layer 2 = recepción final.
+BASE = ("https://services5.arcgis.com/hUyD8u3TeZLKPe4T/arcgis/rest/services/"
+        "CRF_PE_v2/FeatureServer/1/query")
 OUT = Path("data/raw/ine_permits")
 
 
@@ -31,7 +32,8 @@ def fetch_rm():
     while True:
         d = q({
             "where": "COD_REGION=13",
-            "outFields": "GLOSA_COMU,AÑO,CANTIDAD_U,USO_DESTIN,GLOSA_DEST,NUM_PISOS,SUPERFICIE",
+            "outFields": ("GLOSA_COMUNA,AÑO,CANTIDAD_UNIDAD,USO_DESTINO,"
+                          "GLOSA_DESTINO,NUM_PISOS,SUPERFICIE"),
             "returnGeometry": "true",
             "outSR": "4326",
             "resultOffset": offset,
@@ -50,13 +52,16 @@ def fetch_rm():
 
 if __name__ == "__main__":
     rows = fetch_rm()
-    towers = [f["attributes"] for f in rows
-              if (f["attributes"].get("USO_DESTIN") == "HABITACIONAL"
-                  and (f["attributes"].get("NUM_PISOS") or 0) >= 15)]
-    units = [t["CANTIDAD_U"] for t in towers if t.get("CANTIDAD_U")]
-    assert rows, "no rows returned"
+    # Count tall-building units. HABITACIONAL is a clean dwelling count; MIXTO
+    # units also include commercial/office, so report the two apart.
+    tall = [f["attributes"] for f in rows
+            if (f["attributes"].get("NUM_PISOS") or 0) >= 15]
+    hab = [t["CANTIDAD_UNIDAD"] for t in tall
+           if t.get("USO_DESTINO") == "HABITACIONAL" and t.get("CANTIDAD_UNIDAD")]
+    mix = [t["CANTIDAD_UNIDAD"] for t in tall
+           if t.get("USO_DESTINO") == "MIXTO" and t.get("CANTIDAD_UNIDAD")]
     print(f"RM permit points: {len(rows)}")
-    if units:
-        units.sort()
-        print(f"residential towers >=15 floors: {len(towers)}, "
-              f"median dwellings/permit: {units[len(units)//2]}")
+    print(f"tall (>=15 floors) HABITACIONAL: {len(hab)} permits, "
+          f"{sum(hab)} dwellings")
+    print(f"tall (>=15 floors) MIXTO: {len(mix)} permits, "
+          f"{sum(mix)} units (incl. commercial)")
