@@ -32,11 +32,15 @@ Request: MUT −26 shop points, Monumental +26 shop points. The 26 removed point
 
 Total: 1,778,260 weekday shopping trips. Destination total variation against EOD 2012 at baseline: 0.192 (the offline fit gives 0.180).
 
+Read a site figure with care. Site shoppers are an equal share of the comuna's shoppers per shop point. Macul has few shop points, so each point gets a larger share: about 1,190 of the 2,647 trips come from existing Macul shops. Use `destinations_changed` for the net effect: Macul +1,455, Las Condes −575.
+
+The engine total, 1,778,260 trips in 45 comunas, equals the Census-weighted run in PR #353.
+
 ## Limits
 
 - Outbound trips, not distinct persons. Return trips, departure time and mode are not modeled yet.
 - 7 RM comunas have no EOD 2012 rate and give zero trips: 13203, 13303, 13404, 13502, 13503, 13504, 13505.
 - Each shop point inside a comuna gets an equal part. A point is an OSM object, not floor area or sales.
-- `shopping_huff.csv` gives 5,745 trips for the MUT. It adds the MUT as a separate destination with 26 shops, on top of the Las Condes shops. The engine splits the comuna's trips by shop point. The two numbers measure different rules.
+- `shopping_huff.csv` (5,745) and PR #353 (5,696 at the MUT, 6,996 at the Monumental) add the MUT as a separate destination with 26 shops, on top of the Las Condes shops. That is a rule for one place, and it counts the 26 points two times. The engine keeps the fitted comuna model and splits each comuna's trips by shop point.
 - The operator reports about 26,000 visits a day for all purposes (#201). Shopping trips by residents are one part of this.
 - Weekday only. 2012 trip rates with 2024 residents and 2026 shops.
