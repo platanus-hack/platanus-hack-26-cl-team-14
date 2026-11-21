@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Santiago · Puntos de referencia</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101a24; }
+  canvas { display: block; width: min(100vw, 177.78vh); }
+</style>
+<canvas width="1280" height="720" role="img" aria-label="Mapa de Santiago con el río Mapocho, Plaza Italia, Cerro San Cristóbal y Costanera Center"></canvas>
+<script type="module">
+  const data = '../web/data/';
+  const [terrain, bytes, landmarks, blocks] = await Promise.all([
+    fetch(data + 'terrain.json').then(response => response.json()),
+    fetch(data + 'terrain.i16').then(response => response.arrayBuffer()),
+    fetch(data + 'santiago_landmarks.geojson').then(response => response.json()),
+    fetch(data + 'city_blocks.json').then(response => response.json()),
+  ]);
+  const ctx = document.querySelector('canvas').getContext('2d');
+  const elevation = new DataView(bytes);
+  const [west, north] = terrain.origin_lon_lat;
+  const [stepLon, stepLat] = terrain.step_lon_lat;
+  const lon0 = -70.666, lat0 = -33.439;
+  const project = ([lon, lat]) => [640 + (lon - lon0) * 3850, 360 - (lat - lat0) * 4610];
+  const heightAt = (col, row) => elevation.getInt16(2 * (row * terrain.width + col), true);
+
+  for (let row = 1; row < terrain.height - 1; row++) {
+    for (let col = 1; col < terrain.width - 1; col++) {
+      const [x, y] = project([west + col * stepLon, north + row * stepLat]);
+      if (x < -4 || x > 1280 || y < -4 || y > 720) continue;
+      const slope = (heightAt(col - 1, row) - heightAt(col + 1, row)
+        + heightAt(col, row - 1) - heightAt(col, row + 1)) / 14;
+      const relief = (heightAt(col, row) - 450) / 95;
+      const light = Math.max(-9, Math.min(29, slope + relief));
+      ctx.fillStyle = `rgb(${28 + light}, ${44 + light}, ${51 + light})`;
+      ctx.fillRect(Math.floor(x), Math.floor(y), 4, 5);
+    }
+  }
+
+  ctx.fillStyle = 'rgba(160, 188, 199, .18)';
+  for (const [lon, lat] of blocks) {
+    const [x, y] = project([lon, lat]);
+    ctx.fillRect(x, y, 2, 2);
+  }
+
+  const geometry = id => landmarks.features.find(feature => feature.id === id).geometry.coordinates;
+  const river = geometry('rio_mapocho');
+  ctx.beginPath();
+  river.forEach((point, i) => {
+    const [x, y] = project(point);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#55d7ff';
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  function label(text, x, y, color, size = 27) {
+    ctx.font = `700 ${size}px system-ui`;
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#14222d';
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  function landmark(text, position, endX, endY) {
+    const [x, y] = project(position);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(endX, endY);
+    ctx.strokeStyle = '#dbe7ef';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#f7e1aa';
+    ctx.fill();
+    label(text, endX + 7, endY + 9, '#f5f7fb');
+  }
+
+  const tower = geometry('gran_torre_costanera')[0];
+  const center = tower.slice(1).reduce(([lon, lat], [x, y]) =>
+    [lon + x / (tower.length - 1), lat + y / (tower.length - 1)], [0, 0]
+  );
+  landmark('Costanera Center', center, 935, 220);
+  landmark('Cerro San Cristóbal', geometry('san_cristobal'), 624, 172);
+  landmark('Plaza Italia', [-70.634411, -33.437], 755, 423);
+  const [riverX, riverY] = project(river.reduce((nearest, point) =>
+    Math.abs(point[0] + 70.710) < Math.abs(nearest[0] + 70.710) ? point : nearest
+  ));
+  label('Río Mapocho', riverX - 78, riverY - 15, '#9eeaff');
+  label('Santiago', 47, 90, '#f5f7fb', 65);
+  label('Maqueta · Copernicus DEM · Censo · OpenStreetMap · Wikidata', 47, 676, '#dbe7ef', 20);
+</script>
+</html>
