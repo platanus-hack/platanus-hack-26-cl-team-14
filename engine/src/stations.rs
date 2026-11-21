@@ -3,6 +3,9 @@
 //! work OD, split inside each comuna by block population (homes) and by modeled jobs (work places),
 //! each point to its nearest Metro parent. 00:00-12:00 from homes, 12:00-24:00 from jobs, times a
 //! training-only half-hour profile, times one scale fitted on training stations.
+#[path = "station_access.rs"]
+pub mod access;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -25,45 +28,67 @@ fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
     csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
 }
 
+fn metres(lon: f64, lat: f64, x: f64, y: f64) -> f64 {
+    let kx = 111_320.0 * (-33.45f64).to_radians().cos();
+    ((lon - x) * kx).hypot((lat - y) * 110_540.0)
+}
+
 /// Nearest parent by local flat metres; returns (index, distance).
 fn nearest(st: &[Station], x: f64, y: f64) -> (usize, f64) {
-    let kx = 111_320.0 * (-33.45f64).to_radians().cos();
     st.iter().enumerate()
-        .map(|(i, s)| (i, ((s.longitude - x) * kx).hypot((s.latitude - y) * 110_540.0)))
+        .map(|(i, s)| (i, metres(s.longitude, s.latitude, x, y)))
         .min_by(|a, b| a.1.total_cmp(&b.1)).unwrap()
 }
 
 /// Parents within `radius` of (x, y) with raw weights and their sum: 1 each (L4), or 1/max(d, 50 m) (L4b).
 /// The share of parent k is w_k / sum.
 fn parents_in_reach(st: &[Station], x: f64, y: f64, radius: f64, inverse: bool) -> (Vec<(usize, f64)>, f64) {
-    let kx = 111_320.0 * (-33.45f64).to_radians().cos();
-    let near: Vec<(usize, f64)> = (0..st.len()).map(|k| (k, ((st[k].longitude - x) * kx).hypot((st[k].latitude - y) * 110_540.0)))
+    let near: Vec<(usize, f64)> = (0..st.len()).map(|k| (k, metres(st[k].longitude, st[k].latitude, x, y)))
         .filter(|&(_, d)| d <= radius).map(|(k, d)| (k, if inverse { 1.0 / d.max(50.0) } else { 1.0 })).collect();
     let tot = near.iter().map(|n| n.1).sum();
     (near, tot)
+}
+
+type PointMass = (f64, f64, f64);
+
+fn point_masses(total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)]) -> Vec<PointMass> {
+    let mut wsum: HashMap<&str, f64> = HashMap::new();
+    for p in pts { *wsum.entry(&p.0).or_default() += p.3; }
+    pts.iter().filter(|p| p.3 != 0.0).map(|p| {
+        (p.1, p.2, total.get(&p.0).copied().unwrap_or(0.0) * p.3 / wsum[p.0.as_str()])
+    }).collect()
 }
 
 /// Spread each comuna total over its points by weight, add each point's share to its nearest station.
 /// Points farther than `radius` metres from their nearest parent add nothing (L1); their mass is not redistributed.
 /// `split` (L4): a point gives mass/n to each of the n parents within `radius`, not all to the nearest.
 /// Returns the station masses and the share of assigned mass whose point has 2 or more parents within the radius.
-fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, split: bool, inverse: bool, dist: &mut Vec<(f64, f64)>) -> (Vec<f64>, f64) {
-    let mut wsum: HashMap<&str, f64> = HashMap::new();
-    for p in pts { *wsum.entry(&p.0).or_default() += p.3; }
+fn mass(st: &[Station], pts: &[PointMass], radius: f64, split: bool, inverse: bool, dist: &mut Vec<(f64, f64)>) -> (Vec<f64>, f64) {
     let mut m = vec![0.0; st.len()];
     let (mut multi, mut assigned) = (0.0, 0.0);
-    for p in pts {
-        if p.3 == 0.0 { continue; }
-        let v = total.get(&p.0).copied().unwrap_or(0.0) * p.3 / wsum[p.0.as_str()];
-        let (i, d) = nearest(st, p.1, p.2);
+    for &(x, y, v) in pts {
+        let (i, d) = nearest(st, x, y);
         dist.push((d, v));
         if !split { if d <= radius { m[i] += v; } continue; }
-        let (near, tot) = parents_in_reach(st, p.1, p.2, radius, inverse);
+        let (near, tot) = parents_in_reach(st, x, y, radius, inverse);
         if !near.is_empty() { assigned += v; }
         if near.len() >= 2 { multi += v; }
         for &(k, w) in &near { m[k] += v * w / tot; }
     }
     (m, if assigned > 0.0 { multi / assigned } else { 0.0 })
+}
+
+fn baseline_points(data: &Path, share: &HashMap<String, (f64, f64)>, public_share: bool) -> (Vec<PointMass>, Vec<PointMass>) {
+    let (mut home, mut work) = (HashMap::new(), HashMap::new());
+    for f in rows::<Od>(&data.join("work_od.csv")) {
+        if !f.destination_cut.starts_with("13") { continue; } // RM-internal only, as main.rs
+        let m = if public_share { let (p, t) = share[&f.origin_cut]; p / t } else { 1.0 };
+        *home.entry(f.origin_cut).or_insert(0.0) += f.workers * m;
+        *work.entry(f.destination_cut).or_insert(0.0) += f.workers * m;
+    }
+    let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
+    let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
+    (point_masses(&home, &blocks), point_masses(&work, &jobs))
 }
 
 /// `classes`: L7, two station classes with their own profile.
@@ -77,18 +102,10 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
         e.1 += m.commuters;
         if m.mode == 2 { e.0 += m.commuters; }
     }
-    let (mut home, mut work) = (HashMap::new(), HashMap::new());
-    for f in rows::<Od>(&data.join("work_od.csv")) {
-        if !f.destination_cut.starts_with("13") { continue; } // RM-internal only, as main.rs
-        let m = if public_share { let (p, t) = share[&f.origin_cut]; p / t } else { 1.0 };
-        *home.entry(f.origin_cut).or_insert(0.0) += f.workers * m;
-        *work.entry(f.destination_cut).or_insert(0.0) += f.workers * m;
-    }
-    let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
-    let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
+    let (homes, jobs) = baseline_points(data, &share, public_share);
     let mut dist = Vec::new();
-    let (h, multi_h) = mass(st, &home, &blocks, radius, split, inverse, &mut dist);
-    let (j, multi_j) = mass(st, &work, &jobs, radius, split, inverse, &mut dist);
+    let (h, multi_h) = mass(st, &homes, radius, split, inverse, &mut dist);
+    let (j, multi_j) = mass(st, &jobs, radius, split, inverse, &mut dist);
 
     // L7: class 1 ("work") if J/H inside the radius is above the training median, else class 0 ("home").
     let ratio: Vec<f64> = (0..st.len()).map(|i| if h[i] == 0.0 { f64::INFINITY } else { j[i] / h[i] }).collect();
@@ -283,8 +300,8 @@ impl StationModel {
         let mut homes = pts(&self.blocks, &stock.population);
         homes.extend(stock.new_homes.iter().cloned());
         let mut dist = Vec::new();
-        let (h, _) = mass(&self.st, &home, &homes, self.fit.radius, self.fit.split, self.fit.inverse, &mut dist);
-        let (j, _) = mass(&self.st, &work, &pts(&self.jobs, &stock.jobs), self.fit.radius, self.fit.split, self.fit.inverse, &mut dist);
+        let (h, _) = mass(&self.st, &point_masses(&home, &homes), self.fit.radius, self.fit.split, self.fit.inverse, &mut dist);
+        let (j, _) = mass(&self.st, &point_masses(&work, &pts(&self.jobs, &stock.jobs)), self.fit.radius, self.fit.split, self.fit.inverse, &mut dist);
         self.st.iter().enumerate().map(|(i, s)| {
             let p = &self.fit.p[self.fit.class[i]];
             (s.id.clone(), s.name.clone(), (0..48).map(|t| p[t] * if t < 24 { h[i] } else { j[i] } * self.fit.a).collect())
