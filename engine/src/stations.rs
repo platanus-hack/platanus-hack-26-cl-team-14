@@ -70,7 +70,7 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
 /// `public_share`: L2, weight each OD pair by the share of public-transport commuters (mode 2) of its home comuna.
 /// `split`: L4, equal split of each point among all parents within the radius.
 #[derive(Deserialize)]
-struct School { longitude: f64, latitude: f64, enrollment: f64 }
+struct School { longitude: f64, latitude: f64, enrollment_no_preschool: f64 }
 
 /// `inverse`: L4b, with `split`, shares are 1/max(d, 50 m) normalized instead of equal parts.
 /// `schools`: L5, plus gamma x school enrolment within the radius x the class's afternoon profile.
@@ -157,7 +157,7 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
         let mut sm = vec![0.0; st.len()];
         for r in rows::<School>(&data.join("schools.csv")) {
             let (near, tot) = parents_in_reach(st, r.longitude, r.latitude, radius, inverse);
-            for (k, w) in near { sm[k] += r.enrollment * w / tot; }
+            for (k, w) in near { sm[k] += r.enrollment_no_preschool * w / tot; }
         }
         let x: Vec<Vec<f64>> = (0..st.len()).map(|i| (0..48).map(|t| if t < 24 { 0.0 } else { sm[i] * p[class[i]][t] }).collect()).collect();
         let (mut num, mut den) = (0.0, 0.0);
