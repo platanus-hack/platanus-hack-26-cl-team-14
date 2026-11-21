@@ -49,3 +49,21 @@ The April prediction SHA-256 was
 `9e261333bec55fbd8b271a8bc4af26d52b6b3fdfc2c887d6c1eddae262614b03`.
 The study prediction SHA-256 was
 `55b6bf1d05084887499daca38992d5045fc91fb9f673bad80a4df99f44b1ac10`.
+
+## Cost and an example
+
+Three new processes on the shared Apple M3 used the same inputs. Times include
+startup and file I/O. RSS is the largest resident allocation reported by macOS
+for that process. The projection process reads an existing April baseline.
+
+| Process | Elapsed ms, three runs | Peak RSS MiB, three runs |
+| --- | --- | --- |
+| Build population and study day, count tours | 1,180 / 1,118 / 1,188 | 117.5 / 118.1 / 117.9 |
+| Build population and study day, fit and write station projections | 1,409 / 1,551 / 1,520 | 118.5 / 119.0 / 119.4 |
+
+For a separate example, reclassify 10% of each campus's in-person enrollment
+as remote. Round the remaining in-person enrollment to the nearest integer
+per campus. Keep the Census home weights and travel survey profiles fixed.
+Running the study-day builder on this input assigned 27,145 university return
+tours, down from 29,755. This synthetic example uses a changed CSV. The public
+scenario API has no campus intervention or measured response to online classes.
