@@ -2,6 +2,7 @@
 #[path = "events.rs"]
 pub(crate) mod events;
 pub(crate) mod clock;
+pub(crate) mod follow;
 mod fleet;
 mod instanced;
 mod levels;

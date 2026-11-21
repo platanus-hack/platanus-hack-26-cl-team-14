@@ -38,7 +38,7 @@ impl Plugin for MiniatureCamera {
                     .chain()
                     .before(city::draw_buildings),
             )
-            .add_plugins(movers::clock::ClockPlugin)
+            .add_plugins((movers::clock::ClockPlugin, movers::follow::FollowPlugin))
             .add_systems(Last, measure);
     }
 }
