@@ -2,7 +2,7 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
-use crate::population::{FineModes, NEW_OTHER_MODE, Person, UNKNOWN, Point, Population, TripGroup, TripPlan, trip_deltas};
+use crate::population::{FineModes, NEW_OTHER_MODE, Person, UNKNOWN, Point, Population, TripGroup, TripPlan, person_departure, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::{EntryOrigins, StationAccess, planned::PlannedStations};
 use santiago_scenario_core::{buildings::Buildings, editable_transit::LineCatalog, roads::RoadGraph};
@@ -279,6 +279,8 @@ impl Scenario {
         let mut minutes = c.minutes.clone();
         // Temporary line edits change mode choice only.
         let mut job_minutes = minutes.clone();
+        // A closure window `half_hours: [start, end)` on any change: only workers who leave home inside it face the changed city.
+        let window = changes.iter().find_map(|v| v["half_hours"].as_array().map(|w| (w[0].as_u64().unwrap() as usize, w[1].as_u64().unwrap() as usize)));
         let (mut applied, mut not_modeled) = (vec![], vec![]);
         let mut network = Network::new(&self.access);
         let mut building_edits = self.buildings.as_ref().map(Buildings::edits);
@@ -591,6 +593,7 @@ impl Scenario {
             if !stock_child { applied.push(note); }
         }
 
+        let in_window = |i: usize, p: &Person| window.is_some_and(|(a, z)| (a..z).contains(&person_departure(p.mode, i)));
         if resident_stock_edits > 0 {
             self.apply_net_residents(&mut pop);
             if resident_stock_edits == 1 {
@@ -621,7 +624,24 @@ impl Scenario {
             }
         }
         let modes_before: Vec<i8> = pop.persons.iter().map(|p| p.mode).collect();
+        // Both runs start with the same residents, including added and removed workers.
+        let resident_reference = (window.is_some() && resident_stock_edits > 0).then(|| {
+            let mut reference = Population {
+                homes: copy(&pop.homes), jobs: copy(&pop.jobs), schools: vec![], persons: pop.persons.clone(),
+            };
+            rechoose(car_choice.as_ref().unwrap_or(c), &mut reference, &weights, &job_minutes, &job_minutes, &self.placed);
+            self.fine_modes.apply(&mut reference);
+            reference
+        });
+        let window_base = resident_reference.as_ref().unwrap_or(&self.pop);
         let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &job_minutes, &minutes, &self.placed);
+        self.fine_modes.apply(&mut pop);
+        // Outside the window, workers keep the mode they use with the same resident stocks and normal service.
+        if window.is_some() {
+            for (i, (p, base)) in pop.persons.iter_mut().zip(&window_base.persons).enumerate() {
+                if !base.student && !in_window(i, base) { p.mode = base.mode; }
+            }
+        }
         // Workers and mode changes by age band and household size (rechoose changes `mode` only for a new mode class).
         // Per group: workers, changed mode, public transport (mode 2) before, left public transport.
         let mut by_trait = [[[0_u32; 4]; 5]; 2];
@@ -633,7 +653,6 @@ impl Scenario {
                 by_trait[t][v as usize][3] += u32::from(before == 2 && p.mode != 2);
             }
         }
-        self.fine_modes.apply(&mut pop);
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
             let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
@@ -679,7 +698,17 @@ impl Scenario {
         let blocks_total = rows.len();
         let blocks: Vec<Value> = rows.into_iter().take(300).map(|(mut v, d)| { v["jobs_delta"] = json!(d[0]); v["residents_delta"] = json!(d[1]); v }).collect();
         let mut origins = vec![EntryOrigins::default(); self.stations.len() + network.additions.len()];
-        let (b, s) = (&self.base, &self.state(&pop, &network, &mut origins));
+        let b = &self.base;
+        let mut s = self.state(&pop, &network, &mut origins);
+        // Outside the window the stations keep their baseline entries.
+        if let Some((a, z)) = window {
+            let resident_day = resident_reference.as_ref().map(|reference|
+                self.state(reference, &Network::new(&self.access), &mut []).day);
+            for (day, base) in s.day.iter_mut().zip(resident_day.as_ref().unwrap_or(&b.day)) {
+                for t in (0..48).filter(|t| !(a..z).contains(t)) { day[t] = base[t]; }
+            }
+        }
+        let s = &s;
 
         let points: Vec<_> = self.stations.iter().map(|(id, name, x, y)| (id, name, *x, *y))
             .chain(network.additions.iter().map(|p| (&p.id, &p.name, p.longitude, p.latitude))).collect();
@@ -722,7 +751,14 @@ impl Scenario {
             .map(|&i| json!({ "origin": c.cuts[i / n], "destination": c.cuts[i % n], "base": b.od[i], "scenario": s.od[i] })).collect();
 
         let total = |d: &State| d.day.iter().map(|bins| bins.iter().sum::<f64>()).sum::<f64>();
-        let trips = self.plan.sample(&pop);
+        let mut trips = self.plan.sample(&pop);
+        // With a window, the map shows the scenario only for groups that leave inside it and the baseline elsewhere.
+        if let Some((a, z)) = window {
+            let inside = |g: &TripGroup| (a..z).contains(&g.half_hour);
+            trips.retain(|g| inside(g));
+            trips.extend(self.plan.sample(window_base).into_iter().filter(|g| !inside(g)));
+            trips.sort_by_key(|g| g.id);
+        }
         let mut result = json!({
             "applied": applied,
             "city_edits": city_edits,
@@ -763,6 +799,20 @@ impl Scenario {
                 "base_share_source": cars.source[origin].0, "trip_rates_source": cars.source[origin].1,
                 "workers_base": counts(b.modes[origin]), "workers_scenario": counts(s.modes[origin]),
             })).collect();
+        }
+        if let Some((a, z)) = window {
+            // Workers who leave home inside the window, by mode, base and scenario. Membership uses the baseline departure.
+            let count = |persons: &[Person]| {
+                let mut m = [0u32; 5];
+                for (_, p) in persons.iter().enumerate().filter(|(i, _)| !window_base.persons[*i].student && in_window(*i, &window_base.persons[*i])) {
+                    m[match p.mode { 1..=4 => (p.mode - 1) as usize, _ => 4 }] += 1;
+                }
+                json!({ "car": m[0], "public": m[1], "walk": m[2], "bicycle": m[3], "other": m[4] })
+            };
+            result["closure_window"] = json!({
+                "half_hours": [a, z], "workers_by_mode_base": count(&window_base.persons), "workers_by_mode_scenario": count(&pop.persons),
+                "rule": "Workers whose normal-weekday departure half-hour (EOD 2012 profile of their mode) is inside [start, end) face the changed city for the whole trip. Others keep the baseline. Station entries change only inside the window.",
+            });
         }
         result
     }
