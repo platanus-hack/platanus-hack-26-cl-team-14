@@ -61,6 +61,18 @@ async fn general_scenario(
     Json(result)
 }
 
+// A cached replay: publish a saved engine result to the viewer without a new run.
+async fn play_replay(State(core): State<Arc<Core>>, Json(mut result): Json<Value>) -> Json<Value> {
+    core.scenario_events.send_modify(|latest| {
+        let revision = json!(next_revision(latest));
+        result["revision"] = revision.clone();
+        // The viewer flies the camera on a new scene revision.
+        result["scene"]["revision"] = revision;
+        *latest = result.clone();
+    });
+    Json(json!({"revision": result["revision"], "scene": result["scene"]}))
+}
+
 async fn set_scene(
     State(core): State<Arc<Core>>,
     Json(request): Json<SceneRequest>,
@@ -146,6 +158,8 @@ async fn main() {
         .route("/api/scene", post(set_scene))
         .route("/api/scenario-events", get(scenario_events))
         .route("/api/scenario", post(general_scenario))
+        // A saved result (4.1 MB measured) is larger than the default 2 MB body limit.
+        .route("/api/replay", post(play_replay).layer(axum::extract::DefaultBodyLimit::max(64 << 20)))
         .layer(CorsLayer::permissive())
         .with_state(core);
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
