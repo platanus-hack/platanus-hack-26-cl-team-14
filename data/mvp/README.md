@@ -831,3 +831,19 @@ osrm-routed -i 127.0.0.1 -p 5196 -t 2 -a mld data/raw/bicycle/region.osrm
 ```
 
 From a second terminal, run `python3 -I tools/pack/bicycle_routes.py`.
+
+## City block volumes
+
+`web/data/city_blocks.json` contains one display volume for every row of `blocks.csv`, in the same order. Each row has six fields: `[longitude, latitude, side_m, height_m, cut, block_id]`. Coordinates use decimal degrees. Side and height use display metres. Both IDs are strings. The file has 52,646 rows, 52 comunas and 3,087,045 bytes.
+
+For 52,593 rows, area comes from the 2024 INE polygon with the same `MANZENT` in `Manzanas_CPV24` or `Entidades_CPV24`. Its `SHAPE_Area` is in square degrees (EPSG:4674). The builder approximates square metres as `SHAPE_Area × (π × 6371008.8 / 180)² × cos(latitude)`, with latitude in radians. The square is centred on the point in `blocks.csv`. [INE RM cartography](https://storage.googleapis.com/bktdescargascenso2024/Cartografia/GPKG/Cartografia_censo2024_R13.zip) · [INE Census block table](https://storage.googleapis.com/bktdescargascenso2024/Datos_agregados/Base_manzana_entidad_CPV24.zip)
+
+The remaining 53 rows are Census comuna containers. INE withholds their exact location. The volume uses the population-weighted point from `blocks.csv`, a fixed assumed area of 625 m² and a display side of 20 m. In this file these are exactly the block IDs ending in `999999`. They account for 42,018 dwellings. The tallest volume (78.3 m) is the Puente Alto container. Its location and size are illustrative. [INE cartography manual](https://storage.googleapis.com/bktdescargascenso2024/Datos_agregados/Manual_uso_cartografia_CPV2024.pdf)
+
+The graphic represents activity density. Its dimensions are stylized. With area `A` in m², Census dwellings `D` and allocated job count `J`, the display rules are:
+
+- `side_m = min(120, 0.8 × sqrt(A))`. The inset leaves space between neighbouring blocks. The cap limits large rural squares. It applies to 7,604 rows.
+- `height_m = 1 + 5 × log2(1 + (D + 0.5 × J) × 10000 / A)`. A doubling of one plus weighted activity per hectare adds 5 display metres. Empty blocks have a 1 m base. Both dimensions round to 0.1 m. The median height is 30.2 m.
+- `J` is the modeled weight at the same block ID in `jobs.csv`, or zero if absent. The match covers 1,771,829 jobs. Another 916,985 jobs on 2,489 rows have their own coordinates outside the home-block list. They remain in `jobs.csv`, including the airport and the 4,679 modeled jobs at MUT. Use the job layer for those locations.
+
+To rebuild, run `python3 -I tools/pack/city_blocks.py` from the repository root. The default input is `data/raw/verify-people-work/cartography-rm.gpkg`. An optional argument selects another path to the same INE file.
