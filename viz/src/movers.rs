@@ -1,6 +1,9 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
 use crate::{city::world, net::Scenario};
-use bevy::prelude::*;
+use bevy::{
+    camera::primitives::{Frustum, Sphere as Bounds},
+    prelude::*,
+};
 use serde_json::Value;
 use std::{collections::HashMap, fs, sync::Arc};
 
@@ -26,13 +29,13 @@ fn point(p: &Value) -> Vec3 {
     world(p[0].as_f64().unwrap(), p[1].as_f64().unwrap())
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq)]
 enum Vehicle {
     Car,
     Bus,
     Bicycle,
     Walk,
-    Metro(usize),
+    Metro { track: usize, board: f32, exit: f32 },
     Rail,
 }
 
@@ -44,7 +47,7 @@ impl Vehicle {
             Self::Bus => 6.,
             Self::Bicycle => 4.,
             Self::Walk => 1.4,
-            Self::Metro(_) | Self::Rail => 11.,
+            Self::Metro { .. } | Self::Rail => 11.,
         }
     }
 }
@@ -88,6 +91,22 @@ impl Path {
         Self::new(points, vec![Leg { end, vehicle }])
     }
 
+    fn nearest(&self, pos: Vec3) -> (Vec3, Vec3, f32) {
+        let (i, p) = self
+            .points
+            .windows(2)
+            .enumerate()
+            .filter(|(_, p)| p[0] != p[1])
+            .map(|(i, p)| (i, foot(pos, p[0], p[1])))
+            .min_by(|(_, a), (_, b)| a.distance_squared(pos).total_cmp(&b.distance_squared(pos)))
+            .unwrap();
+        (
+            p,
+            (self.points[i + 1] - self.points[i]).normalize(),
+            self.metres[i] + p.distance(self.points[i]),
+        )
+    }
+
     fn at(&self, value: f32, axis: &[f32]) -> Option<(Vec3, Vec3, Vehicle)> {
         if value < 0. || value >= *axis.last()? {
             return None;
@@ -103,7 +122,7 @@ impl Path {
 
 struct RailLine {
     path: Arc<Path>,
-    service: usize,
+    service: String,
     departures: Vec<usize>,
     stations: Vec<String>,
 }
@@ -136,18 +155,13 @@ fn table(file: &str, mode: Vehicle) -> Table {
 impl Routes {
     fn load() -> Self {
         let mut tracks = Vec::new();
-        let mut services = HashMap::new();
         for row in json("web/data/transit_paths.json").as_array().unwrap() {
             if row["mode"] != "metro" {
                 continue;
             }
-            let n = services.len();
-            let service = *services
-                .entry(row["route"].as_str().unwrap().to_owned())
-                .or_insert(n);
             tracks.push(RailLine {
-                service,
-                path: Path::single(points(&row["path"]), Vehicle::Metro(service)),
+                service: row["route"].as_str().unwrap().to_owned(),
+                path: Path::single(points(&row["path"]), Vehicle::Rail),
                 departures: row["trips"]
                     .as_array()
                     .unwrap()
@@ -167,6 +181,7 @@ impl Routes {
             .unwrap()
             .iter()
             .map(|(key, row)| {
+                let path = points(&row["path"]);
                 let legs = row["segments"]
                     .as_array()
                     .unwrap()
@@ -176,13 +191,26 @@ impl Routes {
                         vehicle: match leg["mode"].as_str().unwrap() {
                             "walk" => Vehicle::Walk,
                             "bus" => Vehicle::Bus,
-                            "metro" => Vehicle::Metro(services[leg["service"].as_str().unwrap()]),
+                            "metro" => {
+                                let first = path[leg["start"].as_u64().unwrap() as usize];
+                                let last = path[leg["end"].as_u64().unwrap() as usize];
+                                tracks
+                                    .iter()
+                                    .enumerate()
+                                    .filter(|(_, t)| t.service == leg["service"].as_str().unwrap())
+                                    .find_map(|(track, t)| {
+                                        let board = t.path.nearest(first).2;
+                                        let exit = t.path.nearest(last).2;
+                                        (board < exit).then_some(Vehicle::Metro { track, board, exit })
+                                    })
+                                    .unwrap()
+                            }
                             "rail" => Vehicle::Rail,
                             mode => panic!("unknown public route mode {mode}"),
                         },
                     })
                     .collect();
-                (key.clone(), Path::new(points(&row["path"]), legs))
+                (key.clone(), Path::new(path, legs))
             })
             .collect();
         Self {
@@ -399,20 +427,13 @@ fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut 
         .map(|s| {
             let pos = world(s["longitude"].as_f64().unwrap(), s["latitude"].as_f64().unwrap());
             let id = s["id"].as_str().unwrap();
-            let (pos, dir) = routes
+            let (pos, dir, _) = routes
                 .tracks
                 .iter()
                 .filter(|line| line.stations.iter().any(|v| v == id))
-                .flat_map(|line| line.path.points.windows(2))
-                .filter(|p| p[0] != p[1])
-                .min_by(|p, q| {
-                    foot(pos, p[0], p[1])
-                        .distance_squared(pos)
-                        .total_cmp(&foot(pos, q[0], q[1]).distance_squared(pos))
-                })
-                .map_or((pos, Vec3::X), |p| {
-                    (foot(pos, p[0], p[1]), (p[1] - p[0]).normalize())
-                });
+                .map(|line| line.path.nearest(pos))
+                .min_by(|(a, _, _), (b, _, _)| a.distance_squared(pos).total_cmp(&b.distance_squared(pos)))
+                .unwrap_or((pos, Vec3::X, 0.));
             Platform {
                 pos,
                 dir,
@@ -568,33 +589,33 @@ struct Train<'a> {
     line: &'a RailLine,
     distance: f32,
     pos: Vec3,
-    dir: Vec3,
     riders: usize,
     paint: Paint,
 }
 
-fn trains(routes: &Routes, now: f32) -> Vec<Train<'_>> {
+fn trains(routes: &Routes, now: f32) -> Vec<Vec<Train<'_>>> {
     let mut out = Vec::new();
     for line in &routes.tracks {
+        let mut running = Vec::new();
         let duration = *line.path.seconds.last().unwrap();
         let slot = (now / BIN).floor() as i32;
         for bin in slot - (duration / BIN).ceil() as i32..=slot {
             let count = line.departures[bin.rem_euclid(48) as usize];
             for i in 0..count {
                 let start = (bin as f32 + i as f32 / count as f32) * BIN;
-                let distance = (now - start) * Vehicle::Metro(line.service).speed();
-                if let Some((pos, dir, _)) = line.path.at(distance, &line.path.metres) {
-                    out.push(Train {
+                let distance = (now - start) * Vehicle::Rail.speed();
+                if let Some((pos, _, _)) = line.path.at(distance, &line.path.metres) {
+                    running.push(Train {
                         line,
                         distance,
                         pos,
-                        dir,
                         riders: 0,
                         paint: Paint::Plain,
                     });
                 }
             }
         }
+        out.push(running);
     }
     out
 }
@@ -657,7 +678,7 @@ fn draw(
     replay: Res<Replay>,
     routes: Res<Routes>,
     models: Res<Models>,
-    camera: Query<&GlobalTransform, With<Camera3d>>,
+    camera: Query<(&GlobalTransform, &Frustum), With<Camera3d>>,
     mut commands: Commands,
     mut query: Query<(&mut Transform, &mut Visibility), With<Figure>>,
     mut pool: Local<Pool>,
@@ -665,10 +686,19 @@ fn draw(
     if replay.departures.is_empty() {
         return;
     }
-    let Ok(camera) = camera.single() else {
+    let Ok((camera, frustum)) = camera.single() else {
         return;
     };
     let eye = camera.translation();
+    let visible = |pos: Vec3, radius| {
+        frustum.intersects_sphere(
+            &Bounds {
+                center: pos.into(),
+                radius,
+            },
+            true,
+        )
+    };
     let size_at = |p: Vec3| (eye.distance(p) * 0.0024).clamp(1.35, 11.);
     // Twelve city seconds per real second, starting in the morning peak.
     let now = (8. * 3600. + 10. * 60. + time.elapsed_secs() * 12.) % DAY;
@@ -696,7 +726,7 @@ fn draw(
                 continue;
             }
             for j in 0..g.copies {
-                let age = since_bin - BIN * (g.phase + j as f32 * 0.618034).fract();
+                let age = since_bin - BIN * (g.phase + j as f32 * 0.7548777).fract();
                 let Some((pos, dir, kind)) = g.path.at(age, &g.path.seconds) else {
                     continue;
                 };
@@ -705,11 +735,18 @@ fn draw(
                 } else {
                     Paint::Plain
                 };
-                if let Vehicle::Metro(service) = kind {
+                if let Vehicle::Metro { track, board, exit } = kind {
+                    if !visible(pos, 3500.) {
+                        continue;
+                    }
                     // Riders share the closest scheduled train on their line in their travel direction.
-                    if let Some(train) = trains
+                    if let Some(train) = trains[track]
                         .iter_mut()
-                        .filter(|t| t.line.service == service && t.dir.dot(dir) > 0.)
+                        .filter(|t| {
+                            t.distance >= board
+                                && t.distance <= exit
+                                && t.pos.distance_squared(pos) <= 3000_f32.powi(2)
+                        })
                         .min_by(|a, b| {
                             a.pos
                                 .distance_squared(pos)
@@ -723,13 +760,16 @@ fn draw(
                     }
                     continue;
                 }
+                if !visible(pos, 100.) {
+                    continue;
+                }
                 let model = match kind {
                     Vehicle::Car => Model::Car,
                     Vehicle::Bus => Model::Bus,
                     Vehicle::Bicycle => Model::Bike,
                     Vehicle::Walk => Model::Person,
                     Vehicle::Rail => Model::Coach,
-                    Vehicle::Metro(_) => unreachable!(),
+                    Vehicle::Metro { .. } => unreachable!(),
                 };
                 let scale = size_at(pos) * presence;
                 let lane = if kind == Vehicle::Walk { 3.4 } else { 1.6 };
@@ -741,14 +781,17 @@ fn draw(
             }
         }
     }
-    for train in trains {
-        let scale = size_at(train.pos);
+    for train in trains.into_iter().flatten() {
+        if !visible(train.pos, 125.) {
+            continue;
+        }
+        let scale = size_at(train.pos).min(2.5);
         for n in 0..3 {
             let d = train.distance - n as f32 * 15.2 * scale;
             let Some((p, dir, _)) = train.line.path.at(d, &train.line.path.metres) else {
                 continue;
             };
-            let p = p + right(dir) * 2.5 * scale + Vec3::Y * 0.45;
+            let p = p + right(dir) * 2.5 + Vec3::Y * 0.45;
             place(Model::Coach, train.paint, pose(p, dir, Vec3::splat(scale)));
             // The illuminated roof strip shows the workers riding this service in this frame.
             if train.riders > 0 {
@@ -762,13 +805,16 @@ fn draw(
         }
     }
     for p in &replay.platforms {
-        let scale = size_at(p.pos);
+        if !visible(p.pos, 70.) {
+            continue;
+        }
+        let scale = size_at(p.pos).min(2.);
         let side = right(p.dir);
-        let center = p.pos + side * 9. * scale + Vec3::Y * 0.25;
+        let center = p.pos + side * 9. + Vec3::Y * 0.25;
         place(
             Model::Platform,
             Paint::Plain,
-            pose(center, p.dir, Vec3::new(45., 1., 6.) * scale),
+            pose(center, p.dir, Vec3::new(52., 1., 6.)),
         );
         // Platform figures represent daily boardings; the engine publishes only changes by half hour.
         let count = (p.daily / 1600.).round() as usize;
@@ -783,7 +829,7 @@ fn draw(
         for i in 0..count {
             let along = (i % 20) as f32 * 2.04 - 19.4;
             let across = (i / 20) as f32 * 1.15 - 1.8;
-            let at = center + (p.dir * along + side * across + Vec3::Y * 0.58) * scale;
+            let at = center + p.dir * along + side * across + Vec3::Y * 0.58;
             place(Model::Person, accent, pose(at, -side, Vec3::splat(scale)));
         }
     }
