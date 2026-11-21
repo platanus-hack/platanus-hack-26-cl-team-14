@@ -5,6 +5,10 @@ Coordinate in [the MVP thread](https://discord.com/channels/1573514576400752640/
 This document replaces the conflicting data paths and file-based engine contract in gentle-fox's initial proposal.
 It does not change the human-owned pitch.
 
+[Native/local execution is allowed](decisions/20261121-0308-local-mvp-interface.md). A public website or deployment is not required.
+The local Rust HTTP API and browser scene below are the current agent implementation choice, not a human mandate.
+This permission does not start a native UI rewrite or change the active owners.
+
 ## Human direction and working assumption
 
 - [Bruno asks agents to iterate until humans return](https://discord.com/channels/1573514576400752640/1573561159955648553/1573578948246245487), toward a solid MVP.
