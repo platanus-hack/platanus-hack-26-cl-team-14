@@ -242,6 +242,7 @@ pub(crate) struct Buildings {
     tiles: Vec<Option<(Detail, Entity)>>,
     material: Handle<StandardMaterial>,
     facade_material: Handle<StandardMaterial>,
+    edit_material: Handle<StandardMaterial>,
     pub ready: bool,
     dirty: Vec<bool>,
     heights: activity::HeightScales,
@@ -386,6 +387,11 @@ pub fn load_buildings(
         perceptual_roughness: 0.9,
         ..default()
     });
+    let edit_material = materials.add(StandardMaterial {
+        cull_mode: None,
+        perceptual_roughness: 0.9,
+        ..default()
+    });
     let dirty = vec![false; tiles.len()];
     commands.insert_resource(Buildings {
         boxes,
@@ -393,6 +399,7 @@ pub fn load_buildings(
         tiles,
         material,
         facade_material,
+        edit_material,
         ready: false,
         dirty,
         heights: activity::HeightScales::load(Path::new("web/data/city_building_block_ids.bin.gz")),
@@ -431,12 +438,10 @@ pub(crate) fn toggle_subway(
     } else {
         crate::DAY_SKY
     };
-    for (handle, alpha) in layers
-        .materials
-        .iter()
-        .map(|(h, a)| (h, *a))
-        .chain([(&buildings.facade_material, 0.045)])
-    {
+    for (handle, alpha) in layers.materials.iter().map(|(h, a)| (h, *a)).chain([
+        (&buildings.facade_material, 0.045),
+        (&buildings.edit_material, 0.045),
+    ]) {
         let mut material = materials.get_mut(handle).unwrap();
         material
             .base_color

@@ -59,8 +59,13 @@ fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
                 ribbon(
                     &mut mesh,
                     &points,
-                    if kind == "road" { 5. } else { 3. },
-                    0.72,
+                    match (kind, removed) {
+                        ("road", true) => 4.,
+                        ("road", false) => 5.,
+                        (_, true) => 2.,
+                        _ => 3.,
+                    },
+                    if removed { 0.69 } else { 0.82 },
                     color,
                 );
             }
@@ -120,7 +125,7 @@ pub(crate) fn refresh(
             Visibility::Inherited
         };
     }
-    let material = material
+    let path_material = material
         .get_or_insert_with(|| {
             materials.add(StandardMaterial {
                 cull_mode: None,
@@ -139,7 +144,7 @@ pub(crate) fn refresh(
                 commands.spawn((
                     EditMesh,
                     Mesh3d(meshes.add(shape.finish())),
-                    MeshMaterial3d(material.clone()),
+                    MeshMaterial3d(path_material.clone()),
                 ));
             }
         }
@@ -149,7 +154,11 @@ pub(crate) fn refresh(
                 commands.spawn((
                     EditMesh,
                     Mesh3d(meshes.add(shape.finish())),
-                    MeshMaterial3d(material.clone()),
+                    MeshMaterial3d(if kind == "building" {
+                        buildings.edit_material.clone()
+                    } else {
+                        path_material.clone()
+                    }),
                 ));
             }
         }
