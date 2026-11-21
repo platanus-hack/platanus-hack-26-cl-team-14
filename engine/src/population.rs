@@ -99,3 +99,6 @@ pub use trips::{TripGroup, TripPlan, sample_trips};
 mod fine_modes;
 #[allow(unused_imports)]
 pub use fine_modes::{FineModes, NEW_OTHER_MODE};
+
+#[path = "population/study.rs"]
+pub mod study;
