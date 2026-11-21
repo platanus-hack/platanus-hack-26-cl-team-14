@@ -135,7 +135,7 @@ function siteScenario() {
     // the engine splits the new residents by mode (Census 2024 comuna shares); code 1 is the car
     const car = site && site.resident_commuters_by_mode && site.resident_commuters_by_mode.find(m => m.mode_code == 1);
     $('car').textContent = car ? '+' + fmt(car.daily_home_departures) : '';
-    $('cark').textContent = car ? 'salen en auto al día · supuesto' : '';
+    $('cark').innerHTML = car ? 'salen en auto al día<br>supuesto de transferencia' : '';
     draw();
   });
 }
