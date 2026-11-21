@@ -31,7 +31,8 @@ fn nearest(st: &[Station], x: f64, y: f64) -> (usize, f64) {
 }
 
 /// Spread each comuna total over its points by weight, add each point's share to its nearest station.
-fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], dist: &mut Vec<(f64, f64)>) -> Vec<f64> {
+/// Points farther than `radius` metres from their nearest parent add nothing (L1); their mass is not redistributed.
+fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, dist: &mut Vec<(f64, f64)>) -> Vec<f64> {
     let mut wsum: HashMap<&str, f64> = HashMap::new();
     for p in pts { *wsum.entry(&p.0).or_default() += p.3; }
     let mut m = vec![0.0; st.len()];
@@ -39,13 +40,13 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
         if p.3 == 0.0 { continue; }
         let v = total.get(&p.0).copied().unwrap_or(0.0) * p.3 / wsum[p.0.as_str()];
         let (i, d) = nearest(st, p.1, p.2);
-        m[i] += v;
         dist.push((d, v));
+        if d <= radius { m[i] += v; }
     }
     m
 }
 
-pub fn predict(data: &Path, st: &[Station]) -> (Vec<Vec<f64>>, Report) {
+pub fn predict(data: &Path, st: &[Station], radius: f64) -> (Vec<Vec<f64>>, Report) {
     let (mut home, mut work) = (HashMap::new(), HashMap::new());
     for f in rows::<Od>(&data.join("work_od.csv")) {
         if !f.destination_cut.starts_with("13") { continue; } // RM-internal only, as main.rs
@@ -55,8 +56,8 @@ pub fn predict(data: &Path, st: &[Station]) -> (Vec<Vec<f64>>, Report) {
     let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
     let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
     let mut dist = Vec::new();
-    let h = mass(st, &home, &blocks, &mut dist);
-    let j = mass(st, &work, &jobs, &mut dist);
+    let h = mass(st, &home, &blocks, radius, &mut dist);
+    let j = mass(st, &work, &jobs, radius, &mut dist);
 
     // Profile p_t: mean over training stations observed at t, normalized to 1 inside each half.
     let train: Vec<&Vec<Option<f64>>> = st.iter().filter(|s| !s.holdout).map(|s| s.laboral.as_ref().unwrap()).collect();

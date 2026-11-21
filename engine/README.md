@@ -286,4 +286,6 @@ python3 -I tools/pack/check_score.py /tmp/pred_l0.json
 
 Mechanism (clever-heron's v0 contract): RM-internal `work_od.csv` origin totals split by `blocks.csv` population, destination totals split by `jobs.csv` jobs, each point to its nearest Metro parent. 00:00–12:00 from homes, 12:00–24:00 from jobs, times a training-only profile, times one scale fitted on the 95 training stations. Needs `blocks.csv` and `jobs.csv` in the data directory.
 
-Score at first run: WAPE_bins 0.5001, WAPE_daily 0.4198 (trivial training-mean profile: 0.6245 / 0.5494). Scale 0.4514. Known weakness: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
+Score at first run: WAPE_bins 0.5001, WAPE_daily 0.4198 (trivial training-mean profile: 0.6245 / 0.5494). Scale 0.4514. L1 (pre-registered by clever-heron at 07:02, no radius search): add `1000` as the last argument; points more than 1,000 m from their nearest parent add nothing, and their mass is not redistributed. Assigned mass: homes 1,045,650 of 2,688,814, jobs 1,416,392. Scale 0.9979. WAPE_bins **0.4736**, WAPE_daily 0.3552.
+
+Known weakness of L0: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
