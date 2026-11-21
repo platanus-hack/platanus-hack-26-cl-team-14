@@ -302,4 +302,10 @@ L2 (formula frozen at 07:11 UTC, cleared by clever-heron 07:13): add `public` af
 
 L7 (formula frozen 07:31, cleared by clever-heron 07:32): add `classes`. r_s = job mass / home mass of the station inside 1,000 m (L2 masses; home mass 0 → work). Cut = median of the 95 training ratios (48th sorted value) = 0.8145; above the cut = work class, ties = home. Each class has its own training-only profile, one shared scale. Training classes 48 home / 47 work; held-out 13 / 18. WAPE_bins **0.4669**, WAPE_daily 0.3421. One held-out observed cell (Manquehue, bin 6) has no training support in any class and is predicted 0, as in L2.
 
+L2b, **rejected** (registered 07:17, run 07:31 UTC): homes 1,000 m, jobs 500 m, else L2. Code `5288e37` on branch `feat/station-l2b` (not merged), args `1000/500 public`, `jobs.csv` of main `ef34915`, predictions SHA256 `657736c0993c425151592db99e44c2d4f393a241873ebfba7cd267f1075a5a64`. WAPE_bins 0.5202, WAPE_daily 0.3808: worse than L2, so not kept.
+
 Known weakness of L0: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
+
+### Score artifact for the page
+
+`python3 -I tools/pack/station_score_run.py 1000 public` (L2; the label comes from the arguments) runs the binary and the frozen scorer, then writes `data/mvp/station_score_run.json`: layer, arguments, model and scorer commits, run time, target and prediction SHA256, `wape_bins`, `wape_daily` (full precision; values are not rounded), and for each of the 31 held-out stations `id,name,longitude,latitude,observed[48]` (nulls kept), `predicted[48]`, `observed_daily`, `predicted_daily` (both over the observed cells only). Observed values are joined after the run; they never enter Rust. One run per file.
