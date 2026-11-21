@@ -19,7 +19,7 @@ struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
 pub struct Station { pub id: String, pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
 
 #[derive(Serialize)]
-pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64 }
+pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64, pub points_with_2_or_more_parents: [usize; 2] }
 
 fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
     csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
@@ -35,23 +35,31 @@ fn nearest(st: &[Station], x: f64, y: f64) -> (usize, f64) {
 
 /// Spread each comuna total over its points by weight, add each point's share to its nearest station.
 /// Points farther than `radius` metres from their nearest parent add nothing (L1); their mass is not redistributed.
-fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, dist: &mut Vec<(f64, f64)>) -> Vec<f64> {
+/// `split` (L4): a point gives mass/n to each of the n parents within `radius`, not all to the nearest.
+/// Returns the station masses and the number of points (with weight) that have 2 or more parents within the radius.
+fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, split: bool, dist: &mut Vec<(f64, f64)>) -> (Vec<f64>, usize) {
     let mut wsum: HashMap<&str, f64> = HashMap::new();
     for p in pts { *wsum.entry(&p.0).or_default() += p.3; }
+    let kx = 111_320.0 * (-33.45f64).to_radians().cos();
     let mut m = vec![0.0; st.len()];
+    let mut multi = 0;
     for p in pts {
         if p.3 == 0.0 { continue; }
         let v = total.get(&p.0).copied().unwrap_or(0.0) * p.3 / wsum[p.0.as_str()];
         let (i, d) = nearest(st, p.1, p.2);
         dist.push((d, v));
-        if d <= radius { m[i] += v; }
+        if !split { if d <= radius { m[i] += v; } continue; }
+        let near: Vec<usize> = (0..st.len()).filter(|&k| ((st[k].longitude - p.1) * kx).hypot((st[k].latitude - p.2) * 110_540.0) <= radius).collect();
+        if near.len() >= 2 { multi += 1; }
+        for &k in &near { m[k] += v / near.len() as f64; }
     }
-    m
+    (m, multi)
 }
 
 /// `classes`: L7, two station classes with their own profile.
 /// `public_share`: L2, weight each OD pair by the share of public-transport commuters (mode 2) of its home comuna.
-pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool) -> (Vec<Vec<f64>>, Report, Fit) {
+/// `split`: L4, equal split of each point among all parents within the radius.
+pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool) -> (Vec<Vec<f64>>, Report, Fit) {
     let mut share: HashMap<String, (f64, f64)> = HashMap::new();
     for m in rows::<Mode>(&data.join("mode_share.csv")) {
         let e = share.entry(m.cut).or_default();
@@ -68,8 +76,8 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
     let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
     let mut dist = Vec::new();
-    let h = mass(st, &home, &blocks, radius, &mut dist);
-    let j = mass(st, &work, &jobs, radius, &mut dist);
+    let (h, multi_h) = mass(st, &home, &blocks, radius, split, &mut dist);
+    let (j, multi_j) = mass(st, &work, &jobs, radius, split, &mut dist);
 
     // L7: class 1 ("work") if J/H inside the radius is above the training median, else class 0 ("home").
     let ratio: Vec<f64> = (0..st.len()).map(|i| if h[i] == 0.0 { f64::INFINITY } else { j[i] / h[i] }).collect();
@@ -127,7 +135,7 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     }
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
     let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
-        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum() };
+        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), points_with_2_or_more_parents: [multi_h, multi_j] };
     (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share })
 }
 
@@ -158,7 +166,7 @@ fn sha256(bytes: &[u8]) -> String {
 
 fn layer_of(args: &[String]) -> Option<&'static str> {
     match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
-        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), _ => None,
+        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), ["1000", "public", "classes", "split"] => Some("L4"), _ => None,
     }
 }
 #[derive(Deserialize)]
@@ -193,7 +201,7 @@ impl StationModel {
         let st: Vec<Station> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
         let has = |k: &str| art.stations_args.iter().any(|x| x == k);
         let radius = art.stations_args.first().and_then(|r| r.parse().ok()).unwrap_or(f64::INFINITY);
-        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"));
+        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"), has("split"));
         // The stored score belongs to this fit only if: same model source, frozen target bytes and scorer, 1,123 cells, same input bytes, the label of these
         // arguments, all 31 frozen held-out stations present, and exactly the same held-out predictions.
         let held: std::collections::BTreeSet<&str> = st.iter().filter(|s| s.holdout).map(|s| s.id.as_str()).collect();
