@@ -222,6 +222,7 @@ fn paint(x: u16, y: u16, height: f32) -> (Rgba, Rgba) {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Detail {
+    Overview,
     Far,
     Near,
 }
@@ -238,12 +239,18 @@ pub(crate) struct Buildings {
     heights: activity::HeightScales,
 }
 
-fn box_mesh(pack: &Pack, tile: usize, scale: &impl Fn(usize) -> (f32, f32)) -> Surface {
+fn box_mesh(
+    pack: &Pack,
+    tile: usize,
+    detail: Detail,
+    scale: &impl Fn(usize) -> (f32, f32),
+) -> Surface {
     let bytes = pack.slice(tile);
     let count = integer(bytes, 0);
     let mut mesh = Surface::default();
-    mesh.positions.reserve(count * 8);
-    mesh.indices.reserve(count * 30);
+    let overview = detail == Detail::Overview;
+    mesh.positions.reserve(count * if overview { 4 } else { 8 });
+    mesh.indices.reserve(count * if overview { 6 } else { 30 });
     for i in 0..count {
         if ground::NAMED.contains(&(tile, i)) {
             continue;
@@ -266,13 +273,23 @@ fn box_mesh(pack: &Pack, tile: usize, scale: &impl Fn(usize) -> (f32, f32)) -> S
             center + u + v,
             center - u + v,
         ];
+        let (from, to) = scale(i);
+        // At 45 km a center pixel spans 26 m. Retain every roof and taller silhouettes.
+        let roof_only = overview && (2. * width.max(depth)).max(h * from.max(to)) < 25.;
+        if roof_only {
+            for p in corners {
+                mesh.vertex(p + Vec3::Y * h, Vec3::Y, roof);
+            }
+            mesh.height_transition(base as usize, center.y, from, to);
+            mesh.indices.extend([0, 2, 1, 0, 3, 2].map(|n| base + n));
+            continue;
+        }
         for p in corners {
             mesh.vertex(p, Vec3::Y, wall);
         }
         for p in corners {
             mesh.vertex(p + Vec3::Y * h, Vec3::Y, roof);
         }
-        let (from, to) = scale(i);
         mesh.height_transition(base as usize, center.y, from, to);
         mesh.indices.extend(
             [
@@ -425,6 +442,8 @@ pub(crate) fn draw_buildings(
             None
         } else if rig.distance < 4200. && d < rig.distance * 0.72 + 1500. {
             Some(Detail::Near)
+        } else if rig.distance >= 45_000. {
+            Some(Detail::Overview)
         } else {
             Some(Detail::Far)
         };
@@ -442,7 +461,7 @@ pub(crate) fn draw_buildings(
         }
         if let Some(detail) = detail {
             let mesh = match detail {
-                Detail::Far => box_mesh(&buildings.boxes, tile, &|i| {
+                Detail::Overview | Detail::Far => box_mesh(&buildings.boxes, tile, detail, &|i| {
                     buildings.heights.scale(tile, i)
                 }),
                 Detail::Near => polygon_mesh(&buildings.boxes, &buildings.polygons, tile, &|i| {
@@ -459,6 +478,9 @@ pub(crate) fn draw_buildings(
                 Mesh3d(meshes.add(mesh.finish())),
                 MeshMaterial3d(mat.clone()),
             ));
+            if detail != Detail::Near {
+                chunk.insert(bevy::light::NotShadowCaster);
+            }
             if animated {
                 chunk.insert((
                     MeshMorphWeights::Value {

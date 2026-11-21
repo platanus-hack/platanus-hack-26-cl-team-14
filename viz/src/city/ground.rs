@@ -108,10 +108,16 @@ fn roads(tiles: &mut GroundTiles, path: &Path) {
     }
 }
 
-fn green_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
+fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     let data = read_geojson(path);
     for feature in data["features"].as_array().unwrap() {
         let color = match feature["properties"]["kind"].as_str().unwrap() {
+            "track" => [0.38, 0.13, 0.08, 1.0],
+            "pitch" => [0.18, 0.38, 0.21, 1.0],
+            "surface_parking" => [0.27, 0.28, 0.28, 1.0],
+            "parking_unspecified" => [0.32, 0.32, 0.31, 1.0],
+            "brownfield" => [0.32, 0.25, 0.17, 1.0],
+            "greenfield" => [0.35, 0.37, 0.21, 1.0],
             "wood" => [0.12, 0.22, 0.105, 1.0],
             "scrub" | "heath" | "nature_reserve" => [0.37, 0.40, 0.20, 1.0],
             "grass" | "meadow" | "grassland" => [0.34, 0.43, 0.22, 1.0],
@@ -161,10 +167,15 @@ fn landmarks(tiles: &mut GroundTiles, path: &Path) {
 pub(crate) fn load_ground(root: &Path) -> Vec<(String, Mesh)> {
     let mut tiles = GroundTiles::new();
     let mut terrain = LandCover::default();
-    green_areas(
+    land_areas(
         &mut tiles,
         &mut terrain,
         &root.join("web/data/green_areas.geojson.gz"),
+    );
+    land_areas(
+        &mut tiles,
+        &mut terrain,
+        &root.join("web/data/open_surfaces.geojson.gz"),
     );
     roads(
         &mut tiles,

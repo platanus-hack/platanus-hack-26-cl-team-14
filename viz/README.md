@@ -1,6 +1,6 @@
 # Santiago miniature
 
-Run this command from the repository root. The engine must serve the latest scenario and event stream on port 8790.
+Run this command from the repository root with Rust 1.97.1 or later. The window reads the latest scenario and event stream on port 8787 by default.
 
 ```sh
 CARGO_TARGET_DIR=/tmp/viz-target cargo run --manifest-path viz/Cargo.toml
