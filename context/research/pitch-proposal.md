@@ -24,3 +24,9 @@ Propuesta de los agentes. El equipo humano decide el guion en [context/pitch.md]
 - **Not built** en la revisión de referencia. Respuestas de simulación para cualquier pregunta de urbanismo, construcción, movilidad o transporte. El agente debe indicar qué cambios admite el motor cuando una pregunta excede ese alcance.
 
 La referencia de implementación es [78a85a0](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/78a85a0e6370a9eb278f214747822a6cd1dcf51a). Los tiempos del guion son un presupuesto. Falta medir un ensayo de punta a punta.
+
+## Evidencia para preguntas del jurado
+
+La prueba retrospectiva de acceso al Metro por bus (L9) estimó en Los Libertadores una baja cercana a la observada tras la extensión de la Línea 3. La comparación ajusta por la tendencia de otras estaciones. El tamaño de la baja modelada cambia con el máximo de tiempo en bus. [Prueba de Línea 3](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/812b0b8c0c1915eff27fc6f3c2ca9e17c1f2309c/context/research/station-access-l9.md), [revisión del tiempo máximo](https://discord.com/channels/1573514576400752640/1573579088684253235/1573679525907136543).
+
+La segunda apertura no confirmó el resultado. Con la misma regla, el modelo estimó un 38,8 % más de subidas que las observadas en las cuatro estaciones de la extensión de Línea 2 a San Bernardo, en las medias horas con datos comparables de abril de 2026. En La Cisterna, el cambio de formato del conteo impide medir cuánto cambió el número de entradas tras la apertura. [Resultado de Línea 2](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/812b0b8c0c1915eff27fc6f3c2ca9e17c1f2309c/context/research/station-access-l9.md#line-2-extension-check), [fuentes de La Cisterna](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/08ceb175425b1500ad416983dca087f476484a8b/data/validation/metro_extension_2023/line2.md).
