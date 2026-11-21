@@ -461,3 +461,142 @@ unzip -d data/raw/exposure_santiago data/raw/exposure_santiago/exposure_santiago
 python3 -I tools/scrape/ine_permits.py   # writes data/raw/ine_permits/rm_permits.json
 python3 tools/pack/buildings.py
 ```
+
+## travel_times.csv
+
+Public-transport travel time between the comunas of the RM at 08:00 on a weekday
+(depth layer B). Built so a station model can weight a flow by its cost, not only by
+its distance. Builder: `python3 -I tools/pack/travel_times.py` (7 s).
+
+| Column | Meaning |
+| --- | --- |
+| `origin_cut`, `destination_cut` | 5-digit INE comuna codes. **Directed**: A→B and B→A are two rows and they differ |
+| `minutes_door_to_door` | walk to the stop + wait + ride + transfers + walk to the destination point |
+| `minutes_in_vehicle` | only the time on board. Free of the headway assumption below |
+| `transfers` | number of boardings minus 1 |
+| `walk_m_access`, `walk_m_egress` | straight-line metres walked at each end |
+
+- Source: DTPM `GTFS_20260321_v3.zip` (`data/raw/dtpm-gtfs-march/`, sha256
+  `f10945e8…b77b`, equal to the hash that `tobalaba_observations.json` publishes). It is
+  the release that `context/mvp.md` names. Points: the population-weighted comuna points
+  of `communes.csv`.
+- Rows: **1,190**, every directed pair of the 35 comunas whose point has a stop within
+  1,000 m. Median 48.4 minutes, from 12.8 to 123.6.
+- Check against trips a person from Santiago knows: Santiago → Las Condes 33.8 min
+  (21.1 on board, 1 transfer); Las Condes → Santiago 28.9; Puente Alto → Santiago 48.5
+  (30.4 on board, 2 transfers); La Pintana → Santiago 50.1; Maipú → Santiago 41.7. The
+  matrix is **not symmetric**, as a directed matrix must not be.
+- `minutes_in_vehicle` is never above `minutes_door_to_door`, no value is negative, the
+  largest access walk is 992 m and the largest egress walk 857 m, both inside the
+  declared 1,000 m.
+
+### What the model is
+
+- Weekday = Wednesday 2026-04-15, inside the period of the April boardings. Services `L`
+  (Monday to Friday) and `LJ` (Monday to Thursday) are active; `V` is Friday only; no
+  `calendar_dates` exception falls on that date.
+- **It is a headway model, not a timetable search, and the feed forces that.** All 14,436
+  bus trips (`route_type` 3) are in `frequencies.txt`, so their `stop_times` start at
+  `0:00:00` and are offsets from an unknown trip start. 11,528 Metro trips have absolute
+  times. A timetable search would have to invent a departure clock for 55.5% of the trips.
+- So the 10,601 weekday trips collapse to **891 stop patterns**. The sample trip of a
+  pattern is the one whose first departure is nearest 08:00: a frequency trip carries
+  offsets, so every trip of its pattern gives the same numbers, but a Metro trip has
+  absolute times and the trip near 08:00 is the right sample.
+- A rider who stays on board pays the **dwell** at each intermediate stop. The ride state
+  of a place in a pattern is split in two, "arrived" and "ready to depart", and staying
+  on board costs that stop's `departure − arrival`. Check on the L1 pattern
+  `DL_L1_101_113826_V1`: the rides alone are 1,614 s, the intermediate dwells are 637 s,
+  and the two together are 2,251 s, which is exactly the end-to-end time of that trip in
+  the feed. One boarding costs
+  **headway / 2 at 08:00**: from `frequencies.txt` for a bus, and from the count of trips
+  that depart between 08:00 and 09:00 for Metro. **702 of the 891 patterns run at 08:00**;
+  the other 189 have no service then and are excluded, not given an invented headway.
+- Access and egress: straight line to a stop within 1,000 m at 4.8 km/h. A transfer is a
+  walk under 300 m, or 0 m between a platform and its `parent_station` (this feed has no
+  `transfers.txt`). One Dijkstra for each of the 35 served origins, 86,249 nodes, 245,166 edges.
+
+### Limits
+
+- **The feed covers Gran Santiago, not the whole region. 17 of the 52 comuna points have
+  no stop within 1,000 m, and they get no row**: Buin 1.5 km, Paine 2.1, Calera de Tango
+  3.9, Pirque 5.3, Peñaflor 6.4, Lampa 6.5, Colina 10.3, Talagante 13.5, San José de
+  Maipo 14.4, Isla de Maipo 14.5, Curacaví 20.3, El Monte 21.3, Tiltil 24.9, María Pinto
+  24.9, Alhué 36.9, Melipilla 38.5, San Pedro 67.6. Their rural services are not in this
+  GTFS. **1,462 of the 2,652 directed pairs are missing for that reason.** An earlier
+  version kept those pairs with their nearest stop, which reported a 67 km walk as a
+  travel time. That is gone: a pair with no stop inside the limit has no row.
+- The headway gives an **expected** wait, not a real 08:00 timetable. A pattern that runs
+  every 90 minutes reads as a 45-minute wait. `minutes_in_vehicle` has none of that, which
+  is why it is a separate column.
+- Walking is a straight line, not a network, so every walk is shorter than the real one.
+- 08:00 only. No fare, no crowding, no capacity, no delay, no car, no bicycle, and no
+  diagonal (a comuna to itself).
+- **A comuna point is not a trip end.** These are times between two population centres.
+  No value here is fitted to an observed travel time.
+
+### Check against EOD 2012, the only observed travel times we hold
+
+Command: `python3 -I tools/pack/travel_times.py eod` (it rebuilds the matrix, then
+compares, so the comparison always runs against the current file).
+
+**This is descriptive, not a measure of forecast accuracy.** The two differ in period
+(2012 against 2026), in cohort (surveyed trips against a point-to-point search) and in
+trip ends (a real door against a comuna centroid). What it can say is whether the matrix
+orders the comuna pairs the way the survey did.
+
+I compared the matrix with the real trip durations of EOD 2012
+(`data/raw/eod2012/.../viajes.csv`, `TiempoViaje`). Filter: weekday factor present,
+`Periodo` 2 (the 07:31 to 09:00 peak, which brackets the 08:00 departure),
+`ModoAgregado` in {2, 3, 4, 7, 9, 10} (bus and Metro and their pure combinations, no
+taxi, no colectivo, no car), a reported duration above 0 and not above 300 minutes,
+origin comuna different from destination comuna, and the pair present in this file. That gives **3,184 sampled trips on 620 pairs**;
+I kept the **80 pairs with 10 or more sampled trips** and took the **unweighted** median
+of the sampled durations of each pair. `FactorLaboralNormal` is used only to select
+weekday trips, never as a weight, so a pair median is a median over sampled trips and
+not over the expanded population.
+
+| | result |
+| --- | --- |
+| EOD 2012 observed median | 53.8 min |
+| this matrix | 35.5 min |
+| ratio mine / EOD, median | **0.651** (p10 0.452, p90 0.867) |
+| mean absolute error | 20.9 min, WAPE 36.4% |
+| Pearson r | **0.783** |
+| Spearman | **0.734** |
+
+**Spearman uses the average rank inside a group of equal values.** The survey medians
+include ties because EOD reports round minutes, so the
+no-ties shortcut `1 − 6Σd²/(n³−n)` is not Spearman here and its answer depends on the
+order of the pairs. The number above is the Pearson correlation of the tie-corrected
+ranks; the shortcut gave 0.744.
+
+Before the dwell was charged, the same check gave 34.1 min, ratio 0.608, WAPE 40.6% and
+Pearson 0.739. Charging the dwell moved every one of those numbers toward the
+observation. That is an independent sign that the fix was right.
+
+**Read it this way: the ranking is good and the level is 35% too fast against this
+survey.** Use the file as a relative cost between pairs, not as a minute count a person
+would recognise.
+A model that puts these minutes in a decay function with one freely fitted coefficient
+absorbs a **common multiplicative** factor, so a uniform level bias would not reach its
+score. That is only part of the story here: the ratio runs from 0.45 at p10 to 0.87 at
+p90, so the bias is not uniform, and the pair-by-pair part does reach any such score.
+What survives is the ordering: Spearman 0.734.
+
+Four causes of the gap, and they do not all point the same way:
+1. A comuna point is not a trip end. An EOD trip runs door to door anywhere inside the
+   comuna; this matrix runs between two population-weighted centroids, which is shorter
+   than an average real pair. This is probably the largest remaining term.
+2. Walking is a straight line, so every walk here is shorter than the real one.
+3. `headway / 2` assumes a passenger arrives at the stop at random.
+4. The network changed after the survey: L6 opened in 2017 and L3 in 2019. The pairs
+   where this matrix is fastest against EOD are pairs those lines serve — Quilicura →
+   Las Condes, Maipú → Las Condes and Renca → Las Condes each read about half of their
+   EOD time. **This check cannot attribute the gap**, because causes 1 to 3 act on those
+   pairs too. The pattern is consistent with a real improvement; it does not measure
+   one, and it does not establish that EOD is the wrong number there.
+
+I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
+and a layer must freeze its formula before it is scored.
+
