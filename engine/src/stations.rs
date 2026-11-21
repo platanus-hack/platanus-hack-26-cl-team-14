@@ -19,7 +19,7 @@ struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
 pub struct Station { pub id: String, pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
 
 #[derive(Serialize)]
-pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64, pub points_with_2_or_more_parents: [usize; 2] }
+pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64, pub mass_share_with_2_or_more_parents: [f64; 2] }
 
 fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
     csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
@@ -36,13 +36,13 @@ fn nearest(st: &[Station], x: f64, y: f64) -> (usize, f64) {
 /// Spread each comuna total over its points by weight, add each point's share to its nearest station.
 /// Points farther than `radius` metres from their nearest parent add nothing (L1); their mass is not redistributed.
 /// `split` (L4): a point gives mass/n to each of the n parents within `radius`, not all to the nearest.
-/// Returns the station masses and the number of points (with weight) that have 2 or more parents within the radius.
-fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, split: bool, dist: &mut Vec<(f64, f64)>) -> (Vec<f64>, usize) {
+/// Returns the station masses and the share of assigned mass whose point has 2 or more parents within the radius.
+fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, f64)], radius: f64, split: bool, dist: &mut Vec<(f64, f64)>) -> (Vec<f64>, f64) {
     let mut wsum: HashMap<&str, f64> = HashMap::new();
     for p in pts { *wsum.entry(&p.0).or_default() += p.3; }
     let kx = 111_320.0 * (-33.45f64).to_radians().cos();
     let mut m = vec![0.0; st.len()];
-    let mut multi = 0;
+    let (mut multi, mut assigned) = (0.0, 0.0);
     for p in pts {
         if p.3 == 0.0 { continue; }
         let v = total.get(&p.0).copied().unwrap_or(0.0) * p.3 / wsum[p.0.as_str()];
@@ -50,10 +50,11 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
         dist.push((d, v));
         if !split { if d <= radius { m[i] += v; } continue; }
         let near: Vec<usize> = (0..st.len()).filter(|&k| ((st[k].longitude - p.1) * kx).hypot((st[k].latitude - p.2) * 110_540.0) <= radius).collect();
-        if near.len() >= 2 { multi += 1; }
+        if !near.is_empty() { assigned += v; }
+        if near.len() >= 2 { multi += v; }
         for &k in &near { m[k] += v / near.len() as f64; }
     }
-    (m, multi)
+    (m, if assigned > 0.0 { multi / assigned } else { 0.0 })
 }
 
 /// `classes`: L7, two station classes with their own profile.
@@ -135,7 +136,7 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     }
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
     let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
-        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), points_with_2_or_more_parents: [multi_h, multi_j] };
+        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), mass_share_with_2_or_more_parents: [multi_h, multi_j] };
     (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share })
 }
 
