@@ -1,0 +1,45 @@
+{
+  "frozen_at_utc": "2026-11-21T09:03:24Z",
+  "method_sha256": "5143a0777f71e6fc33281b43d25cccf1baa537fe324291453e5ccc487a9018df",
+  "eligible_set_source_pr": 78,
+  "eligibility": "Exact PR78 included station/line set; no new selection.",
+  "line_bin_summary_rows": 96,
+  "coverage": [
+    {
+      "line": "L1",
+      "fixed_bins": 36,
+      "calculated_target_contrast_bins": 36,
+      "outside_window_unavailable_bins": 12,
+      "minimum_valid_reference_count": 26,
+      "maximum_valid_reference_count": 26,
+      "zero_april_reference_cell_exclusions": 0,
+      "zero_april_target_cell_exclusions": 0
+    },
+    {
+      "line": "L4",
+      "fixed_bins": 36,
+      "calculated_target_contrast_bins": 36,
+      "outside_window_unavailable_bins": 12,
+      "minimum_valid_reference_count": 18,
+      "maximum_valid_reference_count": 18,
+      "zero_april_reference_cell_exclusions": 0,
+      "zero_april_target_cell_exclusions": 0
+    }
+  ],
+  "interpretation": "Descriptive half-hour comparison only. No workers/shoppers/trip-purpose identification, causal MUT effect, closure validation, or temporal shape fit.",
+  "retained_half_hours_per_line": 48,
+  "fixed_window": "05:30–23:00 inclusive, 36 half-hours",
+  "null_metric_bins_per_line": 12,
+  "outside_window": "00:00 through 05:00 inclusive, plus 23:30; statistics unavailable, not zero.",
+  "zero_april_rule": "Undefined percentage; exclude that station/bin, never zero-fill. No zero-April eligible cells occurred inside the fixed window.",
+  "fixed_bin_station_exclusions": 0,
+  "outside_window_station_bin_exclusions": 552,
+  "outside_window_exclusion_derivation": "46 eligible station/line keys × 12 bins; each is outside the frozen window.",
+  "private_audit_scope": {
+    "station_bin_rows": 2208,
+    "reference_percentages": 1584,
+    "line_bin_summary_rows": 96,
+    "outside_window_exclusions": 552
+  },
+  "weekend_availability": "Unavailable from both retrieved boarding members; no weekend worksheet."
+}
