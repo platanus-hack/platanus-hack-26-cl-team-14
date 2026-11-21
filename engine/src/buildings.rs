@@ -23,8 +23,8 @@ struct Building {
     // Keep scenario overrides separate from derived counts when height or use changes.
     inputs: Value,
     assumptions: Vec<String>,
-    // A comparison stays unavailable if the source building had no count for this stock.
-    comparable: [bool; 2],
+    // Tracks whether the original stock was known, independently of later scenario counts.
+    baseline_known: [bool; 2],
 }
 
 pub struct BuildingEdits<'a> {
@@ -68,7 +68,7 @@ impl Buildings {
             feature,
             inputs,
             assumptions,
-            comparable: [true; 2],
+            baseline_known: [true; 2],
         })
     }
 }
@@ -116,17 +116,30 @@ impl BuildingEdits<'_> {
         if let Some(entry) = self.changed.get(id) {
             return Ok(entry.clone());
         }
-        self.base
-            .catalog
-            .feature(id)
-            .map(|f| {
-                let inputs = input_fields(&f["properties"]);
-                let mut b = self.base.building(f, inputs)?;
-                b.comparable =
-                    ["jobs", "residents"].map(|k| b.feature["properties"][k].is_number());
-                Ok::<_, String>(b)
-            })
-            .transpose()
+        Ok(self.base.catalog.feature(id).map(|mut feature| {
+            let inputs = input_fields(&feature["properties"]);
+            let mut assumptions = vec![
+                "The catalog maps the footprint but does not measure its jobs or residents.".into(),
+            ];
+            let area = geometry::area_m2(&feature["geometry"])
+                .map_err(|reason| {
+                    assumptions.push(format!(
+                        "The catalog footprint area is unavailable: {reason}"
+                    ));
+                })
+                .ok();
+            let p = &mut feature["properties"];
+            p["footprint_area_m2"] = json!(area);
+            p["use"] = Value::Null;
+            p["jobs"] = Value::Null;
+            p["residents"] = Value::Null;
+            Building {
+                feature,
+                inputs,
+                assumptions,
+                baseline_known: [false; 2],
+            }
+        }))
     }
 
     pub fn apply(&mut self, change: &Value) -> Result<Value, String> {
@@ -226,13 +239,13 @@ impl BuildingEdits<'_> {
                     feature,
                     inputs,
                     assumptions: notes,
-                    comparable: old.comparable,
+                    baseline_known: old.baseline_known,
                 })
             }
             (Some((feature, inputs)), prior) => {
                 let mut building = self.base.building(feature, inputs)?;
                 if let Some(old) = prior {
-                    building.comparable = old.comparable;
+                    building.baseline_known = old.baseline_known;
                 }
                 Some(building)
             }
@@ -267,10 +280,19 @@ fn block_effects(
         if before
             .iter()
             .chain(after.iter())
-            .any(|b| !b.comparable[index])
+            .any(|b| !b.baseline_known[index])
         {
-            notes.push(format!("The source or edited building has no comparable {field} count. This edit does not apply a {field} delta."));
-            continue;
+            notes.push(format!("The catalog {field} count is unknown, so the net change from the catalog baseline is unavailable."));
+            if before
+                .iter()
+                .chain(after.iter())
+                .any(|b| !b.feature["properties"][field].is_number())
+            {
+                continue;
+            }
+            notes.push(format!(
+                "The {field} delta compares consecutive scenario states."
+            ));
         }
         let mut sides = [(before, -1.0), (after, 1.0)]
             .into_iter()
