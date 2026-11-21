@@ -686,7 +686,14 @@ impl Scenario {
             .map(|&i| json!({ "origin": c.cuts[i / n], "destination": c.cuts[i % n], "base": b.od[i], "scenario": s.od[i] })).collect();
 
         let total = |d: &State| d.day.iter().map(|bins| bins.iter().sum::<f64>()).sum::<f64>();
-        let trips = self.plan.sample(&pop);
+        let mut trips = self.plan.sample(&pop);
+        // With a window, the map shows the scenario only for groups that leave inside it and the baseline elsewhere.
+        if let Some((a, z)) = window {
+            let inside = |g: &TripGroup| (a..z).contains(&g.half_hour);
+            trips.retain(|g| inside(g));
+            trips.extend(self.plan.sample(&self.pop).into_iter().filter(|g| !inside(g)));
+            trips.sort_by_key(|g| g.id);
+        }
         let mut result = json!({
             "applied": applied,
             "city_edits": city_edits,

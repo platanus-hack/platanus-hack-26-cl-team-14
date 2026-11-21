@@ -85,6 +85,7 @@ const featureChanges = [
   properties: {
     kind: { enum: [kind] }, target, op: { enum: ['add', 'set', 'move', 'remove'] },
     ...(kind === 'line' && { temporary: { type: 'boolean', description: 'True: the change lasts one day, so it moves mode choice only.' } }),
+    ...(kind === 'line' && { half_hours: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 48 }, minItems: 2, maxItems: 2, description: 'Closure window [start, end) in half-hours from 00:00, with temporary true. Example [14, 20] = 07:00 to 10:00. Only workers who leave home inside it face the change; read closure_window for workers by mode in the window. Station entries change only inside it.' } }),
     properties: { type: 'object', properties, additionalProperties: false },
     geometry: { oneOf: geometries.map(type => ({
       type: 'object', required: ['type', 'coordinates'],
