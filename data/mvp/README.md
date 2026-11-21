@@ -956,3 +956,15 @@ osmium export -u type_id --geometry-types=polygon -f geojsonseq buildings.osm.pb
 cd ../../..
 python3 -I tools/pack/city_footprints.py
 ```
+
+## Santiago surface elevation
+
+`web/data/terrain.i16` contains 481 columns × 421 rows. Read each value as a little-endian signed 16-bit integer in metres above EGM2008. The first sample is the northwest corner, at (-70.85, -33.30). Longitude increases with column and latitude decreases with row. Both bounds are sample centres. The full urban box includes the east and south edges at (-70.45, -33.65). Use `web/data/terrain.json` for the grid spacing, dimensions, coordinate system, bounds, and attribution.
+
+The grid retains the native 3-arcsecond spacing, about 77 m east–west and 92 m north–south in Santiago. The builder rounds each source height to the nearest metre. All 202,501 samples have data. The 405,002-byte grid ranges from 404 to 2,995 m. Its sample nearest the Cerro San Cristóbal summit is 870 m, compared with the reported 880 m summit elevation. The nearest sample to Plaza de Armas is 568 m. [San Cristóbal Hill reference and summit coordinates](https://en.wikipedia.org/wiki/San_Crist%C3%B3bal_Hill)
+
+Copernicus GLO-90 is a digital surface model. Elevations include trees, buildings, and other structures. The AWS release is from 2021. Its WorldDEM source mainly uses radar acquisitions from 2011–2015. [Dataset registry](https://registry.opendata.aws/copernicus-dem/) · [Copernicus product and licence](https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM)
+
+Required credit for the derived grid: produced using Copernicus WorldDEM-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved
+
+To rebuild, download the 5,131,205-byte [source GeoTIFF](https://copernicus-dem-90m.s3.amazonaws.com/Copernicus_DSM_COG_30_S34_00_W071_00_DEM/Copernicus_DSM_COG_30_S34_00_W071_00_DEM.tif) into `data/raw/copernicus-dem/` with its original filename. SHA-256: `5fec8634dd8d5433b13c1766a4948518457dba29a90f4cb676cf7852dd71a800`. Run `python3 -I tools/pack/terrain.py` from the repo root.
