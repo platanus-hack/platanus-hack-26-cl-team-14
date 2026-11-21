@@ -180,6 +180,13 @@ impl Scenario {
                 not_modeled.push(v);
                 continue;
             }
+            // A block that is not in the table of its kind (for example residents at a job-only block such as the MUT).
+            if raw["target"]["type"] == "block" && !(if kind == "jobs" { &self.pop.jobs } else { &self.pop.homes }).iter().any(|p| p.id == key) {
+                let mut v = raw.clone();
+                v["reason"] = json!(format!("Block {key} has no {kind} in the engine data. Use a point target or another block."));
+                not_modeled.push(v);
+                continue;
+            }
             let ch = &serde_json::from_value::<Change>(raw.clone()).unwrap();
             let op = |x: f64| match ch.op { Op::Add => x + ch.value, Op::Multiply => x * ch.value, Op::Set => ch.value }.max(0.0);
             let mut note = serde_json::to_value(ch).unwrap();
