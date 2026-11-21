@@ -267,9 +267,13 @@ SII worker counts, FONASA, Servel, Censo 2017.
   2002 versus 0.06% in 2024; the latter's multiple-workplace category is excluded from
   matrix-derived measures. Harmonize these definitions before comparison. See the
   [INE methodology, §§3.3–3.6](https://storage.googleapis.com/bktdescargascenso2024/Conmutacion_Laboral_cpv2024.pdf).
-  Raw code `99999` contains 202,489 workers; its exact semantics remain unverified.
-  Foreign/unusual-code classification and 2024 harmonization remain pending; domestic
-  external destinations are retained. Raw review is not benchmark approval.
+  Qualified response classification splits raw code `99999` into 16,569 other-commune
+  answers without a code and 185,920 ignored answers; 462 workers have explicit foreign
+  destinations, with country names unmapped. Domestic external counts remain in the raw file.
+  The primary-list crosswalk is derived, not an official concordance; four external
+  historical parents require child aggregation. RM code identity does not prove boundary equivalence.
+  2002 cannot separate home workers within same-commune counts; 2024 excludes `p44=1`.
+  Off-diagonal preparation does not establish full-matrix cohort equivalence or benchmark approval.
 - Use in the simulation: a candidate earlier state after destination classification and
   universe harmonization; the current artifact is not an approved evaluation target.
 

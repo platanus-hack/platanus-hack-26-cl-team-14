@@ -1,0 +1,343 @@
+cut_2002,name_2002,cut_current,name_current,relation
+1101,Iquique,1101,IQUIQUE,historical_parent_requires_aggregation
+1102,Camiña,1402,CAMIÑA,same_commune_code_changed
+1103,Colchane,1403,COLCHANE,same_commune_code_changed
+1104,Huara,1404,HUARA,same_commune_code_changed
+1105,Pica,1405,PICA,same_commune_code_changed
+1106,Pozo Almonte,1401,POZO ALMONTE,same_commune_code_changed
+1201,Arica,15101,ARICA,same_commune_code_changed
+1202,Camarones,15102,CAMARONES,same_commune_code_changed
+1301,Putre,15201,PUTRE,same_commune_code_changed
+1302,General Lagos,15202,GENERAL LAGOS,same_commune_code_changed
+2101,Antofagasta,2101,ANTOFAGASTA,same_code
+2102,Mejillones,2102,MEJILLONES,same_code
+2103,Sierra Gorda,2103,SIERRA GORDA,same_code
+2104,Taltal,2104,TALTAL,same_code
+2201,Calama,2201,CALAMA,same_code
+2202,Ollagüe,2202,OLLAGÜE,same_code
+2203,San Pedro de Atacama,2203,SAN PEDRO DE ATACAMA,same_code
+2301,Tocopilla,2301,TOCOPILLA,same_code
+2302,María Elena,2302,MARÍA ELENA,same_code
+3101,Copiapó,3101,COPIAPÓ,same_code
+3102,Caldera,3102,CALDERA,same_code
+3103,Tierra Amarilla,3103,TIERRA AMARILLA,same_code
+3201,Chañaral,3201,CHAÑARAL,same_code
+3202,Diego de Almagro,3202,DIEGO DE ALMAGRO,same_code
+3301,Vallenar,3301,VALLENAR,same_code
+3302,Alto del Carmen,3302,ALTO DEL CARMEN,same_code
+3303,Freirina,3303,FREIRINA,same_code
+3304,Huasco,3304,HUASCO,same_code
+4101,La Serena,4101,LA SERENA,same_code
+4102,Coquimbo,4102,COQUIMBO,same_code
+4103,Andacollo,4103,ANDACOLLO,same_code
+4104,La Higuera,4104,LA HIGUERA,same_code
+4105,Paiguano,4105,PAIGUANO,same_code
+4106,Vicuña,4106,VICUÑA,same_code
+4201,Illapel,4201,ILLAPEL,same_code
+4202,Canela,4202,CANELA,same_code
+4203,Los Vilos,4203,LOS VILOS,same_code
+4204,Salamanca,4204,SALAMANCA,same_code
+4301,Ovalle,4301,OVALLE,same_code
+4302,Combarbalá,4302,COMBARBALÁ,same_code
+4303,Monte Patria,4303,MONTE PATRIA,same_code
+4304,Punitaqui,4304,PUNITAQUI,same_code
+4305,Río Hurtado,4305,RÍO HURTADO,same_code
+5101,Valparaíso,5101,VALPARAÍSO,same_code
+5102,Casablanca,5102,CASABLANCA,same_code
+5103,Concón,5103,CONCÓN,same_code
+5104,Juan Fernández,5104,JUAN FERNÁNDEZ,same_code
+5105,Puchuncaví,5105,PUCHUNCAVÍ,same_code
+5106,Quilpué,5801,QUILPUÉ,same_commune_code_changed
+5107,Quintero,5107,QUINTERO,same_code
+5108,Villa Alemana,5804,VILLA ALEMANA,same_commune_code_changed
+5109,Viña del Mar,5109,VIÑA DEL MAR,same_code
+5201,Isla de Pascua,5201,ISLA DE PASCUA,same_code
+5301,Los Andes,5301,LOS ANDES,same_code
+5302,Calle Larga,5302,CALLE LARGA,same_code
+5303,Rinconada,5303,RINCONADA,same_code
+5304,San Esteban,5304,SAN ESTEBAN,same_code
+5401,La Ligua,5401,LA LIGUA,same_code
+5402,Cabildo,5402,CABILDO,same_code
+5403,Papudo,5403,PAPUDO,same_code
+5404,Petorca,5404,PETORCA,same_code
+5405,Zapallar,5405,ZAPALLAR,same_code
+5501,Quillota,5501,QUILLOTA,same_code
+5502,Calera,5502,CALERA,same_code
+5503,Hijuelas,5503,HIJUELAS,same_code
+5504,La Cruz,5504,LA CRUZ,same_code
+5505,Limache,5802,LIMACHE,same_commune_code_changed
+5506,Nogales,5506,NOGALES,same_code
+5507,Olmué,5803,OLMUÉ,same_commune_code_changed
+5601,San Antonio,5601,SAN ANTONIO,same_code
+5602,Algarrobo,5602,ALGARROBO,same_code
+5603,Cartagena,5603,CARTAGENA,same_code
+5604,El Quisco,5604,EL QUISCO,same_code
+5605,El Tabo,5605,EL TABO,same_code
+5606,Santo Domingo,5606,SANTO DOMINGO,same_code
+5701,San Felipe,5701,SAN FELIPE,same_code
+5702,Catemu,5702,CATEMU,same_code
+5703,Llaillay,5703,LLAILLAY,same_code
+5704,Panquehue,5704,PANQUEHUE,same_code
+5705,Putaendo,5705,PUTAENDO,same_code
+5706,Santa María,5706,SANTA MARÍA,same_code
+6101,Rancagua,6101,RANCAGUA,same_code
+6102,Codegua,6102,CODEGUA,same_code
+6103,Coinco,6103,COINCO,same_code
+6104,Coltauco,6104,COLTAUCO,same_code
+6105,Doñihue,6105,DOÑIHUE,same_code
+6106,Graneros,6106,GRANEROS,same_code
+6107,Las Cabras,6107,LAS CABRAS,same_code
+6108,Machalí,6108,MACHALÍ,same_code
+6109,Malloa,6109,MALLOA,same_code
+6110,Mostazal,6110,MOSTAZAL,same_code
+6111,Olivar,6111,OLIVAR,same_code
+6112,Peumo,6112,PEUMO,same_code
+6113,Pichidegua,6113,PICHIDEGUA,same_code
+6114,Quinta de Tilcoco,6114,QUINTA DE TILCOCO,same_code
+6115,Rengo,6115,RENGO,same_code
+6116,Requínoa,6116,REQUÍNOA,same_code
+6117,San Vicente,6117,SAN VICENTE,same_code
+6201,Pichilemu,6201,PICHILEMU,same_code
+6202,La Estrella,6202,LA ESTRELLA,same_code
+6203,Litueche,6203,LITUECHE,same_code
+6204,Marchihue,6204,MARCHIHUE,same_code
+6205,Navidad,6205,NAVIDAD,same_code
+6206,Paredones,6206,PAREDONES,same_code
+6301,San Fernando,6301,SAN FERNANDO,same_code
+6302,Chépica,6302,CHÉPICA,same_code
+6303,Chimbarongo,6303,CHIMBARONGO,same_code
+6304,Lolol,6304,LOLOL,same_code
+6305,Nancagua,6305,NANCAGUA,same_code
+6306,Palmilla,6306,PALMILLA,same_code
+6307,Peralillo,6307,PERALILLO,same_code
+6308,Placilla,6308,PLACILLA,same_code
+6309,Pumanque,6309,PUMANQUE,same_code
+6310,Santa Cruz,6310,SANTA CRUZ,same_code
+7101,Talca,7101,TALCA,same_code
+7102,Constitución,7102,CONSTITUCIÓN,same_code
+7103,Curepto,7103,CUREPTO,same_code
+7104,Empedrado,7104,EMPEDRADO,same_code
+7105,Maule,7105,MAULE,same_code
+7106,Pelarco,7106,PELARCO,same_code
+7107,Pencahue,7107,PENCAHUE,same_code
+7108,Río Claro,7108,RÍO CLARO,same_code
+7109,San Clemente,7109,SAN CLEMENTE,same_code
+7110,San Rafael,7110,SAN RAFAEL,same_code
+7201,Cauquenes,7201,CAUQUENES,same_code
+7202,Chanco,7202,CHANCO,same_code
+7203,Pelluhue,7203,PELLUHUE,same_code
+7301,Curicó,7301,CURICÓ,same_code
+7302,Hualañé,7302,HUALAÑÉ,same_code
+7303,Licantén,7303,LICANTÉN,same_code
+7304,Molina,7304,MOLINA,same_code
+7305,Rauco,7305,RAUCO,same_code
+7306,Romeral,7306,ROMERAL,same_code
+7307,Sagrada Familia,7307,SAGRADA FAMILIA,same_code
+7308,Teno,7308,TENO,same_code
+7309,Vichuquén,7309,VICHUQUÉN,same_code
+7401,Linares,7401,LINARES,same_code
+7402,Colbún,7402,COLBÚN,same_code
+7403,Longaví,7403,LONGAVÍ,same_code
+7404,Parral,7404,PARRAL,same_code
+7405,Retiro,7405,RETIRO,same_code
+7406,San Javier,7406,SAN JAVIER,same_code
+7407,Villa Alegre,7407,VILLA ALEGRE,same_code
+7408,Yerbas Buenas,7408,YERBAS BUENAS,same_code
+8101,Concepción,8101,CONCEPCIÓN,same_code
+8102,Coronel,8102,CORONEL,same_code
+8103,Chiguayante,8103,CHIGUAYANTE,same_code
+8104,Florida,8104,FLORIDA,same_code
+8105,Hualqui,8105,HUALQUI,same_code
+8106,Lota,8106,LOTA,same_code
+8107,Penco,8107,PENCO,same_code
+8108,San Pedro de la Paz,8108,SAN PEDRO DE LA PAZ,same_code
+8109,Santa Juana,8109,SANTA JUANA,same_code
+8110,Talcahuano,8110,TALCAHUANO,historical_parent_requires_aggregation
+8111,Tomé,8111,TOMÉ,same_code
+8201,Lebu,8201,LEBU,same_code
+8202,Arauco,8202,ARAUCO,same_code
+8203,Cañete,8203,CAÑETE,same_code
+8204,Contulmo,8204,CONTULMO,same_code
+8205,Curanilahue,8205,CURANILAHUE,same_code
+8206,Los Alamos,8206,LOS ÁLAMOS,same_code
+8207,Tirúa,8207,TIRÚA,same_code
+8301,Los Angeles,8301,LOS ÁNGELES,same_code
+8302,Antuco,8302,ANTUCO,same_code
+8303,Cabrero,8303,CABRERO,same_code
+8304,Laja,8304,LAJA,same_code
+8305,Mulchén,8305,MULCHÉN,same_code
+8306,Nacimiento,8306,NACIMIENTO,same_code
+8307,Negrete,8307,NEGRETE,same_code
+8308,Quilaco,8308,QUILACO,same_code
+8309,Quilleco,8309,QUILLECO,same_code
+8310,San Rosendo,8310,SAN ROSENDO,same_code
+8311,Santa Bárbara,8311,SANTA BÁRBARA,historical_parent_requires_aggregation
+8312,Tucapel,8312,TUCAPEL,same_code
+8313,Yumbel,8313,YUMBEL,same_code
+8401,Chillán,16101,CHILLÁN,same_commune_code_changed
+8402,Bulnes,16102,BULNES,same_commune_code_changed
+8403,Cobquecura,16202,COBQUECURA,same_commune_code_changed
+8404,Coelemu,16203,COELEMU,same_commune_code_changed
+8405,Coihueco,16302,COIHUECO,same_commune_code_changed
+8406,Chillán Viejo,16103,CHILLÁN VIEJO,same_commune_code_changed
+8407,El Carmen,16104,EL CARMEN,same_commune_code_changed
+8408,Ninhue,16204,NINHUE,same_commune_code_changed
+8409,Ñiquén,16303,ÑIQUÉN,same_commune_code_changed
+8410,Pemuco,16105,PEMUCO,same_commune_code_changed
+8411,Pinto,16106,PINTO,same_commune_code_changed
+8412,Portezuelo,16205,PORTEZUELO,same_commune_code_changed
+8413,Quillón,16107,QUILLÓN,same_commune_code_changed
+8414,Quirihue,16201,QUIRIHUE,same_commune_code_changed
+8415,Ránquil,16206,RÁNQUIL,same_commune_code_changed
+8416,San Carlos,16301,SAN CARLOS,same_commune_code_changed
+8417,San Fabián,16304,SAN FABIÁN,same_commune_code_changed
+8418,San Ignacio,16108,SAN IGNACIO,same_commune_code_changed
+8419,San Nicolás,16305,SAN NICOLÁS,same_commune_code_changed
+8420,Treguaco,16207,TREGUACO,same_commune_code_changed
+8421,Yungay,16109,YUNGAY,same_commune_code_changed
+9101,Temuco,9101,TEMUCO,same_code
+9102,Carahue,9102,CARAHUE,same_code
+9103,Cunco,9103,CUNCO,same_code
+9104,Curarrehue,9104,CURARREHUE,same_code
+9105,Freire,9105,FREIRE,same_code
+9106,Galvarino,9106,GALVARINO,same_code
+9107,Gorbea,9107,GORBEA,same_code
+9108,Lautaro,9108,LAUTARO,same_code
+9109,Loncoche,9109,LONCOCHE,same_code
+9110,Melipeuco,9110,MELIPEUCO,same_code
+9111,Nueva Imperial,9111,NUEVA IMPERIAL,historical_parent_requires_aggregation
+9112,Padre Las Casas,9112,PADRE LAS CASAS,same_code
+9113,Perquenco,9113,PERQUENCO,same_code
+9114,Pitrufquén,9114,PITRUFQUÉN,same_code
+9115,Pucón,9115,PUCÓN,same_code
+9116,Saavedra,9116,SAAVEDRA,same_code
+9117,Teodoro Schmidt,9117,TEODORO SCHMIDT,same_code
+9118,Toltén,9118,TOLTÉN,same_code
+9119,Vilcún,9119,VILCÚN,same_code
+9120,Villarrica,9120,VILLARRICA,same_code
+9201,Angol,9201,ANGOL,same_code
+9202,Collipulli,9202,COLLIPULLI,same_code
+9203,Curacautín,9203,CURACAUTÍN,same_code
+9204,Ercilla,9204,ERCILLA,same_code
+9205,Lonquimay,9205,LONQUIMAY,same_code
+9206,Los Sauces,9206,LOS SAUCES,same_code
+9207,Lumaco,9207,LUMACO,same_code
+9208,Purén,9208,PURÉN,same_code
+9209,Renaico,9209,RENAICO,same_code
+9210,Traiguén,9210,TRAIGUÉN,same_code
+9211,Victoria,9211,VICTORIA,same_code
+10101,Puerto Montt,10101,PUERTO MONTT,same_code
+10102,Calbuco,10102,CALBUCO,same_code
+10103,Cochamó,10103,COCHAMÓ,same_code
+10104,Fresia,10104,FRESIA,same_code
+10105,Frutillar,10105,FRUTILLAR,same_code
+10106,Los Muermos,10106,LOS MUERMOS,same_code
+10107,Llanquihue,10107,LLANQUIHUE,same_code
+10108,Maullín,10108,MAULLÍN,same_code
+10109,Puerto Varas,10109,PUERTO VARAS,same_code
+10201,Castro,10201,CASTRO,same_code
+10202,Ancud,10202,ANCUD,same_code
+10203,Chonchi,10203,CHONCHI,same_code
+10204,Curaco de Vélez,10204,CURACO DE VÉLEZ,same_code
+10205,Dalcahue,10205,DALCAHUE,same_code
+10206,Puqueldón,10206,PUQUELDÓN,same_code
+10207,Queilén,10207,QUEILÉN,same_code
+10208,Quellón,10208,QUELLÓN,same_code
+10209,Quemchi,10209,QUEMCHI,same_code
+10210,Quinchao,10210,QUINCHAO,same_code
+10301,Osorno,10301,OSORNO,same_code
+10302,Puerto Octay,10302,PUERTO OCTAY,same_code
+10303,Purranque,10303,PURRANQUE,same_code
+10304,Puyehue,10304,PUYEHUE,same_code
+10305,Río Negro,10305,RÍO NEGRO,same_code
+10306,San Juan de la Costa,10306,SAN JUAN DE LA COSTA,same_code
+10307,San Pablo,10307,SAN PABLO,same_code
+10401,Chaitén,10401,CHAITÉN,same_code
+10402,Futaleufú,10402,FUTALEUFÚ,same_code
+10403,Hualaihué,10403,HUALAIHUÉ,same_code
+10404,Palena,10404,PALENA,same_code
+10501,Valdivia,14101,VALDIVIA,same_commune_code_changed
+10502,Corral,14102,CORRAL,same_commune_code_changed
+10503,Futrono,14202,FUTRONO,same_commune_code_changed
+10504,La Unión,14201,LA UNIÓN,same_commune_code_changed
+10505,Lago Ranco,14203,LAGO RANCO,same_commune_code_changed
+10506,Lanco,14103,LANCO,same_commune_code_changed
+10507,Los Lagos,14104,LOS LAGOS,same_commune_code_changed
+10508,Máfil,14105,MÁFIL,same_commune_code_changed
+10509,Mariquina,14106,MARIQUINA,same_commune_code_changed
+10510,Paillaco,14107,PAILLACO,same_commune_code_changed
+10511,Panguipulli,14108,PANGUIPULLI,same_commune_code_changed
+10512,Río Bueno,14204,RÍO BUENO,same_commune_code_changed
+11101,Coihaique,11101,COYHAIQUE,same_code
+11102,Lago Verde,11102,LAGO VERDE,same_code
+11201,Aisén,11201,AYSÉN,same_code
+11202,Cisnes,11202,CISNES,same_code
+11203,Guaitecas,11203,GUAITECAS,same_code
+11301,Cochrane,11301,COCHRANE,same_code
+11302,O'Higgins,11302,O'HIGGINS,same_code
+11303,Tortel,11303,TORTEL,same_code
+11401,Chile Chico,11401,CHILE CHICO,same_code
+11402,Río Ibáñez,11402,RÍO IBÁÑEZ,same_code
+12101,Punta Arenas,12101,PUNTA ARENAS,same_code
+12102,Laguna Blanca,12102,LAGUNA BLANCA,same_code
+12103,Río Verde,12103,RÍO VERDE,same_code
+12104,San Gregorio,12104,SAN GREGORIO,same_code
+12201,Navarino,12201,CABO DE HORNOS,same_code
+12202,Antártica,12202,ANTÁRTICA,same_code
+12301,Porvenir,12301,PORVENIR,same_code
+12302,Primavera,12302,PRIMAVERA,same_code
+12303,Timaukel,12303,TIMAUKEL,same_code
+12401,Natales,12401,NATALES,same_code
+12402,Torres del Paine,12402,TORRES DEL PAINE,same_code
+13101,Santiago,13101,SANTIAGO,same_code
+13102,Cerrillos,13102,CERRILLOS,same_code
+13103,Cerro Navia,13103,CERRO NAVIA,same_code
+13104,Conchalí,13104,CONCHALÍ,same_code
+13105,El Bosque,13105,EL BOSQUE,same_code
+13106,Estación Central,13106,ESTACIÓN CENTRAL,same_code
+13107,Huechuraba,13107,HUECHURABA,same_code
+13108,Independencia,13108,INDEPENDENCIA,same_code
+13109,La Cisterna,13109,LA CISTERNA,same_code
+13110,La Florida,13110,LA FLORIDA,same_code
+13111,La Granja,13111,LA GRANJA,same_code
+13112,La Pintana,13112,LA PINTANA,same_code
+13113,La Reina,13113,LA REINA,same_code
+13114,Las Condes,13114,LAS CONDES,same_code
+13115,Lo Barnechea,13115,LO BARNECHEA,same_code
+13116,Lo Espejo,13116,LO ESPEJO,same_code
+13117,Lo Prado,13117,LO PRADO,same_code
+13118,Macul,13118,MACUL,same_code
+13119,Maipú,13119,MAIPÚ,same_code
+13120,Ñuñoa,13120,ÑUÑOA,same_code
+13121,Pedro Aguirre Cerda,13121,PEDRO AGUIRRE CERDA,same_code
+13122,Peñalolén,13122,PEÑALOLÉN,same_code
+13123,Providencia,13123,PROVIDENCIA,same_code
+13124,Pudahuel,13124,PUDAHUEL,same_code
+13125,Quilicura,13125,QUILICURA,same_code
+13126,Quinta Normal,13126,QUINTA NORMAL,same_code
+13127,Recoleta,13127,RECOLETA,same_code
+13128,Renca,13128,RENCA,same_code
+13129,San Joaquín,13129,SAN JOAQUÍN,same_code
+13130,San Miguel,13130,SAN MIGUEL,same_code
+13131,San Ramón,13131,SAN RAMÓN,same_code
+13132,Vitacura,13132,VITACURA,same_code
+13201,Puente Alto,13201,PUENTE ALTO,same_code
+13202,Pirque,13202,PIRQUE,same_code
+13203,San José de Maipo,13203,SAN JOSÉ DE MAIPO,same_code
+13301,Colina,13301,COLINA,same_code
+13302,Lampa,13302,LAMPA,same_code
+13303,Tiltil,13303,TILTIL,same_code
+13401,San Bernardo,13401,SAN BERNARDO,same_code
+13402,Buin,13402,BUIN,same_code
+13403,Calera de Tango,13403,CALERA DE TANGO,same_code
+13404,Paine,13404,PAINE,same_code
+13501,Melipilla,13501,MELIPILLA,same_code
+13502,Alhué,13502,ALHUÉ,same_code
+13503,Curacaví,13503,CURACAVÍ,same_code
+13504,María Pinto,13504,MARÍA PINTO,same_code
+13505,San Pedro,13505,SAN PEDRO,same_code
+13601,Talagante,13601,TALAGANTE,same_code
+13602,El Monte,13602,EL MONTE,same_code
+13603,Isla de Maipo,13603,ISLA DE MAIPO,same_code
+13604,Padre Hurtado,13604,PADRE HURTADO,same_code
+13605,Peñaflor,13605,PEÑAFLOR,same_code
