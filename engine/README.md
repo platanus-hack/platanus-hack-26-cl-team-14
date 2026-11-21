@@ -47,7 +47,8 @@ Work OD must include work-location codes 2/3 only. Exclude home, foreign, unknow
 No personal records enter the core.
 
 Both inputs use INE Census 2024. Work OD records the usual work location, not observed trips on a specific day.
-Commune coordinates are polygon centroids; they do not locate individual homes or workplaces.
+Commune coordinates are population-weighted means of non-container Census block centroids per CUT, built by `tools/pack/zones.py` alongside `blocks.csv`.
+They do not locate individual homes or workplaces.
 `tobalaba_observations.json` supplies the station and weekday observation rows for the site model.
 The canonical file contains DTPM April 2026 boardings and a reviewed GTFS station crosswalk.
 `mode_share.csv` has `cut,mode,commuters` headers. The core caches all eight Las Condes (`13114`) mode rows at startup.
@@ -195,6 +196,7 @@ It does not claim to implement or validate UrbanSim.
 Release compilation passed with Rust 1.100.0 on 2026-11-21. The latest offline rebuild took 2.02 seconds with two build jobs.
 The manual run used an Apple M4 with 16 GiB RAM, on `127.0.0.1:8788`.
 It used actual aggregates under `/private/tmp/mvp-real-core-inputs`, not a committed replacement for the canonical data pack.
+That earlier input used official commune polygon centroids; the current canonical input uses the weighted block points described above.
 
 - Commune source: official INE `Censo2024_v2/FeatureServer/11`, queried at `2026-11-21T06:26:22Z` for `COD_REGION=13`.
   Fields: `CUT,COMUNA,n_per,n_hog,n_vp`; `returnCentroid=true`, `returnGeometry=false`, `outSR=4326`.
