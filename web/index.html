@@ -254,7 +254,7 @@ $('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(
 
 const get = u => fetch(u).then(r => r.json());
 Promise.all(['stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
-    .map(u => get('data/' + u))).then(([bus, ...r]) => {
+    .map(u => get((u === 'stops.json' || u === 'ground.geojson' ? 'data/' : '../data/mvp/') + u))).then(([bus, ...r]) => {
   [ground, communes] = r.splice(-2);
   // the diorama tile: keep the buildings inside the frame of the ground extract
   buildings = r.pop().features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
