@@ -75,7 +75,10 @@
   <div class="big model" id="eadd" style="display:block">—</div>
   <small>subidas añadidas · patrón de Parque O'Higgins</small>
   <small><span id="ebins"></span></small>
+  <small>solo la ventana 19:00–23:30 · la llegada no se modela</small>
 </div>
+<div class="box e" style="bottom:28px;right:28px;text-align:right"><div id="erows" style="font-size:46px"></div>
+  <small>subidas en 30 min · observado → con el patrón</small></div>
 <div class="box panel e">
   <div style="display:flex;gap:10px"><button class="site on" data-id="estadio_nacional" style="font-size:36px">Nacional</button><button class="site" data-id="estadio_monumental" style="font-size:36px">Monumental</button></div>
   <div class="val"><small>evento hipotético adicional</small> ×<span id="mv">1,0</span></div>
@@ -274,11 +277,12 @@ let ev = null, egen = 0, esite = 'estadio_nacional';
 function eventScenario() {
   const g = ++egen, m = +$('mult').value;
   $('mv').textContent = fmt(m, 1);
-  post('event-scenario', {site_id: esite, multiplier: m}).then(r => { if (g == egen) { if (!ev || ev.site_id != r.site_id) deckgl.setProps({initialViewState: {...VIEWS.e, longitude: r.longitude - 0.018, latitude: r.latitude - 0.004, transitionDuration: 1200, transitionInterpolator: new FlyToInterpolator()}});
+  post('event-scenario', {site_id: esite, multiplier: m}).then(r => { if (g == egen) { if (!ev || ev.site_id != r.site_id) deckgl.setProps({initialViewState: {...VIEWS.e, longitude: r.longitude - 0.020, latitude: r.latitude + 0.004, transitionDuration: 1200, transitionInterpolator: new FlyToInterpolator()}});
     ev = r; if (r.elapsed_ms == null) delete ms.e; else engine('e', r); draw(); } }, () => { if (g == egen) engine('e'); });
 }
+const SITES = {estadio_nacional: 'Estadio Nacional', estadio_monumental: 'Estadio Monumental'};
 function evento() {
-  const st = ev ? ev.stations : [];
+  const st = ev ? ev.stations : [], i = Math.min(47, Math.floor(t));
   const col = (id, key, dx, color) => new ColumnLayer({id, data: st.filter(s => at(s[key], t) != null),
     getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 90, getElevation: s => at(s[key], t) * 0.35,  // 0.35 m for each boarding, one true scale; chosen so that x3 stays on screen
     getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
@@ -286,8 +290,10 @@ function evento() {
     new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 30}),
     ev && new deck.ScatterplotLayer({id: 'site', data: [ev], getPosition: v => [v.longitude, v.latitude], getRadius: 160, getFillColor: [255, 255, 255]}),
     col('eobs', 'observed', -0.0012, [0, 229, 255]), col('escn', 'scenario', 0.0012, [255, 122, 26]),
-    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude, (at(s.scenario, t) || at(s.observed, t) || 0) * 0.35], getPixelOffset: [0, -34], getText: s => s.name, updateTriggers: {getPosition: t},
-      getSize: 34, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255]}),
+    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude, (s.scenario[i] || s.observed[i] || 0) * 0.35], getPixelOffset: [0, -34], getText: s => s.name,
+      getSize: 34, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [255, 255, 255], updateTriggers: {getPosition: [i, ev]}}),
+    ev && new TextLayer({id: 'sitename', data: [ev], getPosition: v => [v.longitude, v.latitude], getPixelOffset: [0, 54], getText: v => SITES[v.site_id],
+      getSize: 30, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [255, 255, 255], parameters: {depthCompare: 'always'}}),
   ];
 }
 
@@ -303,9 +309,10 @@ function draw() {
     document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
   } else document.body.style.background = '';
   if (view == 'e') {
-    const i = Math.floor(t); $('hh3').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
+    const i = Math.min(47, Math.floor(t)); $('hh3').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
     $('eadd').textContent = ev ? '+' + fmt(ev.assigned_mass) : '—';
-    $('ebins').textContent = ev ? ev.known_template_bins + ' de ' + ev.window_bins + ' medias horas con dato, 19:00 a 23:30' : '';
+    $('erows').innerHTML = ev ? ev.stations.map(s => `<div>${s.name} <span class="model">${s.scenario[i] == null ? 'sin dato' : fmt(s.observed[i]) + ' → ' + fmt(s.scenario[i])}</span></div>`).join('') : '';
+    $('ebins').textContent = ev ? ev.known_template_bins + ' de ' + ev.window_bins + ' medias horas con dato' : '';
   }
   if (view == 'p') { const i = Math.floor(t); $('hh2').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00'); }
   $('engine').style.display = ms[view] ? 'block' : 'none';
@@ -314,7 +321,7 @@ function draw() {
 }
 
 function tick() {
-  if (playing) { t += 1 / 50; if (t >= LAST) t = view == 'e' ? 34 : FIRST; draw(); }  // Evento loops 17:00 to 23:30  // about 0.85 s for each half hour
+  if (playing) { t += 1 / 50; if (view == 'e' ? t >= 48 || t < 38 : t >= LAST) t = view == 'e' ? 38 : FIRST; draw(); }  // Evento shows only its window, 19:00 to 23:30  // about 0.85 s for each half hour
   requestAnimationFrame(tick);
 }
 
@@ -324,7 +331,7 @@ function show(v) {
   draw();
 }
 
-$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t'); $('vp').onclick = () => show('p'); $('ve').onclick = () => { show('e'); eventScenario(); };
+$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t'); $('vp').onclick = () => show('p'); $('ve').onclick = () => { if (t < 38) t = 38; show('e'); eventScenario(); };
 $('mult').oninput = eventScenario;
 document.querySelectorAll('.site').forEach(b => b.onclick = () => { esite = b.dataset.id; document.querySelectorAll('.site').forEach(x => x.classList.toggle('on', x == b)); eventScenario(); });
 $('clock').onclick = () => playing = !playing;
