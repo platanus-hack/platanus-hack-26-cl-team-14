@@ -5,7 +5,7 @@ Guion de tres minutos para la simulación nativa. El intercambio MUT ↔ Monumen
 | Tiempo | Qué se ve | Qué se dice |
 | --- | --- | --- |
 | 0:00–0:20 | En la maqueta, el MUT junto al Metro Tobalaba y el Monumental en Macul, en sus ubicaciones actuales. | «Para averiguar qué pasaría si cambiáramos estos lugares, tendríamos que mover dos edificios. Aquí podemos empezar con una pregunta». |
-| 0:20–0:50 | La pregunta entra en el chat a la derecha de la maqueta. Usa el chat integrado cuando pase el ensayo en ventana. Para ensayar hoy, usa la terminal de Codex o Claude Code que abre el lanzador. | «¿Y si el MUT se fuera a Macul y Colo-Colo jugara en Tobalaba?» |
+| 0:20–0:50 | La pregunta entra en el chat a la derecha de la maqueta. El lanzador abre Codex o Claude Code en una terminal junto al visor. | «¿Y si el MUT se fuera a Macul y Colo-Colo jugara en Tobalaba?» |
 | 0:50–1:50 | Mostramos ambos lugares antes y después. Miramos quién llega, en qué modo y desde dónde para las partes que entregue el motor. | «Miremos primero qué cambia para quienes van al trabajo. Después, el mismo partido en otro lugar». Lee una diferencia que se vea en la maqueta y la unidad de la misma ejecución. |
 | 1:50–2:15 | Volvemos a ver los dos lugares. El chat conserva la comparación del partido. | «Cuando movemos un lugar, cambian viajes que empiezan lejos de aquí». Si la ventana muestra el partido, di «Público saliendo del recinto». Lee la asistencia del escenario. |
 | 2:15–2:40 | En vivo, un corredor fluvial supuesto y sus conexiones con la red. La toma y el cálculo siguen pendientes. | «Si habilitáramos un tramo del Mapocho para transporte público, ¿quién elegiría usarlo en un día en que pudiera operar?» |
@@ -17,7 +17,7 @@ Guion de tres minutos para la simulación nativa. El intercambio MUT ↔ Monumen
 
 ## Preparación del chat
 
-- El chat integrado sigue en desarrollo. Mostrará las respuestas con formato y usará el Codex o Claude Code local del presentador, conectado al MCP. Si el chat integrado todavía no pasó el ensayo, usa la terminal a la derecha que abre `./run.sh`. Comprueba que la respuesta y la maqueta usen la misma revisión. [Dirección de Juan](https://discord.com/channels/1573514576400752640/1573561159955648553/1573765117869301842), [chat integrado](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/249).
+- Abre la demo con `./run.sh`. Escribe en Codex o Claude Code junto al visor. Si el lanzador no acomoda las dos ventanas, abre el CLI por separado y conéctalo al mismo motor por MCP. Comprueba que la respuesta y la maqueta usen la misma revisión. [Dirección de Juan](https://discord.com/channels/1573514576400752640/1573561159955648553/1573766258657202207), [guía del lanzador](handoff-humanos.md).
 - Usa dos llamadas desde el escenario base. En la primera, agrega el partido al Monumental. En la segunda, intercambia los empleos modelados de las manzanas 13114131009033 (MUT) y 13118031003002 (junto al Monumental), y agrega el partido al MUT. El ensayo por MCP usó 39.222 asistentes y las 17:00 como hora de término supuesta en ambas llamadas. Falta repetirlo en la ventana. [Ensayo por MCP](https://discord.com/channels/1573514576400752640/1573734041541288053/1573752258351341739).
 
 ## Qué sabemos antes del ensayo
