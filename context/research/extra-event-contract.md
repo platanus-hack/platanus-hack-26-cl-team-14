@@ -43,10 +43,15 @@ The window is **19:00–23:30 on April 11**, not a wrap to that morning.
 PQ has 9 observed bins in this ten-bin window; 23:30 is null. The known
 contrast mass is `sum(non-null E_t)`, not a complete event attendance or total.
 Derive from full-precision source observations and frozen peer IDs, not the
-six-decimal comparison CSV. The reviewed template must preserve that precision.
+six-decimal comparison CSV. The reviewed template must preserve that precision. Use peer IDs from
+`data/validation/event_shape_2026_04/manifest.json`. Expected known mass is
+3399.865062907704 boardings. A small separately labelled scenario-profile
+artifact derived from those exact inputs is permitted; rounded CSV is not.
 
 ## Exact proposed interface and geography
 
+Implement separately in `event.rs`; leave source-bound `stations.rs` and the
+L4b fit untouched. The existing API must still return its bound L4b score.
 Add `POST /api/event-scenario` with request `{"site_id":"<approved id>",
 "multiplier":1}`. Saturday and the template revision are fixed, not request
 parameters. Multiplier is explicit, finite and nonnegative: 1 copies the known
