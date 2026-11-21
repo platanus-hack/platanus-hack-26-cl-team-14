@@ -689,3 +689,21 @@ Four causes of the gap, and they do not all point the same way:
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
+
+## roads.geojson
+
+Major roads in the Santiago city view. Each GeoJSON LineString has the OSM way ID in `id`, the road class in `kind`, and the mapped `name` when available. Link roads use their parent class. A way that leaves and re-enters the view has several features with the same ID.
+
+The view spans longitude −70.85 to −70.45 and latitude −33.65 to −33.30. It contains 18,649 ways and 18,651 paths, with 2,781 km of mapped carriageways before simplification. Opposing carriageways count separately. Paths use an 8 m simplification tolerance and five decimal places per coordinate. File size is 3,578,472 bytes.
+
+Map credit: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). Road data and derived geometry are available under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). The [Geofabrik Chile extract](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf) records the OSM state on 2026-11-20 at 21:21:21 UTC. Its MD5 is `fef09ad7ee6f28c7afc925ef68c737a4`.
+
+Place the extract at `data/raw/osm-roads/chile.osm.pbf`. Run the following commands from the repository root. The larger extraction box includes all 52 comuna reference points.
+
+```sh
+cd data/raw/osm-roads
+osmium extract -b -71.59,-34.12,-70.23,-32.88 chile.osm.pbf -o region.osm.pbf
+osmium tags-filter region.osm.pbf 'w/highway=motorway,trunk,primary,secondary,motorway_link,trunk_link,primary_link,secondary_link' -o santiago.osm
+cd ../../..
+python3 -I tools/pack/roads.py
+```
