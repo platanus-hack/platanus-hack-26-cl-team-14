@@ -4,6 +4,8 @@ import { createServer } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import { discordMessageId, ensureIssueComment, githubLogin } from "./discord-issue-comments.mjs";
+import { issueThreadReader } from "./issue-thread-page.mjs";
 import { issueActivity } from "./issue-activity.mjs";
 import { discord } from "./rest.mjs";
 
@@ -38,6 +40,7 @@ if (state.parent !== parent) {
   state.batches = [];
   delete state.sending;
 }
+state.reverseStarted ??= Date.now();
 save();
 
 function redact(value) {
@@ -50,7 +53,7 @@ function redact(value) {
 function* messageParts(event) {
   const labels = { opened: "abrió", commented: "comentó", closed: "cerró" };
   const header = `${event.author} ${labels[event.kind]} #${event.number}`;
-  const footer = `\n<${event.url}>`;
+  const footer = `\n-# GitHub · <${event.url}>`;
   const body = redact(event.kind === "opened" ? `${event.title}\n${event.body}` : event.body);
   if (header.length + 1 + body.length + footer.length <= 2000) {
     yield header + "\n" + body + footer;
@@ -70,6 +73,11 @@ function makeBatches(events) {
   const groups = new Map();
   for (const event of events) {
     if (state.seen[event.key]) continue;
+    const pending = state.threads[event.number]?.importing;
+    if (pending && event.kind === "commented" && event.author === writer && discordMessageId(event.body) === pending) {
+      state.seen[event.key] = Date.parse(event.at);
+      continue;
+    }
     const group = groups.get(event.number) ?? [];
     groups.set(event.number, group);
     const title = redact(`#${event.number} ${event.title}`).replace(/\s+/g, " ").slice(0, 100);
@@ -127,15 +135,52 @@ async function deliver(batch) {
     thread.ready = true;
     save();
   }
-  await send(batch, thread.id, batch.content, batch.keys.join(","));
+  const messageId = await send(batch, thread.id, batch.content, batch.keys.join(","));
+  (thread.sent ??= []).push(messageId);
   state.batches.splice(state.batches.indexOf(batch), 1);
   save();
 }
 
+function ownDiscordPost(message, number, thread) {
+  if (thread.sent?.includes(message.id)) return true;
+  if (message.author.id !== botId || message.webhook_id) return false;
+  if (message.content.includes(`\n-# GitHub · <${issueBase}${number}`) && message.content.endsWith(">")) return true;
+  if (state.batches.some(b => b.number === Number(number) && b.sending && b.content === message.content)) return true;
+  // Identify the older one-way writer's posts when first reading an existing thread.
+  const created = Number(BigInt(message.id) >> 22n) + 1420070400000;
+  return created < state.reverseStarted && /^\S+ (abrió|comentó|cerró) #/.test(message.content)
+    && message.content.endsWith(">") && message.content.includes(`<${issueBase}${number}`);
+}
+
+async function importReplies(number, thread, page) {
+  let messages;
+  do {
+    messages = await page(thread.id, thread.after ?? thread.id);
+    for (const message of messages) {
+      if (message.content && [undefined, 0, 19].includes(message.type) && !ownDiscordPost(message, number, thread)) {
+        const recovering = thread.importing === message.id;
+        thread.importing = message.id;
+        save();
+        const author = message.member?.nick || message.author.global_name || message.author.username;
+        const nodeId = await ensureIssueComment(number, message.id, redact(author), redact(message.content), recovering);
+        state.seen[nodeId] = Date.now();
+        delete thread.importing;
+        await sleep(1000);
+      }
+      thread.after = message.id;
+      thread.sent = (thread.sent ?? []).filter(id => BigInt(id) > BigInt(thread.after));
+      save();
+    }
+  } while (messages.length === 100);
+}
+
 let botId;
+let writer;
+let readThread;
 for (;;) {
   try {
     botId ??= (await discord("/users/@me")).id;
+    writer ??= await githubLogin();
     const since = Math.max(state.start, state.cursor - minute);
     const until = Date.now();
     const events = await issueActivity(new Date(since).toISOString(), new Date(until).toISOString());
@@ -159,6 +204,21 @@ for (;;) {
   } catch (error) {
     // gh errors can include command arguments. Only log Discord's sanitized status or the exit code.
     console.error("Issue mirror will retry:", error.discordCode ?? error.code ?? error.name);
+  }
+  if (botId && writer) {
+    try {
+      readThread ??= await issueThreadReader();
+      for (const [number, thread] of Object.entries(state.threads)) {
+        if (!thread.ready) continue;
+        try {
+          await importReplies(number, thread, readThread);
+        } catch (error) {
+          console.error(`Issue #${number} replies will retry:`, error.discordCode ?? error.code ?? error.name);
+        }
+      }
+    } catch (error) {
+      console.error("Issue thread reader will retry:", error.code ?? error.name);
+    }
   }
   await sleep(minute);
 }

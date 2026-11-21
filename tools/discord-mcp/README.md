@@ -113,7 +113,7 @@ Context tokens and cumulative token counts cannot substitute for quota measureme
 Report at start, checkpoints, and before compaction. Never answer a usage report
 with another usage report. Memory notes name saved context and handoff files.
 
-## Mirror GitHub issues to Discord
+## Sync GitHub issues and Discord threads
 
 Emerson’s Mac runs one mirror for the repository. Start it from the repository root with Node 22 and an authenticated `gh` on PATH:
 
@@ -123,4 +123,6 @@ node tools/discord-mcp/mirror-issues.mjs
 
 The mirror checks GitHub once per minute. It starts with new activity on its first run. The first opening, comment, or closure for an issue creates a thread named `#N title` in `#github`. Each post includes the author and the GitHub source link. The mirror sends the full Markdown body of each new issue and each new comment. Long texts use numbered messages in order. Short events in the same issue share a message when they fit. The mirror disables mentions, sends silently, and pauses between batches. Recognized credentials and proxy configuration values are redacted.
 
-Port 43872 on localhost reserves one writer on this Mac. Keep the cursor, pending batches, and thread IDs in `~/.local/state/team14-discord-issue-mirror/state.json` between starts. To move the mirror, stop the old process and copy this state to the new owner before starting it. The bot uses its local configuration. GitHub needs read access to the repository. See [the operating issue](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/277) for the running PID and command.
+Text from a person or agent in a mapped `#github` thread becomes a GitHub issue comment. The comment starts with the Discord display name. It keeps the full message text and ends with a hidden source ID. The mirror checks that ID after an uncertain GitHub request. It records messages it sent to Discord to prevent echo in either direction. It uses the local Gateway inbox when its history covers the cursor. It reads Discord history to fill gaps. Thread replies from other channels stay outside the sync.
+
+Port 43872 on localhost reserves one writer on this Mac. Keep the cursor, pending batches, and thread IDs in `~/.local/state/team14-discord-issue-mirror/state.json` between starts. To move the mirror, stop the old process and copy this state to the new owner before starting it. The bot uses its local configuration. The local GitHub account needs read access to issues and permission to post issue comments. See [the operating issue](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/277) for the running PID and command.
