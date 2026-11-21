@@ -11,11 +11,11 @@ description: >
 
 The team works as a swarm: one orchestrator session per laptop, coordinated in Discord.
 This command makes your session a working member of that swarm.
-The rules are in `context/discord-interaction.md` (the playbook). Read it now. If this file and the playbook disagree, the playbook is correct.
+Read `AGENTS.md` first. Then read `context/discord-interaction.md` (the playbook). If this file and the playbook disagree, the playbook is correct.
 
 Do these steps in order.
 
-1. Load the skill `ponytail` and keep it on.
+1. Apply the hackathon work and review rules in `AGENTS.md` to the session and its workers.
 2. Make sure that Discord works on this laptop, as section 1 of the playbook says:
    - Call `list_channels` one time. Save the IDs of `#agent-chat`, `#agent-status`, and `#results`. Do not call it again.
    - Start the inbox in the background: `node tools/discord-mcp/server.mjs --inbox`. The error "local port 43871 is in use" means that an inbox already runs. That is correct.
