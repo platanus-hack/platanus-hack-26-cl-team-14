@@ -71,6 +71,8 @@ const ASSUMPTIONS: [&str; 10] = [
 
 fn r1(x: f64) -> f64 { (x * 10.0).round() / 10.0 }
 fn r6(x: f64) -> i64 { (x * 1e6).round() as i64 }
+/// Metres from a point to (longitude, latitude), with the flat metric of the point-target rule.
+fn dist_m(p: &Point, longitude: f64, latitude: f64) -> f64 { ((p.longitude - longitude) * 0.835).hypot(p.latitude - latitude) * 111_320.0 }
 /// A station name without accents, in upper case: "Ñuñoa" = "NUNOA".
 fn plain(s: &str) -> String {
     s.trim().to_uppercase().chars().map(|c| match c { 'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' | 'Ü' => 'U', 'Ñ' => 'N', c => c }).collect()
@@ -221,6 +223,7 @@ impl Scenario {
                     let (ids, cut) = points(&mut pop.jobs);
                     let (before, after) = scale(&mut pop.jobs, &ids);
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "jobs_before": r1(before), "jobs_after": r1(after) });
+                    if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.jobs[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
                 Kind::Residents => {
                     let (ids, cut) = points(&mut pop.homes);
@@ -247,6 +250,7 @@ impl Scenario {
                         -(gone as f64)
                     };
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "residents_before": r1(before), "residents_after": r1(after), "workers_added": workers });
+                    if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.homes[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
                 Kind::Minutes => {
                     let cells: Vec<usize> = match &ch.target {
