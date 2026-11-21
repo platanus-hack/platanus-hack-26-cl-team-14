@@ -1,5 +1,7 @@
 //! Follow each public trip through its transfers on the regular-weekday service clock.
 use super::*;
+use std::collections::HashSet;
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub(super) enum RideKey {
     Metro { track: usize, run: usize },
@@ -103,6 +105,7 @@ pub(super) struct RiderNetwork {
     by_endpoints: HashMap<(String, [i64; 4]), usize>,
     options: Vec<RideOptions>,
     surface: Vec<SurfaceService>,
+    articulated_starts: HashSet<(usize, i32)>,
 }
 
 fn ride_key(service: &str, from: &Value, to: &Value) -> (String, [i64; 4]) {
@@ -166,6 +169,19 @@ impl RiderNetwork {
                 }
             })
             .collect();
+        // DTPM class C denotes articulated buses. Older packs have no fleet assignments.
+        let articulated_starts = data["planned_buses"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|bus| {
+                bus["dtpm_type"].as_str().is_some_and(|kind| kind.starts_with('C'))
+            })
+            .map(|bus| {
+                let start = bus["start"].as_i64().unwrap() as i32;
+                (row_index(&bus["template"]), start.rem_euclid(DAY as i32))
+            })
+            .collect();
         let mut by_endpoints = HashMap::new();
         let mut options = Vec::new();
         for row in data["legs"].as_array().unwrap() {
@@ -202,6 +218,7 @@ impl RiderNetwork {
                     }
                 }
             }
+            let leg_key = ride_key(row[0].as_str().unwrap(), &row[1], &row[2]);
             for candidate in row[4].as_array().unwrap() {
                 let template = row_index(&candidate[0]);
                 let service = &surface[template];
@@ -233,10 +250,7 @@ impl RiderNetwork {
                 .iter()
                 .map(|c| c.departure - c.arrival)
                 .fold(0., f32::max);
-            by_endpoints.insert(
-                ride_key(row[0].as_str().unwrap(), &row[1], &row[2]),
-                options.len(),
-            );
+            by_endpoints.insert(leg_key, options.len());
             options.push(RideOptions {
                 gates,
                 metro_stations,
@@ -247,6 +261,7 @@ impl RiderNetwork {
         }
         Self {
             by_endpoints,
+            articulated_starts,
             options,
             surface,
         }
@@ -293,6 +308,15 @@ impl RiderNetwork {
         end
     }
 
+    pub(super) fn bus_rear(&self, template: usize, start: i32, now: f32, front: Vec3, heading: Vec3) -> Option<(Vec3, Vec3)> {
+        if !self.articulated_starts.contains(&(template, start.rem_euclid(DAY as i32))) {
+            return None;
+        }
+        let service = &self.surface[template];
+        let distance = service.run.distance(now - start as f32)?;
+        Some(service.path.articulated_rear(distance, front, heading, BUS_FRONT_TO_HINGE, BUS_TAIL_HALF))
+    }
+
     pub(super) fn surface_pose(
         &self,
         template: usize,
@@ -301,7 +325,12 @@ impl RiderNetwork {
     ) -> Option<(Vec3, Vec3, Vehicle)> {
         let service = &self.surface[template];
         let d = service.run.distance(now - start as f32)?;
-        let (p, dir, _) = service.path.at(d, &service.path.metres)?;
+        let (p, dir) = if service.vehicle == Vehicle::Bus {
+            service.path.road_pose(d, Vehicle::Bus, 0, service.path.points.len() - 1)?
+        } else {
+            let (p, dir, _) = service.path.at(d, &service.path.metres)?;
+            (p, dir)
+        };
         Some((p, dir, service.vehicle))
     }
 }
@@ -315,13 +344,16 @@ enum RiderAction {
 }
 
 struct RiderStep {
+    walked_before: f32,
     end_age: f32,
     action: RiderAction,
 }
 pub(super) struct RiderPlan {
     steps: Vec<RiderStep>,
+    copy: usize,
 }
 
+#[derive(Clone, Copy)]
 pub(super) enum RiderState {
     Walking(Vec3, Vec3),
     Waiting(Vec3, Vec3),
@@ -331,7 +363,15 @@ pub(super) enum RiderState {
 impl RiderPlan {
     fn until(&mut self, end_age: f32, action: RiderAction) {
         if end_age > self.duration() {
-            self.steps.push(RiderStep { end_age, action });
+            let walked_before = self.steps.last().map_or(0., |prev| {
+                let length = match &prev.action {
+                    RiderAction::StreetWalk(path) => *path.metres.last().unwrap(),
+                    RiderAction::StationWalk { from, to } => from.distance(*to),
+                    _ => 0.,
+                };
+                prev.walked_before + length
+            });
+            self.steps.push(RiderStep { end_age, action, walked_before });
         }
     }
 
@@ -341,7 +381,7 @@ impl RiderPlan {
     }
 
     pub(super) fn build(path: &Path, legs: usize, start: f32, copy: usize, routes: &Routes) -> Self {
-        let mut plan = Self { steps: Vec::new() };
+        let mut plan = Self { steps: Vec::new(), copy };
         let mut transfer = None;
         let mut street_end = None;
         let legs = &path.legs[..legs];
@@ -438,25 +478,31 @@ impl RiderPlan {
         self.steps.last().map_or(0., |s| s.end_age)
     }
 
-    pub(super) fn at(&self, age: f32) -> Option<RiderState> {
-        if age < 0. {
-            return None;
-        }
+    fn step_at(&self, age: f32) -> Option<(&RiderStep, f32, f32)> {
+        if age < 0. { return None; }
         let i = self.steps.partition_point(|step| step.end_age <= age);
         let step = self.steps.get(i)?;
-        let start_age = if i == 0 {
-            0.
-        } else {
-            self.steps[i - 1].end_age
-        };
+        let start_age = if i == 0 { 0. } else { self.steps[i - 1].end_age };
+        Some((step, age - start_age, step.end_age - start_age))
+    }
+
+    pub(super) fn walking_model(&self, age: f32, scale: f32) -> Model {
+        let (step, elapsed, duration) = self.step_at(age).unwrap();
+        let travel = motion::walking_time(elapsed, duration, self.copy) * Vehicle::Walk.speed();
+        Model::Walking(motion::gait_frame(step.walked_before + travel, scale, self.copy))
+    }
+
+    pub(super) fn at(&self, age: f32) -> Option<RiderState> {
+        let (step, elapsed, duration) = self.step_at(age)?;
         Some(match step.action {
             RiderAction::Unrouted => return None,
             RiderAction::StreetWalk(ref walk) => {
-                let (p, dir, _) = walk.at(age - start_age, &walk.seconds)?;
+                let t = motion::walking_time(elapsed, duration, self.copy);
+                let (p, dir, _) = walk.at(t.min(*walk.seconds.last().unwrap()), &walk.seconds)?;
                 RiderState::Walking(p + Vec3::Y * 0.25, dir)
             }
             RiderAction::StationWalk { from, to } => {
-                let t = (age - start_age) / (step.end_age - start_age);
+                let t = motion::walking_time(elapsed, duration, self.copy) / duration;
                 RiderState::Walking(from.lerp(to, t), (to - from).normalize())
             }
             RiderAction::Wait { at, facing } => RiderState::Waiting(at, facing),

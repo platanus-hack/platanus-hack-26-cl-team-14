@@ -155,13 +155,13 @@ impl StreetPeople {
                     + ((index as f64 + 0.5 - self.entries[bin]) / count) as f32 * BIN;
                 let duration = *path.seconds.last().unwrap();
                 let age = now - (entry - duration);
-                if let Some((position, direction, _)) = path.at(age, &path.seconds)
+                if let Some((position, direction, _, metres)) = path.trip_pose(age, index)
                     && visible(position, 100.)
                 {
                     // shortcut: the foot graph has a door snap; add that connector when it is measured.
                     let scale = pedestrian_scale(eye.distance(position), size);
                     place(
-                        Model::Person,
+                        Model::Walking(motion::gait_frame(metres, scale, index)),
                         Paint::Plain,
                         pose(position, direction, Vec3::splat(scale)),
                     );
