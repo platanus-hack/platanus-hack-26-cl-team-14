@@ -4,6 +4,12 @@ DEIS REM20 reports hospital discharges by establishment, functional area and mon
 
 Cut 5 can compare each comuna's share of public hospital discharges with its share of modeled health destinations. Compare the shares only where the hospital data has coverage. The counts cover inpatient discharges. They give no measure of outpatient demand, origin, mode, travel time, Metro entries, or trip totals.
 
+## Coverage
+
+The [aggregate](hospital_discharges.csv) contains 323,211 discharges from 35 reporting establishments. It covers all 12 months in 19 of the model's 52 comunas. The other 33 have no joined report. All public establishments with 2025 REM20 rows joined to the national registry. The 28 codes used are named functional areas. The labels contain no subtotal rows, and every included row has a discharge count.
+
+The first aggregation used the publisher's [Datastore API](https://datos.gob.cl/api/3/action/datastore_search?resource_id=657cc933-eac8-4bfc-b004-c4d6dcd988a8&limit=0). It retrieved the seven relevant REM20 fields for 2025 and public establishments, and the establishment and comuna codes from the registry. An independent rebuild from both complete CSV snapshots is pending.
+
 ## Rebuild
 
 Download these source snapshots outside the repo. Both source catalogs declare [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
@@ -21,8 +27,9 @@ python3 data/validation/hospital_discharges_2025/pack.py \
   /tmp/hospital_discharges.csv
 shasum -a 256 /tmp/indicadores_rem20_20261027.csv \
   /tmp/establecimientos_20261117.csv /tmp/hospital_discharges.csv
+cmp /tmp/hospital_discharges.csv data/validation/hospital_discharges_2025/hospital_discharges.csv
 ```
 
 The [DEIS dictionary](https://datos.gob.cl/dataset/a756323f-85ba-4759-87dc-f5d5e63868cc/resource/6c7c8a9d-204d-4947-9c8e-82a893fc3f2e/download/diccionario-rem20.xlsx) defines the source fields. The pack selects year 2025 and `TIPO_PERTENENCIA=1` for the National Health Services System. It joins `CODIGO_ESTABLECIMIENTO` to the later registry's `EstablecimientoCodigo` and uses `ComunaCodigo` as `cut`. It adds `NUMERO_EGRESOS` across functional areas. It retains reported zeros and skips blank counts. An absent comuna-month means the joined source supplied no count. The script prints unmatched establishment codes and the area codes used so the reviewer can check for missing sites and subtotal rows.
 
-The first external rebuild will pin the input and output checksums, confirm the area codes, and record coverage.
+Expected output SHA-256: `bd0e470f51ad6ac6fd45d0f215d108fec2d51855385889fd34e77d887cd9d31d`.
