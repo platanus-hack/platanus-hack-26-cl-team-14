@@ -263,7 +263,7 @@ fn box_mesh(
     mesh.positions.reserve(count * if overview { 4 } else { 8 });
     mesh.indices.reserve(count * if overview { 6 } else { 30 });
     for i in 0..count {
-        if ground::NAMED.contains(&(tile, i)) || hidden.contains(&(tile, i)) {
+        if ground::NAMED.contains(&(tile, i)) || ground::HIDDEN.contains(&(tile, i)) || hidden.contains(&(tile, i)) {
             continue;
         }
         let at = 4 + i * 12;
@@ -331,7 +331,7 @@ fn polygon_mesh(
         ..default()
     };
     for i in 0..count {
-        if ground::NAMED.contains(&(tile, i)) || hidden.contains(&(tile, i)) {
+        if ground::NAMED.contains(&(tile, i)) || ground::HIDDEN.contains(&(tile, i)) || hidden.contains(&(tile, i)) {
             continue;
         }
         let first = integer(bytes, 12 + i * 4);

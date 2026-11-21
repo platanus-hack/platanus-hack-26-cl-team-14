@@ -728,8 +728,13 @@ fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
     }
 }
 
-// These four tile-local identities match the named OSM footprints in SGBX and SGB1.
-pub(super) const NAMED: [(usize, usize); 4] = [(232, 2677), (209, 71), (189, 0), (191, 1)];
+// These tile-local identities match the named OSM footprints in SGBX and SGB1.
+pub(super) const NAMED: [(usize, usize); 5] = [(232, 2677), (209, 71), (189, 0), (191, 1), (152, 317)];
+// The other Estadio Monumental footprints (stands); its parts mesh replaces them.
+pub(super) const HIDDEN: [(usize, usize); 10] = [
+    (152, 316), (152, 1173), (152, 1174), (152, 1175), (152, 1176),
+    (152, 1177), (152, 1178), (152, 1179), (152, 1180), (152, 1181),
+];
 pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
     let fc = read_geojson(&root.join("web/data/santiago_landmarks.geojson"));
     let mut objects = Vec::new();
@@ -778,5 +783,17 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
         }
         objects.push((NAMED[index], base, shape.finish()));
     }
+    // Estadio Monumental, from tools/pack/pitch_sites.py; it replaces the footprints in NAMED[4] and HIDDEN.
+    let path = root.join("web/data/estadio_monumental_parts.geojson");
+    let fc = read_geojson(&path);
+    let shell = fc["features"].as_array().unwrap().iter().find(|f| f["properties"]["kind"] == "stadium_shell").unwrap();
+    let base = open_rings(&shell["geometry"]["coordinates"])[0][0].y;
+    let mut tiles = GroundTiles::new();
+    estadio_nacional(&mut tiles, &path, 1.0);
+    let mut shape = tiles.into_values().next().unwrap();
+    for pos in &mut shape.positions {
+        pos[1] -= base;
+    }
+    objects.push((NAMED[4], base, shape.finish()));
     objects
 }
