@@ -70,9 +70,9 @@ The engine already moves job and mode choice when `minutes` between two comunas 
 
 **Result: 0 pairs.** Seven comunas have a pier within 2.5 km of their point (Cerro Navia, Renca, Quinta Normal, Independencia, Santiago, Providencia, Vitacura). For all 42 pairs between them the boat is 2 to 3 times slower than today's public transport. Example: Providencia → Vitacura 72 min by boat, 30 min today; Cerro Navia → Renca 49 against 27. The walk from the comuna point to the pier takes most of the time.
 
-What this means: at comuna scale, a river boat at realistic speed takes no commuters. It competes only for people who live or work a few blocks from a pier (the corridor market in section 3), and for leisure. The Brisbane stated-preference study values the ferry preference at about 17 in-vehicle minutes for its users ([Daniels & Streeting 2002](https://australasiantransportresearchforum.org.au/wp-content/uploads/2022/03/2002_Daniels_Streeting.pdf)). That still does not close a 30–60 minute gap.
+What this means: at comuna scale, a river boat at realistic speed takes no commuters. It competes only for people who live or work a few blocks from a pier (the corridor market in section 3), and for leisure. A stated-preference study of existing Sydney Ferries riders values their ferry preference at about 17 in-vehicle minutes ([Daniels & Streeting 2002](https://australasiantransportresearchforum.org.au/wp-content/uploads/2022/03/2002_Daniels_Streeting.pdf)); a sensitivity input only. Even that does not close a 30–60 minute gap.
 
-Chilean value of time for appraisal (MDSF, Precios Sociales 2025, Table 2.1): 3,126 CLP/h in vehicle, 6,252 CLP/h waiting or walking ([SNI](https://sni.gob.cl/wp-content/uploads/Precios_Sociales_2025.pdf)). Waiting and walking count double, which makes the boat worse, not better.
+Chilean social value of time for appraisal, CLP per passenger-hour (MDSF): 3,126 in vehicle and 6,252 waiting or walking in the 2025 table ([SNI](https://sni.gob.cl/wp-content/uploads/Precios_Sociales_2025.pdf)); 3,338 and 6,676 in 2026. If waiting and walking count double (a scenario assumption), the boat looks worse, not better.
 
 ## Open questions and confidence
 
