@@ -30,7 +30,7 @@ fn tile_for(tiles: &mut GroundTiles, point: Vec3) -> &mut Surface {
     tiles.entry(tile).or_default()
 }
 
-// One shared pair of vertices at each join keeps streets continuous on bends.
+// Clip each strip quad to the DEM faces so terrain cannot cut through its interior.
 pub(super) fn ribbon(
     mesh: &mut Surface,
     points: &[Vec3],
@@ -55,7 +55,7 @@ pub(super) fn ribbon(
         return;
     }
     let normal = |a: Vec3, b: Vec3| Vec3::new(a.z - b.z, 0.0, b.x - a.x).normalize_or_zero();
-    let first_vertex = mesh.positions.len() as u32;
+    let mut previous_edges: Option<[Vec3; 2]> = None;
     let last = points.len() - 1;
     for (i, &p) in points.iter().enumerate() {
         let previous = normal(points[i.saturating_sub(1)], p);
@@ -63,16 +63,15 @@ pub(super) fn ribbon(
         let join = (previous + next).normalize_or_zero();
         let reference = if i == last { previous } else { next };
         let offset = join * (half_width / join.dot(reference).max(0.5));
-        for mut edge in [p + offset, p - offset] {
-            edge.y = terrain_from_xz(edge.x, edge.z) + elevation;
-            mesh.positions.push(edge.to_array());
+        let edges = [p + offset, p - offset].map(|mut edge| {
+            edge.y = terrain_from_xz(edge.x, edge.z);
+            edge
+        });
+        if let Some(previous) = previous_edges {
+            let ring = vec![previous[0], previous[1], edges[1], edges[0]];
+            super::terrain::drape_land(mesh, &[ring], elevation, color);
         }
-        mesh.normals.extend([[0.0, 1.0, 0.0]; 2]);
-        mesh.colors.extend([color; 2]);
-        if i != last {
-            let a = first_vertex + i as u32 * 2;
-            mesh.indices.extend([a, a + 2, a + 1, a + 1, a + 2, a + 3]);
-        }
+        previous_edges = Some(edges);
     }
 }
 
@@ -138,26 +137,77 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     }
 }
 
-fn landmarks(tiles: &mut GroundTiles, path: &Path) {
-    let fc = read_geojson(path);
+fn mapocho(tiles: &mut GroundTiles, root: &Path) {
+    let fc = read_geojson(&root.join("web/data/mapocho_detail.geojson"));
+    let mut banks = Vec::new();
     for feature in fc["features"].as_array().unwrap() {
         let props = &feature["properties"];
         let shape = &feature["geometry"]["coordinates"];
         let kind = props["kind"].as_str().unwrap();
-        if kind == "peak" {
-            // These are summit points. Terrain supplies their surfaces.
-            continue;
-        }
-        if kind == "river" {
+        if kind == "water" {
+            for polygon in shape.as_array().unwrap() {
+                let rings = open_rings(polygon);
+                super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, 0.08, WATER);
+                banks.push(rings[0].clone());
+            }
+        } else if kind == "bridge" {
             let points = coordinates(shape);
+            // Widths and the terrain offset are display symbols, not measured bridge dimensions.
+            // OSM layer gives crossing order, not metres of clearance.
+            let half_width = match props["highway"].as_str().unwrap() {
+                "motorway" | "motorway_link" => 6.5,
+                "trunk" | "trunk_link" | "primary" | "primary_link" => 5.0,
+                "secondary" | "secondary_link" => 4.0,
+                "footway" | "cycleway" | "path" | "steps" | "pedestrian" => 1.0,
+                _ => 2.8,
+            };
             ribbon(
                 tile_for(tiles, points[points.len() / 2]),
                 &points,
-                15.0,
-                0.08,
-                WATER,
+                half_width,
+                crate::city::road_surface_lift(props["layer"].as_i64().unwrap() as i32) + 0.08,
+                [0.38, 0.38, 0.36, 1.0],
             );
+        }
+    }
+    // Keep each outer river symbol up to its first actual meeting with a detailed bank.
+    // Only exterior rings stop the symbol: the central islands keep their holes.
+    let landmarks = read_geojson(&root.join("web/data/santiago_landmarks.geojson"));
+    for feature in landmarks["features"].as_array().unwrap() {
+        if feature["properties"]["kind"] != "river" {
             continue;
+        }
+        let mut points = coordinates(&feature["geometry"]["coordinates"]);
+        for _ in 0..2 {
+            let mut reach = vec![points[0]];
+            for pair in points.windows(2) {
+                let (a, b) = (pair[0], pair[1]);
+                let start = Vec2::new(a.x, a.z);
+                let step = Vec2::new(b.x - a.x, b.z - a.z);
+                let mut meeting = f32::INFINITY;
+                for bank in &banks {
+                    for (c, d) in bank.iter().zip(bank.iter().cycle().skip(1)).take(bank.len()) {
+                        let edge = Vec2::new(d.x - c.x, d.z - c.z);
+                        let denominator = step.perp_dot(edge);
+                        if denominator == 0.0 {
+                            continue;
+                        }
+                        let offset = Vec2::new(c.x, c.z) - start;
+                        let t = offset.perp_dot(edge) / denominator;
+                        let u = offset.perp_dot(step) / denominator;
+                        if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
+                            meeting = meeting.min(t);
+                        }
+                    }
+                }
+                if meeting <= 1.0 {
+                    reach.push(a.lerp(b, meeting));
+                    break;
+                }
+                reach.push(b);
+            }
+            ribbon(tile_for(tiles, reach[0]), &reach, 15.0, 0.08, WATER);
+            points.reverse();
         }
     }
 }
@@ -175,10 +225,7 @@ pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mes
         &mut terrain,
         &root.join("web/data/open_surfaces.geojson.gz"),
     );
-    landmarks(
-        &mut tiles,
-        &root.join("web/data/santiago_landmarks.geojson"),
-    );
+    mapocho(&mut tiles, root);
     mapped_trees(&mut tiles, &root.join("web/data/city_trees.bin.gz"));
     let scenery = tiles
         .into_iter()
