@@ -418,13 +418,24 @@ its distance. Builder: `python3 -I tools/pack/travel_times.py` (7 s).
 
 ### Check against EOD 2012, the only observed travel times we hold
 
+Command: `python3 -I tools/pack/travel_times.py eod` (it rebuilds the matrix, then
+compares, so the comparison always runs against the current file).
+
+**This is descriptive, not a measure of forecast accuracy.** The two differ in period
+(2012 against 2026), in cohort (surveyed trips against a point-to-point search) and in
+trip ends (a real door against a comuna centroid). What it can say is whether the matrix
+orders the comuna pairs the way the survey did.
+
 I compared the matrix with the real trip durations of EOD 2012
 (`data/raw/eod2012/.../viajes.csv`, `TiempoViaje`). Filter: weekday factor present,
 `Periodo` 2 (the 07:31 to 09:00 peak, which brackets the 08:00 departure),
 `ModoAgregado` in {2, 3, 4, 7, 9, 10} (bus and Metro and their pure combinations, no
 taxi, no colectivo, no car), origin comuna different from destination comuna, and the
 and the pair present in this file. That gives **3,184 sampled trips on 620 pairs**;
-I kept the **80 pairs with 10 or more sampled trips** and took the median of each.
+I kept the **80 pairs with 10 or more sampled trips** and took the **unweighted** median
+of the sampled durations of each pair. `FactorLaboralNormal` is used only to select
+weekday trips, never as a weight, so a pair median is a median over sampled trips and
+not over the expanded population.
 
 | | result |
 | --- | --- |
@@ -439,10 +450,13 @@ Before the dwell was charged, the same check gave 34.1 min, ratio 0.608, WAPE 40
 Pearson 0.739. Charging the dwell moved every one of those numbers toward the
 observation. That is an independent sign that the fix was right.
 
-**Read it this way: the ranking is good and the level is 35% too fast.** Use the file as
-a relative cost between pairs, not as a minute count a person would recognise. Any model
-that puts these minutes in a decay function with one fitted coefficient absorbs a
-constant factor, so the level bias does not reach such a score; the rank does.
+**Read it this way: the ranking is good and the level is 35% too fast against this
+survey.** Use the file as a relative cost between pairs, not as a minute count a person
+would recognise.
+A model that puts these minutes in a decay function with one freely fitted coefficient
+absorbs a **common multiplicative** factor, so a uniform level bias would not reach its
+score. That is only part of the story here: the ratio runs from 0.45 at p10 to 0.87 at
+p90, so the bias is not uniform, and the pair-by-pair part does reach any such score.
 
 Four causes of the gap, and they do not all point the same way:
 1. A comuna point is not a trip end. An EOD trip runs door to door anywhere inside the
@@ -450,11 +464,12 @@ Four causes of the gap, and they do not all point the same way:
    than an average real pair. This is probably the largest remaining term.
 2. Walking is a straight line, so every walk here is shorter than the real one.
 3. `headway / 2` assumes a passenger arrives at the stop at random.
-4. **Part of the gap is real: the network improved.** L6 opened in 2017 and L3 in 2019,
-   after the survey. The pairs where this matrix is fastest against EOD are exactly the
-   pairs those lines serve: Quilicura → Las Condes, Maipú → Las Condes and Renca → Las
-   Condes each read about half of their EOD time. On those pairs EOD 2012 is the
-   out-of-date number, not this matrix.
+4. The network changed after the survey: L6 opened in 2017 and L3 in 2019. The pairs
+   where this matrix is fastest against EOD are pairs those lines serve — Quilicura →
+   Las Condes, Maipú → Las Condes and Renca → Las Condes each read about half of their
+   EOD time. **This check cannot attribute the gap**, because causes 1 to 3 act on those
+   pairs too. The pattern is consistent with a real improvement; it does not measure
+   one, and it does not establish that EOD is the wrong number there.
 
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.

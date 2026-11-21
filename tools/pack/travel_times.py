@@ -25,7 +25,7 @@ Model, frozen before the run (posted in the MVP thread):
   population centres, not a resident's trip. Nothing here is calibrated against an
   observed travel time.
 """
-import csv, collections, heapq, io, math, pathlib, zipfile
+import csv, collections, heapq, io, math, pathlib, statistics, sys, unicodedata, zipfile
 
 GTFS = pathlib.Path("data/raw/dtpm-gtfs-march/GTFS_20260321_v3.zip")
 COMMUNES = pathlib.Path("data/mvp/communes.csv")
@@ -202,3 +202,66 @@ with OUT.open("w", newline="", encoding="utf-8") as fh:
                      "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress"])
     writer.writerows(rows)
 print(OUT, len(rows), "directed pairs over", len(served), "comunas")
+
+
+EOD = pathlib.Path("data/raw/eod2012/x/eod2012/EOD_STGO")
+# Bus TS, bus no TS, Metro and their pure combinations. No taxi, no colectivo, no car.
+EOD_PUBLIC = {"2", "3", "4", "7", "9", "10"}
+EOD_MIN_TRIPS = 10
+
+
+def compare_with_eod():
+    """Descriptive comparison with the observed trip durations of EOD 2012.
+
+    It is NOT a measure of forecast accuracy: the periods, the cohorts and the trip ends
+    all differ. It says whether the matrix orders the comuna pairs as the survey did.
+    """
+    def plain(text):
+        text = unicodedata.normalize("NFKD", text.upper()).encode("ascii", "ignore").decode()
+        return " ".join(text.split())
+
+    cut_of = {plain(r["name"]): r["cut"] for r in csv.DictReader(COMMUNES.open(encoding="utf-8"))}
+    eod_cut = {}
+    for row in csv.DictReader((EOD / "Tablas_parametros/Comuna.csv").open(encoding="utf-8")):
+        if plain(row["Comuna"]) in cut_of:
+            eod_cut[row["Id"]] = cut_of[plain(row["Comuna"])]
+    matrix = {(r["origin_cut"], r["destination_cut"]): float(r["minutes_door_to_door"])
+              for r in csv.DictReader(OUT.open(encoding="utf-8"))}
+    observed = collections.defaultdict(list)
+    for row in csv.DictReader((EOD / "viajes.csv").open(encoding="utf-8"), delimiter=";"):
+        if (row["Periodo"] != "2" or row["ModoAgregado"] not in EOD_PUBLIC
+                or not row["FactorLaboralNormal"]):
+            continue
+        origin, destination = eod_cut.get(row["ComunaOrigen"]), eod_cut.get(row["ComunaDestino"])
+        if origin is None or destination is None or origin == destination:
+            continue
+        if (origin, destination) not in matrix:
+            continue
+        minutes = float(row["TiempoViaje"].replace(",", ".") or 0)
+        if 0 < minutes <= 300:
+            observed[(origin, destination)].append(minutes)
+    pairs = [(k, v) for k, v in observed.items() if len(v) >= EOD_MIN_TRIPS]
+    survey = [statistics.median(v) for _, v in pairs]
+    model = [matrix[k] for k, _ in pairs]
+    print(f"{sum(len(v) for v in observed.values())} sampled trips on {len(observed)} pairs; "
+          f"{len(pairs)} pairs carry {EOD_MIN_TRIPS} trips or more")
+    print(f"EOD 2012 median {statistics.median(survey):.1f} min | this matrix "
+          f"{statistics.median(model):.1f} min")
+    ratios = sorted(m / s for m, s in zip(model, survey))
+    print(f"ratio model/EOD: median {statistics.median(ratios):.3f} "
+          f"p10 {ratios[len(ratios) // 10]:.3f} p90 {ratios[9 * len(ratios) // 10]:.3f}")
+    print(f"mean absolute error {statistics.mean(abs(m - s) for m, s in zip(model, survey)):.1f}"
+          f" min | WAPE {sum(abs(m - s) for m, s in zip(model, survey)) / sum(survey):.1%}")
+    ms, mm = statistics.mean(survey), statistics.mean(model)
+    pearson = (sum((s - ms) * (m - mm) for s, m in zip(survey, model))
+               / (sum((s - ms) ** 2 for s in survey) * sum((m - mm) ** 2 for m in model)) ** 0.5)
+    rank = lambda values: {v: i for i, v in enumerate(sorted(range(len(values)),
+                                                            key=lambda j: values[j]))}
+    rs, rm = rank(survey), rank(model)
+    n = len(survey)
+    spearman = 1 - 6 * sum((rs[i] - rm[i]) ** 2 for i in range(n)) / (n * (n * n - 1))
+    print(f"Pearson {pearson:.3f} | Spearman {spearman:.3f}")
+
+
+if "eod" in sys.argv:
+    compare_with_eod()
