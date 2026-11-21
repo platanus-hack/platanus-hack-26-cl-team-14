@@ -19,7 +19,7 @@ Checks were made on 2026-11-21.
 | SIES 2026, joined to PAES on `mrun` | `CODIGO_COMUNA_DOMICILIO` | `comuna_sede` | comuna | comuna |
 | CASEN 2024 | `comuna` (second base) | `e9com_esc`, `e9com_sup`, `e9rbd_esc` | comuna | comuna, or point by RBD join |
 | INE Conmutación CPV2024 | `o` | `d` | comuna | comuna |
-| Censo 2002 (Redatam) | geography | `COMTRAES` | comuna | comuna |
+| Censo 2002 (Redatam; employed filter `SLABORAL`, export unverified) | habitual residence `LUGVIV`/`VIVEHAB` | `COMTRAES` | comuna | comuna |
 
 No pair: DEIS hospital discharges, DEIS emergency visits, DEIS births, DEIS deaths,
 SII worker counts, FONASA, Servel, Censo 2017.
@@ -239,8 +239,9 @@ SII worker counts, FONASA, Servel, Censo 2017.
 - Role: TARGET.
 - Limits: only the top 3 destinations for each origin, so it is not a full matrix; the
   microdata is. It counts only trips to a *known* comuna other than the home comuna.
-  2002 and 2024 come from different questions: 2002 asked work **or study**, 2024 asks
-  work only, so the two years are not strictly comparable.
+  INE filters the 2002 work-or-study answer to employed people, assuming employed
+  students reported work. Comparison requires habitual residence and harmonized
+  exclusions; the question wording alone does not make it invalid (methodology §§3.3–3.6).
 - Use in the simulation: a ready, citable score target for commuting, and the
   jobs-against-residents imbalance for each comuna.
 - Script: `tools/scrape/ine-conmutacion-censo2024.py` -> `data/raw/ine-conmutacion/`
@@ -249,8 +250,10 @@ SII worker counts, FONASA, Servel, Censo 2017.
 - Link: https://redatam-ine.ine.cl/redbin/RpWebStats.exe/Dictionary?BASE=CENSO_2002&ITEM=DICPOB&lang=esp
 - Contents: the person dictionary lists `LUGTRAES` "Cual es la comuna de estudio o
   trabajo" (`P33A`) and `COMTRAES` "Código de comuna de estudio o trabajo" (`P33B`),
-  with `VIVIA97` for the comuna of residence in April 1997. The geography of the record
-  is the home comuna, so `geography x COMTRAES` is a full work-or-study OD matrix.
+  with `LUGVIV`/`VIVEHAB` for habitual residence and `SLABORAL` for employment.
+  Use habitual residence and an employed-person filter to construct a commuting
+  cross-tab. Enumeration geography is not necessarily home: 2002 counted people
+  where they slept the previous night. A full cross-tab export remains unverified.
 - Granularity: person inside the tool; output at comuna pair. One snapshot.
 - Year: 2002.
 - Access: online cross-tab only. No microdata download found at INE.
@@ -258,11 +261,13 @@ SII worker counts, FONASA, Servel, Censo 2017.
   it lists `COMTRAES`; no cross-tab was run in this session. The 2002 numbers that we
   already hold come from the INE visualizer above.
 - Role: TARGET.
-- Limits: 24 years old, before Metro Lines 4, 4A, 3 and 6. One question mixes work and
-  study, so it is not comparable with the 2024 work question. The web tool does not give
-  microdata.
-- Use in the simulation: the "before" state for any claim about how commuting changed.
-  Use it only together with the 2024 matrix, never alone.
+- Limits: 24 years old, before Metro Lines 4, 4A, 3 and 6. INE's employed-person filter
+  assumes working students prioritized work. Workplace nonresponse differs: 8.4% in
+  2002 versus 0.06% in 2024; the latter's multiple-workplace category is excluded from
+  matrix-derived measures. Harmonize these definitions before comparison. See the
+  [INE methodology, §§3.3–3.6](https://storage.googleapis.com/bktdescargascenso2024/Conmutacion_Laboral_cpv2024.pdf).
+- Use in the simulation: a candidate earlier state after full cross-tab retrieval and
+  universe harmonization; the selected viewer rows alone do not validate a full matrix.
 
 ---
 
