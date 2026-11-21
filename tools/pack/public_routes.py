@@ -111,8 +111,8 @@ def ride(pattern, first, last):
 paths = {}
 
 
-def add_path(origin, destination, chain):
-    path = [[round(value, 5) for value in router.points[origin]]]
+def route_record(origin, destination, chain):
+    path = [[round(value, 5) for value in origin]]
     segments = []
     modes = {"metro_lines": [], "bus_routes": []}
 
@@ -150,8 +150,12 @@ def add_path(origin, destination, chain):
         values = modes.setdefault(field, [])
         if route not in values:
             values.append(route)
-    add_segment("walk", None, "egress", [router.points[destination]])
-    paths[f"{origin}-{destination}"] = {"path": path, **modes, "segments": segments}
+    add_segment("walk", None, "egress", [destination])
+    return {"path": path, **modes, "segments": segments}
+
+
+def add_path(origin, destination, chain):
+    paths[f"{origin}-{destination}"] = route_record(router.points[origin], router.points[destination], chain)
 
 
 if __name__ == "__main__":
