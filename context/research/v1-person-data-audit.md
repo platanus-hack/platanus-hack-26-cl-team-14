@@ -1,0 +1,20 @@
+# V1 person data for the three replays
+
+Source review at `f623d40bc40495a1824030861f2fd2445777e5a0`. The replay cases come from [the verticals brief](../verticals.md). The pitch file has no timed story yet.
+
+| Property | What the engine has | Source and limit |
+| --- | --- | --- |
+| Age and household | `Person` has no age or household fields. | INE publishes linked person, household, and dwelling records by comuna and urban or rural area. Use those records to estimate age bands and household size by residence. Assigning those traits to a block is a model step. [INE Census 2024 release](https://www.ine.gob.cl/sala-de-prensa/prensa/general/noticia/2025/12/04/ine-publica-base-de-datos-del-censo-de-poblaci%C3%B3n-y-vivienda-2024) |
+| Household income | `Person` has no income field. The packed table `income.csv` gives a historical mean for 26 of 52 RM comunas. | Use weighted CASEN 2024 household monetary income at the regional level to estimate a distribution. Record the unit, period and geographic level. A comuna code in the survey does not establish a representative local distribution. [CASEN 2024 usage note, §2](https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Nota_uso_bases_de_datos_Casen_2024.pdf) · [Packed CASEN 2015 estimates](commune-income.md) |
+| Home, destination and main mode | `Population::build` expands worker OD and mode counts and student OD counts. It samples home blocks, job blocks and schools by weights. The student mode is unset in this struct. | Census OD inputs constrain comuna pairs within the RM. Sampled points and their joint distribution with mode are synthetic. The worker and student records are separate flows and can overlap in the real population. [Population builder](../../engine/src/population.rs) · [Prior OD reconciliation](person-destination-sampling.md) |
+| Daily travel and response | The worker trip display assigns departure half-hours by mode from `work_departures.csv`. The scenario output uses groups of workers and excludes students from those trip groups. | EOD 2012 provides weighted trip records for work, study and other purposes. It describes travel in the survey year. Use the same geography, day type and trip definitions when comparing it with a model result. [Trip plan](../../engine/src/population/trips.rs) · [Scenario limits](../../engine/src/scenario.rs) · [SECTRA Greater Santiago survey](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) |
+
+Fit traits to the population represented by each flow. In CASEN, use household weights for household totals and person weights for the share of travelers who live in households in each income band. A record count by itself does not establish the number of unique residents.
+
+## What the replays can show
+
+- **MUT → Estadio Monumental.** Compare modeled arrivals by mode and half-hour with the same declared event audience in each run. Count existing commutes and event trips separately. Keep any match-day station observations labeled by fixture and station. [Venue data joins](behavior-data-joins.md) · [Match station records](monumental-pre-match-alightings.md)
+- **Navigable Mapocho.** Use the EOD corridor estimate as a historical denominator for trip eligibility. Report modeled boat trips under the declared service times and fares. The corridor estimate gives no observed boat demand. [Corridor method and survey weights](mapocho-navegable.md)
+- **Full metro closure.** Report affected travel and mode shifts for the modeled population. Compare with October 2019 only for dates, hours, service coverage and count units that the historical sources support. Leave unobserved shifts labeled as simulated. [Historical comparison limits](santiago-redistribution-validation.md)
+
+Keep the current station score for model-layer comparisons. Reproducing the census margins confirms that the population preserves its inputs. A comparison with a distinct observation is needed to measure travel prediction error. [Fixed score protocol](../../engine/README.md)
