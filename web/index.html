@@ -9,10 +9,10 @@
   #map { position: absolute; inset: 0; } canvas { background: none !important; }
   .box { position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; font-variant-numeric: tabular-nums; }
   small { display: block; font-size: 30px; color: #9fb0d8; }
-  body.s .t, body.t .s { display: none !important; }
-  #switch { top: 28px; right: 28px; padding: 10px; display: flex; gap: 10px; }
+  body:not(.s) .s, body:not(.t) .t, body:not(.p) .p { display: none !important; }
+  #switch { top: 28px; right: 28px; padding: 10px; display: flex; gap: 10px; } #switch button { font-size: 36px; padding: 16px 22px; }
   button { font: inherit; font-size: 46px; padding: 18px 34px; color: #fff; background: #1c2750; border: 0; border-radius: 16px; cursor: pointer; }
-  body.s #vs, body.t #vt, #go, #reset { color: #0a0f24; background: #ff7a1a; }
+  body.s #vs, body.t #vt, body.p #vp, #go, #reset { color: #0a0f24; background: #ff7a1a; }
   #go.on { background: #fff; }
   .tl { top: 28px; left: 28px; } .big { font-size: 130px; display: inline-block; margin-right: 50px; } .mid { font-size: 96px; } #zname { font-size: 72px; color: #ff7a1a; }
   #clock { cursor: pointer; }
@@ -27,7 +27,7 @@
 </style>
 <body class="t">
 <div id="map"></div>
-<div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button></div>
+<div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button><button id="vp">Puntaje</button></div>
 
 <div class="box tl t" id="clock">
   <div class="big" id="hhmm">--:--</div>
@@ -58,6 +58,16 @@
   <small style="margin-top:14px"><i style="background:#ff4d6d;margin-left:0"></i>gana empleos<i style="background:#3ddc97"></i>pierde · modelo</small>
 </div>
 
+<div class="box s" style="bottom:28px;right:28px;text-align:right"><small style="color:#fff">reconstrucción del Censo 2024</small><small>+ sensibilidad, sin validar</small></div>
+<div class="box tl p">
+  <div class="big" id="wape">—</div>
+  <small>error absoluto agregado · 31 estaciones reservadas</small>
+  <small>el modelo no vio sus subidas · puntaje de desarrollo</small>
+  <div class="mid" id="hh2" style="margin-top:18px">--:--</div>
+  <small>subidas al Metro en 30 min · abril 2026, día laboral</small>
+  <small><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#ff7a1a"></i>modelo</small>
+</div>
+
 <div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
 <div id="delta" class="box t"><span id="dv"></span><small>Cambio de subidas al día, modelo</small>
   <div style="display:flex;justify-content:flex-end;gap:32px;margin-top:14px;font-size:64px">
@@ -74,14 +84,15 @@ const HOMES = 298;            // average dwellings of an RM tower of 15 floors o
 const KZ = 0.02;              // metres of comuna height for each person who works there
 const VIEWS = {
   t: {longitude: -70.6040, latitude: -33.4205, zoom: 15.2, pitch: 55, bearing: -28},
-  s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15}};
+  s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15},
+  p: {longitude: -70.72, latitude: -33.47, zoom: 11.2, pitch: 55, bearing: -15}};
 const $ = id => document.getElementById(id);
 const fmt = (n, d = 0) => n.toLocaleString('es-CL', {maximumFractionDigits: d, minimumFractionDigits: d});
 const height = v => 15 + 4 * Math.sqrt(v);  // square root with a 15 m floor: a bus stop stays visible
 const at = (a, t) => { const i = Math.floor(t), x = a[i], y = a[Math.min(i + 1, 47)]; return x == null || y == null ? x : x + (y - x) * (t - i); };
 const post = (path, body) => fetch(API + path, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.ok ? r.json() : Promise.reject());
 
-let view = 't', stops, tob, buildings, ground, communes, t = FIRST, playing = true, active = false, homes = HOMES;
+let view = 't', score, stops, tob, buildings, ground, communes, t = FIRST, playing = true, active = false, homes = HOMES;
 let site = null;                         // last answer of POST /api/site-scenario
 let world = null, sim = null, sel = '13123', seq = 0;  // GET /api/world, last POST /api/simulate, selected comuna
 
@@ -217,6 +228,17 @@ function santiago() {
   ];
 }
 
+// ---------- Puntaje: the station model against 31 stations that it did not see ----------
+function puntaje() {
+  const col = (id, key, dx, color) => new ColumnLayer({id, data: score.stations.filter(s => at(s.observed, t) != null),
+    getPosition: s => [s.lon + dx, s.lat], diskResolution: 16, radius: 220, getElevation: s => at(s[key], t) * 1.5,  // 1.5 m for each boarding, same scale for both
+    getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
+  return [
+    new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 60}),
+    col('obs', 'observed', -0.0026, [0, 229, 255]), col('pred', 'predicted', 0.0026, [255, 122, 26]),
+  ];
+}
+
 // ---------- page ----------
 function draw() {
   if (view == 't') {
@@ -228,9 +250,10 @@ function draw() {
     const day = Math.max(0, Math.sin((t - 13) / 28 * Math.PI));  // 0 at 06:30 and 20:30, 1 near 13:30
     document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
   } else document.body.style.background = '';
+  if (view == 'p') { const i = Math.floor(t); $('hh2').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00'); }
   $('engine').style.display = ms[view] ? 'block' : 'none';
   if (ms[view]) [$('ms').textContent, $('msk').textContent] = ms[view];
-  deckgl.setProps({layers: view == 't' ? tobalaba() : santiago()});
+  deckgl.setProps({layers: view == 't' ? tobalaba() : view == 's' ? santiago() : puntaje()});
 }
 
 function tick() {
@@ -244,7 +267,7 @@ function show(v) {
   draw();
 }
 
-$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t');
+$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t'); $('vp').onclick = () => show('p');
 $('clock').onclick = () => playing = !playing;
 $('slider').oninput = e => { homes = +e.target.value; $('n').textContent = fmt(homes); if (active) siteScenario(); else draw(); };
 $('go').onclick = () => {
@@ -258,8 +281,9 @@ $('jobs').oninput = $('housing').oninput = simulate;
 $('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
 
 const get = u => fetch(u).then(r => r.json());
-Promise.all(['stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
-    .map(u => get((u === 'stops.json' || u === 'ground.geojson' ? 'data/' : '../data/mvp/') + u))).then(([bus, ...r]) => {
+Promise.all(['score.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
+    .map(u => get((/^(score|stops|ground)/.test(u) ? 'data/' : '../data/mvp/') + u))).then(([sc, bus, ...r]) => {
+  score = sc; $('wape').textContent = fmt(sc.wape_bins * 100) + '%';  // the number of tools/pack/check_score.py
   [ground, communes] = r.splice(-2);
   // the diorama tile: keep the buildings inside the frame of the ground extract
   buildings = r.pop().features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
