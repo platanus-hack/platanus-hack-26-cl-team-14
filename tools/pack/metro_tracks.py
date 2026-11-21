@@ -111,10 +111,13 @@ for rid in relation_ids:
             raise ValueError(f"Out-of-order GTFS stops in {line}")
         coords = [interpolate(path,a), *path[int(a)+1:math.ceil(b)], interpolate(path,b)]
         kinds, reasons, layers = Counter(), set(), set()
+        kind_sequence = []
         if aligned:
             for edge in range(indices[j], indices[j+1]):
                 length,(kind,reason),layer = edges[edge]
                 kinds[kind]+=length
+                if not kind_sequence or kind_sequence[-1] != kind:
+                    kind_sequence.append(kind)
                 reasons.add(reason)
                 if layer is not None:
                     layers.add(layer)
@@ -126,7 +129,7 @@ for rid in relation_ids:
             direction=route["direction"],sequence=j,source="gtfs_shape",osm_relation_id=rid,
             origin_kind=edges[indices[j]][1][0] if aligned else "unknown",
             destination_kind=edges[indices[j+1]-1][1][0] if aligned else "unknown",
-            osm_match=aligned,osm_kind_metres={k:round(v,1) for k,v in sorted(kinds.items())},
+            kind_sequence=kind_sequence,osm_match=aligned,osm_kind_metres={k:round(v,1) for k,v in sorted(kinds.items())},
             tags=sorted(reasons),tagged_layers=sorted(layers)))
         traversal.append(segment_id)
     routes.append(dict(line=line,direction=route["direction"],parent_station_ids=stations,segment_ids=traversal))
@@ -149,6 +152,18 @@ for stop_id,row in stops.items():
     if len(parts)==3 and parts[1] in lines and parts[2].startswith("V"):
         features.append(feature("Point",[round(v,7) for v in station_coord(stop_id)],feature="platform",
             line=parts[1],parent_station_id=row["parent_station"],source="gtfs_stop",stop_id=stop_id))
+
+# Published station observations are independent of the adjoining track classification.
+station_settings = {
+    ("L1", "NP"): ("partly_open_below_street", "https://www.tesisenred.net/bitstream/handle/10803/80299/TRHC1de17.pdf?isAllowed=y&sequence=1"),
+    ("L5", "BL"): ("underground", "https://www.ohla-group.com/wp-content/uploads/2021/07/Railway-Infrastructures-monografico.pdf"),
+}
+for item in features:
+    props = item["properties"]
+    if props["feature"] == "platform":
+        setting = station_settings.get((props["line"], props["parent_station_id"]))
+        if setting:
+            props["station_setting"], props["station_setting_source"] = setting
 
 osm_kinds, osm_sources = Counter(), Counter()
 for metres, kind, reason in unique_edges.values():
