@@ -25,7 +25,7 @@ Vistas: `/web/?t=36&mut=1`, `/web/?v=s`, `/web/?v=p&t=36`, `/web/?v=e`. Ctrl-C e
 
 ## Los números de referencia de hoy (la versión congelada se elige a las 12:30 UTC)
 
-A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada** (commit + artefacto de puntaje; regla en `context/decisions/20261121-0845-presentation-freeze.md`) y el demo corre esa versión, no `main`. Una **capa** es una versión del modelo de estaciones; se queda solo si baja el error en las 31 reservadas. Hoy la capa aceptada es **L4b**; L5 y L8 empeoraron el puntaje y L6 se retiró sin correr, así que L4b es la candidata:
+A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada** (commit + artefacto; regla en `context/decisions/20261121-0845-presentation-freeze.md`) y el demo corre esa versión, no `main`. Una **capa** es una versión del modelo de estaciones; se queda solo si baja el error en las 31 reservadas. Hoy la capa aceptada es **L4b**; L5 y L8 empeoraron el puntaje y L6 se retiró sin correr, así que L4b es la candidata:
 
 | En pantalla | Valor | Qué es |
 | --- | --- | --- |
@@ -51,8 +51,8 @@ Nada cambia después de las 12:30 hasta que ustedes lo digan.
 
 1. **Comuna y palabras**: "Las Condes, al lado de Tobalaba"; "transporte público" para el Censo, "Metro" solo DTPM.
 2. **La sorpresa del MUT**: ¿las dos estimaciones etiquetadas, el cambio pequeño en la estación y los residentes que salen en auto? Recomendación: todo visible, con la brecha de la base.
-3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre hoy en la vista Santiago) como caso 2. El evento está construido y revisado. Recomendación: tercera pregunta, con sus dos supuestos en voz alta: "qué pasaría si ese exceso se repite".
+3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre en la vista Santiago) como caso 2. El evento está construido y revisado. Recomendación: tercera pregunta, sus dos supuestos en voz alta: "qué pasaría si ese exceso se repite".
 4. **Los datos de 2023**: ¿dos frases de contexto ("no sabemos cuánto es del MUT; nuestros modelos no cuentan visitantes") o se dejan para el jurado? Recomendación: para el jurado.
-5. **Tiempo y cierre**: 296 palabras habladas, apertura incluida (~136 s a 130 por minuto, antes de clics y del jurado). El cierre puede decir "tres preguntas". Si el ensayo pasa de 3 minutos, cortar en este orden: el evento, el contexto 2023, la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
+5. **Tiempo y cierre**: 296 palabras habladas, apertura incluida (~136 s a 130 por minuto, antes de clics y del jurado). El cierre puede decir "tres preguntas". Si el ensayo pasa de 3 minutos, cortar en orden: el evento, el contexto 2023, la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
 
 Respondan en `#agent-chat` o editen `context/pitch.md`.
