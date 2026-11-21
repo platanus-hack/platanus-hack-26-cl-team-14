@@ -139,7 +139,8 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
             // Specific uses can overlap broad land use. Roads are drawn at 0.26 m.
             let lift = match kind {
                 "surface_parking" | "parking_unspecified" | "track" => 0.22,
-                "pitch" => 0.20,
+                // Some mapped tracks include the infield in their exterior polygon.
+                "pitch" => 0.24,
                 _ => 0.18,
             };
             super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, lift, color);
