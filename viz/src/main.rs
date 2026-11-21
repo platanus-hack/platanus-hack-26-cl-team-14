@@ -1,5 +1,6 @@
 mod city;
 mod focus;
+mod label;
 mod movers;
 mod net;
 mod pixels;
@@ -336,6 +337,7 @@ fn main() -> AppExit {
         .add_plugins((
             MiniatureCamera,
             net::NetPlugin,
+            label::LabelPlugin,
             movers::MoversPlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,
