@@ -135,6 +135,11 @@ impl StationAccess {
 
     pub fn walk_scale(&self) -> f64 { self.fit.a }
 
+    pub fn public_share(&self, cut: &str) -> f64 {
+        let (public, total) = self.fit.share[cut];
+        public / total
+    }
+
     pub fn baseline_points(&self, data: &Path) -> (Vec<PointMass>, Vec<PointMass>) {
         baseline_points(data, &self.fit.share, true)
     }
