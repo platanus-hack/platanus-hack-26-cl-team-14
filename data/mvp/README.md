@@ -719,3 +719,5 @@ The route minimizes driving time. A road's assumed free-flow speed follows the [
 Maipú to Las Condes takes **28.03 modeled minutes over 28.276 km**. The route passes through Avenida Los Pajaritos, Ruta 78, the Alameda, and Costanera Norte. The gaps to the major roads are 21 m in Maipú and 131 m in Las Condes. These are estimates for the two reference points.
 
 Build both files from the same regional OSM extract with `python3 tools/pack/car_paths.py`. Display the map credit **© OpenStreetMap contributors** with a link to [the OSM copyright page](https://www.openstreetmap.org/copyright). The derived network data use ODbL 1.0.
+
+The view reads `web/data/car_routes.json`. Each key joins the two CUT codes with a hyphen, for example `13119-13114` for Maipú to Las Condes. Each value contains the existing car path as an array of longitude and latitude pairs. The export keeps between-comuna routes with at least one worker in `work_od.csv`. Rebuild it with `python3 -I tools/pack/car_routes_view.py`.
