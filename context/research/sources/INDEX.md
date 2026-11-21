@@ -3,11 +3,11 @@
 This folder adds to the master catalog in `../santiago-data-catalog.md`. It covers the topics that the master catalog does not cover, and it checks the master catalog sources with real downloads.
 Entry rules: `README.md`. Scripts: `tools/scrape/`. Raw files: `data/raw/` (not in git).
 
-Counts are entries that say `Check: VERIFIED` or `Check: UNVERIFIED`. "Critic" is the agent that got 3 links again.
+Counts come from the first version of each file. Read the `Check` line of each entry: `VERIFIED-ROWS`, `VERIFIED-BYTES`, or `UNVERIFIED`. "Critic" is the agent that got 3 links again.
 
 | File | Best source | Role | Verified / all | Critic |
 | --- | --- | --- | --- | --- |
-| [score-targets](score-targets.md) | DTPM boardings by stop and half hour, April 11 to 17, 2026 (xlsx, 29 MB, columns read) | TARGET | 8 / 12 | gentle-fox |
+| [score-targets](score-targets.md) | DTPM boardings by stop and half hour, April 11 to 17, 2026 (xlsx, 29 MB, workbook metadata read, rows not read) | TARGET | 8 / 12 | gentle-fox |
 | [traffic-counts](traffic-counts.md) | Urban toll gantry passes (INE monthly, COPSA annual, Costanera Norte table) | TARGET (weak) | 15 / 15 | sunny-condor |
 | [tourism-visitors](tourism-visitors.md) | Sernatur domestic trips, comuna to comuna, monthly | INPUT | 10 / 10 | open |
 | [realtime-apis](realtime-apis.md) | Bike Itaú GBFS (open, no key). No open live feed for bus, Metro, or traffic | INPUT | 7 / 17 | sunny-koala |

@@ -15,6 +15,6 @@ for relative_path, url in SOURCES.items():
     destination = OUT / relative_path
     destination.parent.mkdir(parents=True, exist_ok=True)
     # shortcut: local Python lacks the CA chain; upgrade when the system trust store is available.
-    with urlopen(url, context=ssl._create_unverified_context()) as response:
+    with urlopen(url, context=ssl.create_default_context(cafile="/etc/ssl/cert.pem")) as response:
         destination.write_bytes(response.read())
     print(destination, destination.stat().st_size)
