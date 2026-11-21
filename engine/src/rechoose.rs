@@ -24,7 +24,7 @@ fn spread(places: Vec<u32>) -> Vec<u32> {
     v.into_iter().map(|x| x.1).collect()
 }
 
-fn class(m: i8) -> usize { match m { 2 => 0, 1 => 1, _ => 2 } }
+pub(super) fn class(m: i8) -> usize { match m { 2 => 0, 1 => 1, _ => 2 } }
 
 /// The baseline placement of population.rs minus the quotas of the baseline inputs, per comuna pair, per mode
 /// of each pair and per job point. `rechoose` adds it to the new quotas. Thus the quotas of the baseline inputs
