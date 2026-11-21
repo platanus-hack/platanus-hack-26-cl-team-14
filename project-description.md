@@ -8,7 +8,7 @@ El motor aplica cambios de residentes, empleos y tiempos de viaje. También pued
 
 Usamos el Censo 2024 del INE para los flujos habituales al trabajo. Comparamos las estimaciones de subidas al Metro con datos del DTPM de abril de 2026. Los horarios y recorridos vienen de GTFS. La maqueta usa datos de [© colaboradores de OpenStreetMap](https://www.openstreetmap.org/copyright).
 
-El motor, el chat y la maqueta corren en local. La [guía de la demo](context/research/handoff-humanos.md) indica cómo conectarlos. La descarga pública de la aplicación queda pendiente.
+El motor, el chat y la maqueta corren en local. La [guía de la demo](context/research/handoff-humanos.md) indica cómo conectarlos. Puedes [descargar santiaguito.cl v0.1.0](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/releases/tag/v0.1.0) para macOS con Apple Silicon o Linux x86_64.
 
 ## Equipo
 
