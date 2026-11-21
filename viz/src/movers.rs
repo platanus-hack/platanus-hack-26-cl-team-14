@@ -3,6 +3,7 @@
 pub(crate) mod events;
 pub(crate) mod clock;
 mod fleet;
+mod motion;
 mod instanced;
 mod levels;
 mod riders;
@@ -750,8 +751,11 @@ enum Model {
     Car(u16),
     CarChange,
     Bus,
+    BusTail,
+    BusJoint,
     Bike,
     Person,
+    Walking(u8),
     Coach,
     Window,
     Platform,
@@ -806,8 +810,15 @@ fn shape(parts: impl IntoIterator<Item = Mesh>) -> Mesh {
 
 // Every art pixel is 12 cm in all three axes. One horizontal quad samples one PNG tile.
 const ART_PIXEL: f32 = 0.12;
+const BUS_FRONT_TO_HINGE: f32 = 5.6;
+const BUS_TAIL_FRACTION: f32 = 0.58;
+const BUS_TAIL_HALF: f32 = 96. * ART_PIXEL * BUS_TAIL_FRACTION * 0.5;
 
-fn sprite_stack(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2]) -> (Mesh, Image) {
+fn sprite_stack(bytes: &[u8], slices: u32, grid: [u32; 2]) -> (Mesh, Image) {
+    sprite_stack_width(bytes, slices, grid, 1.)
+}
+
+fn sprite_stack_width(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2], fraction: f32) -> (Mesh, Image) {
     let image = Image::from_buffer(
         bytes,
         ImageType::Extension("png"),
@@ -817,7 +828,7 @@ fn sprite_stack(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2]) -> (Mesh, 
         RenderAssetUsages::default(),
     )
     .unwrap();
-    let x = (image.width() / columns / slices) as f32 * ART_PIXEL / 2.;
+    let x = (image.width() / columns / slices) as f32 * ART_PIXEL * fraction / 2.;
     let z = (image.height() / rows) as f32 * ART_PIXEL / 2.;
     let mut positions = Vec::new();
     let mut uv = Vec::new();
@@ -825,7 +836,7 @@ fn sprite_stack(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2]) -> (Mesh, 
     for slice in 0..slices {
         let y = slice as f32 * ART_PIXEL;
         let u_left = slice as f32 / slices as f32;
-        let u_right = (slice + 1) as f32 / slices as f32;
+        let u_right = (slice as f32 + fraction) / slices as f32;
         positions.extend([[-x, y, -z], [-x, y, z], [x, y, z], [x, y, -z]]);
         uv.extend([[u_left, 0.], [u_left, 1.], [u_right, 1.], [u_right, 0.]]);
         let i = slice * 4;
@@ -864,31 +875,17 @@ fn setup(
     });
     assert!(rate.is_finite() && rate > 0., "Playback rate must be finite and positive");
     commands.insert_resource(PlaybackRate(rate));
-    let coat = [36, 134, 171];
-    let skin = [248, 189, 137];
-    let arm = |side: f32| {
-        oval([0.065, 0.325, 0.065], [0.; 3], coat)
-            .rotated_by(Quat::from_rotation_x(-0.20 * side))
-            .translated_by(Vec3::new(0.04 * side, 1.125, 0.22 * side))
-    };
-    let person = shape([
-        oval([0.10, 0.125, 0.095], [0., 1.625, 0.], skin),
-        block([0.105, 0.14, 0.11], [0., 1.485, 0.], skin),
-        oval([0.15, 0.36, 0.23], [0., 1.15, 0.], coat),
-        arm(1.),
-        arm(-1.),
-        oval([0.09, 0.43, 0.085], [-0.05, 0.49, 0.095], GLASS),
-        oval([0.09, 0.43, 0.085], [0.05, 0.49, -0.095], GLASS),
-        block([0.23, 0.10, 0.13], [-0.01, 0.05, 0.095], GLASS),
-        block([0.23, 0.10, 0.13], [0.09, 0.05, -0.095], GLASS),
-    ]);
-    let sprites: [(Model, &[u8], u32); 3] = [
+    let sprites: [(Model, &[u8], u32); 4] = [
+        (Model::BusTail, include_bytes!("../assets/bus.png"), 27),
         (Model::Bus, include_bytes!("../assets/bus.png"), 27),
         (Model::Coach, include_bytes!("../assets/metro.png"), 28),
         (Model::Bike, include_bytes!("../assets/bicycle.png"), 16),
     ];
     let models = [
-        (Model::Person, person, None),
+        (Model::Person, motion::pedestrian(None), None),
+        (Model::BusJoint, shape((-2..=2).map(|i| {
+            block([0.22, 2.45, 2.45], [i as f32 * 0.21, 1.5, 0.], if i % 2 == 0 { GLASS } else { [70, 78, 82] })
+        })), None),
         // A pair of road marks carries the scenario colour beside the car's actual paint.
         (Model::CarChange, shape([-1.5, 1.5].map(|z| {
             painted(Plane3d::default().mesh().size(3.6, 0.28).build(), [0., 0.04, z], [255; 3])
@@ -915,8 +912,10 @@ fn setup(
         ),
     ]
     .into_iter()
+    .chain((0..motion::GAIT_FRAMES).map(|frame| (Model::Walking(frame), motion::pedestrian(Some(frame)), None)))
     .chain(sprites.into_iter().map(|(model, bytes, layers)| {
-        let (mesh, image) = sprite_stack(bytes, layers, [1, 1]);
+        let fraction = if model == Model::BusTail { BUS_TAIL_FRACTION } else { 1. };
+        let (mesh, image) = sprite_stack_width(bytes, layers, [1, 1], fraction);
         (model, mesh, Some(images.add(image)))
     }));
     let mut mesh = HashMap::new();
@@ -1140,10 +1139,15 @@ fn draw(
                 };
                 let movement = if let Some(plan) = g.itineraries.get(j) {
                     match plan.at(age) {
-                        Some(RiderState::Walking(p, dir) | RiderState::Waiting(p, dir)) => {
+                        Some(state @ (RiderState::Walking(p, dir) | RiderState::Waiting(p, dir))) => {
                             if visible(p, 100.) && (subway.0 || p.y >= terrain_from_xz(p.x, p.z) - 0.6) {
                                 let scale = pedestrian_scale(eye.distance(p), 1.2) * presence;
-                                place(Model::Person, paint, pose(p, dir, Vec3::splat(scale)));
+                                let model = if matches!(state, RiderState::Walking(..)) {
+                                    plan.walking_model(age, scale)
+                                } else {
+                                    Model::Person
+                                };
+                                place(model, paint, pose(p, dir, Vec3::splat(scale)));
                             }
                             None
                         }
@@ -1167,9 +1171,9 @@ fn draw(
                         None => None,
                     }
                 } else {
-                    g.path.at(age, &g.path.seconds)
+                    g.path.trip_pose(age, j)
                 };
-                let Some((pos, dir, kind)) = movement else {
+                let Some((pos, dir, kind, metres)) = movement else {
                     continue;
                 };
                 if !visible(pos, 100.) {
@@ -1223,6 +1227,11 @@ fn draw(
                         place(Model::CarChange, paint, transform);
                     }
                 } else {
+                    let model = if kind == Vehicle::Walk {
+                        Model::Walking(motion::gait_frame(metres, scale, j))
+                    } else {
+                        model
+                    };
                     place(model, paint, transform);
                 }
             }
@@ -1236,15 +1245,14 @@ fn draw(
                 } else {
                     Model::Bus
                 };
-                place(
-                    model,
-                    paint,
-                    pose(
-                        p + right(dir) * 1.6 + Vec3::Y * 0.25,
-                        dir,
-                        Vec3::splat(size_at(p)),
-                    ),
-                );
+                let scale = size_at(p);
+                let front = p + right(dir) * 1.6 + Vec3::Y * 0.25;
+                place(model, paint, pose(front, dir, Vec3::splat(scale)));
+                if let Some((rear, rear_dir)) = routes.riders.bus_rear(template, start, now, p, dir) {
+                    let hinge = front - dir * BUS_FRONT_TO_HINGE * scale;
+                    place(Model::BusTail, paint, pose(front + (rear - p) * scale, rear_dir, Vec3::splat(scale)));
+                    place(Model::BusJoint, paint, pose(hinge, dir, Vec3::splat(scale)));
+                }
             }
         }
     }

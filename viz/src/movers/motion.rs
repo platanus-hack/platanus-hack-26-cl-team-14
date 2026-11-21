@@ -1,21 +1,26 @@
-use super::{Path, Vec3, Vehicle};
+use super::{GLASS, Mesh, Path, Quat, Rgb, Vec3, Vehicle, block, oval, shape};
 
-// Integral of a trapezoidal speed profile. Its endpoints keep the existing trip clock.
+// Local cubic ramps have zero endpoint speed and join cruise speed smoothly.
+// A sample outside the ramps keeps its original route time.
 fn elapsed_distance_fraction(elapsed: f32, duration: f32) -> f32 {
     let ramp = 6.0_f32.min(duration * 0.5);
-    let cruise = duration - ramp;
-    if elapsed < ramp {
-        elapsed * elapsed / (2.0 * ramp * cruise)
+    let ease = |time: f32| {
+        let t = time / ramp;
+        ramp * t * t * (2.0 - t)
+    };
+    let travelled = if elapsed < ramp {
+        ease(elapsed)
     } else if duration - elapsed < ramp {
-        1.0 - (duration - elapsed).powi(2) / (2.0 * ramp * cruise)
+        duration - ease(duration - elapsed)
     } else {
-        (elapsed - ramp * 0.5) / cruise
-    }
+        elapsed
+    };
+    travelled / duration
 }
 
 impl Path {
     // Road legs slow only at their endpoints. A bend in a polyline is not a stop.
-    pub(super) fn trip_pose(&self, age: f32, person: usize) -> Option<(Vec3, Vec3, Vehicle)> {
+    pub(super) fn trip_pose(&self, age: f32, person: usize) -> Option<(Vec3, Vec3, Vehicle, f32)> {
         let duration = *self.seconds.last()?;
         if age < 0.0 || age > duration || duration == 0.0 {
             return None;
@@ -33,22 +38,27 @@ impl Path {
         let start = self.seconds[first];
         let span = self.seconds[leg.end] - start;
         if span == 0.0 {
-            return self.at(age, &self.seconds);
+            return self
+                .at(age, &self.seconds)
+                .map(|(p, d, kind)| (p, d, kind, 0.0));
         }
         if leg.vehicle == Vehicle::Walk {
-            return self.at(
-                start + walking_time(age - start, span, person),
-                &self.seconds,
-            );
+            let elapsed = walking_time(age - start, span, person);
+            let metres = self.metres[first] + elapsed * Vehicle::Walk.speed();
+            return self
+                .at(start + elapsed, &self.seconds)
+                .map(|(p, d, kind)| (p, d, kind, metres));
         }
         if !matches!(leg.vehicle, Vehicle::Car | Vehicle::Bus) {
-            return self.at(age, &self.seconds);
+            return self
+                .at(age, &self.seconds)
+                .map(|(p, d, kind)| (p, d, kind, 0.0));
         }
         let progress = elapsed_distance_fraction(age - start, span);
         let distance = self.metres[first] + progress * (self.metres[leg.end] - self.metres[first]);
         let distance = self.corner_distance(distance, leg.vehicle, first, leg.end);
         let (pos, dir) = self.road_pose(distance, leg.vehicle, first, leg.end)?;
-        Some((pos, dir, leg.vehicle))
+        Some((pos, dir, leg.vehicle, distance))
     }
 
     pub(super) fn road_pose(
@@ -173,4 +183,53 @@ pub(super) fn walk_pose(frame: u8, left: bool) -> WalkPose {
         shoulder: -0.32 * (std::f32::consts::TAU * phase).cos(),
         hip_lift: 0.026 * (std::f32::consts::TAU * phase).sin().powi(2),
     }
+}
+
+// The cached meshes use the same body dimensions as the standing passenger.
+// Bend the knee between the hip and ankle while the shoe follows its contact arc.
+pub(super) fn pedestrian(frame: Option<u8>) -> Mesh {
+    let coat = [36, 134, 171];
+    let skin = [248, 189, 137];
+    let side_pose = |left| {
+        frame.map(|f| walk_pose(f, left)).unwrap_or(WalkPose {
+            foot_x: 0.0,
+            foot_lift: 0.0,
+            shoulder: 0.0,
+            hip_lift: 0.0,
+        })
+    };
+    let lift = side_pose(true).hip_lift;
+    let mut parts = vec![
+        oval([0.10, 0.125, 0.095], [0., 1.625 + lift, 0.], skin),
+        block([0.105, 0.14, 0.11], [0., 1.485 + lift, 0.], skin),
+        oval([0.15, 0.36, 0.23], [0., 1.15 + lift, 0.], coat),
+    ];
+    let limb = |a: Vec3, b: Vec3, radius: f32, color: Rgb| {
+        let offset = b - a;
+        oval([radius, offset.length() * 0.5, radius], [0.; 3], color)
+            .rotated_by(Quat::from_rotation_arc(Vec3::Y, offset.normalize()))
+            .translated_by((a + b) * 0.5)
+    };
+    for (left, side) in [(true, 1.), (false, -1.)] {
+        let step = side_pose(left);
+        let hip = Vec3::new(0., 0.82 + lift, 0.095 * side);
+        let ankle = Vec3::new(step.foot_x, 0.095 + step.foot_lift, hip.z);
+        let hip_to_ankle = ankle - hip;
+        let forward = Vec3::new(-hip_to_ankle.y, hip_to_ankle.x, 0.).normalize();
+        let bend = (0.43_f32.powi(2) - hip_to_ankle.length_squared() * 0.25)
+            .max(0.)
+            .sqrt();
+        let knee = (hip + ankle) * 0.5 + forward * bend;
+        let shoulder = Vec3::new(0., 1.42 + lift, 0.22 * side);
+        let wrist = shoulder + Vec3::new(step.shoulder.sin(), -step.shoulder.cos(), 0.) * 0.59;
+        parts.push(limb(shoulder, wrist, 0.065, coat));
+        parts.push(limb(hip, knee, 0.09, GLASS));
+        parts.push(limb(knee, ankle, 0.078, GLASS));
+        parts.push(block(
+            [0.23, 0.10, 0.13],
+            [ankle.x + 0.045, ankle.y - 0.045, ankle.z],
+            GLASS,
+        ));
+    }
+    shape(parts)
 }
