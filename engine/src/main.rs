@@ -1,3 +1,4 @@
+mod event;
 mod site;
 mod stations;
 
@@ -122,6 +123,7 @@ struct Core {
     station_model: stations::StationModel,
     station_observed: HashMap<String, Vec<Option<f64>>>,
     station_observation_metadata: serde_json::Value,
+    event_model: event::EventModel,
 }
 
 #[derive(Deserialize)]
@@ -291,6 +293,7 @@ impl Core {
             station_model,
             station_observed,
             station_observation_metadata,
+            event_model: event::EventModel::new(directory),
         }
     }
 
@@ -355,6 +358,18 @@ impl Core {
             elapsed_ms: start.elapsed().as_secs_f64() * 1000.0,
         }
     }
+}
+
+async fn event_scenario(
+    State(core): State<Arc<Core>>,
+    Json(request): Json<event::EventRequest>,
+) -> Result<Json<event::EventResponse>, (StatusCode, Json<serde_json::Value>)> {
+    core.event_model.scenario(request).map(Json).map_err(|error| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({ "error": error })),
+        )
+    })
 }
 
 async fn station_scenario(
@@ -469,6 +484,7 @@ async fn main() {
         )
         .route("/api/site-scenario", post(site_scenario))
         .route("/api/station-scenario", post(station_scenario))
+        .route("/api/event-scenario", post(event_scenario))
         .layer(CorsLayer::permissive())
         .with_state(core);
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
