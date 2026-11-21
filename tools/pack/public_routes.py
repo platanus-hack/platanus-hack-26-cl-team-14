@@ -112,14 +112,29 @@ paths = {}
 
 
 def add_path(origin, destination, chain):
-    points = [router.points[origin]]
+    path = [[round(value, 5) for value in router.points[origin]]]
+    segments = []
     modes = {"metro_lines": [], "bus_routes": []}
+
+    def add_segment(mode, service, kind, points):
+        start = len(path) - 1
+        for lon, lat in points:
+            point = [round(lon, 5), round(lat, 5)]
+            if path[-1] != point:
+                path.append(point)
+        segments.append({"start": start, "end": len(path)-1, "mode": mode, "service": service, "kind": kind})
+
+    add_segment("walk", None, "access", [router.coords[chain[0][1]]])
     i = 0
     while i < len(chain):
         node = chain[i]
         if node[0] == "s":
-            points.append(router.coords[node[1]])
-            i += 1
+            # A run of street nodes represents one walk between GTFS stops.
+            start = i
+            while i < len(chain) and chain[i][0] == "s":
+                i += 1
+            if i > start + 1:
+                add_segment("walk", None, "transfer", (router.coords[n[1]] for n in chain[start+1:i]))
             continue
         pattern, first = node[1:]
         last = first
@@ -128,19 +143,15 @@ def add_path(origin, destination, chain):
             i += 1
         if last == first:
             continue
-        points.extend(ride(pattern, first, last))
         route = trip_for_pattern[pattern]["route_id"]
-        field = {"1": "metro_lines", "3": "bus_routes", "0": "rail_routes"}[routes[route]]
+        mode, field = {"1": ("metro", "metro_lines"), "3": ("bus", "bus_routes"),
+                       "0": ("rail", "rail_routes")}[routes[route]]
+        add_segment(mode, route, "ride", ride(pattern, first, last))
         values = modes.setdefault(field, [])
         if route not in values:
             values.append(route)
-    points.append(router.points[destination])
-    path = []
-    for lon, lat in points:
-        point = [round(lon, 5), round(lat, 5)]
-        if not path or point != path[-1]:
-            path.append(point)
-    paths[f"{origin}-{destination}"] = {"path": path, **modes}
+    add_segment("walk", None, "egress", [router.points[destination]])
+    paths[f"{origin}-{destination}"] = {"path": path, **modes, "segments": segments}
 
 
 if __name__ == "__main__":
