@@ -13,12 +13,12 @@ fn swatch(i:u32)->vec3<f32>{
     let c=PALETTE[i];
     return vec3<f32>(f32((c>>16u)&255u), f32((c>>8u)&255u), f32(c&255u))/255.;
 }
-fn srgb(linear:vec3<f32>)->vec3<f32>{
-    let x=clamp(linear,vec3<f32>(0.),vec3<f32>(1.));
-    return select(1.055*pow(x,vec3<f32>(1./2.4))-.055,12.92*x,x<=vec3<f32>(.0031308));
+fn srgb(rgb_linear:vec3<f32>)->vec3<f32>{
+    let x=clamp(rgb_linear,vec3<f32>(0.),vec3<f32>(1.));
+    return select(1.055*pow(x,vec3<f32>(1./2.4))-vec3<f32>(.055),12.92*x,x<=vec3<f32>(.0031308));
 }
-fn linear(c:vec3<f32>)->vec3<f32>{
-    return select(pow((c+.055)/1.055,vec3<f32>(2.4)),c/12.92,c<=vec3<f32>(.04045));
+fn decode_srgb(c:vec3<f32>)->vec3<f32>{
+    return select(pow((c+vec3<f32>(.055))/1.055,vec3<f32>(2.4)),c/12.92,c<=vec3<f32>(.04045));
 }
 fn nearest(c:vec3<f32>)->u32{
     var best=0u; var score=1e8;
@@ -30,7 +30,7 @@ fn nearest(c:vec3<f32>)->u32{
     return best;
 }
 fn z_at(p:vec2<i32>)->f32{
-    return textureLoad(depth,clamp(p,vec2<i32>(0),vec2<i32>(textureDimensions(depth))-1),0);
+    return textureLoad(depth,clamp(p,vec2<i32>(0),vec2<i32>(textureDimensions(depth))-vec2<i32>(1)),0);
 }
 fn front_edge(p:vec2<i32>, offset:vec2<i32>)->bool{
     // Reverse-Z: a positive difference marks the near side. Symmetric slopes cancel.
@@ -39,7 +39,7 @@ fn front_edge(p:vec2<i32>, offset:vec2<i32>)->bool{
     return c-back>max(c*.005,1e-8) && c-back>1.8*abs(max(a,b)-c);
 }
 @fragment fn fragment(@builtin(position) pos:vec4<f32>)->@location(0) vec4<f32>{
-    let p=(vec2<i32>(pos.xy)/2)*2;
+    let p=(vec2<i32>(pos.xy)/vec2<i32>(2))*2;
     let offsets=array<vec2<i32>,4>(vec2(0,0),vec2(1,0),vec2(0,1),vec2(1,1));
     var votes:array<u32,4>;
     for(var i=0u;i<4u;i++){votes[i]=nearest(srgb(textureLoad(scene,p+offsets[i],0).rgb));}
@@ -57,5 +57,5 @@ fn front_edge(p:vec2<i32>, offset:vec2<i32>)->bool{
         }
     }
     let color=swatch(votes[winner])*select(1.,.72,edge);
-    return vec4<f32>(linear(color),1.);
+    return vec4<f32>(decode_srgb(color),1.);
 }
