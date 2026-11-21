@@ -72,3 +72,9 @@ python3 -I tools/pack/check_score.py "$out/open.json"
 ```
 
 Removing all 4,619 held-out arrival rows before rebuilding the weights gave the same weight file. It has SHA-256 `c247e549425e69bed0941019a36ad42866e35ce1b64501a842596da338fa16d4`. The team knew the 2023 historical target when it chose the L9 mechanism. The closure result is a retrospective comparison. [Combined run](https://discord.com/channels/1573514576400752640/1573579088684253235/1573674966774194279)
+
+## Line 2 extension check
+
+The unchanged L9 projection closes EB, OB, CM and PI at once. La Cisterna rises from 21,075.95 to 38,996.44 modeled boardings per weekday (+17,920.48). The four extension stations have 83,924 modeled boardings when open. We recorded these predictions before inspecting the historical result. [Registration](https://discord.com/channels/1573514576400752640/1573579088684253235/1573678534734381057)
+
+The April 2026 matched-bin comparison gives 83,664.43 modeled boardings against 60,255.60 observed (+38.8%) across the four extension stations. The April 2024 workbook reports 50,625 at those stations. At La Cisterna, the trend-adjusted historical opening difference is −86,642.45 in the published figures. The August 2023 workbook records separate entries for L2 and L4A. April 2024 has one station row. The available data do not establish a common definition of physical entries, so we cannot score the terminal change. [Line 2 source comparison](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/08ceb17/data/validation/metro_extension_2023/line2.md)
