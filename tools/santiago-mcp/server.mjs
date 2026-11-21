@@ -54,7 +54,9 @@ async function dispatch({ method, params }) {
       body: JSON.stringify(params.arguments),
     });
     if (!response.ok) throw new Error(await response.text());
-    return { content: [{ type: 'text', text: await response.text() }] };
+    // The trip groups are for the map. The agent does not need them.
+    const { trips_base, trips_scenario, ...result } = await response.json();
+    return { content: [{ type: 'text', text: JSON.stringify({ ...result, trips_omitted: true }) }] };
   } catch (error) {
     return { isError: true, content: [{ type: 'text', text: error.message }] };
   }

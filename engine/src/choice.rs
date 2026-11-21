@@ -1,3 +1,4 @@
+#![allow(dead_code)] // fields used by other binaries (choice_fit, choice_scenario)
 //! Comuna-level choice rules of a worker: where to work (gravity) and how to travel (3-way logit).
 //! Each rule is fitted on the baseline and keeps one residual factor per OD pair. Thus the baseline
 //! call returns the observed Census 2024 flows and shares, and a change in jobs or minutes moves them.

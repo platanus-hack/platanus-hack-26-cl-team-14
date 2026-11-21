@@ -2,7 +2,7 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
-use crate::population::{Person, Point, Population};
+use crate::population::{Person, Point, Population, sample_trips};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::StationModel;
 use crate::stations::access::StationAccess;
@@ -41,6 +41,8 @@ pub struct Scenario {
     model: StationModel,
     access: StationAccess,
     base: State,
+    /// Display groups of the baseline workers (population/trips.rs), for the map.
+    trips: Value,
     placed: Base,
     /// Per station and per comuna: id, name, longitude, latitude.
     stations: Vec<(String, String, f64, f64)>,
@@ -49,7 +51,7 @@ pub struct Scenario {
     ratio: Vec<f64>,
 }
 
-const ASSUMPTIONS: [&str; 8] = [
+const ASSUMPTIONS: [&str; 9] = [
     "Persons are synthetic and consistent with the Census 2024 margins. They are not microdata.",
     "The station model (L9) is fitted on the baseline. Its scale, classes and profiles do not change.",
     "Travel times are comuna to comuna and lower than survey times. The effect of a time change is an unvalidated sensitivity; the size and direction of its error are unknown.",
@@ -57,6 +59,7 @@ const ASSUMPTIONS: [&str; 8] = [
     "Open city for residents: more or fewer residents change the total of workers, with the baseline workers per resident of the comuna.",
     "Station access (L9): a walk within 1,000 m, or else one bus. A closed station does not change the travel minutes between comunas or the job choice.",
     "Students do not choose again.",
+    "Trips are display groups of workers, not persons. Departure half hours come from the EOD 2012 survey. Students are not included.",
     "All values are model values, not measured values.",
 ];
 
@@ -74,7 +77,7 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], choice, pop, model, access, stations, comunas };
+        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: json!(sample_trips(&pop, 300)), choice, pop, model, access, stations, comunas };
         sc.base = sc.state(&sc.pop, &sc.access.all_parent_ids());
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -258,6 +261,7 @@ impl Scenario {
                 "top_station_gains": gains, "top_station_losses": losses,
             },
             "stations": stations, "zones": zones, "flows": flows,
+            "trips_base": self.trips, "trips_scenario": sample_trips(&pop, 300),
             "assumptions": ASSUMPTIONS,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         })
