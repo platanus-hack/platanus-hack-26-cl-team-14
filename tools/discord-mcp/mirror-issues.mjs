@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { discordMessageId, ensureIssueComment, githubLogin } from "./discord-issue-comments.mjs";
+import { issueReplyText } from "./issue-reply-text.mjs";
 import { issueThreadReader } from "./issue-thread-page.mjs";
 import { issueActivity, issueActivityById } from "./issue-activity.mjs";
 import { discord } from "./rest.mjs";
@@ -139,12 +140,12 @@ async function deliver(batch) {
 function ownDiscordPost(message, number, thread) {
   if (thread.sent?.includes(message.id)) return true;
   if (message.author.id !== botId || message.webhook_id) return false;
-  if (message.content.includes(`\n-# GitHub · <${issueBase}${number}`) && message.content.endsWith(">")) return true;
+  if ((message.content ?? "").includes(`\n-# GitHub · <${issueBase}${number}`) && message.content.endsWith(">")) return true;
   if (state.batches.some(b => b.number === Number(number) && b.sending && b.content === message.content)) return true;
   // Identify the older one-way writer's posts when first reading an existing thread.
   const created = Number(BigInt(message.id) >> 22n) + 1420070400000;
   return created < state.reverseStarted && /^\S+ (abrió|comentó|cerró) #/.test(message.content)
-    && message.content.endsWith(">") && message.content.includes(`<${issueBase}${number}`);
+    && message.content.endsWith(">") && (message.content ?? "").includes(`<${issueBase}${number}`);
 }
 
 async function importReplies(number, thread, page) {
@@ -152,15 +153,18 @@ async function importReplies(number, thread, page) {
   do {
     messages = await page(thread.id, thread.after ?? thread.id);
     for (const message of messages) {
-      if (message.content && [undefined, 0, 19].includes(message.type) && !ownDiscordPost(message, number, thread)) {
-        const recovering = thread.importing === message.id;
-        thread.importing = message.id;
-        save();
-        const author = message.member?.nick || message.author.global_name || message.author.username;
-        const nodeId = await ensureIssueComment(number, message.id, redact(author), redact(message.content), recovering);
-        state.seen[nodeId] = Date.now();
-        delete thread.importing;
-        await sleep(1000);
+      if ([undefined, 0, 19].includes(message.type) && !ownDiscordPost(message, number, thread)) {
+        const content = await issueReplyText(thread.id, message);
+        if (content) {
+          const recovering = thread.importing === message.id;
+          thread.importing = message.id;
+          save();
+          const author = message.member?.nick || message.author.global_name || message.author.username;
+          const nodeIds = await ensureIssueComment(number, message.id, redact(author), redact(content), recovering);
+          for (const id of nodeIds) state.seen[id] = Date.now();
+          delete thread.importing;
+          await sleep(1000);
+        }
       }
       thread.after = message.id;
       thread.sent = (thread.sent ?? []).filter(id => BigInt(id) > BigInt(thread.after));

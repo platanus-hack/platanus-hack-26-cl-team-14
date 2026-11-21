@@ -1,7 +1,9 @@
 import { execFile } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 
 const issues = "repos/platanus-hack/platanus-hack-26-cl-team-14/issues";
-const markerPattern = /\r?\n\r?\n<!-- team14-discord-message:([1-9]\d{0,19}) -->$/;
+const markerPattern = /\r?\n\r?\n<!-- team14-discord-message:([1-9]\d{0,19})(?::[1-9]\d*)? -->$/;
+const commentLimit = 65_536;
 
 export function discordMessageId(body) {
   return body.match(markerPattern)?.[1];
@@ -26,15 +28,39 @@ export async function githubLogin() {
 
 export async function ensureIssueComment(number, messageId, author, content, recovering) {
   const endpoint = `${issues}/${number}/comments`;
-  const marker = `<!-- team14-discord-message:${messageId} -->`;
+  const source = `<!-- team14-discord-message:${messageId}`;
+  const previous = new Map();
   if (recovering) {
     const writer = JSON.stringify(await githubLogin());
-    const suffix = JSON.stringify("\n\n" + marker);
-    const filter = `.[] | select(.user.login == ${writer} and (.body | gsub("\\r\\n"; "\\n") | endswith(${suffix}))) | .node_id`;
+    const suffix = JSON.stringify(`\n\n${source}(:[1-9][0-9]*)? -->$`);
+    const filter = `.[] | select(.user.login == ${writer}) | (.body | gsub("\\r\\n"; "\\n")) as $body
+      | select($body | test(${suffix})) | [($body | split("\\n")[-1]), .node_id] | @tsv`;
     const matches = await ghApi([endpoint + "?per_page=100", "--paginate", "--jq", filter]);
-    if (matches) return matches.split("\n")[0];
+    for (const row of matches.split("\n")) {
+      const [marker, nodeId] = row.split("\t");
+      if (nodeId) previous.set(marker, nodeId);
+    }
   }
   const name = author.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-  const body = `<code>${name}</code> (Discord)\n\n${content}\n\n${marker}`;
-  return ghApi([endpoint, "--method", "POST", "--input", "-", "--jq", ".node_id"], JSON.stringify({ body }));
+  const shortHeader = `<code>${name}</code> (Discord)\n\n`;
+  const multipart = shortHeader.length + content.length + `\n\n${source} -->`.length > commentLimit;
+  const nodeIds = [];
+  let offset = 0;
+  do {
+    const part = nodeIds.length + 1;
+    const header = multipart ? `<code>${name}</code> (Discord, parte ${part})\n\n` : shortHeader;
+    const marker = multipart ? `${source}:${part} -->` : `${source} -->`;
+    const footer = "\n\n" + marker;
+    let end = Math.min(content.length, offset + commentLimit - header.length - footer.length);
+    if (end < content.length && /[\uD800-\uDBFF]/.test(content[end - 1])) end--;
+    let nodeId = previous.get(marker);
+    if (!nodeId) {
+      if (part > 1) await sleep(1000);
+      const body = header + content.slice(offset, end) + footer;
+      nodeId = await ghApi([endpoint, "--method", "POST", "--input", "-", "--jq", ".node_id"], JSON.stringify({ body }));
+    }
+    nodeIds.push(nodeId);
+    offset = end;
+  } while (offset < content.length);
+  return nodeIds;
 }
