@@ -42,12 +42,12 @@ Run: engine at this branch, `POST /api/scenario` with the two changes in `boat_l
 | Demand, trips to work per weekday | 3,510 | 942 |
 | Riders after the segment capacity cap | 3,510 | 942 |
 | Taken from public / car / other | 2,469 / 456 / 585 | 420 / 249 / 273 |
-| Busiest segment, daily on board | MAP06→MAP07, 2,395 | MAP03→MAP02, 245 |
-| Peak half hour (07:00–07:30) load on the busiest segment | 84 % of seats | 10 % of seats |
+| Busiest segment, modeled daily on board | MAP06→MAP07, 2,395 | MAP07→MAP06, 280 |
+| Peak half hour (07:00–07:30), modeled demand on the busiest segment / seats | 409 / 486 = 84 % | 48 / 486 = 10 % |
 | Busiest boarding / alighting pier | MAP06 1,159 / MAP08 1,476 | MAP08 212 / MAP06 242 |
 
 EOD 2012 reference ([mapocho/boat_trips.md](mapocho/boat_trips.md), same 17 km/h and 10 min): the boat beats the reported time on **36.8 %** of 51,929 weekday trips between any two piers (800 m each end), and 45.4 % when the piers are 3 km or more apart.
 
-Reading: the engine's faster share (7–8 %) is far **below** the EOD share, so the person-versus-comuna comparator does not inflate riders. The two measures differ: EOD compares with the time each person reported for any mode and purpose; the engine compares with the modeled public time of the comuna pair, for workers only, and includes short one-pier hops. The engine result is a modeled demand, not a forecast: no Mapocho boat survey exists.
+Reading: the engine's faster share (7–8 %) is far below the EOD share. This does not prove the comparator is unbiased, because the two measures differ: EOD compares with the time each person reported for any mode and purpose; the engine compares with the modeled public time of the comuna pair, for workers only, and includes short one-pier hops. The engine result is a modeled demand, not a forecast: no Mapocho boat survey exists.
 
-Story for the replay: about 4,450 trips to work per weekday. The eastbound morning boat between Santiago centro and Providencia carries 84 % of its seats at 07:00–07:30; the westbound boat stays at 10 % or less.
+Story for the replay: about 4,450 trips to work per weekday. Modeled demand on the busiest eastbound segment (Santiago centro → Providencia) is 84 % of seats at 07:00–07:30; the westbound boat stays at 10 % or less.
