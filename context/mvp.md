@@ -26,7 +26,7 @@ Keep this assumption explicit for the next human taste/direction checkpoint. Pro
 
 The Rust API, real-data pack, Tobalaba scenario and Santiago scene are merged. The [Release v1 checkpoint](https://discord.com/channels/1573514576400752640/1573566182496272506/1573596100990869565) records actual Chrome baseline/change/reset review, screenshots and limits. Use that checkpoint; do not post a duplicate release.
 
-Start the API with the [engine run instructions](../engine/README.md#rust-scenario-core). Serve the repository root with `python3 -m http.server 5173`, then open `http://localhost:5173/web/`. Data definitions and rebuild commands live in [the data README](../data/mvp/README.md).
+Start the API with the [engine run instructions](../engine/README.md#rust-scenario-core). In a second terminal, serve the repository root on a free port, for example `python3 -m http.server 5175`, then open `http://localhost:5175/web/`. If that port is occupied, choose another and update the URL. Data definitions and rebuild commands live in [the data README](../data/mvp/README.md).
 
 | Part | Owner | Current responsibility |
 | --- | --- | --- |

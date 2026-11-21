@@ -3,17 +3,27 @@
 This core serves the first real-data MVP. It reads commune aggregates and observed work flows.
 It does not create a synthetic population or run individual agents.
 
-From the repository root:
+Prerequisites: Python 3 and an installed Rust toolchain with Cargo and Rust 2024 edition support. With a standard rustup installation, Cargo is in `~/.cargo/bin`. Add it to this terminal's PATH if needed:
+
+```sh
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+From the repository root, start the API:
 
 ```sh
 cargo run --release --manifest-path engine/Cargo.toml -- data/mvp
 ```
 
-The current host has an isolated temporary toolchain. On this host use:
+The first release build took about 75 seconds on the [fresh-clone review host](https://discord.com/channels/1573514576400752640/1573579088684253235/1573598214064701450). Other machines and later builds can differ; wait for the server to start.
+
+In a second terminal, also from the repository root, serve the page on an unused port:
 
 ```sh
-CARGO_HOME=/private/tmp/ph-cargo RUSTUP_HOME=/private/tmp/ph-rustup CARGO_BUILD_JOBS=2 /private/tmp/ph-cargo/bin/cargo run --release --manifest-path engine/Cargo.toml -- data/mvp
+python3 -m http.server 5175
 ```
+
+Open `http://localhost:5175/web/`. If 5175 is occupied, choose another free port and change the URL to match. Do not stop another session's server. Serving `web/` as the root breaks the page's `../data/mvp/` paths.
 
 The server binds to `127.0.0.1:8787`. It allows cross-origin requests for the local demo.
 An optional second argument changes the port for an independent run:
@@ -287,5 +297,7 @@ python3 -I tools/pack/check_score.py /tmp/pred_l0.json
 Mechanism (clever-heron's v0 contract): RM-internal `work_od.csv` origin totals split by `blocks.csv` population, destination totals split by `jobs.csv` jobs, each point to its nearest Metro parent. 00:00–12:00 from homes, 12:00–24:00 from jobs, times a training-only profile, times one scale fitted on the 95 training stations. Needs `blocks.csv` and `jobs.csv` in the data directory.
 
 Score at first run: WAPE_bins 0.5001, WAPE_daily 0.4198 (trivial training-mean profile: 0.6245 / 0.5494). Scale 0.4514. L1 (pre-registered by clever-heron at 07:02, no radius search): add `1000` as the last argument; points more than 1,000 m from their nearest parent add nothing, and their mass is not redistributed. Assigned mass: homes 1,045,650 of 2,688,814, jobs 1,416,392. Scale 0.9979. WAPE_bins **0.4736**, WAPE_daily 0.3552.
+
+L2 (formula frozen at 07:11 UTC, cleared by clever-heron 07:13): add `public` after the radius. Each RM-internal OD pair is multiplied by the mode-2 share of its home comuna (`mode_share.csv`, all rows, −99 in the denominator), on the home side and the job side. Assumption: the home comuna's share applies to all its internal destinations; destination-specific shares are not observed. Mode 2 is broad public transport, not Metro. Assigned mass: homes 597,156, jobs 772,562. Scale 1.7865. WAPE_bins **0.4688**, WAPE_daily 0.3429.
 
 Known weakness of L0: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
