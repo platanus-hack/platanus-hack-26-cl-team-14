@@ -43,6 +43,13 @@ impl Pattern {
             && self.drop_off_type == other.drop_off_type
     }
 
+    fn same_timing(&self, other: &Self) -> bool {
+        self.stop_ids == other.stop_ids
+            && self.segment_minutes == other.segment_minutes
+            && self.dwell_minutes == other.dwell_minutes
+            && self.headway_minutes == other.headway_minutes
+    }
+
     fn call_times(&self) -> Vec<[f64; 2]> {
         let mut departure = 0.0;
         let mut calls = vec![[-self.dwell_minutes[0], departure]];
@@ -225,8 +232,8 @@ impl LineEdits<'_> {
         let after = match (op, before) {
             ("remove", Some(_)) => None,
             ("add", None) | ("set" | "move", Some(_)) => {
-                let template = before.or_else(|| self.catalog.pack.lines.get(id));
-                Some(self.updated(raw, template)?)
+                let original = self.catalog.pack.lines.get(id);
+                Some(self.updated(raw, before.or(original), original)?)
             }
             ("add", Some(_)) => return Err(format!("Line {id} already exists.")),
             ("remove" | "set" | "move", None) => return Err(format!("Unknown line ID: {id}.")),
@@ -285,7 +292,12 @@ impl LineEdits<'_> {
         }))
     }
 
-    fn updated(&self, raw: &Value, before: Option<&Pattern>) -> Result<Pattern, String> {
+    fn updated(
+        &self,
+        raw: &Value,
+        before: Option<&Pattern>,
+        original: Option<&Pattern>,
+    ) -> Result<Pattern, String> {
         let properties = &raw["properties"];
         let mut fields = match before {
             Some(pattern) => json!({
@@ -405,16 +417,13 @@ impl LineEdits<'_> {
         } else if !stops_changed {
             pattern.geometry = before.and_then(|pattern| pattern.geometry.clone());
         }
-        pattern.schedules = match before {
-            Some(previous) if pattern.headway_minutes == previous.headway_minutes => {
-                if pattern.stop_ids == previous.stop_ids
-                    && pattern.segment_minutes == previous.segment_minutes
-                    && pattern.dwell_minutes == previous.dwell_minutes
-                {
-                    previous.schedules.clone()
-                } else {
-                    Arc::new(pattern.retime(previous))
-                }
+        let matching = original
+            .filter(|original| pattern.same_timing(original))
+            .or_else(|| before.filter(|before| pattern.same_timing(before)));
+        pattern.schedules = match (matching, before) {
+            (Some(matching), _) => matching.schedules.clone(),
+            (None, Some(previous)) if pattern.headway_minutes == previous.headway_minutes => {
+                Arc::new(pattern.retime(previous))
             }
             _ => Arc::new(
                 pattern
