@@ -7,16 +7,17 @@ mod stations;
 use axum::{
     Json, Router,
     extract::State,
+    http::StatusCode,
     response::sse::{Event, KeepAlive, Sse},
     routing::{get, post},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use std::{path::Path, sync::Arc};
 use tower_http::cors::CorsLayer;
 
 struct Core {
-    latest: std::sync::Mutex<(u64, serde_json::Value)>,
-    scenario_events: tokio::sync::watch::Sender<serde_json::Value>,
+    scenario_events: tokio::sync::watch::Sender<Value>,
     scenario: scenario::Scenario,
 }
 
@@ -25,21 +26,78 @@ struct GeneralScenarioRequest {
     changes: Vec<serde_json::Value>,
 }
 
-impl Core {
-    fn publish(&self, mut result: serde_json::Value) -> serde_json::Value {
-        let mut latest = self.latest.lock().unwrap();
-        result["revision"] = serde_json::json!(latest.0 + 1);
-        *latest = (latest.0 + 1, result.clone());
-        self.scenario_events.send_replace(result.clone());
-        result
-    }
+#[derive(Deserialize, Serialize)]
+struct ScenePlace {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    longitude: f64,
+    latitude: f64,
+}
+
+#[derive(Deserialize)]
+struct SceneRequest {
+    place: ScenePlace,
+    half_hour: u8,
+}
+
+fn next_revision(snapshot: &Value) -> u64 {
+    snapshot["revision"].as_u64().unwrap_or(0) + 1
 }
 
 async fn general_scenario(
     State(core): State<Arc<Core>>,
     Json(request): Json<GeneralScenarioRequest>,
-) -> Json<serde_json::Value> {
-    Json(core.publish(core.scenario.run(&request.changes)))
+) -> Json<Value> {
+    let mut result = core.scenario.run(&request.changes);
+    core.scenario_events.send_modify(|latest| {
+        result["revision"] = json!(next_revision(latest));
+        if let Some(scene) = latest.get("scene") {
+            result["scene"] = scene.clone();
+        }
+        *latest = result.clone();
+    });
+    Json(result)
+}
+
+async fn set_scene(
+    State(core): State<Arc<Core>>,
+    Json(request): Json<SceneRequest>,
+) -> Result<Json<Value>, (StatusCode, &'static str)> {
+    let place = request.place;
+    let named_place = matches!(place.kind.as_str(), "station" | "place" | "comuna" | "line")
+        && place.id.as_ref().is_some_and(|id| !id.is_empty());
+    if place.kind != "point" && !named_place {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Use a point or a station, place, comuna or line with its catalog id.",
+        ));
+    }
+    if request.half_hour >= 48
+        || !(-180.0..=180.0).contains(&place.longitude)
+        || !(-90.0..=90.0).contains(&place.latitude)
+    {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Use WGS84 coordinates and a half_hour from 0 to 47.",
+        ));
+    }
+
+    let needs_base = core.scenario_events.borrow().is_null();
+    let baseline = needs_base.then(|| core.scenario.run(&[]));
+    let mut response = Value::Null;
+    core.scenario_events.send_modify(|latest| {
+        let revision = next_revision(latest);
+        if latest.is_null() {
+            *latest = baseline.unwrap();
+        }
+        let scene = json!({"revision": revision, "place": place, "half_hour": request.half_hour});
+        latest["scene"] = scene.clone();
+        latest["revision"] = json!(revision);
+        response = json!({"revision": revision, "scene": scene});
+    });
+    Ok(Json(response))
 }
 
 async fn scenario_events(
@@ -74,7 +132,6 @@ async fn main() {
     let directory = args.next().unwrap_or_else(|| "data/mvp".to_owned());
     let port = args.next().unwrap_or_else(|| "8787".to_owned());
     let core = Arc::new(Core {
-        latest: std::sync::Mutex::new((0, serde_json::Value::Null)),
         scenario_events: tokio::sync::watch::channel(serde_json::Value::Null).0,
         scenario: scenario::Scenario::load(Path::new(&directory)),
     });
@@ -82,10 +139,11 @@ async fn main() {
         .route(
             "/api/scenario-latest",
             get(|State(core): State<Arc<Core>>| async move {
-                let result = core.latest.lock().unwrap().1.clone();
+                let result = core.scenario_events.borrow().clone();
                 ([("cache-control", "no-store")], Json(result))
             }),
         )
+        .route("/api/scene", post(set_scene))
         .route("/api/scenario-events", get(scenario_events))
         .route("/api/scenario", post(general_scenario))
         .layer(CorsLayer::permissive())
