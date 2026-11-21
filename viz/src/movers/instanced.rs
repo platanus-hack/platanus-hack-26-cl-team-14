@@ -59,8 +59,10 @@ impl Plugin for MarksPlugin {
             .add_systems(Render, upload.in_set(RenderSystems::PrepareResources))
             .add_systems(
                 Core3d,
-                draw.after(Core3dSystems::MainPass)
-                    .before(Core3dSystems::EarlyPostProcess),
+                draw.in_set(Core3dSystems::MainPass)
+                    .in_set(crate::pixels::CityMarks)
+                    .after(bevy::core_pipeline::core_3d::main_opaque_pass_3d)
+                    .before(bevy::core_pipeline::core_3d::main_transparent_pass_3d),
             );
     }
 }
