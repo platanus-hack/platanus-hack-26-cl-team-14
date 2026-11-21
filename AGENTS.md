@@ -58,6 +58,9 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 ## Work rules
 
+- **Rust simulation core.** Implement the simulation core in Rust for efficiency.
+  See [the decision](context/decisions/20261121-0247-rust-simulation-core.md).
+
 - **No tests.** It is a hackathon. All the effort goes into the product.
   Before a release, run the demo by hand and make sure that it works.
 - **No defensive code.** Write only the happy path that the demo uses.
