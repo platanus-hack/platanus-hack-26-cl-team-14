@@ -84,4 +84,4 @@ The 2024 source is already restricted to work-location codes 2/3 and known domes
 The off-diagonal restriction avoids comparing those mixed diagonal populations, but does not establish full-matrix cohort equivalence.
 Follow [INE methodology §§3.3–3.6](https://storage.googleapis.com/bktdescargascenso2024/Conmutacion_Laboral_cpv2024.pdf) for remaining employment, destination and residence assumptions.
 `comparison_manifest.json` records actual hashes, dense/positive cells, included/excluded counts and source limits; unknown retrieval UTC remains null.
-This prepares data only. Conditional benchmarking still needs a frozen, separately reviewed information boundary before any model score.
+This prepares data only. The [first frozen conditional run](../../../context/research/santiago-temporal-allocation-first-run.md) reports outcomes and limits under a separately preregistered information boundary.

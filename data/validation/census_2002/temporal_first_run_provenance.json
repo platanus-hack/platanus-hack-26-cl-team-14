@@ -1,0 +1,21 @@
+{
+  "first_run": true,
+  "model_commit": "6f9daa650491bf0cce15b534645129c57ad77840",
+  "model_sha256": "dbc22314c4391594d3ce71ad2d7809750cd2d6e922a4888f64b310057004be6d",
+  "actual_inputs_sha256": {
+    "intercommunal_2002.csv": "9ce6a30aa279a867fbb8dbd0f2180fdf9d0fbf66564be61f2dc32dfdbbb928ef",
+    "intercommunal_2024.csv": "71b81b3715d00485218f11f37aa4118877387f3e89c8878395203e752c6f2b6e"
+  },
+  "comparison_manifest_sha256": "23be21b4a14a01321fd84ac9a95e14a204fc7d29ff952cc52644aad8fc357319",
+  "started_at_utc": "2026-11-21T07:50:30.327485+00:00",
+  "finished_at_utc": "2026-11-21T07:50:30.871702+00:00",
+  "wall_seconds_including_process_and_json": 0.5441419999999999,
+  "output_sha256": "8090023718971dfdce36922c8db321a88b3f202744008c66ae2e353de313c59e",
+  "fixed_before_run": true,
+  "preregistration_pr": 54,
+  "command": [
+    "engine/target/release/historical_od",
+    "data/validation/census_2002",
+    "/private/tmp/santiago-temporal-first-run/result.json"
+  ]
+}
