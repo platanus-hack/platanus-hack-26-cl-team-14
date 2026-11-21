@@ -59,8 +59,12 @@
 </div>
 
 <div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
-<div id="delta" class="box t"><span id="dv"></span><small>subidas al día · cambio · modelo</small>
-  <div id="car" style="font-size:64px;margin-top:14px"></div><small id="cark"></small></div>
+<div id="delta" class="box t"><span id="dv"></span><small>Cambio de subidas al día, modelo</small>
+  <div style="display:flex;justify-content:flex-end;gap:32px;margin-top:14px;font-size:64px">
+    <div><span id="car"></span><small>en auto</small></div>
+    <div><span id="public"></span><small>en transporte público</small></div>
+  </div>
+  <small>Nuevos residentes: personas que salen al día<br>Supuesto: reparto modal de Las Condes</small></div>
 <script>
 const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
 const API = 'http://localhost:8787/api/';
@@ -132,10 +136,10 @@ function siteScenario() {
     $('dv').textContent = site ? (dd > 0 ? '+' : '') + fmt(dd) : '';
     $('dv').className = dd > 0 ? 'more' : 'less';
     $('delta').style.display = site ? 'block' : 'none';
-    // the engine splits the new residents by mode (Census 2024 comuna shares); code 1 is the car
     const car = site && site.resident_commuters_by_mode && site.resident_commuters_by_mode.find(m => m.mode_code == 1);
-    $('car').textContent = car ? '+' + fmt(car.daily_home_departures) : '';
-    $('cark').innerHTML = car ? 'salen en auto al día<br>supuesto de transferencia' : '';
+    const publicTransport = site && site.resident_commuters_by_mode && site.resident_commuters_by_mode.find(m => m.mode_code == 2);
+    $('car').textContent = car ? fmt(car.daily_home_departures) : '';
+    $('public').textContent = publicTransport ? fmt(publicTransport.daily_home_departures) : '';
     draw();
   });
 }
