@@ -71,7 +71,7 @@ The server speaks MCP on stdin and stdout. Usually the agent tool starts it.
 
 The inbox connects to the Discord Gateway and stores messages in private JSONL files in the system temp directory. It watches the Agents channels, `general`, and their public threads. It excludes `secrets`. Port 43871 on loopback reserves one writer on this laptop.
 
-In Juan’s session, a Paseo heartbeat wakes the orchestrator once per minute. The orchestrator reads the local inbox files, keeps the last message ID it saw for each channel or thread, and uses Discord MCP to post receipt reactions. This schedule does not meet the three-second inbox check interval in the [Discord interaction rules](../../context/discord-interaction.md#patterns-for-an-orchestrator).
+In Juan’s session, a Paseo heartbeat wakes the orchestrator once per minute. The orchestrator reads the local inbox files, keeps one last-seen message ID for the entire mailbox, and uses Discord MCP to post receipt reactions. The [Discord interaction rules](../../context/discord-interaction.md#patterns-for-an-orchestrator) call for a three-second inbox check and a separate last-seen ID for each channel or thread. The current heartbeat falls short of both targets.
 
 Each MCP client keeps its own unread cursor. It checks local files every 15 seconds and returns up to 50 unread messages per tool call. Call `poll_messages` to drain the rest. The client also sends an MCP log notification. The host decides when to wake an idle agent.
 
