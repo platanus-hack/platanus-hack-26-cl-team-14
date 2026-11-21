@@ -958,3 +958,23 @@ osmium export -u type_id --geometry-types=polygon -f geojsonseq buildings.osm.pb
 cd ../../..
 python3 -I tools/pack/city_footprints.py
 ```
+
+### Higher education enrollment
+
+`higher_ed.csv` contains all 137 SIES campus groups in the Metropolitan Region for 2026.
+The July 10 release has 805,359 registrations across undergraduate, graduate and post-title programs.
+The three modality columns sum to `enrollment`: 523,602 in person, 36,806 hybrid and 244,951 remote.
+Each registration belongs to the reported campus. It does not establish residence, attendance on April 15 or a Metro trip.
+[MINEDUC/SIES enrollment release](https://www.mifuturo.cl/bases-de-datos-de-matriculados/)
+
+Run `python3 tools/pack/higher_ed.py` from the repository root with curl and bsdtar installed.
+The builder downloads aggregate program counts and geocoded teaching addresses into ignored `data/raw/higher_ed/`.
+It groups program counts by institution, campus and reported comuna CUT. Coordinates use WGS84 longitude and latitude.
+The ministry geocoded SIES addresses in October 2020. Campus names must match within the institution and comuna.
+For several matching buildings within 500 m, the builder selects the building with the smallest total distance to the others.
+A blank point means the campus has only remote registrations or the builder could not identify one teaching location.
+A verified address uses the institution page and geocode recorded in [the address table](../../tools/pack/higher_ed_addresses.csv).
+The campus point represents a site. Students can attend other buildings.
+[MINEDUC geocoded teaching addresses](https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6)
+
+This version places 58 campus groups. The 79 groups with empty coordinates include 12 fully remote groups.
