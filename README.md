@@ -72,3 +72,7 @@ baseline. An empty list restores the baseline.
 The city domain lives in `engine/src/city.rs`. It jointly applies the housing
 and jobs changes to the same Santiago population and commute flows. The local
 MCP server forwards the request to Rust. The browser renders the saved result.
+
+Keep the browser and your local Codex or Claude session side by side. Ask
+questions in the agent and use the browser as the city canvas. Use
+`http://127.0.0.1:5173/web/?demo=1` to open the rehearsal controls.
