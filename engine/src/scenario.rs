@@ -181,6 +181,16 @@ impl Scenario {
                 continue;
             }
             let ch = &serde_json::from_value::<Change>(raw.clone()).unwrap();
+            // A block id from the chat can be absent from the table of its kind (the MUT is a job block, not a home block).
+            if let (Target::Block { id }, Kind::Jobs | Kind::Residents) = (&ch.target, ch.kind) {
+                let table = if matches!(ch.kind, Kind::Jobs) { &pop.jobs } else { &pop.homes };
+                if !table.iter().any(|p| p.id == *id) {
+                    let mut v = raw.clone();
+                    v["reason"] = json!(format!("Block {id} has no {} in the data. Use a point or a comuna target.", if matches!(ch.kind, Kind::Jobs) { "jobs" } else { "residents" }));
+                    not_modeled.push(v);
+                    continue;
+                }
+            }
             let op = |x: f64| match ch.op { Op::Add => x + ch.value, Op::Multiply => x * ch.value, Op::Set => ch.value }.max(0.0);
             let mut note = serde_json::to_value(ch).unwrap();
             // The points of the target (indices into pop.jobs or pop.homes) and its comuna. A point target is the point at these coordinates (6 decimals), the nearest point within 500 m for a change that gives 0 on an empty point, or else a new point.
