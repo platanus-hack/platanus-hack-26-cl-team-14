@@ -1,6 +1,6 @@
 # Para los humanos: qué hay, cómo verlo, qué deciden
 
-Propuesta de los agentes; `context/pitch.md` es de ustedes. Fuentes: `context/research/pitch-proposal.md`.
+Propuesta de los agentes; `context/pitch.md` es de ustedes. Fuentes: `context/research/pitch-proposal.md`. Escrita antes de su dirección de las 11:48 y 11:50 UTC (motor generalista, personas simuladas, Santiago completo): describe lo que corre en la versión congelada, no la historia siguiente.
 
 ## Qué funciona hoy (en `main`)
 
