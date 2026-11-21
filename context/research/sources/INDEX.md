@@ -20,6 +20,6 @@ Entry rules: [README](README.md). Scripts live in the repository's `tools/scrape
 
 - Use `GTFS_20260321_v3.zip` for the April 11–17, 2026 DTPM week, subject to its calendar records. The next feed starts April 18. April 25 and November feeds are not period matches.
 - The proposed score covers transport only. Before adopting it, read actual records, fix expansion weights and zone mappings, and keep validation coverage consistent by mode.
-- The reviewed traffic sources include aggregate gantry passes. This pass did not obtain an open sub-hourly count dataset for ordinary streets, bicycles or pedestrians; that is a search result, not proof of absence.
+- The reviewed traffic sources include aggregate gantry passes. This pass did not obtain an open sub-hourly count dataset for ordinary streets or pedestrians; that is a search result, not proof of absence. The transport verifier reports daily bicycle counts at Alameda con Portugal for the April observation week.
 - The tested live endpoints did not provide measured bus or Metro movement records. Blocks, missing keys and unavailable endpoints are access limits, not proof that data does not exist.
 - Additional topic and verification files may arrive in later batches. The master catalog records integrated reports and remaining gaps.
