@@ -38,7 +38,7 @@ impl Plugin for MoversPlugin {
         app.add_systems(Startup, setup)
             .add_systems(Update, levels::toggle_tracks)
             .init_resource::<Replay>()
-            .add_systems(Update, (read_result, draw).chain());
+            .add_systems(Update, (read_result, draw, stations::position_closed_signs).chain());
     }
 }
 
@@ -569,7 +569,10 @@ struct Replay {
 }
 
 fn read_result(
+    mut commands: Commands,
+    signs: Query<Entity, With<stations::ClosedSign>>,
     time: Res<Time>,
+    rate: Res<PlaybackRate>,
     result: Res<Scenario>,
     routes: Res<Routes>,
     fleet: Res<fleet::Fleet>,
@@ -594,7 +597,7 @@ fn read_result(
             .rev()
             .max_by(|&a, &b| boardings[a].total_cmp(&boardings[b]))
             .unwrap();
-        peak as f32 * BIN - time.elapsed_secs() * CITY_SECONDS_PER_SECOND
+        peak as f32 * BIN - time.elapsed_secs() * rate.0
     });
     let mut closed = std::collections::HashSet::new();
     for change in r["applied"].as_array().into_iter().flatten().filter(|c| c["kind"] == "station") {
@@ -611,6 +614,12 @@ fn read_result(
         } else {
             closed.remove(id);
         }
+    }
+    for entity in &signs {
+        commands.entity(entity).despawn();
+    }
+    for station in stations.iter().filter(|s| closed.contains(s["id"].as_str().unwrap())) {
+        stations::spawn_closed_sign(&mut commands, station);
     }
     let mut deltas = HashMap::new();
     for d in r["trips_delta"].as_array().into_iter().flatten() {
@@ -805,6 +814,9 @@ fn sprite_stack(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2]) -> (Mesh, 
 #[derive(Resource)]
 struct FixedClock(Option<f32>);
 
+#[derive(Resource)]
+struct PlaybackRate(f32);
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -816,6 +828,11 @@ fn setup(
             .expect("SANTIAGO_CLOCK_SECONDS must be seconds after midnight")
     });
     commands.insert_resource(FixedClock(seconds));
+    let rate = std::env::var("SANTIAGO_PLAYBACK_RATE").map_or(CITY_SECONDS_PER_SECOND, |s| {
+        s.parse().expect("SANTIAGO_PLAYBACK_RATE must be a number")
+    });
+    assert!(rate.is_finite() && rate > 0., "Playback rate must be finite and positive");
+    commands.insert_resource(PlaybackRate(rate));
     let person = shape([
         block([0.44, 0.58, 0.51], [0., 0.3, 0.], GLASS),
         coat([0., 1.12, 0.], [36, 134, 171]),
@@ -1001,6 +1018,7 @@ fn draw(
     replay: Res<Replay>,
     rig: Res<crate::Rig>,
     clock: Res<FixedClock>,
+    rate: Res<PlaybackRate>,
     subway: Res<crate::city::SubwayView>,
     routes: Res<Routes>,
     models: Res<Models>,
@@ -1030,7 +1048,7 @@ fn draw(
     // Anchor the accelerated playback to the first result's peak across scenario revisions.
     let now = clock
         .0
-        .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs() * CITY_SECONDS_PER_SECOND)
+        .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs() * rate.0)
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
@@ -1183,7 +1201,7 @@ fn draw(
         }
     }
     for station in &replay.platforms {
-        station.draw(now, subway.0, &visible, &mut place);
+        station.draw(now, subway.0, eye, &visible, &mut place);
     }
     for batch in pool.0.values() {
         for &id in &batch.entities[batch.used..] {
