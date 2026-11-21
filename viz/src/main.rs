@@ -1,6 +1,7 @@
 mod chart;
 mod city;
 mod focus;
+mod label;
 mod movers;
 mod net;
 mod pixels;
@@ -339,6 +340,7 @@ fn main() -> AppExit {
             MiniatureCamera,
             net::NetPlugin,
             chart::ChartPlugin,
+            label::LabelPlugin,
             movers::MoversPlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,
