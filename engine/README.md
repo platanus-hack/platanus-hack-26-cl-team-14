@@ -405,3 +405,38 @@ For the UI pair, raw 48-bin sums are base 47816.87452620005 and scenario 43838.2
 these differ from the same-observed-mask daily values and must not replace them.
 Evidence with actual requests and all 48-bin responses: `/private/tmp/station-route-http-run`.
 Temporary servers PID 15887 and 15931 stopped after their runs. No station module, artifact or fit parameters were changed.
+
+### Reproduce the MUT block and flow projection
+
+This scenario removes all 4,679 modeled jobs from block `13114131009033`.
+It puts 298 new dwellings at the job point. The Las Condes apartment-block inputs give
+298 × 0.9251 × 2.0847 = 574.7096790600001 residents. The exact station input is in
+[`mut_block_stock.json`](examples/mut_block_stock.json).
+
+From the repo root, build both binaries. Start the API on an unused port in one terminal.
+
+```sh
+cargo build --release --manifest-path engine/Cargo.toml --bin santiago-scenario-core --bin station_flows
+engine/target/release/santiago-scenario-core data/mvp 8894
+```
+
+In a second terminal, request the changed Las Condes flows and project both states.
+Set the URL to the port from the first terminal.
+
+```sh
+run_dir=$(mktemp -d)
+curl -fsS http://127.0.0.1:8894/api/simulate -H 'Content-Type: application/json' \
+  -d '{"zone_id":"13114","jobs_multiplier":0.9847,"housing_multiplier":1.0023}' |
+  jq -r '(["origin_cut","destination_cut","workers"], (.flows[] | [.origin,.destination,.workers])) | @csv' > "$run_dir/flows.csv"
+engine/target/release/station_flows data/mvp data/mvp/work_od.csv "$run_dir/base.json"
+engine/target/release/station_flows data/mvp "$run_dir/flows.csv" "$run_dir/changed.json" "$(cat engine/examples/mut_block_stock.json)"
+jq -s 'def network: map(add) | add; {
+  tobalaba: ((.[1]["TB-TOB"] | add) - (.[0]["TB-TOB"] | add)),
+  network: ((.[1] | network) - (.[0] | network))
+}' "$run_dir/base.json" "$run_dir/changed.json"
+```
+
+Each file contains 48 half-hours for each of 126 GTFS parent IDs. The model projects
+2,700.9 fewer weekday boardings at Tobalaba and 1,655.7 fewer across the network.
+These are scenario estimates. When comparing hosts, check for equal values within
+the existing tolerance of 1e-9 boardings per half-hour.
