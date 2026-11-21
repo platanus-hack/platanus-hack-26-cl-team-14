@@ -134,7 +134,7 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
 
 fn mapocho(tiles: &mut GroundTiles, root: &Path) {
     let fc = read_geojson(&root.join("web/data/mapocho_detail.geojson"));
-    let mut extent = Vec2::new(f32::INFINITY, f32::NEG_INFINITY);
+    let mut banks = Vec::new();
     for feature in fc["features"].as_array().unwrap() {
         let props = &feature["properties"];
         let shape = &feature["geometry"]["coordinates"];
@@ -142,11 +142,8 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
         if kind == "water" {
             for polygon in shape.as_array().unwrap() {
                 let rings = open_rings(polygon);
-                for p in &rings[0] {
-                    extent.x = extent.x.min(p.x);
-                    extent.y = extent.y.max(p.x);
-                }
                 super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, 0.08, WATER);
+                banks.push(rings[0].clone());
             }
         } else if kind == "bridge" {
             let points = coordinates(shape);
@@ -168,31 +165,44 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
             );
         }
     }
-    // Keep the mapped river symbol beyond the detailed pack's west and east bounds.
-    // The committed centerline crosses each bound once; each exterior reach is contiguous.
+    // Keep each outer river symbol up to its first actual meeting with a detailed bank.
+    // Only exterior rings stop the symbol: the central islands keep their holes.
     let landmarks = read_geojson(&root.join("web/data/santiago_landmarks.geojson"));
     for feature in landmarks["features"].as_array().unwrap() {
         if feature["properties"]["kind"] != "river" {
             continue;
         }
-        let points = coordinates(&feature["geometry"]["coordinates"]);
-        for (bound, sign) in [(extent.x, -1.0), (extent.y, 1.0)] {
-            let outside = |p: Vec3| (p.x - bound) * sign > 0.0;
-            let mut reach = Vec::new();
+        let mut points = coordinates(&feature["geometry"]["coordinates"]);
+        for _ in 0..2 {
+            let mut reach = vec![points[0]];
             for pair in points.windows(2) {
                 let (a, b) = (pair[0], pair[1]);
-                if outside(a) {
-                    reach.push(a);
+                let start = Vec2::new(a.x, a.z);
+                let step = Vec2::new(b.x - a.x, b.z - a.z);
+                let mut meeting = f32::INFINITY;
+                for bank in &banks {
+                    for (c, d) in bank.iter().zip(bank.iter().cycle().skip(1)).take(bank.len()) {
+                        let edge = Vec2::new(d.x - c.x, d.z - c.z);
+                        let denominator = step.perp_dot(edge);
+                        if denominator == 0.0 {
+                            continue;
+                        }
+                        let offset = Vec2::new(c.x, c.z) - start;
+                        let t = offset.perp_dot(edge) / denominator;
+                        let u = offset.perp_dot(step) / denominator;
+                        if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
+                            meeting = meeting.min(t);
+                        }
+                    }
                 }
-                if outside(a) != outside(b) {
-                    reach.push(a.lerp(b, (bound - a.x) / (b.x - a.x)));
+                if meeting <= 1.0 {
+                    reach.push(a.lerp(b, meeting));
+                    break;
                 }
-            }
-            let last = *points.last().unwrap();
-            if outside(last) {
-                reach.push(last);
+                reach.push(b);
             }
             ribbon(tile_for(tiles, reach[0]), &reach, 15.0, 0.08, WATER);
+            points.reverse();
         }
     }
 }
