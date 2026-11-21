@@ -223,6 +223,7 @@ fn person_pose(
     line: &Line,
     t: &Trip,
     age: f32,
+    deck_rows: usize,
     paths: &HashMap<String, access::AccessPath>,
 ) -> Option<Transform> {
     let from = paths.get(&line.stops[t.on].id);
@@ -230,7 +231,7 @@ fn person_pose(
     let seat = Vec3::new(
         -1.95 + (t.seat % 4) as f32 * 1.3,
         1.30,
-        -1.9 + ((t.seat / 4) % 10) as f32 * 0.77,
+        -1.9 + (t.seat / 4) as f32 * (7.0 / deck_rows.saturating_sub(1).max(1) as f32).min(1.3),
     );
     let deck = |time| boat_pose(line, time).transform_point(seat);
     let p = if age < t.board_at {
@@ -305,6 +306,7 @@ fn animate(
                         &d.line,
                         &sailing.trips[trip],
                         age(now, sailing.start),
+                        sailing.deck_rows,
                         &symbols.access,
                     )
                 }

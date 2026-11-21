@@ -18,6 +18,7 @@ pub(super) struct Trip {
 pub(super) struct Sailing {
     pub start: f32,
     pub trips: Vec<Trip>,
+    pub deck_rows: usize,
 }
 
 fn cumulative(stops: &[&Value], field: &str) -> Vec<f64> {
@@ -100,13 +101,32 @@ pub(super) fn schedule(line: &Line, row: Option<&Value>) -> Vec<Sailing> {
                     off,
                     board_at,
                     leave_at,
-                    seat: serial - drawn,
+                    seat: 0,
                     wait: 7. + 35. * fraction,
                 });
             }
             drawn = target;
         }
-        runs.push(Sailing { start, trips });
+        // Keep a place on deck until its passenger has finished disembarking.
+        trips.sort_by(|a, b| a.board_at.total_cmp(&b.board_at));
+        let mut occupied_until = Vec::<f32>::new();
+        for t in &mut trips {
+            t.seat = occupied_until
+                .iter()
+                .position(|&end| end <= t.board_at)
+                .unwrap_or(occupied_until.len());
+            let free_at = t.leave_at + super::CROSSING;
+            if t.seat == occupied_until.len() {
+                occupied_until.push(free_at);
+            } else {
+                occupied_until[t.seat] = free_at;
+            }
+        }
+        runs.push(Sailing {
+            start,
+            trips,
+            deck_rows: occupied_until.len().div_ceil(4),
+        });
         start += line.headway;
     }
     runs
