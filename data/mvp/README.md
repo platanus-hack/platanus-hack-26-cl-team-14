@@ -689,3 +689,11 @@ Four causes of the gap, and they do not all point the same way:
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
+
+## jobs_2026.csv
+
+Experimental destination weights for each job point, in the order of `jobs.csv`. The `jobs` column contains a relative weight. Keep the census totals for each comuna when allocating workers. The weights reflect transit use as well as job density.
+
+Run `python3 -I tools/pack/jobs_2026.py` with the [April 15 arrival groups](../validation/trip_purpose_2026_04/README.md). The builder assigns each point to its nearest training station within 500 m. For each of the 95 training stations it divides the station's share of expanded work arrivals by its share of assigned job mass. That ratio multiplies the point's original weight. Points outside the radius keep their weights. The builder uses no boardings or held-out arrivals.
+
+The frozen L4b run used the candidate file as its jobs input in an isolated directory. Across 31 held-out stations and 1,123 observed half-hours, absolute error fell from 254,347.44 to 252,057.91 boardings. Half-hour WAPE fell from 0.4459345830 to 0.4419204606. Tobalaba, a training station, rose from 41,702.00 to 56,543.75 predicted boardings across the observed bins. The observed sum was 81,612.80.
