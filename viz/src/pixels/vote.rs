@@ -1,15 +1,24 @@
 use bevy::{
-    core_pipeline::{
-        Core3d, Core3dSystems, FullscreenShader, tonemapping::tonemapping, upscaling::upscaling,
-    },
+    core_pipeline::{Core3d, Core3dSystems, FullscreenShader, core_3d::main_transparent_pass_3d},
     prelude::*,
     render::{
-        RenderApp,
+        Extract, ExtractSchedule, RenderApp,
         render_resource::*,
         renderer::{RenderContext, ViewQuery},
         view::{ViewDepthStencilTexture, ViewTarget},
     },
 };
+
+#[derive(Resource, Default)]
+struct DarkPaper(bool);
+
+fn extract_paper(
+    night: Extract<Res<crate::Night>>,
+    subway: Extract<Res<crate::city::SubwayView>>,
+    mut paper: ResMut<DarkPaper>,
+) {
+    paper.0 = night.0 || subway.0;
+}
 
 #[derive(Resource)]
 struct VotePass {
@@ -34,11 +43,13 @@ pub fn install(app: &mut App) {
     );
     app.sub_app_mut(RenderApp)
         .insert_resource(VotePass { shader, layout })
+        .init_resource::<DarkPaper>()
+        .add_systems(ExtractSchedule, extract_paper)
         .add_systems(
             Core3d,
-            draw.in_set(Core3dSystems::PostProcess)
-                .after(tonemapping)
-                .before(upscaling),
+            draw.in_set(Core3dSystems::MainPass)
+                .after(crate::pixels::CityMarks)
+                .before(main_transparent_pass_3d),
         );
 }
 
@@ -48,18 +59,20 @@ fn draw(
     cache: Res<PipelineCache>,
     pass: Res<VotePass>,
     fullscreen: Res<FullscreenShader>,
-    mut selected: Local<Option<(TextureFormat, CachedRenderPipelineId)>>,
+    paper: Res<DarkPaper>,
+    mut selected: Local<Option<((TextureFormat, bool), CachedRenderPipelineId)>>,
 ) {
     let (target, depth) = view.into_inner();
     let format = target.main_texture_format();
-    if selected.as_ref().map(|p| p.0) != Some(format) {
+    let key = (format, paper.0);
+    if selected.as_ref().map(|p| p.0) != Some(key) {
         let id = cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: Some("city pixel vote".into()),
             layout: vec![pass.layout.clone()],
             vertex: fullscreen.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: pass.shader.clone(),
-                entry_point: Some("fragment".into()),
+                entry_point: Some(if paper.0 { "night" } else { "day" }.into()),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: None,
@@ -69,7 +82,7 @@ fn draw(
             }),
             ..default()
         });
-        *selected = Some((format, id));
+        *selected = Some((key, id));
     }
     let Some(pipeline) = cache.get_render_pipeline(selected.as_ref().unwrap().1) else {
         return;

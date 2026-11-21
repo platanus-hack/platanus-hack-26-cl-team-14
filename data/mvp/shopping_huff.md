@@ -11,7 +11,7 @@ P(d | o) ∝ (shops_d + 1)^α × exp(−β × minutes_od), by comuna.
 - shops_d: shop, mall and supermarket points in `activity_points.csv` (OSM, Nov 2026). The +1 keeps rural comunas outside the OSM extract.
 - minutes: public-transport door-to-door (`travel_times.csv`), with the straight-line fit of `choice.rs` for missing pairs.
 - Maximum likelihood: **α = 0.586, β = 0.2047 per minute**. Total variation of destination shares, model vs survey: 0.180.
-- The MUT is added as one more destination with 26 shops (the mapped shop points inside its OSM outline), in the comuna of each site.
+- The MUT is added as one more destination in the comuna of each site. Its size uses the 26 mapped shop, mall, and supermarket points in the podium bounding box. [MUT footprint count](../../context/research/v1-mut-shop-membership.md)
 
 ## Result
 

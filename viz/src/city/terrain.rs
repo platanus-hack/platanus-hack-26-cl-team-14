@@ -10,7 +10,7 @@ const NORTH: f32 = -16_635.75;
 const DX: f32 = 92_915.0 / 1200.0;
 const DZ: f32 = 110_905.0 / 1200.0;
 const DATUM: f32 = 500.0;
-const SOIL: [f32; 4] = [0.54, 0.50, 0.41, 1.0];
+const SOIL: [f32; 4] = [0.839, 0.831, 0.913, 1.];
 type Rgba = [f32; 4];
 
 fn heights() -> &'static [i16] {

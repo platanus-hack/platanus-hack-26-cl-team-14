@@ -4,6 +4,7 @@ mod facade;
 mod ground;
 mod streets;
 mod terrain;
+mod trees;
 use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
@@ -43,7 +44,7 @@ impl Surface {
     fn vertex(&mut self, point: Vec3, normal: Vec3, color: Rgba) {
         self.positions.push(point.to_array());
         if self.textured {
-            self.uvs.push([0.025, 0.025]);
+            self.uvs.push([0.00625, 0.00625]);
         }
         self.normals.push(normal.to_array());
         self.colors.push(color);
@@ -90,8 +91,8 @@ impl Surface {
                     self.vertex(p, n, wall);
                 }
                 if self.textured {
-                    let bays = (a.distance(*b) / 3.6).round().max(1.);
-                    let floors = (height / 3.5).round().max(1.);
+                    let bays = (a.distance(*b) / 3.6).round().max(1.) / 4.;
+                    let floors = (height / 3.5).round().max(1.) / 4.;
                     self.uvs[first as usize..].copy_from_slice(&[
                         [0., floors],
                         [bays, floors],
@@ -208,24 +209,27 @@ fn paint(x: u16, y: u16, height: f32) -> (Rgba, Rgba) {
     let seed = (x as u32).wrapping_mul(73856093) ^ (y as u32).wrapping_mul(19349663);
     let roof = if height > 30. {
         [
-            [0.29, 0.40, 0.46, 1.],
-            [0.57, 0.62, 0.60, 1.],
-            [0.36, 0.45, 0.50, 1.],
+            [0.397, 0.497, 0.815, 1.],
+            [0.527, 0.610, 0.871, 1.],
+            [0.292, 0.386, 0.730, 1.],
         ][seed as usize % 3]
     } else {
         [
-            [0.48, 0.12, 0.055, 1.],
-            [0.54, 0.21, 0.115, 1.],
-            [0.20, 0.22, 0.23, 1.],
-            [0.52, 0.52, 0.47, 1.],
-            [0.60, 0.50, 0.37, 1.],
-            [0.27, 0.16, 0.12, 1.],
-            [0.47, 0.53, 0.52, 1.],
-            [0.66, 0.57, 0.49, 1.],
-        ][seed as usize % 8]
+            [0.905, 0.896, 0.965, 1.],
+            [0.791, 0.776, 0.905, 1.],
+            [0.680, 0.658, 0.855, 1.],
+            [0.584, 0.558, 0.791, 1.],
+        ][seed as usize % 4]
     };
-    let value = 0.50 + (seed % 23) as f32 / 100.;
-    ([value * 0.86, value * 0.79, value * 0.70, 1.], roof)
+    let wall = [
+        [0.102, 0.084, 0.381, 1.],
+        [0.150, 0.133, 0.485, 1.],
+        [0.068, 0.056, 0.275, 1.],
+        [0.212, 0.195, 0.552, 1.],
+        [0.050, 0.042, 0.202, 1.],
+        [0.270, 0.238, 0.584, 1.],
+    ][(seed >> 5) as usize % 6];
+    (wall, roof)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -382,12 +386,15 @@ pub fn load_buildings(
         ..default()
     });
     let facade_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(facade::window_texture())),
+        base_color_texture: Some(images.add(facade::window_texture(false))),
+        emissive_texture: Some(images.add(facade::window_texture(true))),
         cull_mode: None,
         perceptual_roughness: 0.9,
         ..default()
     });
     let edit_material = materials.add(StandardMaterial {
+        unlit: true,
+        alpha_mode: AlphaMode::Blend,
         cull_mode: None,
         perceptual_roughness: 0.9,
         ..default()
@@ -426,7 +433,6 @@ pub(crate) fn toggle_subway(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
     surface_edits: Query<Entity, With<edits::SurfaceEdit>>,
-    mut background: ResMut<ClearColor>,
 ) {
     mode.0 = !mode.0;
     *visibility.get_mut(layers.scenery).unwrap() = if mode.0 {
@@ -441,11 +447,6 @@ pub(crate) fn toggle_subway(
             Visibility::Inherited
         };
     }
-    background.0 = if mode.0 {
-        Color::srgb_u8(32, 43, 54)
-    } else {
-        crate::DAY_SKY
-    };
     for (handle, alpha) in layers.materials.iter().map(|(h, a)| (h, *a)).chain([
         (&buildings.facade_material, 0.045),
         (&buildings.edit_material, 0.045),
@@ -454,13 +455,52 @@ pub(crate) fn toggle_subway(
         material
             .base_color
             .set_alpha(if mode.0 { alpha } else { 1. });
-        material.alpha_mode = if mode.0 {
+        let edit = handle == &buildings.edit_material;
+        material.alpha_mode = if mode.0 || edit {
             AlphaMode::Blend
         } else {
             AlphaMode::Opaque
         };
-        material.unlit = mode.0;
+        material.unlit = mode.0 || edit;
     }
+}
+
+pub(crate) fn paper_light(
+    night: Res<crate::Night>,
+    mode: Res<SubwayView>,
+    buildings: Res<Buildings>,
+    layers: Res<SurfaceLayers>,
+    mut sky: ResMut<ClearColor>,
+    mut sun: Single<&mut DirectionalLight>,
+    mut ambient: Single<&mut AmbientLight>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if !night.is_changed() && !mode.is_changed() {
+        return;
+    }
+    sky.0 = if mode.0 {
+        Color::srgb_u8(32, 43, 54)
+    } else if night.0 {
+        Color::srgb_u8(57, 65, 91)
+    } else {
+        crate::DAY_SKY
+    };
+    let dark = night.0 && !mode.0;
+    sun.illuminance = if dark { 1700. } else { 12_000. };
+    sun.color = if dark { Color::srgb_u8(184, 184, 190) } else { Color::srgb_u8(255, 245, 231) };
+    ambient.brightness = if dark { 300. } else { 950. };
+    ambient.color = if dark { Color::srgb_u8(164, 164, 173) } else { Color::srgb_u8(226, 228, 255) };
+    let (street, _) = &layers.materials[2];
+    materials.get_mut(street).unwrap().emissive = if dark {
+        LinearRgba::rgb(0.13, 0.14, 0.15)
+    } else {
+        LinearRgba::BLACK
+    };
+    materials.get_mut(&buildings.facade_material).unwrap().emissive = if dark {
+        LinearRgba::rgb(1.4, 1.15, 0.84)
+    } else {
+        LinearRgba::BLACK
+    };
 }
 
 pub(crate) fn draw_buildings(
@@ -577,6 +617,7 @@ pub(crate) struct NamedBuilding(usize, usize);
 pub(crate) fn setup_ground(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let surface = StandardMaterial {
@@ -590,6 +631,16 @@ pub(crate) fn setup_ground(
     let root = commands
         .spawn((Transform::default(), Visibility::Inherited))
         .id();
+    let foliage = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(trees::canopies())),
+        alpha_mode: AlphaMode::Mask(0.45),
+        cull_mode: None,
+        perceptual_roughness: 1.,
+        ..default()
+    });
+    for mesh in ground::mapped_trees(Path::new("web/data/city_trees.bin.gz")) {
+        commands.spawn((ChildOf(root), Mesh3d(meshes.add(mesh)), MeshMaterial3d(foliage.clone())));
+    }
     for ((tile, i), base, mesh) in ground::named_buildings(Path::new(".")) {
         commands.spawn((
             NamedBuilding(tile, i),
