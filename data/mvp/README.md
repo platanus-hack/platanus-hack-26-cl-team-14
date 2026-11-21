@@ -998,14 +998,14 @@ The [Metro capacity table](metro_capacity.md) gives line departures and nominal 
 
 ## Citywide building polygons and boxes
 
-The two files in `web/data/` describe the same **654,666 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Census blocks with no mapped footprint supply 375,281 generated shapes. The binaries retain each shape's source.
+The two files in `web/data/` describe the same **739,230 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Populated census blocks supply 361,310 generated shapes in previously unmapped blocks and 98,535 in partly mapped blocks with less than 5% mapped roof cover. The binaries retain each shape's source. The builder excludes mapped school grounds, plazas, parks, sports grounds, green areas, surface parking and vacant sites from generated roof placement. In the published green layer, two generated roofs share a single vertex each with a green polygon. Both intersections have zero area.
 
 | File | Use | Gzip bytes | Inflated bytes |
 | --- | --- | ---: | ---: |
-| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 4,555,215 | 8,513,964 |
-| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 11,161,265 | 19,401,272 |
+| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 5,124,656 | 9,613,272 |
+| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 12,490,992 | 21,684,424 |
 
-The polygon file has 655,715 rings and 3,046,816 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 326 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 27,915,236 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
+The polygon file has 740,279 rings and 3,385,070 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 324 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 31,297,696 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
 
 The build keeps complete OSM building polygons inside the box and retains multipolygon components and holes. Of 279,387 complete raw components, two collapse when rounded to five decimals. It excludes 63 boundary-crossing components and standalone `building:part` objects. The mesh keeps the quantized source rings for 125 components whose geometry needed repair during the census spatial join. Their detailed rendering depends on the triangulator. Height priority and record counts:
 
@@ -1015,7 +1015,7 @@ The build keeps complete OSM building polygons inside the box and retains multip
 | 1 | Real OSM footprint, tagged levels × 3.5 m | 21,361 |
 | 2 | Real OSM footprint, estimated from census block density | 255,985 |
 | 3 | Real OSM footprint outside a matched census block, neutral 3 m styling | 42 |
-| 6 | Generated footprint, estimated from census block data | 375,281 |
+| 6 | Generated footprint, estimated from census block data | 459,845 |
 
 Tagged dimensions are map attributes. The remaining heights and all generated shapes are visual assumptions. [Coverage by comuna, estimates, and exclusions](../validation/city_buildings/README.md).
 
@@ -1026,7 +1026,7 @@ Tagged dimensions are map attributes. The remaining heights and all generated sh
 - Box tile: `boxes.subarray(6*i,6*i+6)` gives center X, center Y, width in decimetres, depth in decimetres, rotation in hundredths of a degree, and height in decimetres. Rotation follows the width axis counterclockwise from east, in [0°, 180°).
 - In either file, `flags[i] & 4` marks a generated shape and `flags[i] & 3` gives the height source in the table above.
 
-**Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Preparing the rounded OSM geometry took 3.19 s. Packing both binaries from the completed spatial join took 8.20 s on an Apple Silicon Mac. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+**Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Rebuild the block sidecar with `python3 -B tools/pack/building_block_ids.py` after packing both meshes. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
 
 ## Santiago landmarks
 
