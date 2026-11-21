@@ -165,13 +165,11 @@ impl Core {
                     model: "empirical-od-relative-capacity-v1",
                     state: "observed_baseline",
                     data_vintages: HashMap::from([
-                        (
-                            "communes",
-                            "Unconfirmed: awaiting extract provenance".to_owned(),
-                        ),
+                        ("communes", "INE Census 2024 commune aggregates".to_owned()),
                         (
                             "work_od",
-                            "Unconfirmed: awaiting extract provenance".to_owned(),
+                            "INE Census 2024 usual work location, valid comuna, work codes 2/3"
+                                .to_owned(),
                         ),
                     ]),
                     coverage,
@@ -268,9 +266,9 @@ impl Core {
 
 #[tokio::main]
 async fn main() {
-    let directory = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "data/mvp".to_owned());
+    let mut args = std::env::args().skip(1);
+    let directory = args.next().unwrap_or_else(|| "data/mvp".to_owned());
+    let port = args.next().unwrap_or_else(|| "8787".to_owned());
     let core = Arc::new(Core::load(Path::new(&directory)));
     let app = Router::new()
         .route(
@@ -287,9 +285,12 @@ async fn main() {
         )
         .layer(CorsLayer::permissive())
         .with_state(core);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8787")
+    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
         .await
         .unwrap();
-    eprintln!("Scenario core listening on http://127.0.0.1:8787");
+    eprintln!(
+        "Scenario core listening on http://{}",
+        listener.local_addr().unwrap()
+    );
     axum::serve(listener, app).await.unwrap();
 }

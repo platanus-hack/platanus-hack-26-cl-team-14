@@ -16,6 +16,12 @@ CARGO_HOME=/private/tmp/ph-cargo RUSTUP_HOME=/private/tmp/ph-rustup CARGO_BUILD_
 ```
 
 The server binds to `127.0.0.1:8787`. It allows cross-origin requests for the local demo.
+An optional second argument changes the port for an independent run:
+
+```sh
+cargo run --release --manifest-path engine/Cargo.toml -- /path/to/real-data 8788
+```
+
 It reads both CSV files once at startup. Each scenario starts from the observed baseline.
 
 ## Inputs
@@ -40,7 +46,8 @@ Every destination that starts with `13` must occur in `communes.csv`; a missing 
 Work OD must include work-location codes 2/3 only. Exclude home, foreign, unknown, and no-fixed destinations.
 No personal records enter the core.
 
-Data files have not arrived yet. The response marks their vintages as unconfirmed until the owner supplies provenance.
+Both inputs use INE Census 2024. Work OD records the usual work location, not observed trips on a specific day.
+Commune coordinates are polygon centroids; they do not locate individual homes or workplaces.
 
 ## HTTP contract
 
@@ -121,6 +128,34 @@ It does not claim to implement or validate UrbanSim.
 
 ## Manual check status
 
-Release compilation passed with Rust 1.100.0 on 2026-11-21. The boundary-coverage rebuild took 1.99 seconds with two build jobs.
-Real-data API execution is pending delivery of the input CSV files. No runtime result is claimed yet.
+Release compilation passed with Rust 1.100.0 on 2026-11-21. The latest offline rebuild took 2.02 seconds with two build jobs.
+The manual run used an Apple M4 with 16 GiB RAM, on `127.0.0.1:8788`.
+It used actual aggregates under `/private/tmp/mvp-real-core-inputs`, not a committed replacement for the canonical data pack.
+
+- Commune source: official INE `Censo2024_v2/FeatureServer/11`, queried at `2026-11-21T06:26:22Z` for `COD_REGION=13`.
+  Fields: `CUT,COMUNA,n_per,n_hog,n_vp`; `returnCentroid=true`, `returnGeometry=false`, `outSR=4326`.
+  The response returned 52 records with actual centroids, spatial reference 4326, and no transfer-limit flag.
+- OD source: `09b99527f9b26a06bf0440f9e9317273a6461fc6:data/mvp/work_od.csv`, copied without changes.
+  Source: 9,128 pairs and 2,740,454 commuters. Included: 2,627 pairs and 2,688,814 commuters.
+  Excluded: 6,501 external destination pairs and 51,640 commuters.
+- Commune totals: 7,400,741 people; 2,599,621 households; 2,763,387 dwellings.
+- Primary INE responses, exact query URL, retrieval time, SHA256 hashes, and API responses remain in that temporary directory.
+
+| Request | HTTP | Core time, ms | Local HTTP time, ms |
+| --- | --- | --- | --- |
+| World | 200 | not measured | 1.232 |
+| Baseline: `13123`, jobs 1, housing 1 | 200 | 0.083958 | 0.869 |
+| Changed: `13123`, jobs 0.8, housing 1.2 | 200 | 0.089167 | 0.812 |
+| Reset: `13123`, jobs 1, housing 1 | 200 | 0.076833 | 0.684 |
+
+These are single requests over an aggregate model, not a load test or a seven-million-agent measurement.
+Normalized JSON comparisons found identical zones and flows for world, baseline, and reset.
+The changed run returned positive counts. Area population, households, and commuters stayed conserved within floating-point rounding.
+Providencia population changed from 143,974 to 172,099.1965; inbound commuters changed from 225,827 to 186,636.2626.
+Those changes follow scenario assumptions; they are not observed relocation or employment changes.
+Dwelling stock increased by 15,275.2, as requested by the housing input; dwelling stock is not a conserved total.
+
+Run command: `engine/target/release/santiago-scenario-core /private/tmp/mvp-real-core-inputs 8788`.
+The manual server was PID 11794 and stopped after the run.
+The canonical owner's commune pack still needs comparison. The scene and model have not received end-to-end validation.
 No fixture data or automated tests are included, as required by the repository rules.
