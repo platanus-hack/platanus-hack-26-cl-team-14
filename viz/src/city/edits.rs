@@ -152,7 +152,6 @@ fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
 fn landmark_offset(before: &Value, after: &Value) -> Option<Vec3> {
     if before.is_null()
         || after.is_null()
-        || before["geometry"] == after["geometry"]
         || before["properties"]["height_m"] != after["properties"]["height_m"]
     {
         return None;
@@ -205,10 +204,14 @@ pub(crate) fn refresh(
         commands.entity(entity).despawn();
     }
     let mut final_state = BTreeMap::<(String, String), (Value, Value)>::new();
+    let mut requested_moves = HashSet::new();
     for edit in scenario.0["city_edits"].as_array().into_iter().flatten() {
         let (Some(kind), Some(id)) = (edit["kind"].as_str(), edit["id"].as_str()) else {
             continue;
         };
+        if kind == "building" && edit["op"] == "move" {
+            requested_moves.insert(id);
+        }
         final_state
             .entry((kind.into(), id.into()))
             .and_modify(|state| state.1 = edit["after"].clone())
@@ -239,6 +242,7 @@ pub(crate) fn refresh(
         let id = format!("mesh:{}:{}", key.0, key.1);
         let offset = final_state
             .get(&("building".to_owned(), id.clone()))
+            .filter(|_| requested_moves.contains(id.as_str()))
             .and_then(|(before, after)| landmark_offset(before, after));
         transform.translation = original + offset.unwrap_or_default();
         *visibility = if offset.is_some() {
