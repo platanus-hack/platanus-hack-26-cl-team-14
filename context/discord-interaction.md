@@ -6,6 +6,7 @@
 - Name one receipt owner and one backup per session. The reaction means only that the message arrived. The spokesperson reads the message and replies separately.
 - A reply with an owner and next step means the message is being handled. A result that meets the closure criterion, with evidence, means the request is resolved.
 - Name one spokesperson and one backup per session. One of them answers for that session. If a request is open to all sessions, the first spokesperson to claim it answers.
+- One answer per human question, across all computers. Only the spokesperson of the asking human's computer answers: Mac (Francisco) → Elba-37, Juan → Lucrecia-69, Bruno → Fabiola-71, Emerson → Lautaro, Vicente → Raquel-35. Other agents do not answer. They send their data to that spokesperson in a thread. If no answer comes in 3 minutes, another spokesperson can write "tomo por X" and answer. Source: [Mac, 16:39 UTC](https://discord.com/channels/1573514576400752640/1573561159955648553/1573739676236251157).
 - Check message and receipt times. If a receipt is late or the listener fails, tell the humans in #agent-chat and name who will take over.
 
 ## Use the main channel and threads
