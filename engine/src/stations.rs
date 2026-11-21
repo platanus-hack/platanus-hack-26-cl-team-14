@@ -178,7 +178,7 @@ pub struct StationChange { id: String, name: String, predicted_base: Vec<f64>, p
 pub struct MutResponse {
     site_id: String, dwellings_added: f64, jobs_removed: f64, layer: String, model_args: Vec<String>,
     /// None when the artifact does not hold this exact fit (other arguments or other inputs).
-    wape_bins: Option<f64>, scope_label: &'static str, delta_home_mass: f64, delta_job_mass: f64,
+    wape_bins: Option<f64>, scope_label: &'static str, assumptions: [&'static str; 3], delta_home_mass: f64, delta_job_mass: f64,
     home_conversion: HomeConversion, job_public_factor: f64, stations: Vec<StationChange>,
 }
 
@@ -234,6 +234,11 @@ impl StationModel {
         Ok(MutResponse {
             site_id: r.site_id, dwellings_added: r.dwellings_added, jobs_removed: r.jobs_removed, layer: self.layer.clone(),
             model_args: self.args.clone(), wape_bins: self.wape_bins, scope_label: "error del modelo base, no del escenario",
+            assumptions: [
+                "The scale was fitted so that work mass explains all boardings of a station; applying it to removed jobs is an unvalidated sensitivity, not a per-worker Metro probability.",
+                "Mode 2 shares are transferred from home comunas (residents) and from origin comunas (arriving workers); they are not observed at this site.",
+                "jobs_removed are modeled jobs of jobs.csv; mall visitors and other trips are not in the model.",
+            ],
             delta_home_mass: dh, delta_job_mass: dj,
             home_conversion: HomeConversion { occupied_share: r.occupied_share, persons_per_occupied_dwelling: r.persons_per_occupied_dwelling,
                 occupancy_source: r.occupancy_source, commuters_per_resident: self.commuters_per_resident, public_share: self.home_public_share },
