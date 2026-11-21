@@ -23,12 +23,14 @@ Run: python3 -I tools/pack/check_score.py predictions.json
 predictions.json: {"<normalized name or parent id>": [48 numbers or null]}.
 Without an argument, prints the frozen manifest and score_ready=false.
 """
+import hashlib
 import json
 import math
 import sys
 
 ARTIFACT = 'data/mvp/metro_observations.json'
 MANIFEST = 'data/mvp/metro_observations_manifest.json'
+ARTIFACT_SHA256 = 'ecd8131fac2bfcf401bb5700dda7a7a0a31534990b8b962134d31449651ef5a3'
 # Frozen source provenance (PR #35): GTFS_20260321_v3.zip and the April export.
 GTFS_SHA256 = 'f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b'
 BOARDINGS_SHA256 = '24da85944374d1b07ac2b8c5bf696279370e2ecd9d6dd1d76daca84b5dd26ec4'
@@ -48,6 +50,10 @@ HOLDOUT = {
 # Frozen observed-cell set and denominator; drift in the artifact aborts the score.
 EXPECTED_CELLS = 1123
 EXPECTED_TOTAL = 570369.4
+
+with open(ARTIFACT, 'rb') as source:
+    if hashlib.file_digest(source, 'sha256').hexdigest() != ARTIFACT_SHA256:
+        sys.exit('ABORT: target artifact changed; frozen values and cells no longer apply.')
 
 manifest = json.load(open(MANIFEST))
 if (manifest['sources']['gtfs']['sha256'] != GTFS_SHA256
@@ -80,6 +86,7 @@ for key, bins in raw.items():
     pid = HOLDOUT.get(key, key)
     pred[pid] = bins
 bad = []
+covered = 0
 for pid in HOLDOUT.values():
     p = pred.get(pid)
     if p is None or len(p) != 48:
@@ -91,8 +98,9 @@ for pid in HOLDOUT.values():
         v = p[i]
         if not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
             bad.append(f'{pid} bin {i}: prediction {v!r}')
+        else:
+            covered += 1
 if bad:
-    covered = EXPECTED_CELLS - sum(1 for b in bad if 'bin' in b)
     print(f'INELIGIBLE: incomplete prediction; coverage {covered}/{EXPECTED_CELLS} '
           f'observed cells. No score. First problems:')
     print('\n'.join(bad[:10]))
