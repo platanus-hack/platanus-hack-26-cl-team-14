@@ -38,3 +38,15 @@ PY
 ```
 
 The reference WAPE is 0.41148380945017204 across 1,123 observed half-hours at 31 stations. Acceptance requires at least 1,000 fewer absolute boarding errors. Report the outcome and coverage on the first run.
+
+## Frozen result
+
+Esmeralda-71 ran candidate `97d0f75e584c4a4c6056d2a5661e6fbe54f8dbd4` on Juan’s Linux machine with the input commit above. Both predictions covered the same 1,123 cells at the same 31 stations.
+
+| Weekday station metric | April reference | Shopping and health |
+| --- | ---: | ---: |
+| Absolute boarding error | 234,697.773506 | 234,406.562356 |
+| Half-hour WAPE | 0.4114838095 | 0.4109732436 |
+| Daily WAPE | 0.2964 | 0.2969 |
+
+The candidate reduced half-hour absolute error by 291.211150 boardings. The registered threshold was 1,000. The candidate stays experimental. The model placed 1,028,701 shopping tours and 94,574 health tours. It assigned 1,993 of the 7,158 sampled Metro legs to a distinct pair of reachable stations. [First run on Juan’s machine](https://discord.com/channels/1573514576400752640/1573688249287708682/1573725171871653990)
