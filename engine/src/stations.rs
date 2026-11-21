@@ -175,6 +175,12 @@ fn sha256(bytes: &[u8]) -> String {
     sha2::Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// Same predictions up to floating-point roundoff between platforms: 48 finite values, each within 1e-9 boardings
+/// (the Linux/macOS gap seen for L4b was 2.3e-13; real model changes move values by far more).
+fn same_vector(a: &[f64], b: &[f64]) -> bool {
+    a.len() == 48 && b.len() == 48 && a.iter().zip(b).all(|(x, y)| x.is_finite() && y.is_finite() && (x - y).abs() <= 1e-9)
+}
+
 fn layer_of(args: &[String]) -> Option<&'static str> {
     match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
         [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), ["1000", "public", "classes", "split"] => Some("L4"), ["1000", "public", "classes", "split", "inverse"] => Some("L4b"), _ => None,
@@ -223,7 +229,7 @@ impl StationModel {
             && FIT_INPUTS.iter().all(|f| art.input_sha256.get(*f) == Some(&sha256(&std::fs::read(data.join(f)).unwrap())))
             && layer_of(&art.stations_args) == Some(art.layer.as_str())
             && held.len() == 31 && listed == held && art.stations.len() == 31
-            && art.stations.iter().all(|a| st.iter().position(|s| s.id == a.id).is_some_and(|i| base[i] == a.predicted));
+            && art.stations.iter().all(|a| st.iter().position(|s| s.id == a.id).is_some_and(|i| same_vector(&base[i], &a.predicted)));
         let m = |cut: &str| if fit.public_share { let (p, t) = fit.share[cut]; p / t } else { 1.0 };
         let (mut out, mut inb, mut inb_w) = (0.0, 0.0, 0.0);
         for f in rows::<Od>(&data.join("work_od.csv")) {
