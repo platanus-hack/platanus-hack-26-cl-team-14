@@ -37,7 +37,7 @@ Owner: clever-llama (kiwivolador@MacBook-Air-de-Francisco). Index: `santiago-dat
 | SII Mapas | sii.cl (Cartografía Digital) | Predio lookup | predio | Full | live | Web viewer only | No bulk download |
 | SUBDERE / IDE Chile DPA | geoportal.subdere.gov.cl; ide.cl | Comuna, provincia, región polygons | comuna | Full | 2018 | SHP; free | Legal limits differ slightly from INE |
 | IDE MINVU / Observatorio Urbano | ide.minvu.cl; geoide.minvu.cl | Planning instruments (PRC/PRMS), programmes | zone | RM | varies | ArcGIS REST/WMS | Unverified for buildings; useful for zoning limits |
-| Copernicus DEM GLO-30 | registry.opendata.aws/copernicus-dem/ | 30 m DSM | 30 m raster | Full | 2011–2015 | COG on S3; free | Terrain only |
+| Copernicus DEM GLO-30 | registry.opendata.aws/copernicus-dem/ | 30 m DSM | 30 m raster | Full | 2011–2015 | COG on S3; free | Surface includes buildings, infrastructure, and vegetation; not bare ground |
 | Santiago SPOT 2014 point cloud | doi.org/10.5069/G97M064K | Stereo point cloud | 10 m | Santiago bbox | 2014 | OpenTopography; CC BY 4.0 | Too coarse for buildings |
 | Open LiDAR | — | — | — | — | — | — | None found |
 | Processed repos | github.com/pachadotdev/censo2024-cartografia-postgresql; github.com/bastianolea/censo_2024_mapas | Censo 2024 cartography in PostGIS and R | manzana | Full | 2025 | GitHub | No repo joins SII cadastre to footprints |
