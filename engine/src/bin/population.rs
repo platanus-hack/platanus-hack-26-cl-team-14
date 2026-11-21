@@ -1,9 +1,10 @@
 //! Build the synthetic person-level state, then run one full day of station boardings from it.
-//! Usage: cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp <out predictions.json> [l9|april-transport] [closed parent IDs...]
+//! Usage: cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp <out predictions.json> [l9|april-transport] [closed parent IDs or line:L7, corridor:L6-east, design:L7-01 ...]
 #[path = "../population.rs"]
 mod population;
 #[path = "../stations.rs"]
 mod stations;
+use stations::access::planned::{PlannedStations, Selector};
 use std::collections::BTreeMap;
 
 fn main() {
@@ -36,8 +37,24 @@ fn main() {
     let pred = if let Some(model) = access {
         model.weight_job_masses(pop.jobs.iter().map(|p| (p.id.as_str(), p.cut.as_str())), &mut j);
         let mut active = model.all_parent_ids();
-        for id in &a[4..] { active.remove(id); }
-        model.project_points(&homes, &pts(&pop.jobs, &j), &active)
+        let mut selectors = Vec::new();
+        for arg in &a[4..] {
+            match arg.split_once(':') {
+                Some(("line", id)) => selectors.push(Selector::Line(id)),
+                Some(("corridor", id)) => selectors.push(Selector::Corridor(id)),
+                Some(("design", id)) => selectors.push(Selector::Id(id)),
+                _ => { active.remove(arg); }
+            }
+        }
+        let additions = if selectors.is_empty() {
+            Vec::new()
+        } else {
+            let catalog = PlannedStations::load(data);
+            let selected = catalog.select(&selectors);
+            assert!(!selected.physical_ids.is_empty(), "no matching design stations");
+            selected.additions
+        };
+        model.project_with_additions(&homes, &pts(&pop.jobs, &j), &active, &additions)
     } else {
         walk.unwrap().project_points(&homes, &pts(&pop.jobs, &j))
     };
