@@ -7,7 +7,7 @@ mod terrain;
 use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
-pub use terrain::terrain_from_xz;
+pub use terrain::{ground_on_line, terrain_from_xz};
 
 /// Drawing offset in metres above the DEM. OSM layers describe crossing order.
 pub fn road_surface_lift(layer: i32) -> f32 {
