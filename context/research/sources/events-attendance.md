@@ -83,8 +83,8 @@ calendar and a realistic crowd size per match, not just a building footprint.
 - Year: scattered 2012-2026, no continuous series.
 - Access: press releases only, no Carabineros open dataset or API found.
 - Check: UNVERIFIED (read via web search; no Carabineros primary source page opened).
-- Limits: Carabineros counts are consistently and substantially lower than organizer counts (2x-15x in cases found) — this is a structural bias, not noise. Treat any single number as a lower bound, and always record which counter is the source.
-- Use in the simulation: INPUT, but only as an order-of-magnitude / lower-bound signal, not a calibration target. Protest dates are also highly irregular (not a repeating calendar), unlike football or ferias.
+- Limits: Police and organizer estimates differ in the cited reports. Their disagreement does not establish the true attendance or a guaranteed lower bound. Record each estimate with its source and counting method.
+- Use in the simulation: Candidate INPUT for an explicitly uncertain event scenario, not a guaranteed lower bound or calibration TARGET. Protest dates are also highly irregular (not a repeating calendar), unlike football or ferias.
 
 ### Ferias libres — ODEPA/ASOF/municipal registries of market days and locations
 - Link: https://apps.odepa.gob.cl/powerBI/reporte_ferias_libres.html
@@ -99,12 +99,12 @@ calendar and a realistic crowd size per match, not just a building footprint.
 ### Public holidays (feriados) — Chile 2026/2027
 - Link: https://tallyfy.com/national-holidays/api/CL/2026.json
 - Contents: one JSON object per holiday: ISO date, English name, `local_name` (Spanish), `type` (national/etc.), `observed_date`, `is_observed_shifted`, short description.
-- Granularity: national (not Santiago-specific — Chile's holidays apply everywhere except a few regional ones, e.g. Aug 15 is regional-only).
+- Granularity: national (not Santiago-specific — some holidays are regional, but August 15 is national; see [Dirección del Trabajo](https://dt.gob.cl/legislacion/1624/w3-article-94459.html)).
 - Year: 2026 (confirmed file); Tallyfy publishes one JSON file per year (pattern `/national-holidays/api/CL/<year>.json`), so 2027 should exist the same way once published.
 - Access: direct download, static JSON, no key needed.
-- Check: VERIFIED (curl returned HTTP 200, 5,164 bytes; first rows show Jan 1 Año Nuevo, Apr 3 Viernes Santo, Apr 4 Sábado Santo, with full field set as described).
+- Check: ROWS VERIFIED (sample only; curl returned HTTP 200, 5,164 bytes; first rows show Jan 1 Año Nuevo, Apr 3 Viernes Santo, Apr 4 Sábado Santo, with full field set as described).
 - Limits: third-party mirror, not the government's own text (Ley N° 2.977 / BCN LeyChile is the legal source of truth, not checked for a machine-readable feed in this session). Chile is reported to have 16 national holidays in 2026 and either 16, 17, or 19 in 2027 depending on the outlet — the 2027 count is genuinely disputed in press as of Nov 2026 pending confirmation of a special one-off holiday (Ley N° 20.983, Sept 17 type).
-- Use in the simulation: INPUT. Baseline calendar for "no-school, no-work" days, which changes the people-at-home vs people-in-transit mix on ~16 days/year nationwide.
+- Use in the simulation: INPUT. Candidate holiday calendar after checking dates against official rules. Holidays change trip patterns; they do not eliminate all work or school trips.
 
 ### School calendar (Mineduc) — Región Metropolitana term dates
 - Link: https://www.mineduc.cl/?p=42248
@@ -128,6 +128,6 @@ calendar and a realistic crowd size per match, not just a building footprint.
 
 ## Critique
 
-1. Zero of my 9 real entries got actual data rows except the feriados JSON. Every football-attendance and march-attendance number here is press-reported, not pulled from a primary table — Transfermarkt and Estadio Seguro both blocked or 404'd when I tried to fetch them directly. The "VERIFIED" bar in this catalog (real rows) is met by exactly one source.
+1. Only the holiday JSON supplied actual data rows in this research. Every football-attendance and march-attendance number here is press-reported, not pulled from a primary table — Transfermarkt and Estadio Seguro both blocked or 404'd when I tried to fetch them directly. Only that JSON has ROWS VERIFIED status. This confirms sample access, not the legal accuracy of every holiday.
 2. I did not check robots.txt before curling transfermarkt.com, worldfootball.net, or footystats.org — in practice their anti-bot WAF (202 challenge, 403 Cloudflare challenge) made the question moot, but I should have checked first per the rules.
 3. I never resolved the ODEPA (1,228 ferias) vs. Sercotec (1,455 ferias) discrepancy, and catastroferiaslibres.cl never answered — so the one weekly, recurring, point-level crowd event in this file (ferias) is the least verified entry here, despite being the easiest one to expect real open data for.

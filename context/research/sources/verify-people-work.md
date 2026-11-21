@@ -1,5 +1,7 @@
 # Santiago people and work source verification
 
+Evidence below describes the recorded samples, not a complete ingestion pipeline. No new downloads were made for the label correction.
+
 Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santiago-people-work.md). RM means Región Metropolitana. Survey row counts are unweighted. Use the survey design and weights for estimates.
 
 ### INE Census 2024 block and rural entity table
@@ -9,9 +11,9 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Urban census block and rural census entity.
 - Year: 2024.
 - Access: Direct ZIP download with a semicolon-delimited CSV.
-- Check: VERIFIED, HTTP 200, 25,468,009 bytes. Parsed 197,032 rows, including 50,071 urban and 2,575 rural RM rows. Santiago comuna has 1,294 rows.
+- Check: ROWS VERIFIED, HTTP 200, 25,468,009 bytes. Parsed 197,032 rows, including 50,071 urban and 2,575 rural RM rows. Santiago comuna has 1,294 rows.
 - Limits: The sample verifies the publisher's bulk table. Disclosure control suppresses some values. The CSV has geographic IDs. Use the separate census cartography for geometry.
-- Use in the simulation: INPUT for residential population, dwelling, and household totals. TARGET candidate for withheld aggregates.
+- Use in the simulation: INPUT for residential population, dwelling, and household totals. TARGET candidate for published aggregates held out from calibration; suppressed values are unavailable.
 - Verdict: OK. Public bulk data exist at the stated resolution.
 
 ### INE Census 2024 microdata
@@ -21,7 +23,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Person, household, or dwelling record. The finest released residential geography is comuna × urban/rural area, subject to the disclosure threshold.
 - Year: 2024.
 - Access: Direct ZIP downloads. INE offers CSV and Parquet.
-- Check: VERIFIED for sample rows from the dwelling and household CSVs. The manual lists 7,664,466 dwellings, 6,622,597 households, and 18,480,432 people.
+- Check: ROWS VERIFIED for sample rows from the dwelling and household CSVs. The manual lists 7,664,466 dwellings, 6,622,597 households, and 18,480,432 people.
 - Limits: Block membership is unavailable for these individual records. Use the block totals to place synthetic households.
 - Use in the simulation: INPUT for joint person and household traits.
 - Verdict: OK. Keep the microdata and block totals as separate inputs.
@@ -33,7 +35,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Person records with household variables. The companion adds comuna of residence. The survey design supports national, regional, and urban/rural estimates for its design variable.
 - Year: 2024 survey round.
 - Access: Direct RData downloads. The publisher also lists Stata and SPSS.
-- Check: VERIFIED. HTTP 200 for both files, 46,840,844 and 551,986 bytes. Both have 218,367 rows. The core has 877 columns and 40,658 RM rows.
+- Check: ROWS VERIFIED. HTTP 200 for both files, 46,840,844 and 551,986 bytes. Both have 218,367 rows. The core has 877 columns and 40,658 RM rows.
 - Limits: Use `folio` and `id_persona` to join. Check estimate precision. The survey design does not support direct comuna estimates.
 - Use in the simulation: INPUT for household income and traits. TARGET candidate for regional distributions.
 - Verdict: OK. Commune codes exist, with the stated design limit.
@@ -45,7 +47,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Comuna.
 - Year: 2024.
 - Access: Direct XLSX downloads.
-- Check: VERIFIED. HTTP 200 for both workbooks, 60,618 and 56,485 bytes. Read Santiago `13101`: 10.17% income poverty and 17.87% multidimensional poverty.
+- Check: ROWS VERIFIED. HTTP 200 for both workbooks, 60,618 and 56,485 bytes. Read Santiago `13101`: 10.17% income poverty and 17.87% multidimensional poverty.
 - Limits: These are small-area estimates. Use the interval bounds. The denominator in both Santiago rows is 547,366 projected people.
 - Use in the simulation: INPUT for local poverty calibration.
 - Verdict: OK. Both published spreadsheets have comuna rows.
@@ -57,7 +59,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Person record with comuna codes for home and workplace. The survey design supports national and regional estimates.
 - Year: July–September 2026 sample. The publisher lists rolling quarters from 2010.
 - Access: Direct semicolon-delimited CSV.
-- Check: VERIFIED for a partial HTTP 200 transfer. Received 22,158,420 of 37,971,063 bytes. Parsed 222 columns, including 5,631 sample rows with RM home and work comuna codes.
+- Check: ROWS VERIFIED for a partial HTTP 200 transfer. Received 22,158,420 of 37,971,063 bytes. Parsed 222 columns, including 5,631 sample rows with RM home and work comuna codes.
 - Limits: The work location question accepts a foreign country code and includes non-response codes. Check precision for estimates of comuna pairs. A work comuna can contain many sites.
 - Use in the simulation: TARGET candidate for regional employment. INPUT candidate for comuna commuting patterns.
 - Verdict: WRONG by omission. The file also has a work-comuna field. The original brief only reports the residence code.
@@ -69,7 +71,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Person record with comuna codes. Use weighted income estimates at national or regional level.
 - Year: October–December 2025.
 - Access: Direct comma-delimited CSV.
-- Check: VERIFIED, HTTP 200, 84,878,737 bytes. Parsed 93,458 rows, including 17,830 RM residents. In 7,979 rows, both home and work codes identify RM comunas.
+- Check: ROWS VERIFIED, HTTP 200, 84,878,737 bytes. Parsed 93,458 rows, including 17,830 RM residents. In 7,979 rows, both home and work codes identify RM comunas.
 - Limits: Restrict wage calculations to the income population in the manual. ESI is a module of ENE. Treat matching samples and dates as overlapping data.
 - Use in the simulation: INPUT for labor income distributions. TARGET candidate for regional income estimates.
 - Verdict: OK for regional estimates. The CSV also provides home and work comuna fields.
@@ -81,7 +83,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Comuna of the registered headquarters.
 - Year: Commercial years 2005–2025 in the sampled table.
 - Access: Direct ZIP with tab-separated text.
-- Check: VERIFIED, HTTP 200, 310,389,406 bytes. Read all 7,287 rows in `PUB_COMU.txt`. Santiago `2025` reports 80,535 firms and 953,163 reported dependent worker relationships.
+- Check: ROWS VERIFIED, HTTP 200, 310,389,406 bytes. Read all 7,287 rows in `PUB_COMU.txt`. Santiago `2025` reports 80,535 firms and 953,163 reported dependent worker relationships.
 - Limits: One worker can appear for multiple employers. Places of work can differ from the registered headquarters. Some cells are suppressed.
 - Use in the simulation: TARGET candidate for registered firm totals by headquarters comuna.
 - Verdict: OK. The geography does not support a worksite job total.
@@ -93,7 +95,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Registered address for each entity and site. A point requires geocoding. The employer-level count has no branch key.
 - Year: Branch record dates range from 1975-09-17 to 2026-08-02. The entity ZIP contains files for 2020–2024.
 - Access: Direct ZIP downloads with tab-separated text.
-- Check: VERIFIED, HTTP 200 for both ZIPs, 95,040,204 and 187,529,334 bytes. Parsed 294,897 branch rows, 266,652 marked current and 28,245 inactive. RM has 111,657 branch rows across both statuses. Read the 2024 entity header.
+- Check: ROWS VERIFIED for branches; BYTES/HEADER VERIFIED only for the entity file. HTTP 200 for both ZIPs, 95,040,204 and 187,529,334 bytes. Parsed 294,897 branch rows, 266,652 marked current and 28,245 inactive. RM has 111,657 branch rows across both statuses. Read the 2024 entity header.
 - Limits: A current registration can still differ from present activity at the address. There are no branch worker counts or coordinates in the branch table.
 - Use in the simulation: INPUT for candidate work locations after filtering and geocoding.
 - Verdict: OK for branch addresses. The row check does not support assigning workers to individual sites.
@@ -105,7 +107,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: School establishment point. The codebook calls the coordinates approximate.
 - Year: 30 April 2026 snapshot. The publisher lists annual editions from 1992.
 - Access: Direct RAR with a semicolon-delimited CSV, a PDF codebook, and an XLSX frequency table. Extract the CSV with `bsdtar`.
-- Check: VERIFIED, HTTP 200, 908,273 bytes. Parsed 16,831 rows. Of 3,227 operating RM schools, 3,220 had coordinates inside a broad RM bounding box.
+- Check: ROWS VERIFIED, HTTP 200, 908,273 bytes. Parsed 16,831 rows. Of 3,227 operating RM schools, 3,220 had coordinates inside a broad RM bounding box.
 - Limits: Filter `ESTADO_ESTAB=1` for operating schools. The bounding box is a coarse check. Enrolment counts do not measure daily attendance or travel.
 - Use in the simulation: INPUT for school destinations and enrolment weights.
 - Verdict: WRONG. The directory already includes enrolment totals, and the 2026 archive contains point coordinates.
@@ -117,7 +119,7 @@ Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santia
 - Granularity: Facility point and separate health-service area polygon.
 - Year: Facility snapshot 12 June 2026. The publisher dates the boundaries 26 January 2026.
 - Access: Direct ZIP downloads with ESRI shapefile components.
-- Check: VERIFIED. HTTP 200 for both ZIPs, 1,068,166 and 72,483,724 bytes. Read 5,295 facility records, including 1,071 with RM code `13`, and 29 boundary records.
+- Check: ROWS VERIFIED. HTTP 200 for both ZIPs, 1,068,166 and 72,483,724 bytes. Read 5,295 facility records, including 1,071 with RM code `13`, and 29 boundary records.
 - Limits: The facility projection is WGS84. The boundary file declares SIRGAS-Chile 2002. Read each archive's `.prj` before spatial joins. Neither layer measures visits or capacity.
 - Use in the simulation: INPUT for healthcare destinations and service areas.
 - Verdict: WRONG for the blanket WGS84 claim. The polygons use a different coordinate reference system.

@@ -3,7 +3,7 @@
 Topic: public registers of people and vehicles, as aggregate statistics. No named persons.
 Author: clever-fox (claude-haiku-5-5). Checks run 2026-11-21 with `curl`.
 
-Summary: the best verified files are the INE population projections by comuna and the SERMIG residence-permit tables. Both are useful, but neither gives comuna-level flows. Vehicle, electoral, and birth data by comuna are still open. The driver-licence file we found holds personal data and must not be used.
+Summary: INE population projections and SERMIG permit workbooks downloaded successfully; their data rows were not inspected. Neither establishes comuna-level resident flows. Vehicle, electoral, and birth data by comuna are still open. The driver-licence file we found holds personal data and must not be used.
 
 ## Entries
 
@@ -11,11 +11,11 @@ Summary: the best verified files are the INE population projections by comuna an
 - Link: https://www.ine.gob.cl/docs/default-source/proyecciones-de-poblacion/cuadros-estadisticos/base-2017/estimaciones-y-proyecciones-2002-2035-comunas.xlsx (page: https://www.ine.gob.cl/estadisticas-por-tema/demografia-y-poblacion/estimaciones-y-proyecciones-de-poblacion)
 - Contents: one sheet "Est. y Proy. de Pob. Comunal". Columns: Region, Comuna, Edad, Provincia, then the population by year as `Poblacion 2002` to `Poblacion 2035`. Each row is one comuna and one age value.
 - Granularity: comuna. Time step: one year (2002 to 2035).
-- Year: 2002 to 2035 (projection from 2024 onward).
+- Year: 2002 to 2035, base 2017. The estimate/projection cutoff was not checked.
 - Access: direct download, xlsx, 11,057,485 bytes.
-- Check: VERIFIED 2026-11-21, HTTP 200, `application/vnd.openxmlformats` content type, 11,057,485 bytes. Unzipped the file and read the sheet name, shared-string header and the year columns. Row count not counted (sheet XML is 69 MB).
+- Check: BYTES VERIFIED; DATA ROWS UNVERIFIED. 2026-11-21, HTTP 200, `application/vnd.openxmlformats` content type, 11,057,485 bytes. Unzipped the file and read the sheet name, shared-string header and the year columns. Row count not counted (sheet XML is 69 MB).
 - Limits: Base 2017, so it may differ from the 2024 census. The INE page shows an estimate at 31 Dec 2023, so check which series this file holds before you use it as a control total. Age granularity: check if it is single year or 5-year groups. No geometry.
-- Use in the simulation: INPUT. Population per comuna and age, to set the number of agents per comuna (control total for the ~7 million target). Also an observed-count check: population per comuna can be compared with the simulated population.
+- Use in the simulation: Candidate INPUT for modeled population totals after row and version checks. Estimates and projections are not observed-count TARGETs; use Census counts for an observed baseline.
 
 ### SERMIG: Datos abiertos, residence permits (RD) acogidas 2000 to 1st semester 2026
 - Link: https://serviciomigraciones.cl/wp-content/uploads/estudios/Datos-abiertos/RD/RD_Acogidas_2000_1er_semestre_2026.xlsx (page: https://serviciomigraciones.cl/estudios-migratorios/datos-abiertos/)
@@ -23,9 +23,9 @@ Summary: the best verified files are the INE population projections by comuna an
 - Granularity: region. No comuna column in this file.
 - Year: 2000 to 1st semester 2026 (from file name).
 - Access: direct download, xlsx, 1,627,497 bytes.
-- Check: VERIFIED 2026-11-21, HTTP 200, valid xlsx (zip), 1,627,497 bytes. Sheet range A1:H47336, so 47,335 data rows. Metadata file: HTTP 200, 31,202 bytes. Years in the data were not counted.
+- Check: BYTES VERIFIED; DATA ROWS UNVERIFIED. 2026-11-21, HTTP 200, valid xlsx (zip), 1,627,497 bytes. Declared sheet range A1:H47336 allows 47,335 rows below the header; populated records were not parsed or counted. Metadata file: HTTP 200, 31,202 bytes. Years in the data were not counted.
 - Limits: Permits, not residents. The stock is not the same as the number of people living in the city. Counts can change later, per SERMIG. No comuna, so the comuna split must come from another source.
-- Use in the simulation: INPUT, weak. Composition of migrants by age, sex, and region, to set the share of foreign-born agents in Santiago region. Not a comuna mechanism.
+- Use in the simulation: NONE for resident foreign-born shares. Permit transactions do not establish the resident stock or its composition. Use Census resident counts for that purpose.
 
 ### SERMIG: Datos abiertos, residence permits (RT) and resolved permits (RD resueltas), same family
 - Link: https://serviciomigraciones.cl/estudios-migratorios/datos-abiertos/ (links on that page: `Datos-abiertos/RT/RT_Acogidas_...xlsx`, `RT_Resueltas_...xlsx`, `RD_Resueltas_...xlsx`, and `Refugio-1er-semestre-2026.zip`)
@@ -54,8 +54,8 @@ Summary: the best verified files are the INE population projections by comuna an
 - Year: 2024 is the latest on the page (title: "Permisos de circulación emitidos el 2024"). Press release for 2023 also found.
 - Access: download list loads through a POST to `/estadisticas-por-tema/comercio-y-servicios/permisos-de-circulacion/getArchivos/` with a folder ID. The folder IDs are not in the HTML. The file links were not reached.
 - Check: UNVERIFIED FOR INGESTION. Page: HTTP 200, 116,908 bytes. The download list was not read, so no file rows were checked.
-- Limits: Permits are issued where a vehicle is registered, not where it is used. A Contraloría report (June 2026) found 322 municipalities issued about 146,000 irregular permits. Those are not in the official count, so the count may be off for some comunas.
-- Use in the simulation: INPUT. Car ownership per comuna, to set the share of car drivers in the mobility model. Needs the comuna file before use.
+- Limits: The comuna is the issuing municipality, not necessarily the owner’s residence or place of use. [BCN confirms owners can pay in a different commune](https://www.bcn.cl/api-leyfacil/servicio/ObtenerGuiaPublicadaHTML?uri=permiso-de-circulacion). No exclusion of irregular permits from this series was verified.
+- Use in the simulation: NONE for resident car ownership by comuna. A municipality’s permit total cannot set its residents’ share of car drivers.
 
 ### INE: Parque de vehículos en circulación (regional bulletins)
 - Link: https://regiones.ine.cl/documentos/default-source/region-xi/estadisticas/parque-de-vehiculos/boletines/documentos/parque-de-veh%C3%ADculos-en-circulaci%C3%B3n-a%C3%B1o-2024---regi%C3%B3n-de-ays%C3%A9n.pdf
@@ -83,7 +83,7 @@ Summary: the best verified files are the INE population projections by comuna an
 - Granularity: person-level records. No comuna column.
 - Year: 2024.
 - Access: direct download, CSV, 6,478,587 bytes, 71,224 data rows.
-- Check: VERIFIED 2026-11-21, HTTP 200, 6,478,587 bytes, 71,224 lines. The header and the first rows were read. The file was deleted after the check.
+- Check: ROWS VERIFIED (first rows only), 2026-11-21, HTTP 200, 6,478,587 bytes, 71,224 lines. The header and the first rows were read. The file was deleted after the check.
 - Limits: Personal data. It has date of birth, sex, nationality, and job per person. It is one municipality only. Do not use it, and do not put it in `data/raw/`. Licence counts by comuna are not in this file.
 - Use in the simulation: NONE. Privacy risk. Do not use.
 
@@ -93,7 +93,7 @@ Summary: the best verified files are the INE population projections by comuna an
 - Granularity: region (the file we opened).
 - Year: 1988 to 2025.
 - Access: PDF.
-- Check: VERIFIED for the file only. HTTP 200, 1,255,941 bytes, PDF text read on pages 1 and 2. This is Valparaíso region data, not Santiago.
+- Check: BYTES VERIFIED; no numeric table rows recorded in this check. HTTP 200, 1,255,941 bytes, PDF text read on pages 1 and 2. This is Valparaíso region data, not Santiago.
 - Limits: Not Santiago. Comuna tables for the Metropolitan region were not found. Servel published personal data in 2022 (CIPER report, 2022-04-28, shows the risk). Use only aggregate tables.
 - Use in the simulation: NONE for this file. The comuna padrón (adult count) would be an INPUT if a Metropolitan file is found.
 
@@ -170,4 +170,4 @@ Summary: the best verified files are the INE population projections by comuna an
 2. Most vehicle, electoral, and birth sources are still UNVERIFIED. The INE permits page loads its file list from a POST endpoint that needs folder IDs. I did not find the IDs. The DEIS link is dead. The Servel comuna table was not found. Without these, the vehicle, voter, and birth inputs are open.
 3. The SERMIG tables count permits, not residents, and have no comuna. The migrant share per comuna still has no verified source. The minutas PDFs look useful, but I did not open them.
 
-What I did not check: the full rows of any file except the SERMIG RD acogidas (rows counted from sheet range, not parsed), the INE projection rows (sheet read as header only), the Anuario 2023 body, the other SERMIG files, the Servel TOTEM-2 beyond pages 1 and 2, and the Registro Civil portal.
+What I did not check: full dataset rows; SERMIG RD records (only the declared sheet range was read); INE projection records (header only); the Anuario 2023 body, the other SERMIG files, the Servel TOTEM-2 beyond pages 1 and 2, and the Registro Civil portal.

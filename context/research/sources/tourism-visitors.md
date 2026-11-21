@@ -8,7 +8,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: comuna origin to comuna destination; month. It stops at the comuna.
 - Year: 2019 onward; the sampled first row is 2019.
 - Access: direct download; semicolon CSV, 157,153,162 bytes. Run `/usr/bin/python3 tools/scrape/tourism_visitors.py domestic-total`.
-- Check: VERIFIED 2026-11-21, HTTP 206, 2,048 bytes; header and two Iquique origin rows read.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 206, 2,048 bytes; header and two Iquique origin rows read.
 - Limits: Overnight domestic travel only. Phone signal estimates are not persons. Sernatur changed to CDR in 2025 and adjusted 2019–2024; the 2026 method is still under review. Filter destination to Greater Santiago comunas and origin outside the area.
 - Use in the simulation: INPUT for monthly visitor origin and destination weights; TARGET for overnight trip counts.
 
@@ -18,7 +18,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: comuna origin to comuna destination; month. It stops at the comuna.
 - Year: 2019 onward; the sampled first row is 2019.
 - Access: direct download; semicolon CSV, 152,483,628 bytes. Run `/usr/bin/python3 tools/scrape/tourism_visitors.py domestic-occasional`.
-- Check: VERIFIED 2026-11-21, HTTP 206, 2,048 bytes; header and first Iquique origin row read.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 206, 2,048 bytes; header and first Iquique origin row read.
 - Limits: A subset of the total series, so do not add both. The change to CDR and the historical adjustment also apply here. It excludes same-day visitors and regular commuters.
 - Use in the simulation: INPUT for occasional overnight visits; TARGET for the occasional trip share.
 
@@ -28,7 +28,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: border point and nationality; month. No destination comuna.
 - Year: January 2008 to August 2026 in the downloaded workbook.
 - Access: direct download; XLSX, 4.0 MB. Run `/usr/bin/python3 tools/scrape/tourism_visitors.py foreign-arrivals`.
-- Check: VERIFIED 2026-11-21, HTTP 200, XLSX opened; `sheet2.xml` starts with nationality/month tables and `sheet3.xml` with border crossing/month tables.
+- Check: BYTES VERIFIED; DATA ROWS UNVERIFIED. 2026-11-21, HTTP 200, XLSX opened; `sheet2.xml` starts with nationality/month tables and `sheet3.xml` with border crossing/month tables. No numeric record is documented in this check.
 - Limits: Includes estimated Chileans resident abroad. August 2026 figures are preliminary. Transit and onward travelers can inflate Santiago presence. This cannot locate lodging.
 - Use in the simulation: INPUT for foreign arrival seasonality; TARGET for airport entry totals only.
 
@@ -38,7 +38,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: region or tourist destination; month through filters. The checked row stops at the region.
 - Year: January to September 2026 in the opened table.
 - Access: web report and Excel export; export URL and size not checked.
-- Check: VERIFIED 2026-11-21, HTTP 200, Metropolitan Region data row read in the open report.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 200, Metropolitan Region data row read in the open report.
 - Limits: Counts stays in surveyed lodging establishments, not unique visitors. It misses homes, informal lodging, and same-day travel. The displayed domestic/foreign breakdown is N/A at the checked aggregation.
 - Use in the simulation: TARGET for paid lodging nights and mean stay; INPUT for monthly overnight load.
 
@@ -48,7 +48,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: airport city pair; month. No destination within Santiago.
 - Year: 2023–2024 in the opened default report; other years need filter checks.
 - Access: web report and Excel export; export URL and size not checked.
-- Check: VERIFIED 2026-11-21, HTTP 200, January and February 2024 rows read.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 200, January and February 2024 rows read.
 - Limits: The visible default total is all routes, not Santiago arrivals. City pairs describe flight legs, so connecting passengers and local residents cannot be separated. A Santiago filter is needed before use.
 - Use in the simulation: TARGET for airport passenger flows after filtering Santiago; INPUT for arrival timing.
 
@@ -58,7 +58,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: point; one snapshot. Review and availability fields summarize longer periods.
 - Year: 2026-09-23 snapshot.
 - Access: direct download; CSV. The sample response returned a 4,096-byte range. Avoid host identifiers and names during ingestion.
-- Check: VERIFIED 2026-11-21, HTTP 206, CSV header and first listing row read.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 206, CSV header and first listing row read.
 - Limits: Listings are advertised supply, not occupied rooms or visitor counts. Platform coverage and coordinates are imperfect. The file also contains host names and IDs; do not ingest those fields.
 - Use in the simulation: INPUT for the spatial distribution of short-term rental capacity only.
 
@@ -68,7 +68,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: region; census year. It stops at the region in this checked report.
 - Year: 2024.
 - Access: direct download; PDF. The report's underlying commune origin-destination matrix was not checked.
-- Check: VERIFIED 2026-11-21, HTTP 200, Figure 33 and Table 15 values read from the PDF.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 200, Figure 33 and Table 15 values read from the PDF.
 - Limits: The report says regular commuting need not happen daily. The 72,798 figure is Metropolitan Region, not Santiago city, and does not show where workers stay or which days they travel.
 - Use in the simulation: TARGET for the regional inbound worker stock; INPUT for a boundary inflow constraint.
 
@@ -78,7 +78,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: toll plaza; month. No person origin or destination.
 - Year: 2021–2025 monthly history in the opened report; detailed plaza split for December 2025.
 - Access: direct download; PDF, 681,709 bytes. Run `/usr/bin/python3 tools/scrape/tourism_visitors.py mop-south`.
-- Check: VERIFIED 2026-11-21, HTTP 200, PDF signature and December 2025 count read.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 200, PDF signature and December 2025 count read.
 - Limits: One vehicle can make many transactions. The concession includes trips inside the region and traffic beyond the city. It cannot identify nonresidents or occupancy.
 - Use in the simulation: TARGET for vehicle flows at relevant entry plazas after selecting them; not a visitor count.
 
@@ -88,7 +88,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: toll plaza; month. No person origin or destination.
 - Year: 2025 report with earlier comparison months.
 - Access: direct download; PDF. Run `/usr/bin/python3 tools/scrape/tourism_visitors.py mop-north`.
-- Check: VERIFIED 2026-11-21, HTTP 200, PDF signature and December 2025 count read.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 200, PDF signature and December 2025 count read.
 - Limits: The whole-concession total is not an inbound count. Local traffic and repeat transactions dominate some plazas. Select boundary plazas before calibration.
 - Use in the simulation: TARGET for northern road boundary flow after plaza selection.
 
@@ -98,7 +98,7 @@ The best open source for domestic overnight visitors is Sernatur's origin-destin
 - Granularity: protected area or region; month through filters. The checked row stops at the region.
 - Year: January to December 2024 in the opened report.
 - Access: web report and Excel export; export URL and size not checked.
-- Check: VERIFIED 2026-11-21, HTTP 200, Metropolitan Region row read.
+- Check: ROWS VERIFIED (bounded sample) 2026-11-21, HTTP 200, Metropolitan Region row read.
 - Limits: Protected areas are only one narrow activity type. Visits do not measure unique visitors to Santiago and can occur outside the urban area.
 - Use in the simulation: NONE for the current urban visitor model.
 
