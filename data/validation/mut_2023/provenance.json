@@ -1,0 +1,376 @@
+{
+  "retrieved_date": "2026-11-21",
+  "classification": "Descriptive public aggregate evidence; not intervention validation.",
+  "archive_index_url": "https://www.dtpm.cl/index.php/documentos/matrices-de-viaje",
+  "opening_source": {
+    "url": "https://www.fleischmann.cl/ingeniero-en-rob%C3%B3tica",
+    "role": "Primary project contractor",
+    "opening_date": "2023-07-13",
+    "meaning": "Public opening; office occupancy ramp not established."
+  },
+  "extraction": {
+    "reader": "pyxlsb 1.0.10",
+    "method": "Read FICHA_DATOS and all subidas_prom_laboral rows. Select exact parada SIMT=TOBALABA; retain servicio Sonda line and all 48 half-hour columns. Sum numeric bins using Decimal(str(cell_value)); preserve null cells.",
+    "csv_file": "tobalaba_half_hours.csv",
+    "csv_sha256": "b32354b93ad0a2d11b721213bbf56e50cd0c93ba6def554dade91482b44b408c",
+    "csv_data_rows": 192,
+    "empty_boardings": "Source null cell, not zero.",
+    "station_key_fields": [
+      "parada SIMT",
+      "servicio Sonda"
+    ],
+    "no_explicit_mode_column": true,
+    "transfer_accounting": "Within-Metro interchange counting and line assignment are not defined in FICHA_DATOS. Do not interpret line sums as unique station entrants."
+  },
+  "cuts": [
+    {
+      "cut": "2023.04",
+      "archive_url": "https://www.dtpm.cl/descargas/modelos_y_matrices/Tablas%20de%20Subidas%20y%20Bajadas.zip",
+      "archive_total_bytes": 13542142,
+      "zip_member": "Tablas de Subidas y Bajadas/2023.04 Matriz_sub_SS_MH.xlsb",
+      "member_sha256": "fb6b5207921ace566bfa415bc735286355cb9e566ce5e3b2a2226f375d5f331c",
+      "member_compressed_bytes": 6337319,
+      "member_uncompressed_bytes": 6377168,
+      "retrieval": "HTTP 206 byte ranges for ZIP metadata and selected boarding member; outer archive not downloaded in full.",
+      "weekday_dates": "2023-04-17/2023-04-21",
+      "source_metadata": {
+        "Fuente": "Información de Bips! y GPS de buses, procesados en ADATRAP (Análisis de Datos de Transporte Público)",
+        "Vigencia": "Abril 2023 (días laborales entre el 17 y 21)",
+        "Descripción": "Este documento contiene información de subidas estimadas por paradero y estaciones de Metro. Se entrega el promedio de los días laborales.\nHoja \"subidas_prom_laboral\": Subidas promedio por paradero y estaciones de Metro, por media hora en día laboral ",
+        "Alcances": "1. Los datos no poseen Evasión. "
+      },
+      "worksheet": "subidas_prom_laboral",
+      "headers": [
+        "Semana",
+        "Comuna",
+        "paradero",
+        "parada SIMT",
+        "servicio Sonda",
+        "servicio usuario",
+        "zona_paga",
+        "segunda_parada",
+        "TOTAL",
+        "0:00:00",
+        "0:30:00",
+        "1:00:00",
+        "1:30:00",
+        "2:00:00",
+        "2:30:00",
+        "3:00:00",
+        "3:30:00",
+        "4:00:00",
+        "4:30:00",
+        "5:00:00",
+        "5:30:00",
+        "6:00:00",
+        "6:30:00",
+        "7:00:00",
+        "7:30:00",
+        "8:00:00",
+        "8:30:00",
+        "9:00:00",
+        "9:30:00",
+        "10:00:00",
+        "10:30:00",
+        "11:00:00",
+        "11:30:00",
+        "12:00:00",
+        "12:30:00",
+        "13:00:00",
+        "13:30:00",
+        "14:00:00",
+        "14:30:00",
+        "15:00:00",
+        "15:30:00",
+        "16:00:00",
+        "16:30:00",
+        "17:00:00",
+        "17:30:00",
+        "18:00:00",
+        "18:30:00",
+        "19:00:00",
+        "19:30:00",
+        "20:00:00",
+        "20:30:00",
+        "21:00:00",
+        "21:30:00",
+        "22:00:00",
+        "22:30:00",
+        "23:00:00",
+        "23:30:00"
+      ],
+      "matching_rows": 2,
+      "line_counts": {
+        "L1": 1,
+        "L4": 1
+      },
+      "tobalaba_rows": [
+        {
+          "worksheet_row": 65177,
+          "metadata": {
+            "Semana": "Semana3 (17-21 abril 2023)",
+            "Comuna": "PROVIDENCIA",
+            "paradero": null,
+            "parada SIMT": "TOBALABA",
+            "servicio Sonda": "L1",
+            "servicio usuario": null,
+            "zona_paga": "NO",
+            "segunda_parada": "NO",
+            "TOTAL": 89496.0
+          },
+          "bin_count": 48,
+          "numeric_bin_count": 36,
+          "null_bins": [
+            "0:00:00",
+            "0:30:00",
+            "1:00:00",
+            "1:30:00",
+            "2:00:00",
+            "2:30:00",
+            "3:00:00",
+            "3:30:00",
+            "4:00:00",
+            "4:30:00",
+            "5:00:00",
+            "23:30:00"
+          ],
+          "sum_numeric_bins": "89496.0",
+          "publisher_total": "89496.0",
+          "sum_minus_publisher_total": "0.0"
+        },
+        {
+          "worksheet_row": 65178,
+          "metadata": {
+            "Semana": "Semana3 (17-21 abril 2023)",
+            "Comuna": "PROVIDENCIA",
+            "paradero": null,
+            "parada SIMT": "TOBALABA",
+            "servicio Sonda": "L4",
+            "servicio usuario": null,
+            "zona_paga": "NO",
+            "segunda_parada": "NO",
+            "TOTAL": 53261.6
+          },
+          "bin_count": 48,
+          "numeric_bin_count": 36,
+          "null_bins": [
+            "0:00:00",
+            "0:30:00",
+            "1:00:00",
+            "1:30:00",
+            "2:00:00",
+            "2:30:00",
+            "3:00:00",
+            "3:30:00",
+            "4:00:00",
+            "4:30:00",
+            "5:00:00",
+            "23:30:00"
+          ],
+          "sum_numeric_bins": "53261.6",
+          "publisher_total": "53261.6",
+          "sum_minus_publisher_total": "0.0"
+        }
+      ],
+      "adjacent_station_availability": [
+        {
+          "station": "CRISTOBAL COLON",
+          "line": "L4",
+          "worksheet_row": 22
+        },
+        {
+          "station": "EL GOLF",
+          "line": "L1",
+          "worksheet_row": 2292
+        },
+        {
+          "station": "LOS LEONES",
+          "line": "L1",
+          "worksheet_row": 38067
+        }
+      ]
+    },
+    {
+      "cut": "2023.08",
+      "archive_url": "https://www.dtpm.cl/descargas/modelos_y_matrices/Tablas%20de%20subidas%20y%20bajadas%20ago23.zip",
+      "archive_total_bytes": 13955680,
+      "zip_member": "Tablas de subidas y bajadas/2023.08 Matriz_sub_SS_MH.xlsb",
+      "member_sha256": "f8b5c418048c83ec5e8c92d054c14817c37886b75df696d928c0c36804546856",
+      "member_compressed_bytes": 5057278,
+      "member_uncompressed_bytes": 5071883,
+      "retrieval": "HTTP 206 byte ranges for ZIP metadata and selected boarding member; outer archive not downloaded in full.",
+      "weekday_dates": "2023-08-07/2023-08-11",
+      "source_metadata": {
+        "Fuente": "Información de Bips! y GPS de buses, procesados en ADATRAP (Análisis de Datos de Transporte Público)",
+        "Vigencia": "Agosto 2023 (días laborales del 7 al 11)",
+        "Descripción": "Este documento contiene información de subidas estimadas por paradero y estaciones de Metro. Se entrega el promedio de los días laborales.\nHoja \"subidas_prom_laboral\": Subidas promedio por paradero y estaciones de Metro, por media hora en día laboral ",
+        "Alcances": "1. Los datos no poseen Evasión. "
+      },
+      "worksheet": "subidas_prom_laboral",
+      "headers": [
+        "Semana",
+        "Comuna",
+        "paradero",
+        "parada SIMT",
+        "servicio Sonda",
+        "servicio usuario",
+        "zona paga",
+        "TOTAL",
+        "0:00:00",
+        "0:30:00",
+        "1:00:00",
+        "1:30:00",
+        "2:00:00",
+        "2:30:00",
+        "3:00:00",
+        "3:30:00",
+        "4:00:00",
+        "4:30:00",
+        "5:00:00",
+        "5:30:00",
+        "6:00:00",
+        "6:30:00",
+        "7:00:00",
+        "7:30:00",
+        "8:00:00",
+        "8:30:00",
+        "9:00:00",
+        "9:30:00",
+        "10:00:00",
+        "10:30:00",
+        "11:00:00",
+        "11:30:00",
+        "12:00:00",
+        "12:30:00",
+        "13:00:00",
+        "13:30:00",
+        "14:00:00",
+        "14:30:00",
+        "15:00:00",
+        "15:30:00",
+        "16:00:00",
+        "16:30:00",
+        "17:00:00",
+        "17:30:00",
+        "18:00:00",
+        "18:30:00",
+        "19:00:00",
+        "19:30:00",
+        "20:00:00",
+        "20:30:00",
+        "21:00:00",
+        "21:30:00",
+        "22:00:00",
+        "22:30:00",
+        "23:00:00",
+        "23:30:00"
+      ],
+      "matching_rows": 2,
+      "line_counts": {
+        "L1": 1,
+        "L4": 1
+      },
+      "tobalaba_rows": [
+        {
+          "worksheet_row": 65945,
+          "metadata": {
+            "Semana": "Semana 2 (7-13 agosto 2023)",
+            "Comuna": "PROVIDENCIA",
+            "paradero": null,
+            "parada SIMT": "TOBALABA",
+            "servicio Sonda": "L1",
+            "servicio usuario": null,
+            "zona paga": "NO",
+            "TOTAL": 91977.2
+          },
+          "bin_count": 48,
+          "numeric_bin_count": 36,
+          "null_bins": [
+            "0:00:00",
+            "0:30:00",
+            "1:00:00",
+            "1:30:00",
+            "2:00:00",
+            "2:30:00",
+            "3:00:00",
+            "3:30:00",
+            "4:00:00",
+            "4:30:00",
+            "5:00:00",
+            "23:30:00"
+          ],
+          "sum_numeric_bins": "91977.2",
+          "publisher_total": "91977.2",
+          "sum_minus_publisher_total": "0.0"
+        },
+        {
+          "worksheet_row": 65946,
+          "metadata": {
+            "Semana": "Semana 2 (7-13 agosto 2023)",
+            "Comuna": "PROVIDENCIA",
+            "paradero": null,
+            "parada SIMT": "TOBALABA",
+            "servicio Sonda": "L4",
+            "servicio usuario": null,
+            "zona paga": "NO",
+            "TOTAL": 64129.2
+          },
+          "bin_count": 48,
+          "numeric_bin_count": 36,
+          "null_bins": [
+            "0:00:00",
+            "0:30:00",
+            "1:00:00",
+            "1:30:00",
+            "2:00:00",
+            "2:30:00",
+            "3:00:00",
+            "3:30:00",
+            "4:00:00",
+            "4:30:00",
+            "5:00:00",
+            "23:30:00"
+          ],
+          "sum_numeric_bins": "64129.2",
+          "publisher_total": "64129.2",
+          "sum_minus_publisher_total": "0.0"
+        }
+      ],
+      "adjacent_station_availability": [
+        {
+          "station": "CRISTOBAL COLON",
+          "line": "L4",
+          "worksheet_row": 22
+        },
+        {
+          "station": "EL GOLF",
+          "line": "L1",
+          "worksheet_row": 2344
+        },
+        {
+          "station": "LOS LEONES",
+          "line": "L1",
+          "worksheet_row": 38536
+        }
+      ]
+    }
+  ],
+  "descriptive_line_changes": [
+    {
+      "line": "L1",
+      "april_weekday_average": "89496.0",
+      "august_weekday_average": "91977.2",
+      "difference": "2481.2",
+      "percent_change": "2.772414409582551175471529500",
+      "percent_formula": "100 * (August / April - 1)"
+    },
+    {
+      "line": "L4",
+      "april_weekday_average": "53261.6",
+      "august_weekday_average": "64129.2",
+      "difference": "10867.6",
+      "percent_change": "20.40419364044640040854949910",
+      "percent_formula": "100 * (August / April - 1)"
+    }
+  ]
+}
