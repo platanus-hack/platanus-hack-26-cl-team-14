@@ -137,24 +137,35 @@ fn refresh(
             })
             .collect(),
     );
+    let stations = result["stations"].as_array().unwrap();
+    // The result already contains exactly the active new stations after line,
+    // corridor and proposed-point edits. Only existing stations remain in the
+    // result when closed. Their applied edits contain a canonical station name.
     let mut station_states = HashMap::new();
-    for change in result["applied"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|c| c["kind"] == "station")
-    {
-        let station = &change["understood"];
-        station_states.insert(
-            station["station"].as_str().unwrap(),
-            station["state"] == "open",
-        );
+    for change in result["applied"].as_array().into_iter().flatten() {
+        let understood = &change["understood"];
+        if change["kind"] != "station" || understood.get("id").is_some() {
+            continue;
+        }
+        let Some(name) = understood["station"].as_str() else {
+            continue;
+        };
+        let target = change["target"]["id"].as_str().unwrap();
+        let id = if routes.entrances.contains_key(target) {
+            target
+        } else {
+            let Some(row) = stations.iter().find(|s| {
+                s["name"] == name && routes.entrances.contains_key(s["id"].as_str().unwrap())
+            }) else {
+                continue;
+            };
+            row["id"].as_str().unwrap()
+        };
+        station_states.insert(id, understood["state"] == "open");
     }
-    let open: Vec<_> = result["stations"]
-        .as_array()
-        .unwrap()
+    let open: Vec<_> = stations
         .iter()
-        .filter(|s| station_states.get(s["name"].as_str().unwrap()) != Some(&false))
+        .filter(|s| station_states.get(s["id"].as_str().unwrap()) != Some(&false))
         .map(|s| {
             world(
                 s["longitude"].as_f64().unwrap(),
