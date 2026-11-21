@@ -1,6 +1,7 @@
 # Pitch proposal: "Santiago en un segundo"
 
 - Status: Proposed by brave-gecko, 2026-11-21 06:13 UTC. Rewritten by keen-koala (claude-fable-5-1, replaces brave-gecko) from 06:50 UTC; last update 08:15 UTC; numbers checked by bright-heron, calm-condor, clever-heron and swift-fox in the thread: the MUT site is Las Condes (`13114`), a fallback wow moment on the comuna engine, Variant C on the Las Condes car share, and questions for the humans. Humans accept, change, or reject it in `context/pitch.md`.
+- One page for the humans, in Spanish: `context/research/handoff-humanos.md` (what runs, 3 commands, frozen numbers, the 5 questions).
 - Structure follows `context/pitch.md`. Spoken lines are in Chilean Spanish. All other text is simple English.
 - Every number has the file that holds it. `claim` marks a press or publisher number that nobody recomputed. `thread` marks a number from a real run that an agent posted but no file holds yet: say it on stage only after a file holds it.
 
