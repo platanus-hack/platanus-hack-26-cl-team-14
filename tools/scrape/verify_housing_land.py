@@ -1,4 +1,4 @@
-"""Save bounded public source samples and request evidence. Run from the repo root."""
+"""Save bounded samples. Run /usr/bin/python3 tools/scrape/verify_housing_land.py."""
 import json
 import time
 import urllib.error
@@ -61,8 +61,42 @@ sources = {
     'green-service.json': 'https://geoide.minvu.cl/server/rest/services/Catastros/%C3%81reas_Verdes_MINVU_INE_2023/FeatureServer?f=pjson',
     'green-layer.json': 'https://geoide.minvu.cl/server/rest/services/Catastros/%C3%81reas_Verdes_MINVU_INE_2023/FeatureServer/0?f=pjson',
     'settlements-service.json': 'https://geoide.minvu.cl/server/rest/services/Catastros/Catastros_campamentos/FeatureServer?f=pjson',
+    'ine-app.json': 'https://www.arcgis.com/sharing/rest/content/items/2c09e6be8f2f49af922fcb7184ea0ecf/data?f=json',
+    'ine-webmap.json': 'https://www.arcgis.com/sharing/rest/content/items/34fdbaa793e643eb9f87c4c4751ff4a7/data?f=json',
+    'ine-layer.json': 'https://services5.arcgis.com/hUyD8u3TeZLKPe4T/arcgis/rest/services/CRF_PE_v2/FeatureServer/1?f=pjson',
+    'vmv-note.pdf': 'https://www.bcentral.cl/documents/33528/3662096/Nota-tecnica-VMV.pdf',
 }
+
+
+def query(name, layer, **params):
+    fetch(name, layer + '/query?' + urllib.parse.urlencode({'f': 'json', **params}))
+
 
 if __name__ == '__main__':
     for name, url in sources.items():
         fetch(name, url)
+    query('green-sample.json', sources['green-layer.json'].split('?')[0],
+          where="COMUNA = 'SANTIAGO'",
+          outFields='CUT,COMUNA,NOMBRE_EP,SUP_TOTAL_,SUP_VEGETA,USO,TIPO_EP,ID_AV',
+          resultRecordCount=5, returnGeometry='true', outSR=4326)
+    service = sources['settlements-service.json'].split('?')[0]
+    layers = json.loads((OUT / 'settlements-service.json').read_bytes())['layers']
+    for year, fields in [
+        (2024, 'FOLIO,NOMBRE,CUT_R,CUT,COMUNA,AN_CAT,N_HOG,HECTAREAS'),
+        (2026, 'FOLIO,NOM,REG,COM,INGRESO,EST,HOGARESCAT,HOGARESCEN,SUPERFIC_1'),
+    ]:
+        layer_id = next(x['id'] for x in layers if x['name'] == 'Catastro ' + str(year))
+        layer = service + '/' + str(layer_id)
+        fetch('settlements-layer-' + str(layer_id) + '.json', layer + '?f=pjson')
+        query('settlements-' + str(year) + '-urban-sample.json', layer,
+              where='1=1', geometry='-70.85,-33.65,-70.45,-33.30',
+              geometryType='esriGeometryEnvelope', inSR=4326,
+              spatialRel='esriSpatialRelIntersects', outFields=fields,
+              resultRecordCount=5, returnGeometry='true', outSR=4326)
+    layer = sources['ine-layer.json'].split('?')[0]
+    query('ine-permits-sample.json', layer, where='COD_REGION=13', outFields='*',
+          resultRecordCount=5, orderByFields='AÑO DESC,OBJECTID ASC',
+          returnGeometry='true', outSR=4326)
+    stats = [{'statisticType': t, 'onStatisticField': 'AÑO', 'outStatisticFieldName': n}
+             for t, n in [('min', 'first_year'), ('max', 'last_year')]]
+    query('ine-permits-years.json', layer, where='COD_REGION=13', outStatistics=json.dumps(stats))

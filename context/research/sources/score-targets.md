@@ -9,9 +9,10 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Granularity: point (stop or station). Time step: 30 minutes.
 - Year: week of April 11 to 17, 2026.
 - Access: direct download, xlsx, 29.3 MB.
-- Check: VERIFIED 2026-11-21, HTTP 200, 29,342,772 bytes downloaded to `data/raw/dtpm/subidas_2026_04.xlsx`, sheet names and columns read with `tools/scrape/dtpm_subidas_peek.py`.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 200, 29,342,772 bytes downloaded to `data/raw/dtpm/subidas_2026_04.xlsx`; sheet names, column names, and real stop codes (for example `E-1-4-SN-50`) read with `tools/scrape/dtpm_subidas_peek.py`. Full records not parsed yet.
 - Limits: expanded from bip! validations; fare evasion is not included (DTPM estimates it near 20 to 30% on buses, so bus counts are a floor, Metro counts are near complete). Averages per day type, not raw days.
-- Use in the simulation: TARGET. Primary score: simulated boardings per stop per half hour vs this table.
+- Role: TARGET
+- Use in the simulation: primary score: simulated boardings per stop per half hour vs this table.
 
 ### DTPM trip table (viajes) April 2026
 - Link: https://www.dtpm.cl/descargas/modelos_y_matrices/Viajes_2026-04.zip
@@ -19,9 +20,10 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Granularity: trip level, zones (zonas777). Time step: timestamp (continuous).
 - Year: April 11 to 17, 2026.
 - Access: direct download, zip, 1.66 GB. Column spec: https://www.dtpm.cl/descargas/modelos_y_matrices/Estructura%20Tabla%20de%20Viajes%202026%204.txt (downloaded).
-- Check: VERIFIED 2026-11-21, HTTP 200, Content-Length 1,658,733,451, first 1 KB has a valid ZIP signature (`PK` + internal file "Ta..."), structure txt downloaded with real column list.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 200, Content-Length 1,658,733,451, first 1 KB has a valid ZIP signature (`PK` + internal file "Ta..."), structure txt downloaded with real column list. No data rows read; clever-koala owns full download.
 - Limits: destinations are estimated (ADATRAP method), not observed. Only public transport. Same evasion bias as boardings.
-- Use in the simulation: TARGET. Aggregate to an OD matrix by zone and hour and compare with simulated trips.
+- Role: TARGET
+- Use in the simulation: aggregate to an OD matrix by zone and hour and compare with simulated trips.
 
 ### DTPM stage table (etapas) April 2026
 - Link: https://www.dtpm.cl/descargas/modelos_y_matrices/Etapas-2026-04.zip
@@ -29,9 +31,10 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Granularity: stage level, stop. Time step: timestamp.
 - Year: April 11 to 17, 2026.
 - Access: direct download, zip, 2.0 GB. Structure: https://www.dtpm.cl/descargas/modelos_y_matrices/Estructura%20Tabla%20de%20Etapas%202026%204.txt
-- Check: VERIFIED 2026-11-21, HTTP 200, Content-Length 2,008,292,589, content-type application/zip. Full file not downloaded.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 200, Content-Length 2,008,292,589, first 16 bytes have a valid ZIP signature (range request, HTTP 206).
 - Limits: same as the trip table. Very large; sample before full ingestion.
-- Use in the simulation: TARGET. Transfers per route and loads per service segment.
+- Role: TARGET
+- Use in the simulation: transfers per route and loads per service segment.
 
 ### DTPM historical matrices (2012 to 2026)
 - Link: https://www.dtpm.cl/index.php/documentos/matrices-de-viaje
@@ -39,19 +42,21 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Granularity: same as above.
 - Year: 2012 to 2026, one or two weeks per year.
 - Access: direct download per file.
-- Check: VERIFIED 2026-11-21, HTTP 200, 58,028 bytes of index HTML with the file links listed.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 200, 58,028 bytes of index HTML with the file links listed. No archive downloaded.
 - Limits: method changed in April 2017 (daily estimation); older cuts are weekly. Zone systems can differ between years.
-- Use in the simulation: TARGET. Trend check: the same score computed on a second week guards against overfitting to one week.
+- Role: TARGET
+- Use in the simulation: trend check: the same score computed on a second week guards against overfitting to one week.
 
-### DTPM GTFS feed of April 25, 2026
-- Link: https://www.dtpm.cl/descargas/gtfs/GTFS_20260425_final.zip
+### DTPM GTFS feed of March 21, 2026 (in service during the trip week)
+- Link: https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip
 - Contents: routes, stops, timetables, shapes of the Santiago public transport network.
 - Granularity: stop and timetable level.
-- Year: valid April 25 to December 2026.
-- Access: direct download, zip, 10.7 MB.
-- Check: VERIFIED 2026-11-21, HTTP 200, Content-Length 10,709,254.
-- Limits: starts 8 days AFTER the April 11 to 17 trip week. It is the nearest public feed; no feed dated inside the trip week was found on the index. Network changes in those 8 days are possible but small.
-- Use in the simulation: INPUT. The network that the simulated agents travel on. Needed so the score compares the same network.
+- Year: feed dated March 21, 2026; it was the current feed during April 11 to 17 (the next feed is GTFS_20260425_final.zip, HTTP 206, ZIP signature, 10,709,254 bytes).
+- Access: direct download, zip.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 206 range request, first bytes have a valid ZIP signature. Credit: clever-koala found the matching feed.
+- Limits: exact service validity dates inside the feed (calendar.txt) not read yet.
+- Role: INPUT
+- Use in the simulation: the network that the simulated agents travel on. Use this feed, not the April 25 one, so the score compares the same network as the trip week.
 
 ### INE monthly Metro ridership (press series)
 - Link: https://www.ine.gob.cl/sala-de-prensa/prensa/general/noticia/2026/09/01/personas-transportadas-por-metro-de-santiago-alcanzaron-un-total-de-53-5-millones-en-julio-de-2026
@@ -59,9 +64,10 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Granularity: whole network. Time step: month.
 - Year: continuous series, at least 2025 to 2026.
 - Access: press pages; the bulletin has xlsx series on the INE transport statistics page (HTTP 200, file links behind a JS portal).
-- Check: VERIFIED 2026-11-21, HTTP 200, 97,042 bytes, the figure "53,5 millones" is in the page text.
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 97,042 bytes, the observed value "53,5 millones" read in the page text.
 - Limits: one number per month for the whole network. No station detail.
-- Use in the simulation: TARGET (weak). Sanity check of total simulated Metro demand and seasonality.
+- Role: TARGET (weak)
+- Use in the simulation: sanity check of total simulated Metro demand and seasonality.
 
 ### MOP concession dipticos: urban highway transactions per toll gantry
 - Link: https://concesiones.mop.gob.cl/uploads/sites/4/2025/01/Diptico_VS_2024_01.pdf (Vespucio Sur; one PDF per concession per month on concesiones.mop.gob.cl)
@@ -69,9 +75,10 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Granularity: toll gantry (point on the highway). Time step: month.
 - Year: about 2021 to 2025, by concession.
 - Access: direct download, PDF. Numbers must be extracted from charts and tables by hand or with a PDF parser.
-- Check: VERIFIED 2026-11-21, HTTP 200, 583,625 bytes, valid `%PDF-1.7` header. The Sistema Norte-Sur diptico URL returned 200 but Content-Length 2,518, likely an error page: UNVERIFIED for that concession.
-- Limits: PDF only, no bulk data. Transactions count vehicles with TAG, not persons.
-- Use in the simulation: TARGET. The only verified observed count for private car flow, per gantry per month.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 200, 583,625 bytes, valid `%PDF-1.7` header. The Sistema Norte-Sur diptico URL returned 200 but Content-Length 2,518, likely an error page: UNVERIFIED for that concession.
+- Limits: PDF only, no bulk data. Numbers sit in charts, not tables; extraction may be too lossy and slow for the hackathon (keen-heron critique, accepted). Transactions count vehicles with TAG, not persons.
+- Role: TARGET (lead only)
+- Use in the simulation: the only open observed count for private car flow (per gantry per month). Treat as a lead, not a score component, until one PDF is extracted cleanly. See also `traffic-counts.md` (bold-panda) for INE toll series.
 
 ### INE Censo 2024: persons and dwellings per manzana
 - Link: https://censo2024.ine.gob.cl/resultados/
@@ -81,7 +88,8 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Access: JS portal; direct file URL not exposed in the HTML. Third-party mirrors exist (github.com/pachadotdev/censo2024-cartografia-postgresql, github.com/bastianolea/censo_2024_mapas). Also cataloged in `context/research/data-sources-buildings-activity.md`.
 - Check: UNVERIFIED for data rows. Portal page HTTP 200, 168,990 bytes, but no file link in the HTML; no download executed.
 - Limits: static. Counts residents, not daytime population.
-- Use in the simulation: TARGET. Where simulated agents sleep must match this distribution. Also the base population INPUT.
+- Role: TARGET and INPUT
+- Use in the simulation: where simulated agents sleep must match this distribution. Also the base population input.
 
 ### MINEDUC enrollment per school (matrícula)
 - Link: https://datosabiertos.mineduc.cl/matricula-por-estudiante/
@@ -90,8 +98,9 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Year: about 2004 to 2026.
 - Access: portal page HTTP 200, but file links are not in the static HTML (JS). No API found.
 - Check: UNVERIFIED for data rows. Page HTTP 200, 19,815 bytes; no csv/zip link found in HTML; datos.gob.cl search returned nothing.
-- Limits: enrollment is not daily attendance. The attendance dataset (`asistencia-declarada-mensual`) exists on the same portal, also unverified.
-- Use in the simulation: TARGET (static). Simulated school-bound person flows per school vs enrolled students.
+- Limits: enrollment is not daily attendance. The attendance dataset (`asistencia-declarada-mensual`) exists on the same portal, also unverified. Note: the MINEDUC school DIRECTORY page does expose direct files (`Directorio-EE-Oficial-2026.rar`, HTTP 206, real `Rar!` signature), so the matrícula files likely exist behind a similar path.
+- Role: TARGET (static)
+- Use in the simulation: simulated school-bound person flows per school vs enrolled students.
 
 ### EOD Santiago 2012 (origin-destination survey)
 - Link: https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/ (old URL sectra.gob.cl/encuestas_movilidad returns 404)
@@ -99,9 +108,10 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Granularity: household and trip, 866 zones.
 - Year: field work 2012 to 2013.
 - Access: Google Drive download, zip.
-- Check: VERIFIED 2026-11-21 that the files exist: Drive view page HTTP 200 with title `Zonificacion_EOD-2012_Santiago.zip`. Data rows not downloaded.
+- Check: link VERIFIED 2026-11-21 (Drive view page HTTP 200 with title `Zonificacion_EOD-2012_Santiago.zip`); file bytes NOT downloaded, so UNVERIFIED for rows.
 - Limits: 14 years old, before Metro Lines 3 and 6 and before the pandemic. Do not use as a current target.
-- Use in the simulation: INPUT only (behavioral priors: trip rates per person, mode choice parameters). NOT a score target.
+- Role: INPUT only
+- Use in the simulation: behavioral priors (trip rates per person, mode choice parameters). NOT a score target.
 
 ### UOCT intersection traffic counts
 - Link: https://chileatiende.gob.cl/fichas/23628-solicitar-informacion-de-transito
@@ -111,25 +121,38 @@ Each entry says: time step, spatial unit, date range, and the simulated quantity
 - Access: paid request by email (ventas@uoct.cl), 7.36 UF per intersection for continuous counts. No open download.
 - Check: VERIFIED that access is paid (ChileAtiende ficha read); UNVERIFIED for any data.
 - Limits: cost and delay make it unusable in a hackathon.
-- Use in the simulation: NONE (paid; MOP gantry transactions cover car flow).
+- Role: NONE
+- Use in the simulation: NONE (paid; see `traffic-counts.md` for open car-flow options).
+
+### MINVU bicycle counters (Eco-Counter public API)
+- Link: https://www.eco-visio.net/api/aladdin/1.0.0/pbl/publicwebpageplus/5737?withNull=true (inventory, 172 sites); daily series per site via the `/data/<idPdc>` endpoint. Found by keen-panda (`verify-transport.md`).
+- Contents: one row = date and bicycle passages at a counter site. Inventory has `idPdc`, `nom`, `lat`, `lon`, flow IDs.
+- Granularity: point (counter site). Time step: day (sub-day intervals exist via the `interval` parameter).
+- Year: continuous; covers the DTPM week April 11 to 17, 2026.
+- Access: open JSON API, no key.
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200: 7 real date/count pairs for site 300062559 (Alameda con Portugal), Apr 11 to 17 2026 = 2330, 3326, 3022, 3136, 3620, 3277, 3223.
+- Limits: passages, not persons (one person can pass many times). Site coverage across Santiago and outage behavior unverified. Request dates are day/month/year; response dates are month/day/year.
+- Role: TARGET
+- Use in the simulation: the only observed non-transit mobility count found. Daily simulated bicycle passages at counter sites vs this series. Candidate third score term once cycling exists in the model.
 
 ### Negative results (searched, nothing open found)
-- Bicycle counters for Santiago: no open dataset (datos.gob.cl: 0 results for "contador bicicletas").
 - Pedestrian counts: no open dataset found.
 - Metro per-station monthly series as a separate open file: not found; the DTPM boardings xlsx is the per-station source.
 - datos.gob.cl: no DTPM, UOCT, or Metro mobility datasets at all (API searched 2026-11-21).
 
 ## Proposed fixed score
 
-From the 2 best targets (DTPM boardings; DTPM trip table as OD matrix), week of April 11 to 17, 2026, day type LABORAL:
+From the 2 best targets (DTPM boardings; DTPM trip table as OD matrix), week of April 11 to 17, 2026, day type LABORAL, on the GTFS_20260321_v3 network:
 
 ```
-S_stop = 1 - SMAPE(sim boardings, obs boardings)   per stop x half hour (Subidas xlsx)
-S_od   = 1 - SMAPE(sim OD trips, obs OD trips)     per zona777 pair x hour (Viajes zip)
-SCORE  = 0.6 * S_stop + 0.4 * S_od                 in [0, 1], higher is better
+SMAPE(s, o) = mean over cells of |s - o| / ((s + o) / 2), range [0, 2]; score term = 1 - SMAPE/2, range [0, 1].
+Cells: only stop x half hour with obs >= 10 boardings (keeps denominators > 0 and kills near-zero blowup).
+Evasion: scale observed bus boardings by 1/(1-e), e = 0.25; Metro and Tren unscaled.
+S_stop on boardings per stop x half hour (Subidas xlsx); S_od on trips per zona777 OD pair x hour, obs >= 10 (Viajes zip).
+SCORE = 0.6 * S_stop + 0.4 * S_od, in [0, 1]; a layer ships only if SCORE goes up.
 ```
 
-Run on the same GTFS_20260425 network. A layer ships only if SCORE goes up.
+Known limits of this score, accepted from critique (keen-heron, gentle-fox): it only observes public transport, about 35 to 40% of Santiago trips; cars and walking have no open observed counts (see UOCT and MOP entries), and cycling has only counter sites (MINVU Eco-Counter entry). It has no housing or work term, so it cannot judge a scenario like "remove the MUT" by itself. The first candidate extension is a static residential term against Censo 2024 manzana counts, once those rows are verified.
 
 ## Critique
 

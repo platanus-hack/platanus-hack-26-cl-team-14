@@ -13,7 +13,7 @@ Summary: the best verified files are the INE population projections by comuna an
 - Granularity: comuna. Time step: one year (2002 to 2035).
 - Year: 2002 to 2035 (projection from 2024 onward).
 - Access: direct download, xlsx, 11,057,485 bytes.
-- Check: VERIFIED 2026-11-21, HTTP 200, `application/vnd.openxmlformats` content type, 11,057,485 bytes. Unzipped the file and read the sheet name, shared-string header and the year columns. Row count not counted (sheet XML is 69 MB).
+- Check: VERIFIED bytes and header only. 2026-11-21, HTTP 200, xlsx content type, 11,057,485 bytes. Unzipped and read the sheet name and the header columns (shared strings). Data rows NOT parsed (sheet XML is 69 MB).
 - Limits: Base 2017, so it may differ from the 2024 census. The INE page shows an estimate at 31 Dec 2023, so check which series this file holds before you use it as a control total. Age granularity: check if it is single year or 5-year groups. No geometry.
 - Use in the simulation: INPUT. Population per comuna and age, to set the number of agents per comuna (control total for the ~7 million target). Also an observed-count check: population per comuna can be compared with the simulated population.
 
@@ -23,7 +23,7 @@ Summary: the best verified files are the INE population projections by comuna an
 - Granularity: region. No comuna column in this file.
 - Year: 2000 to 1st semester 2026 (from file name).
 - Access: direct download, xlsx, 1,627,497 bytes.
-- Check: VERIFIED 2026-11-21, HTTP 200, valid xlsx (zip), 1,627,497 bytes. Sheet range A1:H47336, so 47,335 data rows. Metadata file: HTTP 200, 31,202 bytes. Years in the data were not counted.
+- Check: VERIFIED bytes and header only. 2026-11-21, HTTP 200, valid xlsx (zip), 1,627,497 bytes. Header read (8 columns). Row count 47,335 is from the sheet dimension tag (A1:H47336), not from parsed rows. Years not parsed. Metadata file: HTTP 200, 31,202 bytes.
 - Limits: Permits, not residents. The stock is not the same as the number of people living in the city. Counts can change later, per SERMIG. No comuna, so the comuna split must come from another source.
 - Use in the simulation: INPUT, weak. Composition of migrants by age, sex, and region, to set the share of foreign-born agents in Santiago region. Not a comuna mechanism.
 
@@ -85,7 +85,7 @@ Summary: the best verified files are the INE population projections by comuna an
 - Access: direct download, CSV, 6,478,587 bytes, 71,224 data rows.
 - Check: VERIFIED 2026-11-21, HTTP 200, 6,478,587 bytes, 71,224 lines. The header and the first rows were read. The file was deleted after the check.
 - Limits: Personal data. It has date of birth, sex, nationality, and job per person. It is one municipality only. Do not use it, and do not put it in `data/raw/`. Licence counts by comuna are not in this file.
-- Use in the simulation: NONE. Privacy risk. Do not use.
+- Use in the simulation: NONE. Privacy risk. Do not use. Do not keep this file, even for a check.
 
 ### Servel: Padrón electoral and participation (TOTEM-2 PDF, 2026)
 - Link: https://www.servel.cl/wp-content/uploads/2026/03/TOTEM-2.pdf
