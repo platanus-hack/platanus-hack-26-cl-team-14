@@ -8,8 +8,10 @@ use crate::stations::access::{StationAccess, planned::PlannedStations};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+#[path = "building_permits.rs"]
+mod building_permits;
 #[path = "attendance.rs"]
 mod attendance;
 #[path = "scenario_stations.rs"]
@@ -41,6 +43,7 @@ pub struct Change { pub kind: Kind, pub target: Target, pub value: f64, pub op: 
 struct State { od: Vec<f64>, public: Vec<f64>, day: Vec<Vec<f64>> }
 
 pub struct Scenario {
+    data_dir: PathBuf,
     choice: Choice,
     pop: Population,
     /// Public-transport share of the commuters of each home comuna (mode 2 of mode_share.csv), as the station fit (L2).
@@ -105,7 +108,7 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), choice, pop, share, access, planned, stations, comunas };
+        let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), choice, pop, share, access, planned, stations, comunas };
         sc.base = sc.state(&sc.pop, &Network::new(&sc.access));
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -154,7 +157,34 @@ impl Scenario {
         let mut network = Network::new(&self.access);
         let mut requests = vec![];
 
-        for raw in changes {
+        // Expand one permit request at its position in the list. Its child changes
+        // reuse the ordinary resident path and appear as one aggregate in the reply.
+        let mut pending: Vec<_> = changes.iter().rev().cloned().map(|change| (change, false)).collect();
+        while let Some((change, permit_child)) = pending.pop() {
+            let raw = &change;
+            if raw["target"]["type"] == "permits" {
+                let mut note = change.clone();
+                let result = match (raw["kind"].as_str(), raw["op"].as_str(), raw["target"]["id"].as_str(), raw["value"].as_f64()) {
+                    (Some("residents"), Some("multiply"), Some(years), Some(share)) => building_permits::expand(&self.data_dir, years, share),
+                    _ => Err("Use a residents permits target with a year or year range, op multiply, and a numeric completion share.".into()),
+                };
+                match result {
+                    Ok((residents, summary)) => {
+                        note["understood"] = summary;
+                        applied.push(note);
+                        for (cut, count) in residents.into_iter().rev() {
+                            if count > 0 {
+                                pending.push((json!({"kind":"residents","target":{"type":"comuna","id":cut},"op":"add","value":count}), true));
+                            }
+                        }
+                    }
+                    Err(reason) => {
+                        note["reason"] = json!(reason);
+                        not_modeled.push(note);
+                    }
+                }
+                continue;
+            }
             let kind = raw["kind"].as_str().unwrap_or("");
             let key = raw["target"]["id"].as_str().unwrap_or("");
             if let Some(result) = network.apply(raw, &self.stations, &self.planned) {
@@ -219,23 +249,41 @@ impl Scenario {
                     Target::Pair { .. } => unreachable!(),
                 }
             };
-            // New weights of the points: a comuna keeps the proportions of its points.
-            let scale = |v: &mut [Point], ids: &[usize]| -> (f64, f64) {
+            // Keep current proportions. If an earlier change emptied a comuna,
+            // use its original block weights to distribute the next increase.
+            let scale = |v: &mut [Point], ids: &[usize], baseline: &[Point]| {
                 let before: f64 = ids.iter().map(|&i| v[i].weight).sum();
                 let after = op(before);
-                for &i in ids { v[i].weight = if ids.len() == 1 { after } else { v[i].weight * after / before }; }
-                (before, after)
+                if ids.len() == 1 {
+                    v[ids[0]].weight = after;
+                } else if before > 0.0 {
+                    for &i in ids { v[i].weight = v[i].weight * after / before; }
+                } else if after > 0.0 {
+                    let weight = |i: usize| baseline.get(i).map_or(0.0, |p| p.weight);
+                    let total: f64 = ids.iter().map(|&i| weight(i)).sum();
+                    if total == 0.0 { return None; }
+                    for &i in ids { v[i].weight = weight(i) * after / total; }
+                }
+                Some((before, after))
             };
             match ch.kind {
                 Kind::Jobs => {
                     let (ids, cut) = points(&mut pop.jobs);
-                    let (before, after) = scale(&mut pop.jobs, &ids);
+                    let Some((before, after)) = scale(&mut pop.jobs, &ids, &self.pop.jobs) else {
+                        note["reason"] = json!("The comuna has no baseline block weights for this increase.");
+                        not_modeled.push(note);
+                        continue;
+                    };
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "jobs_before": r1(before), "jobs_after": r1(after) });
                     if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.jobs[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
                 Kind::Residents => {
                     let (ids, cut) = points(&mut pop.homes);
-                    let (before, after) = scale(&mut pop.homes, &ids);
+                    let Some((before, after)) = scale(&mut pop.homes, &ids, &self.pop.homes) else {
+                        note["reason"] = json!("The comuna has no baseline block weights for this increase.");
+                        not_modeled.push(note);
+                        continue;
+                    };
                     let k = ((after - before) * self.ratio[self.ix(&cut)]).round();
                     let workers = if k > 0.0 {
                         // New workers on the home points in proportion to the new weights. u32::MAX = no job yet (rechoose.rs).
@@ -272,7 +320,7 @@ impl Scenario {
                     note["understood"] = json!({ "pairs": cells.len(), "mean_minutes_before": r1(before / cells.len() as f64), "mean_minutes_after": r1(after / cells.len() as f64) });
                 }
             }
-            applied.push(note);
+            if !permit_child { applied.push(note); }
         }
 
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();

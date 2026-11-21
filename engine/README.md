@@ -496,3 +496,15 @@ A scenario caller can opt in with
 call `weight_job_masses` on the freshly aggregated public commuter masses
 in job-point order before calling `project_points`. The default constructor
 uses the census job stocks.
+
+## Residents from housing permits
+
+A permit scenario combines MINVU authorized dwellings with the 2024 Census occupancy and household size of each comuna. Use a single permit year or a year range. The value is the assumed share of authorized dwellings that are both completed and additional to the starting population. The engine applies Census occupancy separately. It sums the selected years before rounding the additional residents once per comuna. The 2025 permit figures are preliminary.
+
+```sh
+printf '%s\n' '[{"kind":"residents","target":{"type":"permits","id":"2023-2025"},"op":"multiply","value":0.5}]' |
+  cargo run --locked --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - |
+  jq '{applied, not_modeled, workers_new:.summary.workers_new, boardings_base:.summary.boardings_base, boardings_scenario:.summary.boardings_scenario}'
+```
+
+The existing resident-change model distributes each comuna's additional residents across its home points and derives additional workers from its baseline commuter ratio. The single permit entry in `applied` records authorized dwellings, modeled additional residents and the assumptions. Unsupported years and shares appear in `not_modeled`. Other changes in the same request run in their original order. [Permit data](../data/mvp/building_permits.md)
