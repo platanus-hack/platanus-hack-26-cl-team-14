@@ -70,21 +70,37 @@ SELECT count(*) AS reference_blocks, median(typical_area) AS footprint_m2,
        median(cover) AS developed_share, median(dwellings/n) AS dwellings_per_shape
 FROM sample WHERE n>=5 AND cover BETWEEN 0.2 AND 0.9;
 
+-- Union mapped roofs inside each populated block. Only the visible portion can receive infill.
+CREATE OR REPLACE TABLE sparse_roofs AS
+WITH roofs AS (
+    SELECT c.block_id, ST_Union_Agg(ST_Intersection(r.geom,c.clipped_geom)) AS geom
+    FROM hits h JOIN census c USING(block_id) JOIN real r USING(osm_id,part)
+    WHERE c.pop>0 GROUP BY c.block_id
+)
+SELECT r.* FROM roofs r JOIN census c USING(block_id)
+WHERE ST_Area(r.geom)<0.05*ST_Area(c.clipped_geom);
+
 -- Clip at the city boundary. Keep each component separate. Set back from its edge by 2 m.
 CREATE OR REPLACE TABLE sites AS
 WITH clipped AS (
-    SELECT c.block_id,c.cut,c.dwellings,c.jobs,c.area,
+    SELECT c.block_id,c.cut,c.dwellings,c.jobs,c.area, r.geom AS roofs,
            unnest(ST_Dump(ST_CollectionExtract(c.clipped_geom,3))) AS fragment
-    FROM coverage c WHERE c.pop>0 AND c.real_shapes=0
+    FROM coverage c LEFT JOIN sparse_roofs r USING(block_id)
+    WHERE c.pop>0 AND (c.real_shapes=0 OR r.block_id IS NOT NULL)
 ), interior AS (
     SELECT block_id,cut,dwellings,jobs,area,fragment.path AS component,
-           ST_Area(fragment.geom) AS clipped_m2, ST_Buffer(fragment.geom,-2) AS geom
+           ST_Area(fragment.geom) AS clipped_m2,
+           CASE WHEN roofs IS NULL THEN 0 ELSE ST_Area(ST_Intersection(fragment.geom,roofs)) END AS roof_m2,
+           ST_Buffer(CASE WHEN roofs IS NULL THEN fragment.geom
+                          ELSE ST_Difference(fragment.geom,roofs) END,-2) AS geom
     FROM clipped
+), targets AS (
+    SELECT s.*, greatest(1, round(least(clipped_m2*g.developed_share/g.footprint_m2,
+             clipped_m2/area*dwellings/g.dwellings_per_shape)))::INT
+             - ceil(roof_m2/g.footprint_m2)::INT AS target, g.footprint_m2
+    FROM interior s, grain g WHERE NOT ST_IsEmpty(geom) AND ST_Area(geom)>=12
 )
-SELECT s.*, greatest(1, round(least(clipped_m2*g.developed_share/g.footprint_m2,
-             clipped_m2/area*dwellings/g.dwellings_per_shape)))::INT AS target,
-       g.footprint_m2
-FROM interior s, grain g WHERE NOT ST_IsEmpty(geom) AND ST_Area(geom)>=12;
+SELECT * FROM targets WHERE target>0;
 
 -- Align a regular grid with the long side of the local block. Use the full geometry
 -- to accept footprints, including courtyards, concave edges and irregular block ends.
