@@ -36,6 +36,8 @@ Command: `python3 -I tools/pack/mapocho_corridor.py <EOD_STGO> <nominatim.json>`
 | Busiest start hours | 17:00, 08:00, 12:00, 07:00 |
 | Largest comuna pairs | Providencia–Santiago 12,592 · Providencia–Vitacura 8,578 · Cerro Navia–Santiago 8,160 · Recoleta–Renca 6,639 · Santiago–Vitacura 6,098 · Providencia–Renca 6,075 |
 
+Pier-to-pier subset (Eliseo-21, independent check of this count): **24,493** of the 88,962 trips (27.5 %; 95 survey records) have both ends within 800 m straight-line of two different piers in [piers.json](mapocho/piers.json). 13,885 of them already use bus, Metro or both. [Evidence](https://discord.com/channels/1573514576400752640/1573561159955648553/1573738670098485268).
+
 This is the market a river line could take from, not a forecast of boat riders. Two strong axes: east (Vitacura–Providencia–Centro) and west (Cerro Navia–Renca–Centro). The survey is from 2012.
 
 ## 4. Comparable river buses
