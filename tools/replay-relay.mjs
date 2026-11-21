@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 
 const [port, id] = process.argv.slice(2);
-const { result } = JSON.parse(readFileSync(new URL(`../data/replays/${id}.json`, import.meta.url), 'utf8'));
+const { meta, result } = JSON.parse(readFileSync(new URL(`../data/replays/${id}.json`, import.meta.url), 'utf8'));
+// Same camera cues as run_replay. The final chart is too wide for a tile, so tiles show the map only.
+if (meta.cues) result.scene.cues = meta.cues;
 result.revision = 1;
 result.scene.revision = 1;
 const body = JSON.stringify(result);
