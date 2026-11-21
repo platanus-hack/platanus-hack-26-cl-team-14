@@ -184,6 +184,8 @@ function chartValues({ id, chart: { title, unit, bars, keys = {}, show_after_sec
   return { title, unit, show_after_seconds, bars: bars.map(({ label, field, replay = id }) => {
     const value = field.split('.').reduce((v, key) => v[key], readReplay(replay).result);
     const values = typeof value === 'number' ? { total: value } : value;
+    // The viewer draws only numbers: stop here, before publishing, if the field is wrong.
+    if (!values || !Object.values(values).length || Object.values(values).some(v => typeof v !== 'number')) throw new Error(`Chart field ${field} in replay ${replay} is not a number or an object of numbers.`);
     return { label, values: Object.fromEntries(Object.entries(values).map(([k, v]) => [keys[k] ?? k, v])) };
   }) };
 }
