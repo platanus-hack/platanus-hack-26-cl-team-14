@@ -894,6 +894,16 @@ The router assigns one wait to a stop pattern. When several route IDs share one 
 
 Example: Quilicura → Santiago (`13125-13101`) uses bus 425 and Metro L3. The corresponding CSV row gives 37.4 minutes door to door, 25.6 minutes on board, and one transfer.
 
+### Local public routes for the Quilicura fixture
+
+`web/data/local_public_routes.json.gz` supplies routes between the actual aggregate group endpoints when the comuna pair is absent from `public_routes.json`. It uses the same weekday 08:00 network, walking limits, and inclusive segment indexes. It stores no trip counts. The fixture uses two snapshots of 2,000 aggregate groups. Each snapshot contains 252 public groups without a comuna route.
+
+Inflate the JSON. Look up `groups.base[id]` or `groups.scenario[id]` to get an index into `paths`. Index zero is valid. Only use a match for a public group whose origin and destination match the first and last path coordinates after rounding to five decimals. Group IDs alone do not identify the same route in another engine result. The file includes the SHA-256 of the source fixture.
+
+Each snapshot gains 130 public groups (124 same-comuna and 6 inter-comuna). Across both snapshots they share 139 distinct paths. In each snapshot, 88 other public groups have an endpoint with no GTFS stop within 1 km. For another 34 the fastest modeled path consists only of walking. The lookup omits both cases. Together with the comuna routes, 931 of 1,053 public groups per snapshot have a route. The local routes add no traffic and do not describe service at the group's own departure hour.
+
+Rebuild with `python3 tools/pack/local_public_routes.py /path/to/quilicura-20k-rust.json`. Fixture SHA-256: `c9a41d56111e8c79abf4b859e2c1a8e3637e76aec3d72dd8ffe8a28711be4def`.
+
 ## Bicycle routes
 
 `web/data/bicycle_routes.json` maps each directed key `originCut-destinationCut` to a path of WGS84 `[longitude, latitude]` points. Endpoints are the nearest routable bicycle locations to the population-weighted comuna points in `communes.csv`. The paths represent possible routes between these points. They do not measure cyclists or represent every street used by residents.
