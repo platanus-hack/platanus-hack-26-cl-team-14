@@ -279,6 +279,7 @@ fn main() -> AppExit {
             MiniatureCamera,
             net::NetPlugin,
             movers::MoversPlugin,
+            movers::events::EventsPlugin,
             pixels::PixelMode,
         ))
         .init_resource::<city::SubwayView>()
