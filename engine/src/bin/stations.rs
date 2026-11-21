@@ -13,7 +13,7 @@ fn main() {
     let data = Path::new(&a[1]);
     let st: Vec<stations::Station> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
     let t = std::time::Instant::now();
-    let (pred, report) = stations::predict(data, &st, a.get(3).map_or(f64::INFINITY, |r| r.parse().unwrap()), a.iter().any(|x| x == "public"), a.iter().any(|x| x == "classes"));
+    let (pred, report, _) = stations::predict(data, &st, a.get(3).map_or(f64::INFINITY, |r| r.parse().unwrap()), a.iter().any(|x| x == "public"), a.iter().any(|x| x == "classes"));
     let ms = t.elapsed().as_secs_f64() * 1e3;
     let out: BTreeMap<&str, &Vec<f64>> = st.iter().map(|s| s.name.as_str()).zip(pred.iter()).collect();
     serde_json::to_writer(std::fs::File::create(&a[2]).unwrap(), &out).unwrap();
