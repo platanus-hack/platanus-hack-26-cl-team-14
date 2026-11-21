@@ -1,5 +1,5 @@
 //! Surface service lines for the matched Metro replay shots.
-use super::{Surface, ground::ribbon, world};
+use super::{SubwayView, Surface, ground::ribbon, world};
 use crate::{
     movers::clock::{CityClock, UpdateClock},
     net::Scenario,
@@ -77,6 +77,7 @@ struct FadeState {
 fn fade(
     scenario: Res<Scenario>,
     clock: Res<CityClock>,
+    subway: Res<SubwayView>,
     time: Res<Time<Real>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut state: Local<FadeState>,
@@ -128,7 +129,7 @@ fn fade(
         state.started = None;
         1.0
     };
-    visibility.set_if_neq(if alpha > 0.0 {
+    visibility.set_if_neq(if !subway.0 && alpha > 0.0 {
         Visibility::Inherited
     } else {
         Visibility::Hidden
