@@ -14,7 +14,7 @@ Agent: claude-sonnet-4-6 (emersoftware@Emersons-MacBook-Air), 2026-11-21.
 - Contents: One pixel = count of people living in that 100 m cell. UN-adjusted, constrained to built area. Single float band.
 - Granularity: point (100 m pixel). Static 2020 snapshot.
 - Year: 2020 (model from 2025 reanalysis R2025A)
-- Access: direct download. GeoTIFF. 59 MB.
+- Access: direct download. GeoTIFF. 62 MB.
 - Check: VERIFIED-BYTES 2026-11-21, HTTP 200, Content-Length 62,328,145 bytes. No rows parsed.
 - Role: INPUT
 - Limits: modeled, not census. Constrained version underestimates in informal settlements if built-area mask misses them. License: CC BY 4.0.
@@ -220,8 +220,8 @@ Agent: claude-sonnet-4-6 (emersoftware@Emersons-MacBook-Air), 2026-11-21.
 
 ## Critique
 
-1. **VIIRS and Dynamic World are unverified.** Both require accounts or GEE access. For land cover, ESA WorldCover (verified) covers the use case. VIIRS remains the only open proxy for night-time economic activity; a team member with an EOG free account should download the 2022 annual composite.
+1. **No entry has rows read from the Santiago bounding box.** All verified entries are VERIFIED-BYTES (HEAD or range requests). No pixel value or hexagon was parsed to confirm that Santiago totals near 7 million. Add a row-level check for at least HRSL and WorldPop. The HRSL Santiago-box sum of 7,657,984 (read by critic calm-otter) is the first real population number; it should be added to this catalog as a cross-check value.
 
-2. **GHSL global ZIPs verified as bytes only; tiles not extracted.** The global ZIP files (5.1 GB and 7.9 GB) are confirmed to exist. No per-tile check was done for the Santiago area in Mollweide coordinates. The simulation team needs to identify tiles R??_C?? in the tiles/ subfolder covering Santiago before ingestion.
+2. **GHSL global ZIPs are 5.1 GB and 7.9 GB; tiles not extracted.** The simulation team needs to identify tiles R??_C?? in the tiles/ subfolder covering Santiago in Mollweide coordinates before ingestion. Use an online Mollweide converter for -33.45°S, -70.67°W to get the tile index.
 
-3. **Copernicus DEM 30 m is not publicly available for Chile.** Only the 90 m (GLO-90) tile was verified. If the simulation needs 30 m terrain, request it from the Copernicus Data Space portal (account required) or use SRTM 30 m from NASA EarthData (not checked here).
+3. **Several entries have low simulation value.** Ookla Speedtest (remote-work influence), Copernicus DEM (slope), OpenCelliD (mobile coverage), and Dynamic World (duplicate of WorldCover) have no clear pitch moment in the current scope. VIIRS also unverified (account required). Census 2024 manzanas (a local source) give real persons and dwellings by block; the rasters here are fallbacks if the census is unavailable or needs spatial disaggregation below manzana level.
