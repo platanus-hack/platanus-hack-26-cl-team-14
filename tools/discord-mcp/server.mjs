@@ -2,17 +2,19 @@
 // Discord MCP server for the team agents. No dependencies: Node 22+ only.
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { hostname } from "node:os";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
+import { inboxDirectory, localPage, newMessages, snapshot, startInbox, watched } from "./inbox.mjs";
+
 const API_URL = "https://discord.com/api/v10";
 const CHANNEL_TYPES_WITH_CONTENT = new Set([0, 5, 15]); // text, announcement, forum
 const THREAD_TYPES = new Set([10, 11, 12]);
 const MAX_MESSAGE_LENGTH = 2000;
-const MAX_RATE_LIMIT_RETRIES = 3;
+const MAX_ATTEMPTS = 3;
 const MAX_FILES = 10;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // Discord limit for a server without boost
 const ENV_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", ".env");
@@ -194,12 +196,43 @@ const TOOLS = [
 ];
 
 function savedToken() {
-  process.loadEnvFile(ENV_PATH);
+  if (existsSync(ENV_PATH)) process.loadEnvFile(ENV_PATH);
   return process.env.DISCORD_BOT_TOKEN;
 }
 
+function routeName(method, path) {
+  return method + " " + path.split("?")[0]
+    .replace(/(\/webhooks\/\d+)\/[^/]+/, "$1/:token")
+    .replace(/\/\d+(?=\/|$)/g, "/:id")
+    .replace(/(\/reactions\/)[^/]+/, "$1:emoji");
+}
+
+const routeCounts = new Map();
+function recordCall(route, response, body) {
+  if (!process.env.DISCORD_REST_METRICS) return;
+  const count = (routeCounts.get(route) ?? 0) + 1;
+  routeCounts.set(route, count);
+  console.error(JSON.stringify({
+    time: Date.now(), route, count, status: response.status,
+    ...(response.status === 429 && {
+      bucket: response.headers.get("x-ratelimit-bucket"), retry_after: body.retry_after ?? response.headers.get("retry-after"),
+    }),
+  }));
+}
+
+const cooldowns = new Map();
+const buckets = new Map();
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 async function discord(path, { auth = true, token = auth ? savedToken() : undefined, json, ...request } = {}) {
-  for (let attempt = 0; ; attempt++) {
+  if (auth && !token) throw new Error(ASK_FOR_TOKEN);
+  const route = routeName(request.method ?? "GET", path);
+  const major = path.match(/^\/(?:channels|guilds|webhooks)\/(\d+)/)?.[1] ?? "";
+  const global = auth ? "bot" : "webhooks";
+  const key = () => `${buckets.get(route) ?? route}/${major}`;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let delay;
+    while ((delay = Math.max(cooldowns.get(global) ?? 0, cooldowns.get(key()) ?? 0) - Date.now()) > 0) await wait(delay);
     const response = await fetch(`${API_URL}${path}`, {
       ...request,
       ...(json && { body: JSON.stringify(json) }),
@@ -210,9 +243,21 @@ async function discord(path, { auth = true, token = auth ? savedToken() : undefi
       },
     });
     const body = response.status === 204 ? {} : await response.json().catch(() => ({}));
+    recordCall(route, response, body);
+    const bucket = response.headers.get("x-ratelimit-bucket");
+    if (bucket) buckets.set(route, bucket);
+    const pause = (scope, seconds) => {
+      const until = Date.now() + Math.ceil(seconds * 1000);
+      cooldowns.set(scope, Math.max(until, cooldowns.get(scope) ?? 0));
+    };
+    if (response.headers.get("x-ratelimit-remaining") === "0") {
+      pause(key(), Number(response.headers.get("x-ratelimit-reset-after")) || 0);
+    }
     if (response.ok) return body;
-    if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
-      await new Promise((resolve) => setTimeout(resolve, (body.retry_after ?? 1) * 1000));
+    if (response.status === 429) {
+      const seconds = Math.max(Number(body.retry_after) || 0, Number(response.headers.get("retry-after")) || 0) || 1;
+      pause(body.global || response.headers.has("x-ratelimit-global") ? global : key(), seconds);
+      if (attempt === MAX_ATTEMPTS) throw new Error(`Discord limited ${route} after ${attempt} attempts. Retry after ${seconds} seconds.`);
       continue;
     }
     if (response.status === 401) throw new Error(`Discord rejected the token. ${ASK_FOR_TOKEN}`);
@@ -221,10 +266,11 @@ async function discord(path, { auth = true, token = auth ? savedToken() : undefi
 }
 
 async function listChannels() {
-  const guilds = await discord("/users/@me/guilds");
+  const local = await snapshot();
+  const guilds = local?.guilds ?? await discord("/users/@me/guilds");
   const sections = await Promise.all(
     guilds.map(async (guild) => {
-      const [channels, { threads }] = await Promise.all([
+      const [channels, { threads }] = local ? [guild.channels, { threads: guild.threads.filter(t => !t.archived) }] : await Promise.all([
         discord(`/guilds/${guild.id}/channels`),
         discord(`/guilds/${guild.id}/threads/active`),
       ]);
@@ -260,7 +306,14 @@ function formatMessage(message) {
 
 async function readMessages({ channel_id, limit = 50, before, after, around }) {
   checkIds([channel_id, before, after, around]);
-  const query = new URLSearchParams({ limit: String(Math.min(Math.max(limit, 1), 100)) });
+  limit = Math.min(Math.max(limit, 1), 100);
+  const state = await snapshot();
+  const channel = state?.guilds.flatMap(watched).find(c => c.id === channel_id);
+  if (channel && [before, after, around].filter(Boolean).length <= 1) {
+    const page = localPage(state, channel, { limit, before, after, around });
+    if (page) return page.map(formatMessage).join("\n") || "No messages.";
+  }
+  const query = new URLSearchParams({ limit: String(limit) });
   for (const [key, value] of Object.entries({ before, after, around })) {
     if (value) query.set(key, value);
   }
@@ -405,7 +458,21 @@ let pollError;
 let logLevel = "info";
 const logLevels = ["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"];
 
+let coveredThrough = connectedAt;
+
 async function pollDiscord() {
+  const started = Date.now();
+  const local = await snapshot();
+  if (local && coveredThrough >= local.since) {
+    for (const channel of local.guilds.flatMap(watched)) {
+      for (const message of newMessages(local, channel, cursors.get(channel.id) ?? initialCursor)) {
+        inbox.push(`#${channel.name}: ${formatMessage(message)}`);
+        cursors.set(channel.id, message.id);
+      }
+    }
+    coveredThrough = started;
+    return;
+  }
   const guilds = await discord("/users/@me/guilds");
   for (const guild of guilds) {
     const channels = await discord(`/guilds/${guild.id}/channels`);
@@ -413,13 +480,13 @@ async function pollDiscord() {
     const roots = channels.filter((c) => c.type === 0 && c.name !== "secrets" && (c.name === "general" || (category && c.parent_id === category.id)));
     const { threads } = await discord(`/guilds/${guild.id}/threads/active`);
     for (const general of roots) {
-      const watched = new Map([[general.id, general], ...threads.filter((t) => t.parent_id === general.id).map((t) => [t.id, t])]);
+      const watched = new Map([[general.id, general], ...threads.filter((t) => t.type !== 12 && t.name !== "secrets" && t.parent_id === general.id).map((t) => [t.id, t])]);
       // Include threads closed between polls, so their last messages still arrive.
       let before;
       while (true) {
         const query = new URLSearchParams({ limit: "100", ...(before && { before }) });
         const page = await discord(`/channels/${general.id}/threads/archived/public?${query}`);
-        for (const thread of page.threads) watched.set(thread.id, thread);
+        for (const thread of page.threads) if (thread.name !== "secrets") watched.set(thread.id, thread);
         const last = page.threads.at(-1)?.thread_metadata.archive_timestamp;
         if (!page.has_more || !last || Date.parse(last) < connectedAt) break;
         before = last;
@@ -443,6 +510,7 @@ async function pollDiscord() {
       }
     }
   }
+  coveredThrough = started;
 }
 
 function poll() {
@@ -534,7 +602,7 @@ async function callTool({ name, arguments: args = {} }) {
     create_thread: createThread,
     find_member: findMember,
     create_channel: createChannel,
-    poll_messages: async () => { await poll(); return "Discord inbox checked."; },
+    poll_messages: async () => { if (!inbox.length) await poll(); return "Discord inbox checked."; },
     report_usage: reportUsage,
   };
   try {
@@ -570,7 +638,12 @@ function send(message) {
   process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}\n`);
 }
 
-createInterface({ input: process.stdin }).on("close", () => { clearInterval(pollTimer); process.exit(0); }).on("line", async (line) => {
+const inboxToken = savedToken();
+if (inboxToken) inboxDirectory(inboxToken);
+if (process.argv.includes("--inbox")) {
+  if (!inboxToken) throw new Error(ASK_FOR_TOKEN);
+  await startInbox(inboxToken, discord);
+} else createInterface({ input: process.stdin }).on("close", () => { clearInterval(pollTimer); process.exit(0); }).on("line", async (line) => {
   let request;
   try {
     request = JSON.parse(line);

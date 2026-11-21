@@ -1,7 +1,7 @@
 # Discord MCP server
 
 This server connects the agents (Claude Code, Codex, OpenCode) to the team Discord.
-It is one file, `server.mjs`. It has no dependencies. It needs Node 22 or later and the `gh` CLI.
+The MCP server and its local inbox have no package dependencies. It needs Node 22 or later and the `gh` CLI.
 
 The repo loads it for all three tools: `.mcp.json` (Claude Code), `.codex/config.toml` (Codex), `opencode.json` (OpenCode).
 
@@ -21,14 +21,16 @@ Each message shows the agent name, for example `Clorinda-47 (v4rgas@thinkpad)`.
 Each agent session keeps one name and number. The names come from [Chilean Civil Registry data for 1940 to 1975](https://rivaquiroga.github.io/guaguas/). The GitHub user comes from `gh`. The machine name comes from the hostname.
 The bot posts through one webhook for each channel, named `agents`. Discord shows the tag `APP` on these messages.
 
-## Setup (one person, one time)
+## Create or replace the team bot
 
-1. Go to <https://discord.com/developers/applications>. Click **New Application**.
-2. Open **Bot**. Click **Reset Token** and copy the token. Keep it secret. Do not put it in the repo.
+1. Go to <https://discord.com/developers/applications>. Click **New Application**, enter a name, and click **Create**.
+2. Open **Bot**. Click **Reset Token** and copy the token into your private secret manager.
 3. In **Bot**, turn on these two privileged intents:
    - **Message Content Intent** (to read messages)
    - **Server Members Intent** (for `find_member`)
-4. Open this URL. Replace `APP_ID` with the Application ID from **General Information**. Select the team server.
+
+   Click **Save Changes**.
+4. Open this URL. Replace `APP_ID` with the Application ID from **General Information**. Select the team server and click **Authorize**. Your Discord account needs Manage Server.
 
    ```
    https://discord.com/oauth2/authorize?client_id=APP_ID&scope=bot&permissions=326954503248
@@ -38,17 +40,23 @@ The bot posts through one webhook for each channel, named `agents`. Discord show
    Read Message History, Embed Links, Attach Files, Add Reactions, Manage Webhooks, Manage Threads, Manage Channels.
 5. Create the `Agents` category with `agent-chat` and `agent-status` text channels.
    Use ordinary threads in `agent-chat` for work. Keep `general` for human direction.
-6. Send the token to the team in a private way (not in Discord, not in the repo).
+6. Share the token with the laptop owners through your private secret manager. If a token appears in Discord, reset it in the portal and delete the message.
 
 ## Setup (each person, on each laptop)
 
 1. Make sure that `node --version` shows 22 or later, and that `gh auth status` shows your GitHub user.
-2. Put the token in the file `.env` at the repo root: `DISCORD_BOT_TOKEN=<token>`. Git ignores this file. The server reads it each time.
+2. Set `DISCORD_BOT_TOKEN` in the ignored `.env` at the repo root. Each laptop uses the same bot.
 3. Start your agent from the root of the repo:
    - **Claude Code:** approve the `discord` server when Claude Code asks.
    - **Codex:** trust the project when Codex asks. Codex reads `.codex/config.toml` only in trusted projects.
    - **OpenCode:** no step.
-4. Tell your agent: "list the Discord channels". It must show `#tasks`, `#releases`, `#general`.
+4. Start the shared inbox in a terminal and leave it running. Run this command once per laptop.
+
+   ```sh
+   node tools/discord-mcp/server.mjs --inbox
+   ```
+
+5. Restart each agent’s Discord MCP connection when convenient. Existing processes continue to run the code they loaded.
 
 ## Run by hand
 
@@ -61,20 +69,15 @@ The server speaks MCP on stdin and stdout. Usually the agent tool starts it.
 
 ## Notifications and usage
 
-Restart the agent's Discord MCP connection after updating this server.
-Each connection polls all text channels under `Agents`, plus `general`, every 15 seconds.
-It discovers new channels and their public threads on each poll.
-It includes threads archived between polls. It never polls `secrets`.
-New messages arrive in an inbox. Each tool result includes up to 50 unread messages.
-Call `poll_messages` again if more remain. All authors are included, including bots.
-The MCP client also receives a log notification with the unread count.
-Clients decide whether to show it. This cannot guarantee that an idle agent wakes.
-Follow the continuous listening rule in `AGENTS.md`, including while waiting after a task ends.
-Keep the connection and session active. Poll at least once per minute, even when the inbox is empty.
+The inbox connects to the Discord Gateway and stores messages in private JSONL files in the system temp directory. It watches the Agents channels, `general`, and their public threads. It excludes `secrets`. Port 43871 on loopback reserves one writer on this laptop.
 
-The inbox starts when the server starts. It is held in memory and resets on restart.
-Read the topic history when starting or resuming work. Polling reports new messages,
-not edits or deletions. A message deleted before the poll cannot be recovered.
+Each MCP client keeps its own unread cursor. It checks local files every 15 seconds and returns up to 50 unread messages per tool call. Call `poll_messages` to drain the rest. The client also sends an MCP log notification. The host decides when to wake an idle agent.
+
+Channel listings and recent reads use the local files. `read_messages` preserves `before`, `after`, `around`, and `limit`. The client uses REST if the selected page reaches beyond local history. After a disconnect, the inbox asks Discord to replay the missing events. Clients allow 12 seconds for recovery before they use REST. If Discord rejects the session, the inbox starts a new local history window.
+
+Set `DISCORD_REST_METRICS=1` when starting a process to write one JSON line per REST response to stderr. Each line includes the route, cumulative route count and status. A 429 line also includes the bucket and retry delay. The client waits for Discord’s delay and stops a request after three attempts.
+
+Discord’s Developer Policy says, “You agree to, and will not attempt to circumvent, such limitations we set for each API.” Exceeding a limit requires Discord’s express written consent. This tool uses a single bot identity. [Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy) · [Rate limits](https://docs.discord.com/developers/topics/rate-limits) · [Gateway](https://docs.discord.com/developers/events/gateway)
 
 Call `report_usage` with the `agent-status` `channel_id` and `memory` notes.
 Codex agents add `provider: "codex"`. The server starts a short-lived local
