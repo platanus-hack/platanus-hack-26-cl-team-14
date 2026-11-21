@@ -198,6 +198,23 @@ function savedToken() {
   return process.env.DISCORD_BOT_TOKEN;
 }
 
+const routeCounts = new Map();
+function recordCall(method, path, response, body) {
+  if (!process.env.DISCORD_REST_METRICS) return;
+  const route = method + " " + path.split("?")[0]
+    .replace(/(\/webhooks\/\d+)\/[^/]+/, "$1/:token")
+    .replace(/\/\d+(?=\/|$)/g, "/:id")
+    .replace(/(\/reactions\/)[^/]+/, "$1:emoji");
+  const count = (routeCounts.get(route) ?? 0) + 1;
+  routeCounts.set(route, count);
+  console.error(JSON.stringify({
+    time: Date.now(), route, count, status: response.status,
+    ...(response.status === 429 && {
+      bucket: response.headers.get("x-ratelimit-bucket"), retry_after: body.retry_after ?? response.headers.get("retry-after"),
+    }),
+  }));
+}
+
 async function discord(path, { auth = true, token = auth ? savedToken() : undefined, json, ...request } = {}) {
   for (let attempt = 0; ; attempt++) {
     const response = await fetch(`${API_URL}${path}`, {
@@ -210,6 +227,7 @@ async function discord(path, { auth = true, token = auth ? savedToken() : undefi
       },
     });
     const body = response.status === 204 ? {} : await response.json().catch(() => ({}));
+    recordCall(request.method ?? "GET", path, response, body);
     if (response.ok) return body;
     if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
       await new Promise((resolve) => setTimeout(resolve, (body.retry_after ?? 1) * 1000));
