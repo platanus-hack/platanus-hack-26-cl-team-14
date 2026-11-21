@@ -1038,3 +1038,15 @@ Copernicus GLO-90 is a digital surface model. Elevations include trees, building
 Required credit for the derived grid: produced using Copernicus WorldDEM-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved
 
 To rebuild, download the 5,131,205-byte [source GeoTIFF](https://copernicus-dem-90m.s3.amazonaws.com/Copernicus_DSM_COG_30_S34_00_W071_00_DEM/Copernicus_DSM_COG_30_S34_00_W071_00_DEM.tif) into `data/raw/copernicus-dem/` with its original filename. SHA-256: `5fec8634dd8d5433b13c1766a4948518457dba29a90f4cb676cf7852dd71a800`. Run `python3 -I tools/pack/terrain.py` from the repo root.
+
+## City tree points
+
+`web/data/city_trees.bin.gz` contains one point per mapped `natural=tree` node. Inflate the gzip stream, then read four bytes per tree. The first two bytes encode unsigned little-endian x, and the next two encode unsigned little-endian y. There is no header. Longitude is `(x - 7085000) / 100000`, latitude is `(y - 3365000) / 100000`. This is the coordinate grid of the city building tiles.
+
+All 77,296 tree nodes in the urban extract fall inside the inclusive box [-70.85, -33.65, -70.45, -33.30]. The 77,296 records occupy 309,184 bytes before compression. Quantization gives 77,266 distinct positions. Separate nodes can share the same rounded position. The map is an incomplete inventory of Santiago's trees.
+
+Of these nodes, 3,185 (4.12%) have a `height` tag. Of the 3,185 values, 3,184 give a numeric height, with or without a metre suffix, and one says `single`. The binary contains positions only. The source also has 491 `natural=tree_row` ways. They represent lines of trees and do not supply an individual point count. The builder excludes them. [OSM tree tags](https://wiki.openstreetmap.org/wiki/Tag:natural%3Dtree) · [OSM tree row tags](https://wiki.openstreetmap.org/wiki/Tag:natural%3Dtree_row)
+
+Run `python3 -I tools/pack/city_trees.py data/raw/osm-buildings-city/urban.osm.pbf` with osmium-tool installed. The input is the same urban extract used for the building mesh. Its SHA-256 is `4a1cfdb3ffdfdb58cbc6247ab36cac38ad2dc35509b5c1e102a7e53461234cb3`.
+
+Credit the map as [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The point data use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). [Geofabrik Chile snapshot, November 20, 2026](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf)
