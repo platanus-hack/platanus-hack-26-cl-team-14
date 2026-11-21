@@ -33,7 +33,8 @@ try {
   // An absent or incomplete local file uses the session defaults.
 }
 const chosenName = agentSettings?.[process.ppid];
-const AGENT_NAME = typeof chosenName === "string" && chosenName.trim() ? chosenName : drawnName;
+const baseName = typeof chosenName === "string" && chosenName.trim() ? chosenName.trim() : drawnName;
+const AGENT_NAME = baseName.match(/^(.+?-\d+)(?:\s|$)/)?.[1] ?? `${baseName}-${number}`;
 const quietAgent = Array.isArray(agentSettings?.quiet) && agentSettings.quiet.includes(process.ppid);
 // Same name, same picture. Only the random name goes to DiceBear.
 // DiceBear picks one value from each list from the seed, so names look very different.
@@ -42,14 +43,17 @@ const HAIR_COLORS = "ff3b3b,ff9f1c,ffe600,2ec4b6,3a86ff,8338ec,ff006e,00f5d4,fff
 const AVATAR_URL = `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(drawnName)}&radius=50`
   + `&backgroundColor=${AVATAR_COLORS}&hairColor=${HAIR_COLORS}`
   + "&glassesProbability=50&earringsProbability=50&featuresProbability=50";
-let identity;
+let githubUser;
 
-// Example: Clorinda-47 (v4rgas@thinkpad)
-function sender() {
-  identity ??= `${AGENT_NAME} (${execFileSync("gh", ["api", "user", "--jq", ".login"], { encoding: "utf8" }).trim()}@${hostname().split(".")[0]})`;
-  return identity.slice(0, 80);
+function sender(model) {
+  githubUser ??= execFileSync("gh", ["api", "user", "--jq", ".login"], { encoding: "utf8" }).trim();
+  const modelName = model?.trim() || process.env.DISCORD_AGENT_MODEL?.trim() || "unknown";
+  const username = `${AGENT_NAME} (${modelName}@${githubUser})`;
+  if (username.length > 80) throw new Error("The Discord author exceeds 80 characters. Shorten the local agent name or model label.");
+  return username;
 }
 
+const MODEL = { type: "string", description: "Your current model name for the Discord author. Supply it unless DISCORD_AGENT_MODEL identifies this session's model." };
 const CHANNEL_ID = { type: "string", description: "Channel or thread ID (from list_channels)" };
 
 const TOOLS = [
@@ -76,11 +80,12 @@ const TOOLS = [
   },
   {
     name: "send_message",
-    description: `Send a message to a channel or thread. The message shows your agent name, for example "Clorinda-47 (v4rgas@thinkpad)". To reply in a thread, use the thread ID as channel_id. If the text is longer than ${MAX_MESSAGE_LENGTH} characters, it goes as message.txt. Mentions of people (<@ID>, from find_member) notify them; @everyone and roles do not.`,
+    description: `Send a message to a channel or thread. The message shows your agent name, for example "Clorinda-47 (gpt-6@v4rgas)". To reply in a thread, use the thread ID as channel_id. If the text is longer than ${MAX_MESSAGE_LENGTH} characters, it goes as message.txt. Mentions of people (<@ID>, from find_member) notify them; @everyone and roles do not.`,
     inputSchema: {
       type: "object",
       properties: {
         channel_id: CHANNEL_ID,
+        model: MODEL,
         content: { type: "string", description: "Message text. Can be empty if you send files." },
         files: {
           type: "array",
@@ -177,6 +182,7 @@ const TOOLS = [
       type: "object",
       properties: {
         channel_id: CHANNEL_ID,
+        model: MODEL,
         provider: { type: "string", enum: ["codex", "manual"], default: "manual", description: "codex reads local Codex account limits; manual uses supplied host measurements" },
         quota_windows: {
           type: "array", maxItems: 2, description: "Manual measurements only; omit windows the provider did not report",
@@ -279,9 +285,10 @@ function readAttachments(paths) {
 
 // Posts through the channel webhook, with the agent identity as the user name.
 // extra: more webhook fields, for example thread_name and applied_tags to open a forum post.
-async function post(channel_id, content, { files = [], reply_to, extra = {} } = {}) {
+async function post(channel_id, content, { files = [], reply_to, model, extra = {} } = {}) {
   checkIds([channel_id, reply_to]);
   if (!content?.trim() && files.length === 0) throw new Error("content is missing: the message has no text and no files.");
+  const username = sender(model);
   const attachments = readAttachments(files);
   const { channel, webhookPath, threadQuery } = await channelWebhook(channel_id);
   const header = reply_to ? await replyHeader(channel, reply_to) : "";
@@ -292,15 +299,15 @@ async function post(channel_id, content, { files = [], reply_to, extra = {} } = 
     attachments.push({ name: "message.txt", blob: new Blob([content], { type: "text/plain" }) });
   }
   const form = new FormData();
-  form.set("payload_json", JSON.stringify({ allowed_mentions: { parse: ["users"] }, content: isLong ? header : full, username: sender(), avatar_url: AVATAR_URL, ...extra }));
+  form.set("payload_json", JSON.stringify({ allowed_mentions: { parse: ["users"] }, content: isLong ? header : full, username, avatar_url: AVATAR_URL, ...extra }));
   attachments.forEach(({ name, blob }, index) => form.set(`files[${index}]`, blob, name));
   const query = new URLSearchParams({ wait: "true", ...threadQuery });
   return discord(`${webhookPath}?${query}`, { auth: false, method: "POST", body: form });
 }
 
-async function sendMessage({ channel_id, content, files, reply_to }) {
-  const message = await post(channel_id, content, { files, reply_to });
-  return `Message sent as ${sender()}: ${message.id}.`;
+async function sendMessage({ channel_id, content, files, reply_to, model }) {
+  const message = await post(channel_id, content, { files, reply_to, model });
+  return `Message sent as ${message.author.username}: ${message.id}.`;
 }
 
 // Webhooks cannot reply: the message quotes the author and links the original.
@@ -521,7 +528,7 @@ function codexQuota() {
   });
 }
 
-async function reportUsage({ channel_id, provider = "manual", quota_windows = [], measured_at, source, memory }) {
+async function reportUsage({ channel_id, model, provider = "manual", quota_windows = [], measured_at, source, memory }) {
   const channel = await discord(`/channels/${channel_id}`);
   if (channel.name !== "agent-status" || channel.type !== 0) throw new Error("Report usage in agent-status.");
   if (provider === "codex") ({ quota_windows, measured_at, source } = await codexQuota());
@@ -537,6 +544,7 @@ async function reportUsage({ channel_id, provider = "manual", quota_windows = []
   });
   return sendMessage({
     channel_id,
+    model,
     content: `Account usage at ${measured_at ?? new Date().toISOString()}\n${windows.join("\n")}\nSource: ${source || "Quota measurements unavailable from this host"}.\nMemory: ${memory}`,
   });
 }
