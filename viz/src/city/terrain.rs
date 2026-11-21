@@ -24,6 +24,13 @@ fn heights() -> &'static [i16] {
     })
 }
 
+pub fn cursor_ground(ray: Ray3d) -> Option<Vec3> {
+    let hit = ground_on_line(ray.origin, ray.direction, ray.origin.y);
+    let east = WEST + (W - 1) as f32 * DX;
+    let south = NORTH + (H - 1) as f32 * DZ;
+    ((WEST..=east).contains(&hit.x) && (NORTH..=south).contains(&hit.z)).then_some(hit)
+}
+
 /// Find the ground on a downward line. Both the cursor and the camera target use
 /// this intersection so scrolling on a slope keeps the target on the terrain.
 pub fn ground_on_line(point: Vec3, direction: Dir3, ceiling: f32) -> Vec3 {

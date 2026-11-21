@@ -181,6 +181,7 @@ fn navigate(
     mut wheel: MessageReader<MouseWheel>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<&Camera, With<Camera3d>>,
+    canvas: Query<&Sprite, With<pixels::CityCanvas>>,
 ) {
     if rig.fixed {
         return;
@@ -204,10 +205,16 @@ fn navigate(
             && let Some(viewport) = camera.logical_viewport_size()
         {
             let transform = pose(&rig);
-            // Pixel mode renders to a smaller texture before filling the window.
-            let pixel = cursor / window.size() * viewport;
-            if let Ok(ray) = camera.viewport_to_world(&transform.into(), pixel) {
-                let anchor = city::ground_on_line(ray.origin, ray.direction, ray.origin.y);
+            // Pixel mode centers a canvas rounded up to whole output pixels.
+            let size = canvas
+                .single()
+                .ok()
+                .and_then(|s| s.custom_size)
+                .unwrap_or(window.size());
+            let pixel = ((cursor - window.size() * 0.5) / size + Vec2::splat(0.5)) * viewport;
+            if let Ok(ray) = camera.viewport_to_world(&transform.into(), pixel)
+                && let Some(anchor) = city::cursor_ground(ray)
+            {
                 let offset = -(*transform.forward()) * distance;
                 // The eye can slide along the cursor ray. Its target follows a
                 // parallel line one camera offset away, until it meets the terrain.
