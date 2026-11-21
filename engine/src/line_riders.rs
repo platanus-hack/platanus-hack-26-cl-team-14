@@ -49,6 +49,7 @@ pub fn project(line: &AddedLine, pop: &Population, c: &Choice, minutes: &[f64], 
     let k = line.stops.len();
     let (mut eligible, mut faster, mut demand) = (0u32, 0u32, 0.0);
     let (mut boardings, mut alightings, mut from) = (vec![0.0; k], vec![0.0; k], [0.0; 3]);
+    let mut on_board = vec![0.0; k - 1]; // daily demand on each segment between consecutive stops
     for p in pop.persons.iter().filter(|p| !p.student) {
         let (a, e) = (&access[p.home as usize], &egress[p.dest as usize]);
         // Patterns are directional: board before alighting in stop order.
@@ -67,13 +68,18 @@ pub fn project(line: &AddedLine, pop: &Population, c: &Choice, minutes: &[f64], 
         demand += share;
         boardings[on] += share;
         alightings[off] += share;
+        for segment in &mut on_board[on..off] { *segment += share; }
         for j in 0..3 { from[j] += w[j] / old_total - w[j] / new_total; }
     }
     let shares = departures(data);
+    // Places per half hour on each segment. All riders share one departure profile, so the busiest segment binds.
     let capacity = line.vehicle_capacity.map(|seats| seats * 30.0 / line.headway_minutes);
+    let busiest = on_board.iter().cloned().fold(0.0, f64::max);
     let demand_hh: Vec<f64> = shares.iter().map(|s| demand * s).collect();
-    let riders_hh: Vec<f64> = demand_hh.iter().map(|&d| capacity.map_or(d, |cap| d.min(cap))).collect();
+    let served_hh: Vec<f64> = shares.iter().map(|s| capacity.map_or(1.0, |cap| (cap / (busiest * s)).min(1.0))).collect();
+    let riders_hh: Vec<f64> = demand_hh.iter().zip(&served_hh).map(|(d, f)| d * f).collect();
     let riders: f64 = riders_hh.iter().sum();
+    let peak = shares.iter().cloned().fold(0.0, f64::max);
     let served = if demand > 0.0 { riders / demand } else { 0.0 };
     json!({
         "id": line.id, "mode": line.mode,
@@ -82,7 +88,8 @@ pub fn project(line: &AddedLine, pop: &Population, c: &Choice, minutes: &[f64], 
         "demand_to_work": r1(demand), "riders_to_work": r1(riders),
         "taken_from": { "public": r1(from[0] * served), "car": r1(from[1] * served), "other": r1(from[2] * served) },
         "capacity_per_half_hour": capacity.map(r1),
-        "peak_load_factor": capacity.map(|cap| (demand_hh.iter().cloned().fold(0.0, f64::max) / cap * 100.0).round() / 100.0),
+        "peak_segment_load_factor": capacity.map(|cap| (busiest * peak / cap * 100.0).round() / 100.0),
+        "segment_on_board_daily": on_board.iter().map(|&x| r1(x * served)).collect::<Vec<_>>(),
         "stops": line.stop_ids.iter().zip(&line.stops).enumerate().map(|(s, (id, at))| json!({
             "id": id, "longitude": at[0], "latitude": at[1],
             "boardings": r1(boardings[s] * served), "alightings": r1(alightings[s] * served)

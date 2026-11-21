@@ -23,7 +23,7 @@ For each synthetic worker, the engine finds the best boarding stop within 1 km o
 
 The added line is a fourth alternative in the fitted mode logit of `choice.rs`. It uses the public-transport minute coefficient and the public residual of the comuna pair, with no mode constant of its own. Thus at equal minutes it is as attractive as the existing public mode. A Sydney stated-preference study values a ferry over a bus at about 17 in-vehicle minutes (Daniels & Streeting 2002); this is not used, because it has no Santiago value.
 
-Riders per half hour = demand × the weekday public departure share (`work_departures.csv`), capped at departures × `vehicle_capacity`.
+Riders per half hour = demand × the weekday public departure share (`work_departures.csv`). The cap applies to the busiest segment: its on-board riders per half hour stay at or below departures × `vehicle_capacity`. All riders share one departure profile.
 
 Limits:
 - Workers only, trips to work only. Students and return trips are not counted.
@@ -40,13 +40,14 @@ Run: engine at this branch, `POST /api/scenario` with the two changes in `boat_l
 | Workers with a usable pier pair (1 km each end) | 11,094 | 4,173 |
 | Share where the boat beats the comuna-pair public time | 8.2 % | 7.1 % |
 | Demand, trips to work per weekday | 3,510 | 942 |
-| Riders after the capacity cap | 3,397 | 942 |
-| Taken from public / car / other | 2,390 / 441 / 566 | 420 / 249 / 273 |
-| Peak half hour (07:00–07:30) load factor | 1.23 | 0.33 |
+| Riders after the segment capacity cap | 3,510 | 942 |
+| Taken from public / car / other | 2,469 / 456 / 585 | 420 / 249 / 273 |
+| Busiest segment, daily on board | MAP06→MAP07, 2,395 | MAP03→MAP02, 245 |
+| Peak half hour (07:00–07:30) load on the busiest segment | 84 % of seats | 10 % of seats |
 | Busiest boarding / alighting pier | MAP06 1,159 / MAP08 1,476 | MAP08 212 / MAP06 242 |
 
 EOD 2012 reference ([mapocho/boat_trips.md](mapocho/boat_trips.md), same 17 km/h and 10 min): the boat beats the reported time on **36.8 %** of 51,929 weekday trips between any two piers (800 m each end), and 45.4 % when the piers are 3 km or more apart.
 
 Reading: the engine's faster share (7–8 %) is far **below** the EOD share, so the person-versus-comuna comparator does not inflate riders. The two measures differ: EOD compares with the time each person reported for any mode and purpose; the engine compares with the modeled public time of the comuna pair, for workers only, and includes short one-pier hops. The engine result is a modeled demand, not a forecast: no Mapocho boat survey exists.
 
-Story for the replay: about 4,300 trips to work per weekday. The eastbound morning boat toward Providencia and Las Condes fills (123 % of seats at 07:00–07:30); the westbound boat runs at a third.
+Story for the replay: about 4,450 trips to work per weekday. The eastbound morning boat between Santiago centro and Providencia carries 84 % of its seats at 07:00–07:30; the westbound boat stays at 10 % or less.
