@@ -477,14 +477,30 @@ fn rim_point(ring: &[Vec3], center: Vec3, dir: Vec3) -> Vec3 {
     center + dir * far
 }
 
-// `stands`: centroid and height of each mapped stand; a rim segment takes the nearest one. None: one height and the Nacional roof.
+// `stands`: outline and height of each mapped stand; a rim segment takes the stand that contains it, else the nearest. None: one height and the Nacional roof.
+// Even-odd test of a point against a ring in the ground plane.
+fn inside(ring: &[Vec3], p: Vec2) -> bool {
+    let mut odd = false;
+    for (a, b) in ring
+        .iter()
+        .zip(ring.iter().cycle().skip(1))
+        .take(ring.len())
+    {
+        if (a.z > p.y) != (b.z > p.y) && p.x < a.x + (p.y - a.z) * (b.x - a.x) / (b.z - a.z) {
+            odd = !odd;
+        }
+    }
+    odd
+}
+
 fn stadium_bowl(
     mesh: &mut Surface,
     rings: &[Vec<Vec3>],
     floor: f32,
     height: f32,
-    stands: &[(Vec3, f32)],
-) {
+    stands: &[(Vec<Vec3>, f32)],
+) -> Vec<bool> {
+    let mut used = vec![false; stands.len()];
     let mut center = rings[1].iter().copied().sum::<Vec3>() / rings[1].len() as f32;
     center.y = floor;
     let concrete = [0.63, 0.64, 0.61, 1.];
@@ -511,12 +527,19 @@ fn stadium_bowl(
         let (next_outer, next_inner) = rim[(i + 1) % N];
         let facing = (outer + next_outer) * 0.5 - center;
         let mid = ((outer + next_outer + inner + next_inner) * 0.25).xz();
-        let height = stands
-            .iter()
-            .min_by(|a, b| {
-                a.0.xz()
-                    .distance_squared(mid)
-                    .total_cmp(&b.0.xz().distance_squared(mid))
+        let centroid = |r: &[Vec3]| (r.iter().copied().sum::<Vec3>() / r.len() as f32).xz();
+        let hit = stands.iter().position(|s| inside(&s.0, mid));
+        if let Some(k) = hit {
+            used[k] = true;
+        }
+        let height = hit
+            .map(|k| &stands[k])
+            .or_else(|| {
+                stands.iter().min_by(|a, b| {
+                    centroid(&a.0)
+                        .distance_squared(mid)
+                        .total_cmp(&centroid(&b.0).distance_squared(mid))
+                })
             })
             .map_or(height, |s| s.1);
         let bottom = |mut p: Vec3| {
@@ -589,6 +612,7 @@ fn stadium_bowl(
             );
         }
     }
+    used
 }
 
 fn field_line(mesh: &mut Surface, a: Vec3, b: Vec3, width: f32, color: Color4) {
@@ -708,25 +732,34 @@ fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
     // The 90 m DSM includes the stadium structure. Keep the surveyed infield level.
     let floor = rings[1].iter().map(|p| p.y).fold(f32::MIN, f32::max) + 0.30;
     let mesh = tile_for(tiles, center);
-    let stands: Vec<(Vec3, f32)> = parts
+    let stands: Vec<(Vec<Vec3>, f32)> = parts
         .iter()
         .filter(|f| f["properties"]["kind"] == "stand")
         .map(|f| {
-            let ring = &open_rings(&f["geometry"]["coordinates"])[0];
-            let centroid = ring.iter().copied().sum::<Vec3>() / ring.len() as f32;
             (
-                centroid,
+                open_rings(&f["geometry"]["coordinates"]).swap_remove(0),
                 f["properties"]["height_m"].as_f64().unwrap() as f32 * scale,
             )
         })
         .collect();
-    stadium_bowl(
+
+    let used = stadium_bowl(
         mesh,
         &rings,
         floor,
         shell["properties"]["height_m"].as_f64().unwrap() as f32 * scale,
         &stands,
     );
+    // A stand that no bowl sector reaches (Monumental's outer Rapa Nui tier) is drawn as its own block.
+    for ((ring, h), _) in stands.iter().zip(&used).filter(|(_, u)| !**u) {
+        mesh.polygon(
+            &[ring.clone()],
+            0.,
+            *h,
+            [0.63, 0.64, 0.61, 1.],
+            [0.48, 0.060, 0.055, 1.],
+        );
+    }
     for part in parts {
         let p = &part["properties"];
         let coords = &part["geometry"]["coordinates"];
