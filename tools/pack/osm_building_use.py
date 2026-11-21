@@ -46,6 +46,9 @@ def lookup(groups):
 
 
 BUILDING_CLASS = lookup(BUILDING)
+USE_CLASS = {**BUILDING_CLASS, **{name: name for name in CLASSES if name != "other"},
+             "educational": "education", "medical": "health", "cultural": "other",
+             "religious": "other", "recreation": "other", "mixed_use": "other"}
 AMENITY_CLASS = lookup(AMENITY)
 
 
@@ -62,7 +65,7 @@ def single(classes):
 def function(tags, footprint=False):
     classes = set()
     if footprint:
-        classes.update(BUILDING_CLASS[v] for v in values(tags, "building:use") if v in BUILDING_CLASS)
+        classes.update(USE_CLASS[v] for v in values(tags, "building:use") if v in USE_CLASS)
     classes.update(AMENITY_CLASS[v] for v in values(tags, "amenity") if v in AMENITY_CLASS)
     if values(tags, "healthcare"):
         classes.add("health")
