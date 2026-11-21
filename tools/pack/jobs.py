@@ -23,6 +23,11 @@ MIN_SAMPLE = 50  # a comuna with fewer placed sampled workers uses resident pers
 OFFICE_M2 = 10   # usable m2 for one office worker: OGUC art. 4.2.4 occupant load; the MUT claim (4,000 people, 40,000 m2) gives the same
 MALL_M2 = 46     # leasable m2 for one mall job: 4.61 million m2 GLA (CCC index, Q3 2024) / about 100,000 jobs (CNC study, 2021)
 # Two sites of the demo get jobs from published floor area, not from the 2012 signal. Sources: data/mvp/README.md.
+# Costanera Center: the row point is the block edge nearest to the Tobalaba entrance TB-TOB:A (March GTFS), not the centroid.
+# The centroid is 409 m from Los Leones and 446 m from Tobalaba; public guides send visitors to Tobalaba. Assumption, see README.
+SITE_POINT = {"13123081002004": ("-70.605298", "-33.417821")}
+# Rows that are probably too high (README): one small 2012 sample on a residential block, and 2 large permits / 40 m2.
+KNOWN_HIGH = {"13120111005004", "13108071002002", "13301031001050"}
 AIRPORT = "13124_airport"  # block_id of the airport row: not a manzana
 SITE = {  # manzana -> (jobs, quality)
     # Costanera Center: 29,500 m2 of offices occupied in March 2023 + 134,000 m2 of mall. Office occupancy grew later: low.
@@ -197,10 +202,10 @@ for cut, jobs in sorted(total.items()):
     # largest remainder: integer jobs that sum to the Census total
     share = {mz: jobs * v / s for mz, (v, _) in w.items()}
     n = {mz: int(v) for mz, v in share.items()}
-    for mz in sorted(share, key=lambda m: share[m] - n[m], reverse=True)[: jobs - sum(n.values())]:
+    for mz in sorted(sorted(share), key=lambda m: share[m] - n[m], reverse=True)[: jobs - sum(n.values())]:  # sorted first: ties do not depend on the hash seed
         n[mz] += 1
-    rows += [(mz, cut, zones[mz]["lon"], zones[mz]["lat"], n[mz], w[mz][1], "ok") for mz in sorted(n) if n[mz]]
-    rows += [(mz, cut, zones[mz]["lon"], zones[mz]["lat"], j, "floor_area", SITE[mz][1]) for mz, j in fixed.items()]
+    rows += [(mz, cut, zones[mz]["lon"], zones[mz]["lat"], n[mz], w[mz][1], "known_high" if mz in KNOWN_HIGH else "ok") for mz in sorted(n) if n[mz]]
+    rows += [(mz, cut, *SITE_POINT.get(mz, (zones[mz]["lon"], zones[mz]["lat"])), j, "floor_area", SITE[mz][1]) for mz, j in fixed.items()]
 
 with open(PACK + "/jobs.csv", "w", newline="") as f:
     out = csv.writer(f)
