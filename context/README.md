@@ -12,6 +12,7 @@ Keep each file short. If a file does not change what an agent does, delete it.
 | `open-questions.md` | Questions that do not have an answer yet. | Anyone |
 | `checkpoints.md` | When humans review releases. | Humans |
 | `research/` | Briefs from `research-first`: sources, datasets, libraries. | Agents |
+| [MUT 2023 boardings](research/mut-2023-boardings.md) | Tobalaba line records before and after public opening; descriptive evidence only. | Agents |
 | [Redistribution validation](research/santiago-redistribution-validation.md) | Historical OD coverage, accounting limits, and proposed evaluation alternatives. | Agents |
 | `../meetings/` | Meeting summaries. Do not edit. Raw transcripts stay in `meetings/raw/`, which git ignores. | Humans |
 
