@@ -707,3 +707,15 @@ osmium tags-filter region.osm.pbf 'w/highway=motorway,trunk,primary,secondary,mo
 cd ../../..
 python3 -I tools/pack/roads.py
 ```
+
+## car_paths.json and car_minutes.csv
+
+The two files cover all 2,652 directed pairs between **different** comunas in the RM. Each JSON record contains the string keys `origin_cut` and `destination_cut` and a `path` array of longitude and latitude pairs. Paths follow the OSM major-road network described above. They contain 147,558 points after 20 m display simplification. The CSV uses the same keys and gives free-flow `car_minutes`, road `distance_km`, and the two straight-line gaps to the road in `origin_snap_m` and `destination_snap_m`. Travel time and distance use the full geometry.
+
+Each comuna uses its population-weighted reference point from `communes.csv`. We use the nearest primary or secondary road node to enter and leave the network. The median gap is 135 m. The largest is 2,976 m at Tiltil. The model omits local access time and same-comuna travel.
+
+The route minimizes driving time. A road's assumed free-flow speed follows the [OSRM car profile](https://github.com/Project-OSRM/osrm-backend/blob/master/profiles/car.lua): 90, 85, 65 and 55 km/h on motorways, trunk, primary and secondary roads. Corresponding link speeds are 45, 40, 30 and 25 km/h. Lower numeric OSM speed limits cap each direction. The graph respects static one-way roads, roundabouts, and mapped car-access bans. It excludes roads tagged reversible or alternating. The model omits turn restrictions, conditional traffic rules, signals, queues and congestion. Peak trips can take longer.
+
+Maipú to Las Condes takes **28.03 modeled minutes over 28.276 km**. The route passes through Avenida Los Pajaritos, Ruta 78, the Alameda, and Costanera Norte. The gaps to the major roads are 21 m in Maipú and 131 m in Las Condes. These are estimates for the two reference points.
+
+Build both files from the same regional OSM extract with `python3 tools/pack/car_paths.py`. Display the map credit **© OpenStreetMap contributors** with a link to [the OSM copyright page](https://www.openstreetmap.org/copyright). The derived network data use ODbL 1.0.
