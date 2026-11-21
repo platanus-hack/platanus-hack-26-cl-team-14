@@ -1,6 +1,6 @@
 # Preregistered conditional temporal allocation
 
-Date: 2026-11-21. Status: preregistered implementation, not run; review and commit freeze precede the first evaluation.
+Date: 2026-11-21. Status: first recorded frozen run complete; see [outcomes and limits](santiago-temporal-allocation-first-run.md).
 This is an offline experiment, not validation of the API or a causal policy forecast.
 
 ## Frozen data and information boundary
@@ -51,4 +51,5 @@ Run only after independent code review and the commit freeze:
 cargo run --release --manifest-path engine/Cargo.toml --bin historical_od -- data/validation/census_2002 /private/tmp/santiago-temporal-allocation.json
 ```
 
-No predictions, metric values or outcome error analysis have been produced for this preregistration.
+At the preregistration freeze, the recorded status was "not run"; no predictions, metric values or outcome error analysis were reported in this workflow.
+The [first-run publication](santiago-temporal-allocation-first-run.md) preserves that specification and reports all three frozen methods.
