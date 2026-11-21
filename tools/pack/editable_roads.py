@@ -1,5 +1,6 @@
 """Build the Cut 6 car graph from the original members of each displayed OSM way."""
 import csv
+import hashlib
 import json
 import re
 import subprocess
@@ -94,6 +95,23 @@ def commune_anchors(candidates, nodes):
     return anchors, gaps
 
 
+def source_record(pbf):
+    sha256, md5 = hashlib.sha256(), hashlib.md5()
+    with pbf.open("rb") as source:
+        for chunk in iter(lambda: source.read(1 << 20), b""):
+            sha256.update(chunk)
+            md5.update(chunk)
+    digest = sha256.hexdigest()
+    if md5.hexdigest() == "fef09ad7ee6f28c7afc925ef68c737a4":
+        provenance = "geofabrik_chile_published_md5"
+    elif digest == "4a1cfdb3ffdfdb58cbc6247ab36cac38ad2dc35509b5c1e102a7e53461234cb3":
+        provenance = "cached_urban_extract_sha256"
+    else:
+        provenance = "unverified_snapshot_date"
+    return {"sha256": digest, "bytes": pbf.stat().st_size, "provenance": provenance,
+            "osm_timestamp": None if provenance == "unverified_snapshot_date" else "2026-11-20T21:21:21Z"}
+
+
 def build(pbf):
     visible = defaultdict(list)
     for feature in json.loads((PACK / "roads.geojson").read_bytes())["features"]:
@@ -140,7 +158,7 @@ def build(pbf):
     anchors, gaps = commune_anchors(anchor_nodes, nodes)
     output = PACK / "road_graph.json"
     write_json(output, {"attribution": "© OpenStreetMap contributors", "license": "ODbL-1.0",
-                        "osm_timestamp": "2026-11-20T21:21:21Z", "nodes": nodes, "ways": ways,
+                        "source": source_record(pbf), "nodes": nodes, "ways": ways,
                         "anchors": anchors, "anchor_distance_m": gaps})
     print(f"{len(ways)} ways, {sum(len(w['parts']) for w in ways.values())} parts, {len(nodes)} nodes, "
           f"{sum(len(w['edges']) for w in ways.values())} directed edges, {output.stat().st_size} bytes")

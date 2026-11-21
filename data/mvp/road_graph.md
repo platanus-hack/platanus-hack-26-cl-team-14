@@ -6,6 +6,7 @@ Run this from the repository root with Python 3 and the osmium CLI. Pass the Nov
 python3 -B tools/pack/editable_roads.py /path/to/chile-261120.osm.pbf
 ```
 
+- `source.sha256` and `source.bytes` identify the actual PBF used. The builder sets `source.osm_timestamp` for the national file matching Geofabrik's published MD5, or the retained urban extract matching its recorded SHA-256. Other extracts retain their own digest and a null snapshot date. [Geofabrik checksum](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf.md5)
 - `nodes[id]` holds WGS84 longitude and latitude. Original node IDs are decimal strings. A cut endpoint has ID `clip/<way>/<segment>/start|end`. Roads connect only at shared source nodes. A geometric crossing does not create a junction.
 - `ways[way_id]` contains the complete editable object within the city rectangle. `class` is the display class. `highway` retains the OSM link suffix. `name` is the OSM name or an empty string. `parts` lists ordered node IDs in each visible part before simplification. `roads.geojson` supplies display geometry for the same ID across all its parts.
 - `edges` lists directed car arcs. Each `id` is `<way>/<zero-based source segment>/<f|r>`. `from` and `to` refer to node IDs. `length_m` is the clipped segment length using the same local metre conversion as the published road layer. `speed_kmh` is a modeled free-flow speed. Divide length in metres by speed in km/h and multiply by 3.6 for seconds.
