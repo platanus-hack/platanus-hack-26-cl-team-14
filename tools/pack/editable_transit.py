@@ -62,14 +62,14 @@ def pack(source):
             is_metro = routes[route]["route_type"] == "1"
             stops = tuple(source_stops[r["stop_id"]]["parent_station"] if is_metro else r["stop_id"] for r in calls)
             start = calls[0]["departure_time"]
-            total = seconds(calls[-1]["arrival_time"]) - seconds(start)
-            minutes = [round((seconds(b["arrival_time"]) - seconds(a["departure_time"])) / 60, 3)
-                       for a, b in zip(calls, calls[1:])]
-            dwell = [round((seconds(r["departure_time"]) - seconds(r["arrival_time"])) / 60, 3) for r in calls]
+            origin = seconds(start)
+            profile = tuple((seconds(r["arrival_time"]) - origin, seconds(r["departure_time"]) - origin)
+                            for r in calls)
+            total = profile[-1][0]
             pickup = tuple(int(r["pickup_type"] or 0) for r in calls)
             dropoff = tuple(int(r["drop_off_type"] or 0) for r in calls)
             key = (route, int(trip["direction_id"]), trip["shape_id"], stops, pickup, dropoff)
-            patterns[key].append((total, tid, minutes, dwell, start))
+            patterns[key].append((total, tid, profile, start))
 
         lines = {}
         used_stops = set()
@@ -79,9 +79,14 @@ def pack(source):
             seq_hash = hashlib.sha256(calls_text.encode()).hexdigest()[:16]
             key = f"{route}:{direction}:{shape}:{seq_hash}"
             middle = median_low(record[0] for record in records)
-            _, representative, minutes, dwell, _ = min(record for record in records if record[0] == middle)
+            _, representative, sample, _ = min(record for record in records if record[0] == middle)
+            minutes = [round((b[0] - a[1]) / 60, 3) for a, b in zip(sample, sample[1:])]
+            dwell = [round((departure - arrival) / 60, 3) for arrival, departure in sample]
+            profiles = {}
+            trip_profile = {}
             departures, frequencies = [], []
-            for _, tid, _, _, start in records:
+            for _, tid, profile, start in records:
+                trip_profile[tid] = profiles.setdefault(profile, len(profiles))
                 if tid in windows:
                     frequencies.extend(windows[tid])
                 else:
@@ -100,6 +105,7 @@ def pack(source):
                 "headway_minutes": round(60 / starts, 3) if starts else None,
                 "representative_trip_id": representative, "fixed_departures": sorted(departures),
                 "frequency_windows": sorted(frequencies),
+                "timing_profiles": list(profiles), "trip_profile": trip_profile,
             }
             used_stops.update(stops)
             used_shapes.add(shape)
@@ -123,7 +129,9 @@ def pack(source):
             "segment_minutes": "Scheduled departure to next arrival for one trip template; excludes dwell. Choose lower median end-to-end elapsed time among trip records in this pattern, then lexically first tied trip_id. Each record counts once regardless of headway. Round to 0.001 min.",
             "dwell_minutes": "Departure minus arrival at each stop of the same representative trip, in minutes. Round to 0.001 min.",
             "pickup_type/drop_off_type": "Per-stop GTFS codes; 0 regular, 1 unavailable, 2 phone agency, 3 contact driver. These flags distinguish patterns.",
-            "headway_minutes": "Mean scheduled interval at the first stop on Monday 2026-04-13 during [08:00,09:00), after calendar exceptions. Divide 60 by fixed starts plus expected frequency starts (overlap seconds / headway seconds). Null when there are no starts. Round to 0.001 min.",
+            "headway_minutes": "Reciprocal service density at the first stop on Monday 2026-04-13 during [08:00,09:00), after calendar exceptions. Divide 60 by fixed starts plus expected frequency starts (overlap seconds / headway seconds). Null when there are no starts. Round to 0.001 min. Do not infer a waiting time from this rate. For fixed trips use scheduled calls. For frequency trips use active windows.",
+            "timing_profiles": "Each profile lists [arrival_offset_secs, departure_offset_secs] in stop order, relative to first-stop departure. Add fixed-trip departure time to reconstruct scheduled calls. For frequency trips shift the service window using the relevant call offsets.",
+            "trip_profile": "GTFS trip_id to zero-based index in this pattern's timing_profiles. Includes each scheduled trip and frequency template.",
             "fixed_departures": ["service_id", "trip_id", "first_stop_departure_time"],
             "frequency_windows": ["service_id", "trip_id", "start_time", "end_time", "headway_secs", "exact_times"],
             "service_time": "America/Santiago GTFS service-day times; hours may exceed 23. Windows include start and exclude end. exact_times=0 gives approximate headways. Use calendar dates and exceptions.",

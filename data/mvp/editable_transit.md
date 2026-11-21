@@ -20,7 +20,7 @@ python3 tools/pack/editable_transit.py --gtfs /path/to/GTFS_20260321_v3.zip
 
 ## Read a pattern
 
-Look up the edit target in `lines`. Each key combines the GTFS route ID, direction, shape and a hash of the ordered stops and boarding rules. The hash distinguishes two trips that serve the same stops with different pickup restrictions. Each stop ID resolves in `stops`. Each shape ID resolves in `shapes` to ordered WGS84 longitude and latitude pairs. A short trip can share the full route shape. Use its first and last calls to identify the portion it serves.
+Look up the edit target in `lines`. Each key combines the GTFS route ID, direction, shape and a hash of the ordered stops and boarding rules. The hash distinguishes two trips that serve the same stops with different pickup restrictions. Each stop ID resolves in `stops`. Each shape ID resolves in `shapes` to ordered WGS84 longitude and latitude pairs. A short trip can share the full route shape. Match the full ordered sequence of calls along the shape to identify the portion it serves. Eleven patterns return to their first stop. Bus 116 returns to PB2074 after 82 calls, so its endpoints alone leave the path ambiguous.
 
 | Feed records | Bus | Metro |
 | --- | ---: | ---: |
@@ -32,6 +32,11 @@ Look up the edit target in `lines`. Each key combines the GTFS route ID, directi
 
 `segment_minutes` has one entry per consecutive pair of calls. `dwell_minutes`, `pickup_type` and `drop_off_type` have one entry per stop. The builder selects a representative trip with the lower median scheduled end-to-end time among the pattern’s trip records. The first trip ID in lexical order breaks a tie. Each template counts once. These times describe that single trip.
 
-`headway_minutes` summarizes the hour from 08:00 inclusive to 09:00 exclusive on Monday 13 April 2026, at the first stop. The denominator counts fixed departures and expected starts from each active frequency window. A window contributes its overlap in seconds divided by its headway in seconds. A null value means zero starts in that hour. The calendar, date exceptions, fixed departures and frequency windows support other dates and times. The JSON `definitions` field gives the units and tuple layouts.
+`headway_minutes` summarizes the hour from 08:00 inclusive to 09:00 exclusive on Monday 13 April 2026, at the first stop. The denominator counts fixed departures and expected starts from each active frequency window. A window contributes its overlap in seconds divided by its headway in seconds. A null value means zero starts at the first stop in that hour. Earlier starts can still serve downstream stops during the hour. A single departure gives 60 minutes per start, which cannot establish the wait until another vehicle. The calendar, date exceptions, fixed departures and frequency windows support other dates and times. The JSON `definitions` field gives the units and tuple layouts.
 
-For example, bus pattern `101:0:101I:bca9b5d49c23a375` starts at PB1. Its first segment to PB2 takes 1.517 scheduled minutes on the representative trip. Its mean departure interval for the reference hour is 12.85 minutes.
+For example, bus pattern `101:0:101I:bca9b5d49c23a375` starts at PB1. Its first segment to PB2 takes 1.517 scheduled minutes on the representative trip. Its reference-hour service density at PB1 is equivalent to one start per 12.85 minutes.
+
+
+## Find service at a boarding stop
+
+Use the trip ID to look up the index in the pattern’s `trip_profile` map. Read `timing_profiles[index]` in stop order. Each pair gives arrival and departure offsets in seconds relative to first-stop departure. For a fixed trip, add its departure offset at the boarding stop to its first-stop start time. Select the next departure after the requested time for which pickup is allowed. For a frequency trip, shift the service window by the stop’s departure offset. Use the published headway inside that window. An average wait derived from this headway requires an explicit passenger-arrival assumption. Apply the calendar and its exceptions to the service day, including prior-day trips that extend past midnight.
