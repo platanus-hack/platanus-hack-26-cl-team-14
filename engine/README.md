@@ -472,3 +472,27 @@ printf '[]\n' | cargo run --quiet --release --manifest-path engine/Cargo.toml --
 ```
 
 The result compares modeled entries with nominal places on boardable departures in both directions. It uses the weekday timetable of April 13–17, 2026. Event estimates have a separate time window and stay outside this ratio. Train occupancy and free places are unknown. A station with an unrated line, no scheduled departures, or a closure returns a null ratio and the reason. [Schedule and data sources](../data/mvp/metro_station_service.md)
+
+## April weights for station access
+
+The population CLI accepts two station projections. Both use the same workers
+and the same census job stocks. The April option changes the fit and the
+distribution of public-transport job mass within each comuna.
+
+```sh
+cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp /tmp/l9.json l9
+cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp /tmp/april.json april-transport
+python3 -I tools/pack/check_score.py /tmp/april.json
+```
+
+The frozen score covered 31 stations and all 1,123 observed cells.
+Absolute error fell from 238,349.700047 to 234,697.773506 boardings.
+Half-hour WAPE fell from 0.4178865487 to 0.4114838095.
+For Tobalaba, the two models predicted 39,823.55 and 53,720.26 entries
+in the observed weekday half-hours. DTPM recorded 81,612.80.
+
+A scenario caller can opt in with
+`StationAccess::load_with_april_transport_jobs(data)?`. For each projection,
+call `weight_job_masses` on the freshly aggregated public commuter masses
+in job-point order before calling `project_points`. The default constructor
+uses the census job stocks.

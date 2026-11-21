@@ -1,5 +1,5 @@
 //! Walk access to open Metro parents, plus one direct bus for points outside walking range.
-use super::{Fit, PointMass, Station, baseline_points, metres, parents_in_reach, predict, rows};
+use super::{Fit, PointMass, Station, baseline_points, metres, parents_in_reach, predict_with_jobs, rows, sha256, JobId};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -105,15 +105,43 @@ pub struct StationAccess {
     pub bus_scale: f64,
     pub bus_mix: f64,
     pub training_cells: usize,
+    jobs_file: &'static str,
+    transport_factors: HashMap<String, f64>,
 }
 
 impl StationAccess {
     /// Fit once with all 126 parents open. The training file masks observations at the 31 held-out parents.
     pub fn load(data: &Path) -> Self {
+        Self::fit(data, "jobs.csv", HashMap::new())
+    }
+
+    /// Fit with April destination weights. The city's job stocks and population still use jobs.csv.
+    pub fn load_with_april_transport_jobs(data: &Path) -> Result<Self, String> {
+        let april_file = "jobs_2026.csv";
+        for (file, expected) in [
+            ("jobs.csv", "4420a3956bc414601e8bf07bcdc99eddc3c865aebad47d2f137b2fc7ed15c481"),
+            (april_file, "5ea069bc928a6d9677ce0f5d2e89542bfcb21761bf618b5d9681305d3a419866"),
+        ] {
+            let bytes = std::fs::read(data.join(file)).map_err(|e| format!("{file}: {e}"))?;
+            if sha256(&bytes) != expected { return Err(format!("{file} differs from the April transport fit")); }
+        }
+        let mut factors: HashMap<_, _> = rows::<JobId>(&data.join(april_file)).into_iter()
+            .map(|r| (r.block_id, r.jobs)).collect();
+        for r in rows::<JobId>(&data.join("jobs.csv")) {
+            let april = factors.get_mut(&r.block_id).unwrap();
+            *april = if r.jobs > 0.0 { *april / r.jobs } else { 1.0 };
+        }
+        Ok(Self::fit(data, april_file, factors))
+    }
+
+    fn fit(data: &Path, jobs_file: &'static str, transport_factors: HashMap<String, f64>) -> Self {
         let stations: Vec<Station> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
-        let (_, _, fit) = predict(data, &stations, WALK_RADIUS_M, true, true, true, true);
+        let (_, _, fit) = predict_with_jobs(data, jobs_file, &stations, WALK_RADIUS_M, true, true, true, true);
         let bus = BusAccess::load(data, &stations);
-        let mut model = Self { stations, fit, bus, points: HashMap::new(), bus_scale: 0.0, bus_mix: 0.0, training_cells: 0 };
+        let mut model = Self {
+            stations, fit, bus, points: HashMap::new(), bus_scale: 0.0, bus_mix: 0.0,
+            training_cells: 0, jobs_file, transport_factors,
+        };
         let (homes, jobs) = model.baseline_points(data);
         let links: Vec<_> = model.bus.stops.iter().map(|s| s.links.first().copied()).collect();
         for &(x, y, _) in homes.iter().chain(&jobs) {
@@ -158,7 +186,29 @@ impl StationAccess {
     pub fn walk_scale(&self) -> f64 { self.fit.a }
 
     pub fn baseline_points(&self, data: &Path) -> (Vec<PointMass>, Vec<PointMass>) {
-        baseline_points(data, &self.fit.share, true)
+        baseline_points(data, self.jobs_file, &self.fit.share, true)
+    }
+
+    pub fn public_share(&self, cut: &str) -> f64 {
+        let (public, total) = self.fit.share[cut];
+        public / total
+    }
+
+    /// Apply only to the station projection's public-weighted job masses, in point order.
+    /// New block IDs keep unit weight before each comuna's total is restored.
+    pub fn weight_job_masses<'a>(&self, points: impl Iterator<Item = (&'a str, &'a str)> + Clone, mass: &mut [f64]) {
+        if self.transport_factors.is_empty() { return; }
+        let mut totals: HashMap<&str, (f64, f64)> = HashMap::new();
+        for ((id, cut), value) in points.clone().zip(mass.iter_mut()) {
+            let sum = totals.entry(cut).or_default();
+            sum.0 += *value;
+            *value *= self.transport_factors.get(id).copied().unwrap_or(1.0);
+            sum.1 += *value;
+        }
+        for ((_, cut), value) in points.zip(mass) {
+            let (before, after) = totals[cut];
+            if after > 0.0 { *value *= before / after; }
+        }
     }
 
     fn place(&self, homes: &[PointMass], jobs: &[PointMass], active: &HashSet<String>) -> Vec<Mass> {
