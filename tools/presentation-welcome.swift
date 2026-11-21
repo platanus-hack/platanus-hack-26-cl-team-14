@@ -29,7 +29,8 @@ content.wantsLayer = true
 content.layer!.backgroundColor = NSColor.black.cgColor
 
 let player = AVQueuePlayer()
-let video = AVPlayerItem(url: URL(fileURLWithPath: CommandLine.arguments[1]))
+let videoURL = URL(fileURLWithPath: CommandLine.arguments[1])
+let video = AVPlayerItem(url: videoURL)
 let runtime = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
 let looper = AVPlayerLooper(player: player, templateItem: video)
 let background = AVPlayerLayer(player: player)
@@ -72,6 +73,19 @@ NSLayoutConstraint.activate([
     controls.centerYAnchor.constraint(equalTo: content.centerYAnchor, constant: -screen.frame.height * 0.10),
     start.widthAnchor.constraint(equalToConstant: 180),
     start.heightAnchor.constraint(greaterThanOrEqualToConstant: 47)
+])
+
+let creditsURL = videoURL.deletingLastPathComponent().appendingPathComponent("santiago-dia-noche-credits.txt")
+let credits = NSTextField(wrappingLabelWithString: try String(contentsOf: creditsURL, encoding: .utf8))
+credits.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+credits.textColor = .white
+credits.alignment = .center
+credits.translatesAutoresizingMaskIntoConstraints = false
+content.addSubview(credits)
+NSLayoutConstraint.activate([
+    credits.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 32),
+    credits.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -32),
+    credits.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: 14)
 ])
 
 let splash = NSView(frame: content.bounds)
