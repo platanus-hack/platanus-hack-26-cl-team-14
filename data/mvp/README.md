@@ -270,6 +270,22 @@ over the person file and caches the tallies, then the join runs in 2 s).
   `commuters_all_per_resident` 0.3670, apartment share 0.7288,
   `persons_per_occupied_dwelling_apartment_blocks` **2.0847** with
   `occupied_share_apartment_blocks` **0.9251**, over 320 blocks and 160,457 persons.
+- **Do not compare `commuters_rm` with `work_od.csv`.** The two count different
+  universes, so they differ and both are correct. For Las Condes, `commuters_rm` is
+  **104,918**, over persons in private dwellings only (`tipo_operativo` 2). The Las Condes
+  origin rows of `work_od.csv` with a destination in region 13 sum to **104,980**, over all
+  dwelling kinds. The gap of 62 persons is the RM commuters who live in collective
+  dwellings or were counted by the street operative. A ratio must keep one universe on
+  both sides: 104,918 / `persons` 293,272 = 0.3577 (private dwellings), or 104,980 /
+  `persons_all_dwelling_kinds` 296,134 = 0.3545 (all dwelling kinds). The site request of
+  the demo uses 0.3577, because the occupancy inputs beside it are apartment-block
+  aggregates, which are a subset of private dwellings.
+- **The mode mix beside it is a third universe, and it changes nothing.** Las Condes in
+  `mode_share.csv` totals **107,707**, every known national work destination, equal to the
+  all-destination origin total of `work_od.csv`. Restricted to destinations in region 13
+  with `mode_od.csv` (104,980 commuters), the car share is 0.510802 against 0.510728 and
+  the public share 0.318308 against 0.314130. On the 298-dwelling scenario both versions
+  give the same two whole numbers, 84 by car and 52 by public transport a day.
 - **Observed travel shares in the apartment-dominated blocks.** In Las Condes they use
   the car less than the comuna: `car_share_apartment_blocks` **0.4684** against
   `car_share_block_table` **0.5192**, and public transport **0.3219** against 0.3077.
