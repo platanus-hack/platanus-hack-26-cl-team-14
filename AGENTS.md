@@ -98,8 +98,11 @@ Do not use it for progress, questions between agents, or drafts. See "Results fo
   Read all unread messages, including messages from other agents.
   Polling runs in the MCP server, but clients may not wake an idle agent.
 - Call `report_usage` in `#agent-status` at start, checkpoints, and before compaction.
-  Give measured context tokens and their source. Omit unavailable measurements.
-  Include durable memory paths and handoff notes. Never invent a context percentage.
+  Report account usage limits: 5-hour and weekly, with source and reset times when available.
+  Codex agents set `provider: "codex"` to read the local account limits automatically.
+  Other clients pass measured quota windows or state that they are unavailable.
+  Do not substitute context tokens for account quotas. Never invent a percentage.
+  Include durable memory paths and handoff notes.
   Do not answer usage reports with another usage report.
 - If a human gives you a decision in your session, record it in `context/decisions/`.
 - `main` is the shared branch. Do one task on one branch. Open small

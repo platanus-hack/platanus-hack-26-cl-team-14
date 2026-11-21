@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Discord MCP server for the team agents. No dependencies: Node 22+ only.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { hostname } from "node:os";
@@ -159,17 +159,29 @@ const TOOLS = [
   },
   {
     name: "report_usage",
-    description: "Share your current context usage and memory notes in agent-status. Use measured values only; omit unavailable values. Report at task start, work checkpoints, and before compaction, never in response to another usage report.",
+    description: "Report account quota usage (5-hour and weekly) in agent-status, not context tokens. Codex: set provider=codex to read the local signed-in account automatically. Other clients: supply measured quota_windows, measured_at, and source, or omit unavailable values. Never infer quota from tokens. Report at task start and checkpoints, never in response to another usage report.",
     inputSchema: {
       type: "object",
       properties: {
         channel_id: CHANNEL_ID,
-        context_used: { type: "integer", minimum: 0, description: "Current context tokens, not cumulative billed tokens" },
-        context_limit: { type: "integer", minimum: 1 },
-        source: { type: "string", description: "Where the measurements came from, or unavailable" },
+        provider: { type: "string", enum: ["codex", "manual"], default: "manual", description: "codex reads local Codex account limits; manual uses supplied host measurements" },
+        quota_windows: {
+          type: "array", maxItems: 2, description: "Manual measurements only; omit windows the provider did not report",
+          items: {
+            type: "object",
+            properties: {
+              window_minutes: { type: "integer", enum: [300, 10080] },
+              used_percent: { type: "number", minimum: 0 },
+              resets_at: { type: "integer", minimum: 0, description: "Provider reset time, Unix seconds; omit if unavailable" },
+            },
+            required: ["window_minutes", "used_percent"], additionalProperties: false,
+          },
+        },
+        measured_at: { type: "string", description: "When manual quota values were observed, ISO 8601 timestamp" },
+        source: { type: "string", description: "Manual measurement provider, account/quota scope, and source; or why unavailable" },
         memory: { type: "string", description: "Durable context paths and short handoff notes; no secrets" },
       },
-      required: ["channel_id", "source", "memory"],
+      required: ["channel_id", "memory"],
       additionalProperties: false,
     },
   },
@@ -445,15 +457,65 @@ function unreadMessages() {
   return [pollError && `Discord polling failed: ${pollError}`, messages.length && `${UNTRUSTED_NOTE}\n${messages.join("\n")}`, inbox.length && `${inbox.length} messages remain. Call poll_messages.`].filter(Boolean).join("\n\n");
 }
 
-async function reportUsage({ channel_id, context_used, context_limit, source, memory }) {
+function codexQuota() {
+  return new Promise((resolve) => {
+    const child = spawn("codex", ["app-server"], { stdio: ["pipe", "pipe", "ignore"] });
+    const lines = createInterface({ input: child.stdout });
+    let done = false;
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      lines.close();
+      child.kill();
+      resolve(result);
+    };
+    const unavailable = () => finish({ quota_windows: [], source: "Codex account/rateLimits/read unavailable (CLI, login, or request failed)" });
+    const timer = setTimeout(unavailable, 15000);
+    const sendRequest = (request) => child.stdin.write(`${JSON.stringify(request)}\n`);
+    child.on("error", unavailable);
+    child.on("exit", unavailable);
+    child.stdin.on("error", unavailable);
+    lines.on("line", (line) => {
+      const response = JSON.parse(line);
+      if (response.error) return unavailable();
+      if (response.id === 1) {
+        sendRequest({ method: "initialized" });
+        sendRequest({ id: 2, method: "account/rateLimits/read", params: {} });
+      }
+      if (response.id !== 2) return;
+      const result = response.result;
+      const snapshot = result.rateLimitsByLimitId?.codex ?? result.rateLimits;
+      const windows = snapshot && (!snapshot.limitId || snapshot.limitId === "codex")
+        ? [snapshot.primary, snapshot.secondary].filter((window) => window && [300, 10080].includes(window.windowDurationMins)) : [];
+      finish({
+        quota_windows: windows.map((window) => ({ window_minutes: window.windowDurationMins, used_percent: window.usedPercent, resets_at: window.resetsAt ?? undefined })),
+        measured_at: new Date().toISOString(),
+        source: "Codex account/rateLimits/read, local signed-in account, codex quota bucket",
+      });
+    });
+    sendRequest({ id: 1, method: "initialize", params: { clientInfo: { name: "discord_usage", version: "1.0.0" } } });
+  });
+}
+
+async function reportUsage({ channel_id, provider = "manual", quota_windows = [], measured_at, source, memory }) {
   const channel = await discord(`/channels/${channel_id}`);
   if (channel.name !== "agent-status" || channel.type !== 0) throw new Error("Report usage in agent-status.");
-  for (const value of [context_used, context_limit]) {
-    if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) throw new Error("Context measurements must be nonnegative integers.");
-  }
-  if (context_limit === 0 || (context_used !== undefined && context_limit !== undefined && context_used > context_limit)) throw new Error("Context used must not exceed its positive limit.");
-  const remaining = context_used !== undefined && context_limit !== undefined ? context_limit - context_used : "unknown";
-  return sendMessage({ channel_id, content: `Usage at ${new Date().toISOString()}: context ${context_used ?? "unknown"}/${context_limit ?? "unknown"} tokens; remaining ${remaining}. Source: ${source}. Memory: ${memory}` });
+  if (provider === "codex") ({ quota_windows, measured_at, source } = await codexQuota());
+  if (quota_windows.length && (!source || !measured_at || !Number.isFinite(Date.parse(measured_at)))) throw new Error("Quota measurements need their source and observation timestamp.");
+  const windows = [300, 10080].map((minutes) => {
+    const label = minutes === 300 ? "5-hour" : "Weekly";
+    const window = quota_windows.find((entry) => entry.window_minutes === minutes);
+    if (!window) return `${label}: unavailable`;
+    if (!Number.isFinite(window.used_percent) || window.used_percent < 0) throw new Error("Quota used_percent must be a measured nonnegative number.");
+    if (window.resets_at !== undefined && (!Number.isSafeInteger(window.resets_at) || window.resets_at < 0)) throw new Error("Quota resets_at must be Unix seconds.");
+    const reset = window.resets_at === undefined ? "unavailable" : new Date(window.resets_at * 1000).toISOString();
+    return `${label}: ${window.used_percent}% used; ${Math.max(0, 100 - window.used_percent)}% remaining; resets ${reset}`;
+  });
+  return sendMessage({
+    channel_id,
+    content: `Account usage at ${measured_at ?? new Date().toISOString()}\n${windows.join("\n")}\nSource: ${source || "Quota measurements unavailable from this host"}.\nMemory: ${memory}`,
+  });
 }
 
 async function callTool({ name, arguments: args = {} }) {
