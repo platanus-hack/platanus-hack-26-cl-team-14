@@ -5,7 +5,7 @@ mod timetable;
 use routing::Routing;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use timetable::{Calendar, EncodedSchedule, Exception, Schedule, Starts, active_services};
@@ -260,18 +260,23 @@ impl LineEdits<'_> {
             let stops = properties["stop_ids"]
                 .as_array()
                 .ok_or("Supply an ordered list of stop IDs.")?;
-            let mut next_call = 0;
+            let mut original_calls: BTreeMap<_, VecDeque<_>> = BTreeMap::new();
+            if let Some(pattern) = before {
+                for (i, id) in pattern.stop_ids.iter().enumerate() {
+                    original_calls.entry(id.as_str()).or_default().push_back(i);
+                }
+            }
+            let mut next_shape_call = 0;
             let mut dwell = Vec::with_capacity(stops.len());
             let mut pickup = Vec::with_capacity(stops.len());
             let mut drop_off = Vec::with_capacity(stops.len());
             for stop in stops {
                 let retained = before.and_then(|pattern| {
-                    let stop = stop.as_str()?;
-                    let index = pattern.stop_ids[next_call..]
-                        .iter()
-                        .position(|id| id == stop)?
-                        + next_call;
-                    next_call = index + 1;
+                    let index = original_calls.get_mut(stop.as_str()?)?.pop_front()?;
+                    if index < next_shape_call {
+                        fields["shape_id"] = Value::Null;
+                    }
+                    next_shape_call = index + 1;
                     Some((
                         pattern.dwell_minutes[index],
                         pattern.pickup_type[index],
