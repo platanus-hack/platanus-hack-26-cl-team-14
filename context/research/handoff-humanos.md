@@ -8,13 +8,13 @@ El ejemplo cambia los viajes en una comuna que el presentador no nombró. Luego 
 
 ## Qué funciona en main
 
-En [91df8bc](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/91df8bcd3183f7e26fb7e714a946c851c8522bbc), el motor en Rust aplica cambios de viviendas y empleos por comuna en una sola ejecución. Usa los flujos habituales de casa al trabajo del [Censo](../../data/mvp/work_od.csv).
+En [74b9fa9](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/74b9fa9a04dc390590a053109f0de295464a2583), el motor en Rust aplica cambios de viviendas y empleos por comuna en una sola ejecución. Usa los flujos habituales de casa al trabajo del [Censo](../../data/mvp/work_od.csv).
 
 La herramienta local `simulate_city` recibe los cambios, devuelve los totales y los cambios por comuna al agente y publica el resultado para la vista de ciudad. El mapa de comunas recibe también los cambios de flujos. La vista detallada que abre por defecto usa un fragmento de Tobalaba. [Herramienta](../../tools/santiago-mcp/server.mjs), [modelo](../../engine/src/city.rs), [vista](../../web/index.html).
 
 El servidor ya puede enviar el resultado por una conexión continua. El navegador de esta revisión todavía consulta por cada actualización. La proyección de subidas al Metro ya corre como cálculo aparte desde la terminal. El equipo también incorporó datos de llegadas al Metro por propósito de viaje. [Resultados en vivo](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/108), [proyección](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/114), [datos](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/115).
 
-El repositorio ya contiene una población sintética que conserva los totales por comuna del Censo. También contiene reglas para elegir destino y modo. La consulta del demo aún usa el motor de comunas. Falta conectar esas piezas, incorporar decisiones de horario y comprobar el efecto de cambios reales. [Población](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/109), [reglas de elección](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/112).
+El repositorio ya contiene una población sintética que conserva los totales por comuna del Censo. También contiene reglas para elegir destino y modo. El equipo también incorporó calles, rutas y edificios para la nueva vista. La consulta del demo aún usa el motor de comunas. Falta conectar esas piezas, incorporar decisiones de horario y comprobar el efecto de cambios reales. [Población](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/109), [reglas de elección](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/112), [datos de la ciudad](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/128).
 
 ## Cómo verlo
 
