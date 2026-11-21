@@ -60,4 +60,18 @@ The viewer must load all local files without a key or network. It must show the 
 
 ## Acceptance state
 
-The earlier capture implementation compiled with locked dependencies and Rust 1.97.1. The site rename and presets have not yet been compiled. No automated tests ran. MUT and Monumental tile requests, one-tile frames, full-area captures and offline viewer checks remain pending. Earlier local research samples do not establish acceptance for these sites. Timing fields describe capture only; they do not measure local viewer loading.
+The capture and viewer compiled with locked dependencies and Rust 1.97.1 at source head `85b9def9fbad92acf9ffe00762b2b415258b6950`. No automated tests ran.
+
+The selected MUT first tile contains 5,963 vertices and 4,963 triangles, with local root coordinates, UVs, three embedded JPEG textures and Google copyright. This fragment does not establish full venue coverage.
+
+The full MUT capture produced 995 tiles: 51,610,382 downloaded bytes and 47,509,360 prepared GLB bytes in 378.46 seconds. Timing fields describe capture only. They do not measure viewer loading or frame rate.
+
+The default-stack native launch aborted with an IO Task Pool stack overflow. A retry of the same binary and bundle with `RUST_MIN_STACK=16777216` opened a native frame with textured geometry and visible credits. Use this tested 16 MiB stack setting for the full bundle:
+
+```sh
+RUST_MIN_STACK=16777216 /path/to/view_demo_tiles /path/to/mut-bundle
+```
+
+The exact failing function and root cause remain unconfirmed. All 995 prepared GLBs have one node and scene depth one, with no node cycles or invalid scene-node references found in the local audit. This excludes a hierarchy-cycle explanation for this bundle; it does not identify the loader failure.
+
+Venue recognition, orientation, level overlap, controls, offline reopening and frame rate remain unverified. Monumental capture and native checks remain pending. Draco decoding is implemented but has not been exercised by an actual downloaded compressed tile.

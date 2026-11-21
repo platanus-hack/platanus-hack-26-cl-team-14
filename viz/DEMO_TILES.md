@@ -9,8 +9,13 @@ CARGO_TARGET_DIR=/tmp/costanera-view-target cargo build --locked --manifest-path
 The operator opens the captured bundle:
 
 ```sh
-/tmp/costanera-view-target/debug/view_demo_tiles /absolute/path/to/demo-bundle
+RUST_MIN_STACK=16777216 /tmp/costanera-view-target/debug/view_demo_tiles /absolute/path/to/demo-bundle
 ```
+
+Use the 16 MiB thread-stack setting shown above for the full bundle. The tested
+MUT launch with the default stack aborted with an IO Task Pool stack overflow.
+The same binary and bundle opened with `RUST_MIN_STACK=16777216`. This is a
+measured workaround; the exact failing function and root cause are unconfirmed.
 
 Left drag orbits. Right drag, middle drag, or Shift-left drag pans. Scroll zooms.
 The default view looks from the southeast. The camera target is
@@ -55,3 +60,16 @@ and visible attribution. Then capture the full selected area. The operator must 
 the chosen demo site, level overlap, orbit/zoom stability, and offline reopening
 without an API key. No visual acceptance is implied by a successful build.
 The implementation worker does not open the native window.
+
+## Observed MUT result
+
+At source head `85b9def9fbad92acf9ffe00762b2b415258b6950`, the capture produced
+995 MUT tiles: 51,610,382 downloaded bytes and 47,509,360 prepared GLB bytes.
+Capture took 378.46 seconds. These numbers do not measure viewer load time or
+frame rate. The selected first tile had 5,963 vertices and 4,963 triangles.
+
+The operator observed a native frame with textured geometry from the full
+995-tile bundle and visible credits after the 16 MiB stack launch. This frame
+does not establish venue recognition, correct orientation, level overlap,
+working controls, offline reopening, or frame rate. Those checks remain open.
+Monumental capture and native checks remain open. No automated tests ran.
