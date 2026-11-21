@@ -406,8 +406,46 @@ its distance. Builder: `python3 -I tools/pack/travel_times.py` (7 s).
 - 08:00 only. No fare, no crowding, no capacity, no delay, no car, no bicycle, and no
   diagonal (a comuna to itself).
 - **A comuna point is not a trip end.** These are times between two population centres.
-  Nothing here is calibrated against an observed travel time; EOD 2012 reported trip
-  durations and could later check them.
+  No value here is fitted to an observed travel time.
+
+### Check against EOD 2012, the only observed travel times we hold
+
+I compared the matrix with the real trip durations of EOD 2012
+(`data/raw/eod2012/.../viajes.csv`, `TiempoViaje`). Filter: weekday factor present,
+`Periodo` 2 (the 07:31 to 09:00 peak, which brackets the 08:00 departure),
+`ModoAgregado` in {2, 3, 4, 7, 9, 10} (bus and Metro and their pure combinations, no
+taxi, no colectivo, no car), origin comuna different from destination comuna, and the
+pair present with `coverage` `in_feed`. That gives **3,184 sampled trips on 620 pairs**;
+I kept the **80 pairs with 10 or more sampled trips** and took the median of each.
+
+| | result |
+| --- | --- |
+| EOD 2012 observed median | 53.8 min |
+| this matrix | 34.1 min |
+| ratio mine / EOD, median | **0.608** (p10 0.438, p90 0.822) |
+| mean absolute error | 23.3 min, WAPE 40.6% |
+| Pearson r | **0.739** |
+| Spearman | **0.730** |
+
+**Read it this way: the ranking is good and the level is 39% too fast.** Use the file as
+a relative cost between pairs, not as a minute count a person would recognise. Any model
+that puts these minutes in a decay function with one fitted coefficient absorbs a
+constant factor, so the level bias does not reach such a score; the rank does.
+
+Four causes of the gap, and they do not all point the same way:
+1. A comuna point is not a trip end. An EOD trip runs door to door anywhere inside the
+   comuna; this matrix runs between two population-weighted centroids, which is shorter
+   than an average real pair. This is probably the largest term.
+2. Walking is a straight line, so every walk here is shorter than the real one.
+3. `headway / 2` assumes a passenger arrives at the stop at random.
+4. **Part of the gap is real: the network improved.** L6 opened in 2017 and L3 in 2019,
+   after the survey. The pairs where this matrix is fastest against EOD are exactly the
+   pairs those lines serve: Quilicura → Las Condes 48.1 against 120.0, Maipú → Las Condes
+   50.6 against 107.5, Renca → Las Condes 48.1 against 95.0. On those pairs EOD 2012 is
+   the out-of-date number, not this matrix.
+
+I apply **no correction factor**. The 1.64 that would close the level is a fit to EOD,
+and a layer must freeze its formula before it is scored.
 
 ## jobs.csv
 
@@ -432,7 +470,7 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
   - `floor_area`: 2 sites of the demo (Costanera Center, the MUT) get a fixed number from published floor area. See the sections below. The other manzanas of the comuna share the rest, so the comuna total does not change.
   - `persons_fallback`: 7 rural comunas have fewer than 50 sampled workers (Paine, Curacaví, Tiltil, San José de Maipo, Alhué, María Pinto, San Pedro). Their jobs spread by resident persons. 50,857 jobs, 1.9%.
 - The airport: the terminal point has 126 sampled workers (14,859 expanded) and is rural land with no manzana. The first version dropped it and spread its jobs over the other manzanas of Pudahuel. Now it is the row `13124_airport`, 27,070 jobs, the largest row of the file. No published count was checked against it.
-- **Check against independent data.** Jobs within 500 m of a Metro station against the observed weekday boardings from 16:00 to 21:00 (`metro_observations.json`, April 2026), on the 95 stations that are not in the held-out set of `tools/pack/check_score.py`: Pearson 0.76, Spearman 0.79. Within 800 m: 0.69, 0.79. Jobs of the nearest station with no distance limit: 0.33, 0.50, because the last stations of each line take the far jobs (the airport row goes to Plaza Quilicura, 6.9 km away). Use a radius, not the nearest station. Against the morning boardings the correlation is 0, as expected for work places.
+- **Association with Metro boardings on the training stations (not a held-out validation).** Jobs within 500 m of a Metro station against the observed weekday boardings from 16:00 to 21:00 (`metro_observations.json`, April 2026), on the 95 stations that are not in the held-out set of `tools/pack/check_score.py`: Pearson 0.76, Spearman 0.79. Within 800 m: 0.69, 0.79. Jobs of the nearest station with no distance limit: 0.33, 0.50, because the last stations of each line take the far jobs (the airport row goes to Plaza Quilicura, 6.9 km away). Use a radius, not the nearest station. Against the morning boardings the correlation is 0, as expected for work places.
 - Why these signals: they are the only ones on disk with coordinates. SII addresses have no coordinates and follow the head office. OSM and Overture places have no worker counts.
 - What the method gets wrong:
   - The base is from 2012. A place that lost jobs after 2012 keeps them.
