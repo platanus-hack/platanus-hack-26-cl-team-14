@@ -35,6 +35,8 @@ until curl --fail --silent --max-time 1 --output /dev/null "$api/api/scenario-la
     kill -0 "$engine_pid" 2>/dev/null || { wait "$engine_pid"; exit 1; }
     sleep 0.2
 done
+curl --fail --silent --show-error --output /dev/null \
+    --header 'Content-Type: application/json' --data '{"changes":[]}' "$api/api/scenario"
 echo "SANTIAGO_API_URL=$api"
 SANTIAGO_ENGINE="$api" cargo run --locked --release --manifest-path viz/Cargo.toml &
 window_pid=$!
