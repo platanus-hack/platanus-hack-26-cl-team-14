@@ -95,6 +95,30 @@ fn plain(s: &str) -> String {
     s.trim().to_uppercase().chars().map(|c| match c { 'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' | 'Ü' => 'U', 'Ñ' => 'N', c => c }).collect()
 }
 
+fn change_workers(pop: &mut Population, ids: &[usize], k: f64, after: f64) -> f64 {
+    if k == 0.0 { return 0.0; }
+    if k > 0.0 {
+        // New workers on the home points in proportion to the new weights. u32::MAX = no job yet (rechoose.rs).
+        let (mut cum, mut done) = (0.0, 0.0);
+        for &i in ids {
+            cum += k * pop.homes[i].weight / after;
+            let q = cum.round() - done;
+            done += q;
+            pop.persons.extend((0..q as u32).map(|_| Person { home: i as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE }));
+        }
+        k
+    } else {
+        // Workers leave, evenly over the workers that live on the target.
+        let mut hit = vec![false; pop.homes.len()];
+        for &i in ids { hit[i] = true; }
+        let live: Vec<usize> = (0..pop.persons.len()).filter(|&i| !pop.persons[i].student && hit[pop.persons[i].home as usize]).collect();
+        let gone = (-k as usize).min(live.len());
+        for j in 0..gone { pop.persons[live[j * live.len() / gone]].home = u32::MAX; }
+        pop.persons.retain(|p| p.home != u32::MAX);
+        -(gone as f64)
+    }
+}
+
 impl Scenario {
     pub fn load(dir: &Path) -> Scenario {
         let choice = Choice::load(dir);
@@ -128,6 +152,20 @@ impl Scenario {
         for p in &sc.pop.homes { residents[sc.ix(&p.cut)] += p.weight; }
         sc.ratio = (0..n).map(|o| sc.base.od[o * n..][..n].iter().sum::<f64>() / residents[o]).collect();
         sc
+    }
+
+    // Stock edits take effect in order. Convert their net residential change to whole workers
+    // before the next direct resident change or job choice, so undoing an edit is exact.
+    fn apply_building_workers(&self, pop: &mut Population, original: &mut BTreeMap<usize, f64>) {
+        let mut net_workers = vec![0.0_f64; self.choice.n];
+        for (home, before) in std::mem::take(original) {
+            let after = pop.homes[home].weight;
+            let origin = self.ix(&pop.homes[home].cut);
+            let previous = net_workers[origin];
+            net_workers[origin] += (after - before) * self.ratio[origin];
+            let delta = net_workers[origin].round() - previous.round();
+            change_workers(pop, &[home], delta, after);
+        }
     }
 
     fn ix(&self, cut: &str) -> usize { self.choice.cuts.iter().position(|c| c == cut).unwrap() }
@@ -201,6 +239,7 @@ impl Scenario {
         } else { None };
         // For an outage keep the last finite graph time. None means this pair had no graph baseline.
         let mut transit_reference: HashMap<usize, Option<f64>> = HashMap::new();
+        let mut building_home_weights = BTreeMap::new();
         let mut city_edits = Vec::new();
         let mut car_shares = BTreeMap::new();
         let mut requests = vec![];
@@ -278,15 +317,20 @@ impl Scenario {
                             not_modeled.push(note);
                             continue;
                         }
-                        for b in blocks.iter().rev() {
-                            for (kind, field, points) in [("jobs", "jobs_delta", &mut pop.jobs), ("residents", "residents_delta", &mut pop.homes)] {
+                        for b in blocks {
+                            let id = b["block_id"].as_str().unwrap();
+                            for (field, points) in [("jobs_delta", &mut pop.jobs), ("residents_delta", &mut pop.homes)] {
                                 let Some(delta) = b[field].as_f64().filter(|d| *d != 0.0) else { continue };
-                                let id = b["block_id"].as_str().unwrap();
-                                if !points.iter().any(|p| p.id == id) {
+                                let index = points.iter().position(|p| p.id == id).unwrap_or_else(|| {
                                     points.push(Point { id: id.to_owned(), cut: b["cut"].as_str().unwrap().to_owned(),
                                         longitude: b["longitude"].as_f64().unwrap(), latitude: b["latitude"].as_f64().unwrap(), weight: 0.0 });
+                                    points.len() - 1
+                                });
+                                let stock = &mut points[index].weight;
+                                if field == "residents_delta" {
+                                    building_home_weights.entry(index).or_insert(*stock);
                                 }
-                                pending.push((json!({"kind":kind,"target":{"type":"block","id":id},"op":"add","value":delta}), true));
+                                *stock = (*stock + delta).max(0.0);
                             }
                         }
                         note["understood"] = json!({"id":edit["id"],"city_edit_index":city_edits.len()});
@@ -430,6 +474,7 @@ impl Scenario {
                     if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.jobs[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
                 Kind::Residents => {
+                    if !building_home_weights.is_empty() { self.apply_building_workers(&mut pop, &mut building_home_weights); }
                     let (ids, cut) = points(&mut pop.homes);
                     let Some((before, after)) = scale(&mut pop.homes, &ids, &self.pop.homes) else {
                         note["reason"] = json!("The comuna has no baseline block weights for this increase.");
@@ -437,26 +482,7 @@ impl Scenario {
                         continue;
                     };
                     let k = ((after - before) * self.ratio[self.ix(&cut)]).round();
-                    let workers = if k > 0.0 {
-                        // New workers on the home points in proportion to the new weights. u32::MAX = no job yet (rechoose.rs).
-                        let (mut cum, mut done) = (0.0, 0.0);
-                        for &i in &ids {
-                            cum += k * pop.homes[i].weight / after;
-                            let q = cum.round() - done;
-                            done += q;
-                            pop.persons.extend((0..q as u32).map(|_| Person { home: i as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE }));
-                        }
-                        k
-                    } else {
-                        // Workers leave, evenly over the workers that live on the target.
-                        let mut hit = vec![false; pop.homes.len()];
-                        for &i in &ids { hit[i] = true; }
-                        let live: Vec<usize> = (0..pop.persons.len()).filter(|&i| !pop.persons[i].student && hit[pop.persons[i].home as usize]).collect();
-                        let gone = (-k as usize).min(live.len());
-                        for j in 0..gone { pop.persons[live[j * live.len() / gone]].home = u32::MAX; }
-                        pop.persons.retain(|p| p.home != u32::MAX);
-                        -(gone as f64)
-                    };
+                    let workers = change_workers(&mut pop, &ids, k, after);
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "residents_before": r1(before), "residents_after": r1(after), "workers_added": workers });
                     if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.homes[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
@@ -475,6 +501,7 @@ impl Scenario {
             if !stock_child { applied.push(note); }
         }
 
+        if !building_home_weights.is_empty() { self.apply_building_workers(&mut pop, &mut building_home_weights); }
         for index in transit_reference.keys() {
             minutes[*index] = minutes[*index].max(1.0);
         }
