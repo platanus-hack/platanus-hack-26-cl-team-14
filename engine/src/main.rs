@@ -155,8 +155,8 @@ async fn main() {
         .route("/api/scene", post(set_scene))
         .route("/api/scenario-events", get(scenario_events))
         .route("/api/scenario", post(general_scenario))
-        // A saved result is larger than the default 2 MB body limit.
-        .route("/api/replay", post(play_replay).layer(axum::extract::DefaultBodyLimit::disable()))
+        // A saved result (4.1 MB measured) is larger than the default 2 MB body limit.
+        .route("/api/replay", post(play_replay).layer(axum::extract::DefaultBodyLimit::max(64 << 20)))
         .layer(CorsLayer::permissive())
         .with_state(core);
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
