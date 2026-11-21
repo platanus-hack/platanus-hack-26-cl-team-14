@@ -4,6 +4,7 @@
 <title>Santiago</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=block">
 <style>
   html, body { margin: 0; height: 100%; background: #0a0f24; color: #fff; overflow: hidden;
     font: 700 28px/1.1 -apple-system, "Helvetica Neue", Arial, sans-serif; }
@@ -25,25 +26,27 @@
   #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; }
   .more { color: #ff4d6d; } .less { color: #3ddc97; } .model { color: #ffb47a; }
   i { display: inline-block; width: 26px; height: 26px; border-radius: 50%; margin: 0 8px 0 18px; }
-  html.city-only body { background: #17202c; }
-  html.city-only .box { display: none !important; }
-  html:not(.city-only) .city-hud { display: none; }
-  .city-hud { position: absolute; z-index: 1; pointer-events: none; }
-  .city-heading { top: 24px; left: 24px; }
-  .city-heading h1 { margin: 0; font-size: clamp(24px, 5vw, 44px); letter-spacing: -.04em; }
-  .city-card { bottom: 24px; left: 24px; max-width: min(340px, calc(100vw - 80px)); padding: 14px 16px;
-    border: 1px solid #364865; border-radius: 14px; background: #0c162bd9;
-    font: 400 14px/1.5 system-ui, sans-serif; color: #c6d3e8; }
-  .city-card strong { display: block; color: white; font-size: 16px; }
-  .city-card p { margin: 4px 0 0; }
+  html.city-only body { background: #05070d; font-family: "Barlow Condensed", "Arial Narrow", sans-serif; }
+  html.city-only .box, html:not(.city-only) .hud { display: none !important; }
+  .hud { position: absolute; z-index: 1; pointer-events: none; font-variant-numeric: tabular-nums; text-transform: uppercase;
+    text-shadow: 0 0 1.2vw #05070d, 0 0 .4vw #05070d; }
+  #title { top: 2vw; left: 2.5vw; font-size: 6vw; letter-spacing: .04em; }
+  #nm { top: 3vw; right: 2.5vw; font-size: 2.6vw; padding: .5vw 1.2vw; color: #05070d; background: #ffd23f; text-shadow: none; }
+  #nm:empty { display: none; }
+  #read { bottom: 2vw; left: 2.5vw; display: flex; gap: 4vw; align-items: flex-end; }
+  #read b { display: block; font-size: 6.6vw; line-height: .9; } #read span { font-size: 2vw; color: #c9d4e8; }
+  #model { bottom: 2.2vw; right: 2.5vw; font-size: 1.7vw; line-height: 1.25; color: #c9d4e8; text-align: right; }
+  #legend2 { top: 2.6vw; right: 2.5vw; font-size: 2vw; display: flex; gap: 1.6vw; } #legend2 i { width: 1.3vw; height: 1.3vw; margin: 0 .5vw 0 0; }
+  #nm { top: 7vw; }
+  .gain { color: #ff6a1a; } .loss { color: #2fd6ff; }
 </style>
 <body class="t">
 <div id="map"></div>
-<header class="city-hud city-heading"><h1>Santiago</h1></header>
-<aside class="city-hud city-card" aria-live="polite">
-  <strong id="city-title">Censo 2024</strong>
-  <p id="city-result">Haz una pregunta en Codex o Claude para simular un cambio.</p>
-</aside>
+<div class="hud" id="title">Santiago</div>
+<div class="hud" id="nm"></div>
+<div class="hud" id="read"></div>
+<div class="hud" id="legend2"><span><i style="background:#96a5ff"></i>auto</span><span><i style="background:#ffd60a"></i>micro</span><span><i style="background:#fff"></i>metro</span><span><i style="background:#ff78dc"></i>bici</span><span><i style="background:#46ff96"></i>a pie</span></div>
+<div class="hud" id="model">vehículos: representación de los flujos del modelo<br>modelo, no medición · © OpenStreetMap contributors</div>
 <div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button><button id="vp">Puntaje</button><button id="ve">Evento</button></div>
 
 <div class="box tl t" id="clock">
@@ -116,9 +119,8 @@
   <small>nuevos residentes que salen al día</small><small>supuesto: reparto modal de Las Condes</small></div>
 <script>
 const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
-const API = 'http://localhost:8787/api/';
 const q = new URLSearchParams(location.search);
-const cityCamera = {longitude: -70.601, latitude: -33.418, zoom: 14.8, pitch: 52, bearing: -30};
+const API = (q.get('api') || 'http://localhost:8787') + '/api/';  // ?api=http://localhost:8797 for another engine
 const demo = ['demo', 'v', 't', 'mut', 'j', 'h', 'site', 'm'].some(key => q.has(key));
 document.documentElement.classList.toggle('city-only', !demo);
 const MUT = [-70.6009, -33.4180];
@@ -239,28 +241,6 @@ function tobalaba() {
   ];
 }
 
-// The detailed city tile uses the mapped Tobalaba street and building geometry.
-function cityDiorama() {
-  const zone = sim?.zones.find(z => z.id === sel);
-  if (zone) updateCityCard(zone);
-  const changed = new Set(cityResult?.summary.changes.map(change => change.zone_id));
-  return [
-    new GeoJsonLayer({id: 'city-ground', data: ground, stroked: true,
-      getFillColor: [53, 77, 68],
-      getLineColor: f => /river|canal/.test(f.properties.kind)
-        ? [62, 115, 150] : f.properties.major ? [106, 104, 94] : [76, 80, 78],
-      getLineWidth: f => f.properties.kind === 'river' ? 45 : f.properties.major ? 15 : 7,
-      lineWidthUnits: 'meters'}),
-    new GeoJsonLayer({id: 'city-buildings', data: buildings, extruded: true, stroked: false,
-      getElevation: f => f.properties.height_m,
-      getFillColor: f => f.properties.height_m > 45 ? [207, 204, 195] : [164, 174, 178],
-      material: {ambient: .6, diffuse: .6, shininess: 8}}),
-    changed.size && new GeoJsonLayer({id: 'city-scenario-areas',
-      data: communes.features.filter(f => changed.has(String(f.properties.cut))),
-      filled: false, getLineColor: [255, 173, 101], getLineWidth: 2, lineWidthUnits: 'pixels'}),
-  ].filter(Boolean);
-}
-
 // ---------- Santiago ----------
 let changes = new Map(), revision = 0, submitting = false, cityResult = null;
 function syncControls() {
@@ -284,10 +264,6 @@ function applyCityResult(result, external) {
   engine('s', result);
   if (view !== 's') show('s');
   else draw();
-  if (!demo && external && result.summary.changes.length) {
-    deckgl.setProps({initialViewState: {...cityCamera, transitionDuration: 750,
-      transitionInterpolator: new FlyToInterpolator()}});
-  }
 }
 
 async function runCityScenario() {
@@ -326,23 +302,12 @@ async function watchCity() {
   }
 }
 
-function updateCityCard(zone) {
-  const delta = cityResult?.zone_deltas.find(row => row.id === zone.id);
-  const modeled = Boolean(cityResult?.summary.changes.length && delta);
-  const signed = value => (Math.round(value) > 0 ? '+' : '') + fmt(value);
-  $('city-title').textContent = modeled ? zone.name + ' · escenario' : 'Censo 2024';
-  $('city-result').textContent = modeled
-    ? `${signed(delta.population)} residentes · ${signed(delta.jobs)} personas que trabajan aquí`
-    : 'Haz una pregunta en Codex o Claude para simular un cambio.';
-}
-
 function santiago() {
   const zs = sim ? Object.fromEntries(sim.zones.map(z => [z.id, z])) : {};
   const base = world ? Object.fromEntries(world.zones.map(z => [z.id, z])) : {};
   const pos = id => [zs[id].longitude, zs[id].latitude, zs[id].jobs * KZ];
   const z = zs[sel];
   if (z) {
-    if (!demo) updateCityCard(z);
     const model = sim.metadata.state != 'observed_baseline';
     $('zname').textContent = z.name; $('zjobs').textContent = fmt(z.jobs); $('zpop').textContent = fmt(z.population);
     $('zjobs').className = $('zpop').className = model ? 'mid model' : 'mid';
@@ -409,6 +374,192 @@ function evento() {
   ];
 }
 
+// ---------- Movimiento: Metro, cars, buses and walkers. A drawing of the modeled flows, not an engine output ----------
+const LOOP = 16, CAR = [150, 165, 255], BUS = [255, 214, 10], METRO = [255, 255, 255], WALK = [70, 255, 150], BIKE = [255, 120, 220];
+const KM = (a, b) => Math.hypot((a[0] - b[0]) * 93, (a[1] - b[1]) * 111);
+const along = path => { let d = 0; return path.map((p, i) => d += i && KM(path[i - 1], p)); };
+const hash = (i, j) => { const x = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return x - Math.floor(x); };  // a fixed draw for each thing: the same car stays on the same road in each result
+let moving, moved = {};
+
+// OSM ways joined at their ends into drives of `max` km or less, with a vertex each 100 m or more
+function drives(ways, max) {
+  const at = new Map(), used = new Set(), out = [];
+  const put = (p, w) => at.set(p + '', [...(at.get(p + '') || []), w]);
+  for (const w of ways) { put(w[0], w); put(w.at(-1), w); }
+  for (let w of ways) {
+    if (used.has(w)) continue;
+    const path = [w[0]]; let len = 0;
+    while (w && len < max) {
+      used.add(w);
+      const points = w[0] + '' == path.at(-1) + '' ? w : w.toReversed();
+      for (const p of points) if (p == points.at(-1) || KM(path.at(-1), p) > .1) { len += KM(path.at(-1), p); path.push(p); }
+      w = at.get(path.at(-1) + '').find(x => !used.has(x));
+    }
+    out.push({path, cum: along(path), len});
+  }
+  return out;
+}
+
+// All moving things of one result: {path, ts, color, width}. Counts are a rendering density.
+function moves(r, data) {
+  const trip = (path, cum, start, speed, color, width) => ({path, ts: cum.map(c => start + c / speed), color, width});
+  const many = (n, f) => Array.from({length: n}, (_, j) => f(j));
+  // Cars. Assumption of the drawing: a road has the workers of the nearest comuna point (residents who work + jobs) times
+  // 1 - public share. 1 car on screen = 1,500 workers; a change shows at 10 times that density, in the gain or loss colour.
+  const road = drives => {
+    const km = {};
+    for (const c of drives) {
+      c.zone ??= r.zones.reduce((best, z, i) => KM([z.longitude, z.latitude], c.path[c.path.length >> 1]) < KM([r.zones[best].longitude, r.zones[best].latitude], c.path[c.path.length >> 1]) ? i : best, 0);
+      km[c.zone] = (km[c.zone] || 0) + c.len;
+    }
+    const workers = (z, s) => (z['residents_working_' + s] + z['jobs_' + s]) * (1 - z['public_share_' + s]);
+    return drives.flatMap((c, i) => {
+      const z = r.zones[c.zone], d = workers(z, 'scenario') - workers(z, 'base'), span = LOOP - c.len / .7;
+      const some = (n, color, width, salt) => many(Math.floor(n * LOOP * .7 / km[c.zone] + hash(i, salt)), j => trip(c.path, c.cum, hash(i, salt + j + 1) * span, .7, color, width));
+      return [...some(workers(z, 'scenario') / 1500, CAR, 3, 0), ...some(Math.abs(d) / 150, tone(d), 6, 500)];
+    });
+  };
+  // Trains and buses on their real paths: the scheduled departures of the weekday, 1 train for each 10 and 1 bus for each 60
+  const rail = data.transit.flatMap((p, i) => {
+    const metro = p.mode == 'metro', speed = metro ? 2 : 1, laps = Math.ceil(p.cum.at(-1) / speed / LOOP);
+    const m = Math.floor(p.trips.reduce((a, b) => a + b) / (metro ? 10 : 60) + hash(i, 1));
+    return many((laps + 1) * m, j => trip(p.path, p.cum, (j - laps * m + hash(i, 0)) * LOOP / m, speed, metro ? METRO : BUS, metro ? 5 : 3));
+  });
+  // Bicycles on the real cycleways: 1 for each 1.5 km. This density is fixed; the engine has no bicycle result.
+  const bikes = data.bikes.flatMap((c, i) => many(Math.floor(LOOP * .25 / 1.5 + hash(i, 0)), j => trip(c.path, c.cum, hash(i, j + 1) * (LOOP - c.len / .25), .25, BIKE, 2.5)));
+  // A station with a large change: thick trains in the gain or loss colour on the 2.5 km of line at each side of it
+  const hot = r.stations.filter(changed), top = Math.max(...hot.map(s => Math.abs(s.delta_daily)));
+  const hotRail = hot.flatMap(s => data.transit.filter(p => p.mode == 'metro').flatMap(p => {
+    const i = p.path.findIndex(q => KM(q, [s.longitude, s.latitude]) < .4);
+    if (i < 0) return [];
+    const a = p.cum.findIndex(c => c > p.cum[i] - 2.5), b = p.cum.findLastIndex(c => c < p.cum[i] + 2.5) + 1;
+    return many(8, j => trip(p.path.slice(a, b), p.cum.slice(a, b).map(c => c - p.cum[a]), (j - 4) * LOOP / 4, 2, tone(s.delta_daily), 6 + 10 * Math.sqrt(Math.abs(s.delta_daily) / top)));
+  }));
+  // Walkers to each station: 1 trip for each 400 boardings of the day; a change shows at 10 times that density
+  const walk = r.stations.flatMap((s, i) => {
+    const some = (n, color, width, salt) => many(Math.round(n), j => {
+      const a = hash(i, salt + j) * 2 * Math.PI, d = .3 + .5 * hash(i, salt + j + .5);
+      return trip([[s.longitude + d * Math.cos(a) / 93, s.latitude + d * Math.sin(a) / 111], [s.longitude, s.latitude]], [0, d], hash(j, salt + i) * (LOOP - 4), .25, color, width);
+    });
+    return [...some(s.scenario_daily / 400, WALK, 4, 0), ...(changed(s) ? some(Math.abs(s.delta_daily) / 40, tone(s.delta_daily), 6, 5000) : [])];
+  });
+  return {trips: [...road(data.roads), ...bikes, ...walk, ...rail, ...hotRail]};
+}
+
+function moveLayers(result, data, timeSeconds) {
+  if (moved.result != result) moved = {result, ...moves(result, data)};
+  const k = innerWidth / 1920, flat = {parameters: {depthCompare: 'always', depthWriteEnabled: false}, widthUnits: 'pixels'};
+  return [
+    new deck.PathLayer({id: 'roads', ...flat, data: data.roads, getPath: c => c.path, getColor: [56, 70, 112], getWidth: k}),
+    new deck.PathLayer({id: 'rails', ...flat, data: data.transit.filter(p => p.mode == 'metro'), getPath: p => p.path, getColor: [120, 132, 168], getWidth: 2 * k}),
+    new deck.TripsLayer({id: 'moves', ...flat, data: moved.trips, getPath: x => x.path, getTimestamps: x => x.ts, getColor: x => x.color, getWidth: x => x.width * k,
+      capRounded: true, jointRounded: true, fadeTrail: true, trailLength: 1.6, currentTime: timeSeconds % LOOP}),
+  ];
+}
+
+// ---------- Ciudad: all of Santiago, the default view. It only renders the result of POST /api/scenario ----------
+const GAIN = [255, 106, 26], LOSS = [47, 214, 255], FONT = 'Barlow Condensed';
+const CITY = [[-70.7991, -33.6324], [-70.5031, -33.3379]];  // where the people of the 34 urban comunas live, data/mvp/README.md
+let res = null, blocks = [], cam = {zoom: 10}, risen = true, marks = [], tops = [];
+const signed = v => (v > 0 ? '+' : '') + fmt(v);
+const tone = v => v > 0 ? GAIN : LOSS;
+const changed = s => Math.abs(s.delta_daily) >= 100;  // boardings in a day; below this a station keeps the base look
+
+function frame(points, wide) {
+  const k = innerWidth / 1920, xs = points.map(p => p[0]), ys = points.map(p => p[1]);
+  const {longitude, latitude, zoom} = new deck.WebMercatorViewport({width: innerWidth, height: innerHeight}).fitBounds(
+    [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]],
+    {padding: wide ? 0 : {top: 260 * k, bottom: 330 * k, left: 220 * k, right: 220 * k}, maxZoom: 12.4});
+  deckgl.setProps({initialViewState: {longitude, latitude, zoom: zoom - (wide ? .05 : .25), pitch: 50, bearing: -15, transitionDuration: 2200, transitionInterpolator: new FlyToInterpolator()}});
+}
+
+function applyScenario(r) {
+  if (!r || !r.stations || r.revision === res?.revision) return;
+  res = r;
+  const zone = Object.fromEntries(r.zones.map(z => [z.id, [z.longitude, z.latitude]]));
+  const place = {point: g => [[g.longitude, g.latitude]], block: g => [blocks.find(b => b.id == g.id).p],
+    comuna: g => [zone[g.id]], pair: g => [zone[g.origin], zone[g.destination]]};
+  const word = {jobs: 'empleos', residents: 'residentes', minutes: 'min'}, op = {add: '', multiply: '×', set: '= '};
+  // one mark for each change that the engine applied: its place and the change as the engine read it
+  marks = r.applied.map(c => ({p: place[c.target.type](c.target), cut: c.target.type == 'comuna' && c.target.id,
+    text: (c.op == 'add' ? signed(c.value) : op[c.op] + fmt(c.value, 2).replace(/,?0+$/, '')) + ' ' + word[c.kind]}));
+  const s = r.summary, gain = s.top_station_gains[0], loss = s.top_station_losses[0];
+  tops = [gain, loss].filter(Boolean).map(x => r.stations.find(y => y.name == x.name));
+  const item = (cls, n, text) => `<div><b class="${cls}">${n}</b><span>${text}</span></div>`;
+  $('read').innerHTML = marks.length
+    ? (gain ? item('gain', signed(gain.delta_daily), gain.name + ' · subidas al día') : '')
+      + (loss ? item('loss', signed(loss.delta_daily), loss.name + ' · subidas al día') : '')
+      + item('', fmt(s.workers_moved), 'cambian de lugar de trabajo')
+    : item('', fmt(s.boardings_base), 'subidas al metro al día') + item('', fmt(s.workers_base), 'personas van a trabajar');
+  const kind = {station: 'estaciones nuevas', event: 'eventos'};
+  $('nm').textContent = r.not_modeled.length ? 'El motor aún no simula: ' + [...new Set(r.not_modeled.map(c => kind[c.kind] || c.kind))].join(', ') : '';
+  if (marks.length) frame([...marks.flatMap(m => m.p), ...tops.map(x => [x.longitude, x.latitude])]); else frame(CITY, true);
+  risen = false; setTimeout(() => risen = true, 1800);  // the columns move after the camera arrives
+}
+
+function city(now) {
+  const k = innerWidth / 1920, pulse = now / 1600 % 1;
+  const g = 40075016 * Math.cos(-33.45 * Math.PI / 180) / 512 / 2 ** cam.zoom * k, px = g / Math.sin(50 * Math.PI / 180);  // metres on the ground and metres of height for one pixel at 1920 px of width
+  const EL = px * 210 / 60000;  // 60,000 boardings in a day = 210 px at 1920 px of width
+  const hot = res ? res.stations.filter(changed) : [], daily = s => risen ? s.scenario_daily : s.base_daily;
+  const zones = res ? Object.fromEntries(res.zones.map(z => [z.id, z])) : {};
+  const dz = z => Math.abs(z.jobs_scenario - z.jobs_base) > Math.abs(z.residents_working_scenario - z.residents_working_base)
+    ? z.jobs_scenario - z.jobs_base : z.residents_working_scenario - z.residents_working_base;
+  const dzMax = Math.max(1, ...Object.values(zones).map(z => Math.abs(dz(z))));
+  const flows = res ? res.flows.filter(f => f.origin != f.destination).slice(0, 14) : [];
+  const fMax = flows.length && Math.abs(flows[0].scenario - flows[0].base);
+  const label = {fontFamily: FONT, fontWeight: 700, characterSet: 'auto', background: true, getBackgroundColor: [5, 7, 13, 235],
+    backgroundPadding: [14 * k, 6 * k], parameters: {depthCompare: 'always'}};
+  return [
+    new GeoJsonLayer({id: 'comunas', data: communes, getLineColor: [86, 104, 150], getLineWidth: 1.5 * k, lineWidthUnits: 'pixels',
+      getFillColor: f => { const z = zones[f.properties.cut], d = z ? dz(z) : 0; return d ? [...tone(d), 20 + 150 * Math.sqrt(Math.abs(d) / dzMax)] : [10, 14, 26]; },
+      updateTriggers: {getFillColor: res}, transitions: {getFillColor: 900}}),
+    new deck.HexagonLayer({id: 'mass', data: blocks, getPosition: b => b.p, getElevationWeight: b => b.n, getColorWeight: b => b.n,
+      radius: 260, coverage: .86, extruded: true, elevationRange: [0, 1], elevationScale: px * 80, upperPercentile: 98,
+      colorRange: [[26, 34, 58], [36, 48, 80], [50, 66, 106], [66, 86, 134], [88, 112, 166], [124, 150, 204]],
+      material: {ambient: .55, diffuse: .7, shininess: 6}}),
+    ...moveLayers(res, moving, now / 1000),
+    new GeoJsonLayer({id: 'targets', data: communes.features.filter(f => marks.some(m => m.cut == f.properties.cut)), filled: false,
+      getLineColor: [255, 255, 255], getLineWidth: (5 + 3 * Math.sin(pulse * 2 * Math.PI)) * k, lineWidthUnits: 'pixels', parameters: {depthCompare: 'always'}}),
+    new ArcLayer({id: 'flows', data: flows, getSourcePosition: f => [zones[f.origin].longitude, zones[f.origin].latitude],
+      getTargetPosition: f => [zones[f.destination].longitude, zones[f.destination].latitude], getHeight: .35,
+      getWidth: f => (3 + 13 * Math.sqrt(Math.abs(f.scenario - f.base) / fMax)) * k,
+      getSourceColor: f => [...tone(f.scenario - f.base), 40], getTargetColor: f => [...tone(f.scenario - f.base), 255]}),
+    res && new ColumnLayer({id: 'stations', data: res.stations.filter(s => !changed(s)), getPosition: s => [s.longitude, s.latitude],
+      diskResolution: 12, radius: 3.5 * g, getElevation: s => s.base_daily, elevationScale: EL,
+      getFillColor: [236, 242, 255], material: {ambient: .85, diffuse: .3}}),
+    // a changed station: a pale ghost of the base day around a solid column of the scenario day
+    new ColumnLayer({id: 'hot', data: hot, getPosition: s => [s.longitude, s.latitude], diskResolution: 16, radius: 9 * g,
+      getElevation: daily, elevationScale: EL, getFillColor: s => tone(s.delta_daily), material: {ambient: .95, diffuse: .2},
+      updateTriggers: {getElevation: risen}, transitions: {getElevation: 1600}}),
+    new ColumnLayer({id: 'ghost', data: hot, getPosition: s => [s.longitude, s.latitude], diskResolution: 16, radius: 12 * g,
+      getElevation: s => s.base_daily, elevationScale: EL, getFillColor: [255, 255, 255, 46], material: false}),
+    new ColumnLayer({id: 'beam', data: marks.flatMap(m => m.cut ? [] : m.p), getPosition: p => p, diskResolution: 8, radius: 3 * g,
+      getElevation: 1, elevationScale: px * 520, getFillColor: [255, 255, 255], material: false}),
+    new deck.ScatterplotLayer({id: 'ring', data: marks.flatMap(m => m.cut ? [] : m.p), getPosition: p => p, filled: false, stroked: true,
+      getRadius: (20 + 90 * pulse) * k, radiusUnits: 'pixels', getLineWidth: 7 * k, lineWidthUnits: 'pixels', getLineColor: [255, 255, 255, 255 * (1 - pulse)],
+      parameters: {depthCompare: 'always'}, updateTriggers: {getLineColor: pulse}}),
+    new TextLayer({id: 'tops', ...label, data: risen ? tops : [], getPosition: s => [s.longitude, s.latitude, Math.max(s.base_daily, s.scenario_daily) * EL],
+      getText: s => s.name + '  ' + signed(s.delta_daily), getSize: 50 * k, getColor: s => tone(s.delta_daily), getPixelOffset: [0, -46 * k], updateTriggers: {getPosition: EL}}),
+    new TextLayer({id: 'marks', ...label, data: marks, getPosition: m => m.p[0], getText: m => m.text, getSize: 50 * k, getColor: [5, 7, 13],
+      getBackgroundColor: [255, 255, 255], getPixelOffset: [0, 70 * k]}),
+  ];
+}
+
+async function startCity() {
+  const [c, csv, roads, transit, cycleways] = await Promise.all([get('../data/mvp/communes.geojson'), fetch('../data/mvp/blocks.csv').then(r => r.text()),
+    get('../data/mvp/roads.geojson'), get('data/transit_paths.json'), get('../data/mvp/cycleways.geojson'), document.fonts.load('700 50px "' + FONT + '"')]);
+  communes = c;
+  const ways = file => file.features.map(f => f.geometry.coordinates);
+  moving = {roads: drives(ways(roads), 8), bikes: drives(ways(cycleways), 3), transit: transit.map(p => ({...p, cum: along(p.path)}))};
+  blocks = csv.trim().split('\n').slice(1).map(l => l.split(',')).map(r => ({id: r[0], p: [+r[2], +r[3]], n: +r[4]}));
+  deckgl.setProps({onViewStateChange: ({viewState}) => { cam = viewState; }});
+  frame(CITY, true);
+  applyScenario(await get(API + 'scenario-latest') || await post('scenario', {changes: []}));
+  new EventSource(API + 'scenario-events').addEventListener('scenario', e => applyScenario(JSON.parse(e.data)));
+  (function loop(now) { deckgl.setProps({layers: city(now)}); requestAnimationFrame(loop); })(0);
+}
+
 // ---------- page ----------
 function draw() {
   if (view == 't') {
@@ -429,7 +580,7 @@ function draw() {
   if (view == 'p') { const i = Math.floor(t); $('hh2').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00'); }
   $('engine').style.display = ms[view] ? 'block' : 'none';
   if (ms[view]) [$('ms').textContent, $('msk').textContent] = ms[view];
-  deckgl.setProps({layers: !demo ? cityDiorama() : view == 't' ? tobalaba() : view == 's' ? santiago() : view == 'p' ? puntaje() : evento()});
+  deckgl.setProps({layers: view == 't' ? tobalaba() : view == 's' ? santiago() : view == 'p' ? puntaje() : evento()});
 }
 
 function tick() {
@@ -440,7 +591,7 @@ function tick() {
 function show(v) {
   view = v; document.body.className = v;
   if (v != 'e') egen++;  // an event answer that arrives after the user left the tab is dropped
-  deckgl.setProps({initialViewState: {...(!demo ? cityCamera : v == 'e' && ev ? ecam(ev) : VIEWS[v]), transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
+  deckgl.setProps({initialViewState: {...(v == 'e' && ev ? ecam(ev) : VIEWS[v]), transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
   draw();
 }
 
@@ -460,7 +611,7 @@ $('jobs').oninput = $('housing').oninput = simulate;
 $('reset').onclick = () => { changes.clear(); syncControls(); runCityScenario(); };
 
 const get = u => fetch(u).then(r => r.json());
-Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
+if (!demo) startCity(); else Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
     .map(u => get((/^(stops|ground)/.test(u) ? 'data/' : '../data/mvp/') + u))).then(([sc, bus, ...r]) => {
   score = sc; $('wape').textContent = fmt(sc.wape_bins * 100) + '%'; $('layer').textContent = sc.layer;  // one reviewed run of the station model, from tools/pack/station_score_run.py
   [ground, communes] = r.splice(-2);
@@ -474,8 +625,8 @@ Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json
   if (q.has('j')) $('jobs').value = q.get('j');
   if (q.has('site')) document.querySelector(`.site[data-id=${q.get('site')}]`).onclick();
   if (q.has('m')) $('mult').value = q.get('m');
-  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || (demo ? 't' : 's'));
-  if (demo) tick();
+  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || 't');
+  tick();
   get(API + 'world').then(w => { world ??= w; sim ??= w; syncControls(); draw(); }, () => engine('s'));
   watchCity();
 });
