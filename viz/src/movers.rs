@@ -5,6 +5,7 @@ pub(crate) mod clock;
 pub(crate) mod follow;
 mod fleet;
 mod motion;
+mod articulated;
 mod instanced;
 mod levels;
 mod riders;
