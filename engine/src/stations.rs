@@ -9,6 +9,8 @@ use std::path::Path;
 #[derive(Deserialize)]
 struct Od { origin_cut: String, destination_cut: String, workers: f64 }
 #[derive(Deserialize)]
+struct Mode { cut: String, mode: i32, commuters: f64 }
+#[derive(Deserialize)]
 struct Block { cut: String, longitude: f64, latitude: f64, population: f64 }
 #[derive(Deserialize)]
 struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
@@ -46,12 +48,20 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
     m
 }
 
-pub fn predict(data: &Path, st: &[Station], radius: f64) -> (Vec<Vec<f64>>, Report) {
+/// `public_share`: L2, weight each OD pair by the share of public-transport commuters (mode 2) of its home comuna.
+pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool) -> (Vec<Vec<f64>>, Report) {
+    let mut share: HashMap<String, (f64, f64)> = HashMap::new();
+    for m in rows::<Mode>(&data.join("mode_share.csv")) {
+        let e = share.entry(m.cut).or_default();
+        e.1 += m.commuters;
+        if m.mode == 2 { e.0 += m.commuters; }
+    }
     let (mut home, mut work) = (HashMap::new(), HashMap::new());
     for f in rows::<Od>(&data.join("work_od.csv")) {
         if !f.destination_cut.starts_with("13") { continue; } // RM-internal only, as main.rs
-        *home.entry(f.origin_cut).or_insert(0.0) += f.workers;
-        *work.entry(f.destination_cut).or_insert(0.0) += f.workers;
+        let m = if public_share { let (p, t) = share[&f.origin_cut]; p / t } else { 1.0 };
+        *home.entry(f.origin_cut).or_insert(0.0) += f.workers * m;
+        *work.entry(f.destination_cut).or_insert(0.0) += f.workers * m;
     }
     let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
     let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();

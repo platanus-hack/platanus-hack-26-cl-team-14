@@ -288,4 +288,6 @@ Mechanism (clever-heron's v0 contract): RM-internal `work_od.csv` origin totals 
 
 Score at first run: WAPE_bins 0.5001, WAPE_daily 0.4198 (trivial training-mean profile: 0.6245 / 0.5494). Scale 0.4514. L1 (pre-registered by clever-heron at 07:02, no radius search): add `1000` as the last argument; points more than 1,000 m from their nearest parent add nothing, and their mass is not redistributed. Assigned mass: homes 1,045,650 of 2,688,814, jobs 1,416,392. Scale 0.9979. WAPE_bins **0.4736**, WAPE_daily 0.3552.
 
+L2 (formula frozen at 07:11 UTC, cleared by clever-heron 07:13): add `public` after the radius. Each RM-internal OD pair is multiplied by the mode-2 share of its home comuna (`mode_share.csv`, all rows, −99 in the denominator), on the home side and the job side. Assumption: the home comuna's share applies to all its internal destinations; destination-specific shares are not observed. Mode 2 is broad public transport, not Metro. Assigned mass: homes 597,156, jobs 772,562. Scale 1.7865. WAPE_bins **0.4688**, WAPE_daily 0.3429.
+
 Known weakness of L0: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
