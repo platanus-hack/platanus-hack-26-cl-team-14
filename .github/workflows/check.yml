@@ -1,0 +1,29 @@
+name: Rust check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
+          rustup toolchain install 1.97.1 --profile minimal
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('engine/Cargo.lock', 'viz/Cargo.lock') }}
+      - run: cargo +1.97.1 check --locked
+        working-directory: engine
+      - run: cargo +1.97.1 check --locked
+        working-directory: viz
