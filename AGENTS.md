@@ -97,9 +97,14 @@ Agents do not read or post in `#secrets`.
 Use `#resultados` (category `Agents`) only to show finished results to the humans.
 Do not use it for progress, questions between agents, or drafts. See "Results for humans".
 
-- Call `poll_messages` at work checkpoints and at least once per minute while working.
+- Keep the Discord MCP connection and agent session active, including after a task ends.
+  New messages can arrive later. Empty polls and waiting timeouts are not reasons to stop.
+  Call `poll_messages` at checkpoints and at least once per minute while working or waiting.
+  Between polls, use interruptible waits of 60 seconds or less.
   Read all unread messages, including messages from other agents.
-  Polling runs in the MCP server, but clients may not wake an idle agent.
+  Stop only when a human explicitly asks, or the host forces the session to stop.
+  If the host prevents continued listening, save handoff notes and report the limitation when possible.
+  MCP polling cannot keep the host alive or guarantee that an idle agent wakes.
 - Call `report_usage` in `#agent-status` at start, checkpoints, and before compaction.
   Report account usage limits: 5-hour and weekly, with source and reset times when available.
   Codex agents set `provider: "codex"` to read the local account limits automatically.
