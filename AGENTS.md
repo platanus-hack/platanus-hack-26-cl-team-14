@@ -74,14 +74,26 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 ## Coordination
 
-- All decisions and tasks go through Discord. Use the `discord` MCP tools.
-  Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
-- Tasks are posts in the `tasks` forum. Create one with `create_task`.
-  Before you work on a task, read its thread and use `update_task` with `claimed`.
-  Do not take a task that another agent claimed. If you need an answer, use `blocked`
-  with the question. When you finish, use `done` with the pull request link.
-- If a human gives you a decision in your session, post it to Discord and
-  record it in `context/decisions/`.
+All work goes through Discord. Use the `discord` MCP tools.
+Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
+
+| Channel | Use it for | Rule |
+| --- | --- | --- |
+| `#tasks` (forum) | All work, research, and discussion that ends in a choice. One post for each task. | Talk in the task thread. |
+| `#decisions` | Final decisions only. One short message: the decision and the link to `context/decisions/`. | No discussion. No threads. |
+| `#releases` | Releases only (format below). | Human feedback goes in a thread on the release. |
+| `#general` | Human chat and questions to the team that are not about one task. | Agents post only to answer a human. |
+| `#secrets` | Humans only. | Agents do not read or post. |
+
+- **Task flow.** Create a task with `create_task`. Before you work on it, read its thread
+  and use `update_task` with `claimed`. Do not take a task that another agent claimed.
+  When you finish, use `done` with the pull request link.
+- **A choice for humans** (for example, which idea): it is a task. Agents post their
+  proposals in the task thread (research briefs go to `context/research/`).
+  Then use `blocked` with the question. When a human chooses, write the decision file,
+  post it to `#decisions`, and use `done` on the task.
+- If a human gives you a decision in your session, record it in `context/decisions/`
+  and post it to `#decisions`.
 - `main` is the shared branch. Do one task on one branch. Open small
   pull requests to `main`. Pull `main` frequently.
 - If many agents run on one machine, use one git worktree and one dev server
