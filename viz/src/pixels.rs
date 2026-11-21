@@ -1,6 +1,6 @@
 // The 3D camera keeps its effects, visibility, and input. Only its render target changes.
 use bevy::{
-    camera::{visibility::RenderLayers, RenderTarget},
+    camera::{RenderTarget, visibility::RenderLayers},
     image::ImageSampler,
     prelude::*,
     render::render_resource::{Extent3d, TextureFormat},
@@ -47,7 +47,9 @@ fn setup(
     let image = images.add(target);
 
     camera.1.order = -1;
-    commands.entity(camera.0).insert(RenderTarget::from(image.clone()));
+    commands
+        .entity(camera.0)
+        .insert(RenderTarget::from(image.clone()));
     let mut sprite = Sprite::from_image(image);
     sprite.custom_size = Some(canvas_size(size, &window));
     commands.spawn((sprite, CityCanvas, SCREEN_LAYER));
@@ -66,6 +68,8 @@ fn fit_window(
     }
     canvas.custom_size = Some(draw_size);
     images.get_mut(&canvas.image).unwrap().resize(Extent3d {
-        width: size.x, height: size.y, depth_or_array_layers: 1,
+        width: size.x,
+        height: size.y,
+        depth_or_array_layers: 1,
     });
 }

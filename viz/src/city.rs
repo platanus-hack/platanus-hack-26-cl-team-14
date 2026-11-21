@@ -2,14 +2,16 @@ mod activity;
 mod facade;
 mod ground;
 mod terrain;
-use std::path::Path;
-use bevy::mesh::morph::{MeshMorphWeights,MorphAttributes,MorphWeights};
-pub use terrain::terrain_from_xz;
+use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes, MorphWeights};
 use bevy::prelude::*;
+use std::path::Path;
+pub use terrain::terrain_from_xz;
 
 /// Local Santiago coordinates in meters. East is +X and south is +Z.
 pub fn world(lon: f64, lat: f64) -> Vec3 {
-    let x=((lon + 70.65) * 92_915.0) as f32; let z=(-(lat + 33.45) * 110_905.0) as f32; Vec3::new(x,terrain_from_xz(x,z),z)
+    let x = ((lon + 70.65) * 92_915.0) as f32;
+    let z = (-(lat + 33.45) * 110_905.0) as f32;
+    Vec3::new(x, terrain_from_xz(x, z), z)
 }
 
 use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
@@ -25,86 +27,125 @@ pub struct Surface {
     pub colors: Vec<Rgba>,
     pub indices: Vec<u32>,
     textured: bool,
-    displacements: Vec<(usize,f32)>,
-    uvs:Vec<[f32;2]>,
+    displacements: Vec<(usize, f32)>,
+    uvs: Vec<[f32; 2]>,
 }
 
 impl Surface {
     fn vertex(&mut self, point: Vec3, normal: Vec3, color: Rgba) {
         self.positions.push(point.to_array());
-        if self.textured {self.uvs.push([0.025,0.025]);}
+        if self.textured {
+            self.uvs.push([0.025, 0.025]);
+        }
         self.normals.push(normal.to_array());
         self.colors.push(color);
     }
 
     // Each roof keeps the polygon's courtyards. Earcut handles concave buildings.
     pub fn polygon(&mut self, rings: &[Vec<Vec3>], base: f32, height: f32, wall: Rgba, roof: Rgba) {
-        if rings.is_empty() || rings[0].len() < 3 { return; }
+        if rings.is_empty() || rings[0].len() < 3 {
+            return;
+        }
         let top = Vec3::Y * (base + height);
         let first = self.positions.len() as u32;
         let mut coords = Vec::new();
         let mut holes = Vec::new();
         for (j, ring) in rings.iter().enumerate() {
-            if j > 0 { holes.push(coords.len()/2); }
+            if j > 0 {
+                holes.push(coords.len() / 2);
+            }
             for p in ring {
                 self.vertex(*p + top, Vec3::Y, roof);
                 coords.extend([p.x as f64, -p.z as f64]);
             }
         }
         if rings.len() == 1 && rings[0].len() == 4 && convex_quad(&rings[0]) {
-            self.indices.extend([first,first+1,first+2,first,first+2,first+3]);
-        } else if let Ok(triangles) = earcutr::earcut(&coords,&holes,2) {
-            self.indices.extend(triangles.into_iter().map(|i| first+i as u32));
+            self.indices
+                .extend([first, first + 1, first + 2, first, first + 2, first + 3]);
+        } else if let Ok(triangles) = earcutr::earcut(&coords, &holes, 2) {
+            self.indices
+                .extend(triangles.into_iter().map(|i| first + i as u32));
         }
-        if height == 0.0 { return; }
+        if height == 0.0 {
+            return;
+        }
         for ring in rings {
-            let signed: f32 = ring.iter().zip(ring.iter().cycle().skip(1)).map(|(a,b)| a.x*b.z - b.x*a.z).sum();
-            for (a,b) in ring.iter().zip(ring.iter().cycle().skip(1)) {
-                let n = (*b-*a).cross(Vec3::Y).normalize_or_zero() * -signed.signum();
-                let first=self.positions.len() as u32;
-                for p in [*a + Vec3::Y*base, *b+Vec3::Y*base, *b+top,*a+top] { self.vertex(p,n,wall); }
-                if self.textured {
-                    let bays=(a.distance(*b)/3.6).round().max(1.);
-                    let floors=(height/3.5).round().max(1.);
-                    self.uvs[first as usize..].copy_from_slice(&[[0.,floors],[bays,floors],[bays,0.],[0.,0.]]);
+            let signed: f32 = ring
+                .iter()
+                .zip(ring.iter().cycle().skip(1))
+                .map(|(a, b)| a.x * b.z - b.x * a.z)
+                .sum();
+            for (a, b) in ring.iter().zip(ring.iter().cycle().skip(1)) {
+                let n = (*b - *a).cross(Vec3::Y).normalize_or_zero() * -signed.signum();
+                let first = self.positions.len() as u32;
+                for p in [*a + Vec3::Y * base, *b + Vec3::Y * base, *b + top, *a + top] {
+                    self.vertex(p, n, wall);
                 }
-                self.indices.extend([first,first+1,first+2,first,first+2,first+3]);
+                if self.textured {
+                    let bays = (a.distance(*b) / 3.6).round().max(1.);
+                    let floors = (height / 3.5).round().max(1.);
+                    self.uvs[first as usize..].copy_from_slice(&[
+                        [0., floors],
+                        [bays, floors],
+                        [bays, 0.],
+                        [0., 0.],
+                    ]);
+                }
+                self.indices
+                    .extend([first, first + 1, first + 2, first, first + 2, first + 3]);
             }
         }
     }
 
-    fn height_transition(&mut self,first:usize,base:f32,from:f32,to:f32) {
-        for (i,p) in self.positions[first..].iter_mut().enumerate() {
-            let height=p[1]-base;
-            p[1]=base+height*from;
-            if from!=to && height!=0. {self.displacements.push((first+i,height*(to-from)));}
+    fn height_transition(&mut self, first: usize, base: f32, from: f32, to: f32) {
+        for (i, p) in self.positions[first..].iter_mut().enumerate() {
+            let height = p[1] - base;
+            p[1] = base + height * from;
+            if from != to && height != 0. {
+                self.displacements.push((first + i, height * (to - from)));
+            }
         }
     }
 
     pub fn finish(self) -> Mesh {
-        let n=self.positions.len();
-        let mut mesh=Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION,self.positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL,self.normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR,self.colors)
-            .with_inserted_indices(Indices::U32(self.indices));
+        let n = self.positions.len();
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::RENDER_WORLD,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.colors)
+        .with_inserted_indices(Indices::U32(self.indices));
         if !self.displacements.is_empty() {
-            let mut offsets=vec![MorphAttributes::default();n];
-            for (i,y) in self.displacements {offsets[i]=MorphAttributes::new(Vec3::Y*y,Vec3::ZERO,Vec3::ZERO);}
+            let mut offsets = vec![MorphAttributes::default(); n];
+            for (i, y) in self.displacements {
+                offsets[i] = MorphAttributes::new(Vec3::Y * y, Vec3::ZERO, Vec3::ZERO);
+            }
             mesh.set_morph_targets(offsets);
         }
-        if self.textured {mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0,self.uvs);}
+        if self.textured {
+            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
+        }
         mesh
     }
 }
 
-fn convex_quad(p: &[Vec3])->bool {
-    let cross = |i:usize| (p[(i+1)%4]-p[i]).cross(p[(i+2)%4]-p[(i+1)%4]).y;
-    (1..4).all(|i|cross(0)*cross(i)>0.)
+fn convex_quad(p: &[Vec3]) -> bool {
+    let cross = |i: usize| {
+        (p[(i + 1) % 4] - p[i])
+            .cross(p[(i + 2) % 4] - p[(i + 1) % 4])
+            .y
+    };
+    (1..4).all(|i| cross(0) * cross(i) > 0.)
 }
 
-fn word(b: &[u8], at: usize) -> u16 { u16::from_le_bytes(b[at..at+2].try_into().unwrap()) }
-fn integer(b: &[u8], at: usize) -> usize { u32::from_le_bytes(b[at..at+4].try_into().unwrap()) as usize }
+fn word(b: &[u8], at: usize) -> u16 {
+    u16::from_le_bytes(b[at..at + 2].try_into().unwrap())
+}
+fn integer(b: &[u8], at: usize) -> usize {
+    u32::from_le_bytes(b[at..at + 4].try_into().unwrap()) as usize
+}
 
 struct Pack {
     bytes: Vec<u8>,
@@ -116,39 +157,74 @@ struct Pack {
 
 impl Pack {
     fn load(name: &str) -> Self {
-        let mut bytes=Vec::new();
-        GzDecoder::new(File::open(format!("web/data/city_building_{name}.bin.gz")).unwrap()).read_to_end(&mut bytes).unwrap();
-        let cols=word(&bytes,4) as usize;
-        let n=cols*word(&bytes,6) as usize;
-        let coord=|offset| i32::from_le_bytes(bytes[offset..offset+4].try_into().unwrap()) as f64 / 100000.;
-        let origin=world(coord(8),coord(12));
-        let step=integer(&bytes,24);
-        let offsets=(0..=n).map(|i|integer(&bytes,28+i*4)).collect();
-        Self{bytes,offsets,cols,origin,step}
+        let mut bytes = Vec::new();
+        GzDecoder::new(File::open(format!("web/data/city_building_{name}.bin.gz")).unwrap())
+            .read_to_end(&mut bytes)
+            .unwrap();
+        let cols = word(&bytes, 4) as usize;
+        let n = cols * word(&bytes, 6) as usize;
+        let coord = |offset| {
+            i32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) as f64 / 100000.
+        };
+        let origin = world(coord(8), coord(12));
+        let step = integer(&bytes, 24);
+        let offsets = (0..=n).map(|i| integer(&bytes, 28 + i * 4)).collect();
+        Self {
+            bytes,
+            offsets,
+            cols,
+            origin,
+            step,
+        }
     }
 
-    fn position(&self,x:f32,y:f32)->Vec3 { let x=self.origin.x + x*0.92915; let z=self.origin.z - y*1.10905; Vec3::new(x,terrain_from_xz(x,z),z) }
+    fn position(&self, x: f32, y: f32) -> Vec3 {
+        let x = self.origin.x + x * 0.92915;
+        let z = self.origin.z - y * 1.10905;
+        Vec3::new(x, terrain_from_xz(x, z), z)
+    }
 
     fn center(&self, tile: usize) -> Vec3 {
-        self.position(((tile%self.cols) as f32+0.5)*self.step as f32, ((tile/self.cols) as f32+0.5)*self.step as f32)
+        self.position(
+            ((tile % self.cols) as f32 + 0.5) * self.step as f32,
+            ((tile / self.cols) as f32 + 0.5) * self.step as f32,
+        )
     }
 
-    fn slice(&self,tile:usize)->&[u8] { &self.bytes[self.offsets[tile]..self.offsets[tile+1]] }
+    fn slice(&self, tile: usize) -> &[u8] {
+        &self.bytes[self.offsets[tile]..self.offsets[tile + 1]]
+    }
 }
 
-fn paint(x:u16,y:u16,height:f32) -> (Rgba,Rgba) {
-    let seed=(x as u32).wrapping_mul(73856093) ^ (y as u32).wrapping_mul(19349663);
-    let roof=if height>30. {
-        [[0.29,0.40,0.46,1.],[0.57,0.62,0.60,1.],[0.36,0.45,0.50,1.]][seed as usize%3]
+fn paint(x: u16, y: u16, height: f32) -> (Rgba, Rgba) {
+    let seed = (x as u32).wrapping_mul(73856093) ^ (y as u32).wrapping_mul(19349663);
+    let roof = if height > 30. {
+        [
+            [0.29, 0.40, 0.46, 1.],
+            [0.57, 0.62, 0.60, 1.],
+            [0.36, 0.45, 0.50, 1.],
+        ][seed as usize % 3]
     } else {
-        [[0.48,0.12,0.055,1.],[0.54,0.21,0.115,1.],[0.20,0.22,0.23,1.],[0.52,0.52,0.47,1.],[0.60,0.50,0.37,1.],[0.27,0.16,0.12,1.],[0.47,0.53,0.52,1.],[0.66,0.57,0.49,1.]][seed as usize%8]
+        [
+            [0.48, 0.12, 0.055, 1.],
+            [0.54, 0.21, 0.115, 1.],
+            [0.20, 0.22, 0.23, 1.],
+            [0.52, 0.52, 0.47, 1.],
+            [0.60, 0.50, 0.37, 1.],
+            [0.27, 0.16, 0.12, 1.],
+            [0.47, 0.53, 0.52, 1.],
+            [0.66, 0.57, 0.49, 1.],
+        ][seed as usize % 8]
     };
-    let value=0.50+(seed%23) as f32/100.;
-    ([value*0.86,value*0.79,value*0.70,1.],roof)
+    let value = 0.50 + (seed % 23) as f32 / 100.;
+    ([value * 0.86, value * 0.79, value * 0.70, 1.], roof)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Detail { Far, Near }
+enum Detail {
+    Far,
+    Near,
+}
 
 #[derive(Resource)]
 pub(crate) struct Buildings {
@@ -156,122 +232,259 @@ pub(crate) struct Buildings {
     polygons: Pack,
     tiles: Vec<Option<(Detail, Entity)>>,
     material: Handle<StandardMaterial>,
-    facade_material:Handle<StandardMaterial>,
-    pub ready:bool,
-    controller:Entity,
-    heights:activity::HeightScales,
+    facade_material: Handle<StandardMaterial>,
+    pub ready: bool,
+    controller: Entity,
+    heights: activity::HeightScales,
 }
 
-fn box_mesh(pack:&Pack,tile:usize,scale:&impl Fn(usize)->(f32,f32))->Surface {
-    let bytes=pack.slice(tile);
-    let count=integer(bytes,0);
-    let mut mesh=Surface::default();
-    mesh.positions.reserve(count*8);
-    mesh.indices.reserve(count*30);
+fn box_mesh(pack: &Pack, tile: usize, scale: &impl Fn(usize) -> (f32, f32)) -> Surface {
+    let bytes = pack.slice(tile);
+    let count = integer(bytes, 0);
+    let mut mesh = Surface::default();
+    mesh.positions.reserve(count * 8);
+    mesh.indices.reserve(count * 30);
     for i in 0..count {
-        let at=4+i*12;
-        let x=word(bytes,at);
-        let y=word(bytes,at+2);
-        let center=pack.position(x as f32,y as f32);
-        let width=word(bytes,at+4) as f32*0.05;
-        let depth=word(bytes,at+6) as f32*0.05;
-        let (sin,cos)=(word(bytes,at+8) as f32*0.01).to_radians().sin_cos();
-        let u=Vec3::new(cos,0.,-sin)*width;
-        let v=Vec3::new(sin,0.,cos)*depth;
-        let h=word(bytes,at+10) as f32*0.1;
-        let (wall,roof)=paint(x,y,h);
-        let base=mesh.positions.len() as u32;
-        let corners=[center-u-v,center+u-v,center+u+v,center-u+v];
-        for p in corners {mesh.vertex(p,Vec3::Y,wall);}
-        for p in corners {mesh.vertex(p+Vec3::Y*h,Vec3::Y,roof);}
-        let (from,to)=scale(i);
-        mesh.height_transition(base as usize,center.y,from,to);
-        mesh.indices.extend([4,6,5,4,7,6, 0,4,5,0,5,1, 1,5,6,1,6,2, 2,6,7,2,7,3, 3,7,4,3,4,0].map(|n|base+n));
+        if ground::NAMED.contains(&(tile, i)) {
+            continue;
+        }
+        let at = 4 + i * 12;
+        let x = word(bytes, at);
+        let y = word(bytes, at + 2);
+        let center = pack.position(x as f32, y as f32);
+        let width = word(bytes, at + 4) as f32 * 0.05;
+        let depth = word(bytes, at + 6) as f32 * 0.05;
+        let (sin, cos) = (word(bytes, at + 8) as f32 * 0.01).to_radians().sin_cos();
+        let u = Vec3::new(cos, 0., -sin) * width;
+        let v = Vec3::new(sin, 0., cos) * depth;
+        let h = word(bytes, at + 10) as f32 * 0.1;
+        let (wall, roof) = paint(x, y, h);
+        let base = mesh.positions.len() as u32;
+        let corners = [
+            center - u - v,
+            center + u - v,
+            center + u + v,
+            center - u + v,
+        ];
+        for p in corners {
+            mesh.vertex(p, Vec3::Y, wall);
+        }
+        for p in corners {
+            mesh.vertex(p + Vec3::Y * h, Vec3::Y, roof);
+        }
+        let (from, to) = scale(i);
+        mesh.height_transition(base as usize, center.y, from, to);
+        mesh.indices.extend(
+            [
+                4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3, 7, 4, 3,
+                4, 0,
+            ]
+            .map(|n| base + n),
+        );
     }
     mesh
 }
 
-fn polygon_mesh(boxes:&Pack,polys:&Pack,tile:usize,scale:&impl Fn(usize)->(f32,f32))->Surface {
-    let bytes=polys.slice(tile);
-    let boxbytes=boxes.slice(tile);
-    let count=integer(bytes,0);
-    let ring_table=12+(count+1)*4;
-    let vertices=ring_table+(integer(bytes,4)+1)*4;
-    let heights=vertices+integer(bytes,8)*4;
-    let mut mesh=Surface{textured:true,..default()};
+fn polygon_mesh(
+    boxes: &Pack,
+    polys: &Pack,
+    tile: usize,
+    scale: &impl Fn(usize) -> (f32, f32),
+) -> Surface {
+    let bytes = polys.slice(tile);
+    let boxbytes = boxes.slice(tile);
+    let count = integer(bytes, 0);
+    let ring_table = 12 + (count + 1) * 4;
+    let vertices = ring_table + (integer(bytes, 4) + 1) * 4;
+    let heights = vertices + integer(bytes, 8) * 4;
+    let mut mesh = Surface {
+        textured: true,
+        ..default()
+    };
     for i in 0..count {
-        let first=integer(bytes,12+i*4);
-        let end=integer(bytes,16+i*4);
-        let center=boxes.position(word(boxbytes,4+i*12) as f32,word(boxbytes,6+i*12) as f32);
-        let rings:Vec<Vec<Vec3>>=(first..end).map(|r|{
-            (integer(bytes,ring_table+r*4)..integer(bytes,ring_table+(r+1)*4)).map(|v|{
-                let at=vertices+4*v;
-                let p=polys.position(word(bytes,at) as f32,word(bytes,at+2) as f32); Vec3::new(p.x,center.y,p.z)
-            }).collect()
-        }).collect();
-        let h=word(bytes,heights+2*i) as f32*0.1;
-        let (wall,roof)=paint(word(boxbytes,4+i*12),word(boxbytes,6+i*12),h);
-        let start=mesh.positions.len();
-        facade::building(&mut mesh,&rings,h,wall,roof);
-        let (from,to)=scale(i);
-        mesh.height_transition(start,center.y,from,to);
+        if ground::NAMED.contains(&(tile, i)) {
+            continue;
+        }
+        let first = integer(bytes, 12 + i * 4);
+        let end = integer(bytes, 16 + i * 4);
+        let center = boxes.position(
+            word(boxbytes, 4 + i * 12) as f32,
+            word(boxbytes, 6 + i * 12) as f32,
+        );
+        let rings: Vec<Vec<Vec3>> = (first..end)
+            .map(|r| {
+                (integer(bytes, ring_table + r * 4)..integer(bytes, ring_table + (r + 1) * 4))
+                    .map(|v| {
+                        let at = vertices + 4 * v;
+                        let p = polys.position(word(bytes, at) as f32, word(bytes, at + 2) as f32);
+                        Vec3::new(p.x, center.y, p.z)
+                    })
+                    .collect()
+            })
+            .collect();
+        let h = word(bytes, heights + 2 * i) as f32 * 0.1;
+        let (wall, roof) = paint(word(boxbytes, 4 + i * 12), word(boxbytes, 6 + i * 12), h);
+        let start = mesh.positions.len();
+        facade::building(&mut mesh, &rings, h, wall, roof);
+        let (from, to) = scale(i);
+        mesh.height_transition(start, center.y, from, to);
     }
     mesh
 }
 
-pub fn load_buildings(mut commands:Commands, mut materials:ResMut<Assets<StandardMaterial>>,mut images:ResMut<Assets<Image>>) {
-    let boxes=Pack::load("boxes");
-    let polygons=Pack::load("polygons");
-    let tiles=vec![None;boxes.offsets.len()-1];
-    let count:usize=(0..tiles.len()).map(|i|boxes.slice(i)).filter(|s|!s.is_empty()).map(|s|integer(s,0)).sum();
-    println!("Loaded {count} buildings from {} tiles",tiles.len());
-    let material=materials.add(StandardMaterial{cull_mode:None,double_sided:false,perceptual_roughness:0.94,..default()});
-    let facade_material=materials.add(StandardMaterial{base_color_texture:Some(images.add(facade::window_texture())),cull_mode:None,perceptual_roughness:0.9,..default()});
-    let controller=commands.spawn(MorphWeights::new(vec![1.],None).unwrap()).id();
-    commands.insert_resource(Buildings{boxes,polygons,tiles,material,facade_material,ready:false,controller, heights:activity::HeightScales::load(Path::new("web/data/city_building_block_ids.bin.gz"))});
+pub fn load_buildings(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    let boxes = Pack::load("boxes");
+    let polygons = Pack::load("polygons");
+    let tiles = vec![None; boxes.offsets.len() - 1];
+    let count: usize = (0..tiles.len())
+        .map(|i| boxes.slice(i))
+        .filter(|s| !s.is_empty())
+        .map(|s| integer(s, 0))
+        .sum();
+    println!("Loaded {count} buildings from {} tiles", tiles.len());
+    let material = materials.add(StandardMaterial {
+        cull_mode: None,
+        double_sided: false,
+        perceptual_roughness: 0.94,
+        ..default()
+    });
+    let facade_material = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(facade::window_texture())),
+        cull_mode: None,
+        perceptual_roughness: 0.9,
+        ..default()
+    });
+    let controller = commands
+        .spawn(MorphWeights::new(vec![1.], None).unwrap())
+        .id();
+    commands.insert_resource(Buildings {
+        boxes,
+        polygons,
+        tiles,
+        material,
+        facade_material,
+        ready: false,
+        controller,
+        heights: activity::HeightScales::load(Path::new("web/data/city_building_block_ids.bin.gz")),
+    });
 }
 
-pub(crate) fn draw_buildings(mut commands:Commands, mut buildings:ResMut<Buildings>, mut meshes:ResMut<Assets<Mesh>>, mut rig:ResMut<crate::Rig>,scenario:Res<crate::net::Scenario>,time:Res<Time>,mut weights:Query<&mut MorphWeights>) {
-    if scenario.is_changed() && let Some(focus)=buildings.heights.update(&scenario.0,time.elapsed_secs()) {
-        for tile in &mut buildings.tiles {if let Some((_,e))=tile.take(){commands.entity(e).despawn();}}
-        if !rig.fixed && let Some([lon,lat])=focus {rig.target=world(lon,lat);}
+pub(crate) fn draw_buildings(
+    mut commands: Commands,
+    mut buildings: ResMut<Buildings>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut rig: ResMut<crate::Rig>,
+    scenario: Res<crate::net::Scenario>,
+    time: Res<Time>,
+    mut weights: Query<&mut MorphWeights>,
+    mut named: Query<(&NamedBuilding, &mut Transform)>,
+) {
+    if scenario.is_changed()
+        && let Some(focus) = buildings.heights.update(&scenario.0, time.elapsed_secs())
+    {
+        for tile in &mut buildings.tiles {
+            if let Some((_, e)) = tile.take() {
+                commands.entity(e).despawn();
+            }
+        }
+        if !rig.fixed
+            && let Some([lon, lat]) = focus
+        {
+            rig.target = world(lon, lat);
+        }
     }
-    let progress=buildings.heights.progress(time.elapsed_secs());
-    let mut weight=weights.get_mut(buildings.controller).unwrap();
-    if weight.weights()[0]!=progress {weight.weights_mut()[0]=progress;}
-    let mut jobs=Vec::new();
+    let progress = buildings.heights.progress(time.elapsed_secs());
+    for (key, mut transform) in &mut named {
+        let (from, to) = buildings.heights.scale(key.0, key.1);
+        transform.scale.y = from + (to - from) * progress;
+    }
+    let mut weight = weights.get_mut(buildings.controller).unwrap();
+    if weight.weights()[0] != progress {
+        weight.weights_mut()[0] = progress;
+    }
+    let mut jobs = Vec::new();
     for tile in 0..buildings.tiles.len() {
-        if buildings.boxes.slice(tile).is_empty() {continue;}
-        let d=buildings.boxes.center(tile).distance(rig.target);
+        if buildings.boxes.slice(tile).is_empty() {
+            continue;
+        }
+        let d = buildings.boxes.center(tile).distance(rig.target);
         // A tile is roughly 2 km wide. Include full tiles on either side of the visible frustum.
-        let desired=if d>rig.distance*1.5+1700. {None}
-            else if rig.distance<4200. && d<rig.distance*0.72+1500. {Some(Detail::Near)}
-            else {Some(Detail::Far)};
-        if buildings.tiles[tile].map(|t|t.0)==desired { continue; }
-        jobs.push((d,tile,desired));
+        let desired = if d > rig.distance * 1.5 + 1700. {
+            None
+        } else if rig.distance < 4200. && d < rig.distance * 0.72 + 1500. {
+            Some(Detail::Near)
+        } else {
+            Some(Detail::Far)
+        };
+        if buildings.tiles[tile].map(|t| t.0) == desired {
+            continue;
+        }
+        jobs.push((d, tile, desired));
     }
-    buildings.ready=jobs.is_empty();
-    jobs.sort_by(|a,b|a.0.total_cmp(&b.0));
-    for (_,tile,detail) in jobs.into_iter().take(8) {
-        if let Some((_,entity))=buildings.tiles[tile].take() {commands.entity(entity).despawn();}
-        if let Some(detail)=detail {
-            let mesh=match detail {
-                Detail::Far=>box_mesh(&buildings.boxes,tile,&|i|buildings.heights.scale(tile,i)),
-                Detail::Near=>polygon_mesh(&buildings.boxes,&buildings.polygons,tile,&|i|buildings.heights.scale(tile,i))
+    buildings.ready = jobs.is_empty();
+    jobs.sort_by(|a, b| a.0.total_cmp(&b.0));
+    for (_, tile, detail) in jobs.into_iter().take(8) {
+        if let Some((_, entity)) = buildings.tiles[tile].take() {
+            commands.entity(entity).despawn();
+        }
+        if let Some(detail) = detail {
+            let mesh = match detail {
+                Detail::Far => box_mesh(&buildings.boxes, tile, &|i| {
+                    buildings.heights.scale(tile, i)
+                }),
+                Detail::Near => polygon_mesh(&buildings.boxes, &buildings.polygons, tile, &|i| {
+                    buildings.heights.scale(tile, i)
+                }),
             };
-            let mat=if detail==Detail::Near {&buildings.facade_material}else{&buildings.material};
-            let animated=!mesh.displacements.is_empty();
-            let mut chunk=commands.spawn((Mesh3d(meshes.add(mesh.finish())),MeshMaterial3d(mat.clone())));
-            if animated {chunk.insert(MeshMorphWeights::Reference(buildings.controller));}
-            let entity=chunk.id();
-            buildings.tiles[tile]=Some((detail,entity));
+            let mat = if detail == Detail::Near {
+                &buildings.facade_material
+            } else {
+                &buildings.material
+            };
+            let animated = !mesh.displacements.is_empty();
+            let mut chunk = commands.spawn((
+                Mesh3d(meshes.add(mesh.finish())),
+                MeshMaterial3d(mat.clone()),
+            ));
+            if animated {
+                chunk.insert(MeshMorphWeights::Reference(buildings.controller));
+            }
+            let entity = chunk.id();
+            buildings.tiles[tile] = Some((detail, entity));
         }
     }
 }
 
-pub(crate) fn setup_ground(mut commands:Commands, mut meshes:ResMut<Assets<Mesh>>,mut materials:ResMut<Assets<StandardMaterial>>) {
-    let mat=materials.add(StandardMaterial{cull_mode:None,perceptual_roughness:1.,..default()});
-    for (name,mesh) in ground::load_ground(Path::new(".")) {
-        commands.spawn((Name::new(name),Mesh3d(meshes.add(mesh)),MeshMaterial3d(mat.clone())));
+#[derive(Component)]
+pub(crate) struct NamedBuilding(usize, usize);
+
+pub(crate) fn setup_ground(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let mat = materials.add(StandardMaterial {
+        cull_mode: None,
+        perceptual_roughness: 1.,
+        ..default()
+    });
+    for ((tile, i), base, mesh) in ground::named_buildings(Path::new(".")) {
+        commands.spawn((
+            NamedBuilding(tile, i),
+            Mesh3d(meshes.add(mesh)),
+            MeshMaterial3d(mat.clone()),
+            Transform::from_xyz(0., base, 0.),
+        ));
+    }
+    for (name, mesh) in ground::load_ground(Path::new(".")) {
+        commands.spawn((
+            Name::new(name),
+            Mesh3d(meshes.add(mesh)),
+            MeshMaterial3d(mat.clone()),
+        ));
     }
 }
