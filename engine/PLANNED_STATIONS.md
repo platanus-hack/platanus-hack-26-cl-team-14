@@ -41,3 +41,16 @@ PY
 Expected current-network result: 126 stations, 31 held out, 1,123 scored cells, half-hour WAPE 0.4179 and absolute error 238,349.700047. The L7 run should add 16 physical stations with finite nonnegative half-hour series. Actual projected entries require a remote run. The frozen score on the current network and the historical backcheck of station openings answer different questions. The threshold for a change to the baseline is 1,000 fewer absolute boarding errors.
 
 Juan’s first CLI run reproduced the baseline absolute error of 238,349.700047. It projected 253,310.13 weekday entries at the 16 new L7 parents and a decrease of 87,912.36 at the existing 126, for a net increase of 165,397.77. These are outputs of the access rule. Historical validation remains open. The four stations in the L2 extension benchmark all appear in the 2026 training data. A retrospective comparison must exclude their boarding observations from any fit and label the difference between the 2024 observation year and the 2026 network and population inputs. [CLI result](https://discord.com/channels/1573514576400752640/1573688245361844345/1573729347754524714) · [L2 observations](../data/validation/metro_extension_2023/line2.md)
+
+## Historical comparison with four Line 2 openings
+
+Ernesto-29 ran `python3 -I tools/pack/station_opening_replay.py` at `a075a5aab7a82235ae6b801031d43a483ede87cd` on Juan’s Linux machine. The fit used 91 training stations in a network of 122 parents. It excluded the four comparison stations and their feeder links. The opening scenario then added those four station points.
+
+| Station | Observed weekday entries in April 2024 | Modeled minus observed |
+| --- | ---: | ---: |
+| Copa Lo Martínez | 9,765 | +4,670.30 |
+| El Bosque | 10,841 | +1,657.53 |
+| Hospital El Pino | 23,039 | −5,585.82 |
+| Observatorio | 6,980 | +8,430.92 |
+
+The four stations received 59,797.93 modeled entries against 50,625 observed. The total was 18.1% high. The sum of absolute station errors was 20,344.56, or 40.2% of observed entries. Observatorio had the largest error. The comparison uses April 2024 counts with the remaining 2026 network and commuter inputs. It provides no error bound for future L7 entries. [External run](https://discord.com/channels/1573514576400752640/1573688249287708682/1573731227658232051)
