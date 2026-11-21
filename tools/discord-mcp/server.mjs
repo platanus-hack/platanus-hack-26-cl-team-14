@@ -316,7 +316,7 @@ async function sendMessage({ channel_id, content, files = [], reply_to, model, n
   attachments.forEach(({ name, blob }, index) => form.set(`files[${index}]`, blob, name));
   const query = new URLSearchParams({ wait: "true", ...threadQuery });
   const message = await discord(`${webhookPath}?${query}`, { auth: false, method: "POST", body: form });
-  return `Message sent as ${message.author.username}: ${message.id}.\nDiscord message flags: ${message.flags ?? 0}.`;
+  return `Message sent as ${message.author.username}: ${message.id}.\nDiscord message flags: ${message.flags ?? "unavailable"}.`;
 }
 
 // A bot cannot change its name for each message. A channel webhook can.
