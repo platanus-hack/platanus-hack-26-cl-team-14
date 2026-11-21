@@ -977,4 +977,13 @@ A verified address uses the institution page and geocode recorded in [the addres
 The campus point represents a site. Students can attend other buildings.
 [MINEDUC geocoded teaching addresses](https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6)
 
-This version places 58 campus groups. The 79 groups with empty coordinates include 12 fully remote groups.
+The pack places 68 campus groups with 346,778 in-person and 17,012 hybrid registrations.
+The 69 groups without a point include 12 fully remote groups. The other 57 have in-person or hybrid registrations.
+Some large groups cover several campuses. Universidad de Chile reports 45,937 in-person registrations at “Santiago”.
+The ministry directory lists its teaching buildings across multiple comunas. That group has no point.
+SIES assigns AIEP Bellavista to Santiago (CUT 13101), but its verified address lies in Providencia (13123).
+All 67 other points fall within the reported CUT in `communes.geojson`. AIEP San Joaquín falls inside 13129
+even though the 2020 address directory assigns 13118. ENAC lists three teaching buildings within about 340 m;
+its point uses Alameda 2182. The UANDES point marks its main campus in Las Condes.
+Clinical training can take place elsewhere. [UANDES clinical center in San Bernardo](https://salud.uandes.cl/)
+Exclude remote registrations when using this table to choose trip destinations.
