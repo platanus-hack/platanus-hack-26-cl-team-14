@@ -2,13 +2,16 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
-use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripPlan};
+use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripGroup, TripPlan, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::StationAccess;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+
+#[path = "attendance.rs"]
+mod attendance;
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -42,7 +45,7 @@ pub struct Scenario {
     access: StationAccess,
     base: State,
     /// Display groups of the baseline workers (population/trips.rs), for the map.
-    trips: Value,
+    trips: Vec<TripGroup>,
     plan: TripPlan,
     fine_modes: FineModes,
     placed: Base,
@@ -94,7 +97,7 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: json!(plan.sample(&pop)), plan, fine_modes: FineModes::from_baseline(&pop), choice, pop, share, access, stations, comunas };
+        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), choice, pop, share, access, stations, comunas };
         sc.base = sc.state(&sc.pop, &sc.access.all_parent_ids());
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -132,7 +135,8 @@ impl Scenario {
     }
 
     /// `changes`: JSON objects of the shape of `Change`, or `{"kind":"station","target":{"type":"station","id":<GTFS parent id or name>},
-    /// "op":"set","value":0 or 1}` (0 = closed, 1 = open). A kind that the engine does not model (for example "event", a new
+    /// "op":"set","value":0 or 1}` (0 = closed, 1 = open), or `{"kind":"event","target":{"type":"point","longitude":..,"latitude":..},
+    /// "op":"set","value":<attendance>,"assumed_end_half_hour":0..47}` (attendance.rs). A kind that the engine does not model (for example a new
     /// station at a point) goes to `not_modeled`, unchanged, and the other changes run.
     pub fn run(&self, changes: &[Value]) -> Value {
         let t = std::time::Instant::now();
@@ -142,6 +146,7 @@ impl Scenario {
         let mut minutes = c.minutes.clone();
         let (mut applied, mut not_modeled) = (vec![], vec![]);
         let mut open = self.access.all_parent_ids();
+        let mut requests = vec![];
 
         for raw in changes {
             let kind = raw["kind"].as_str().unwrap_or("");
@@ -155,11 +160,21 @@ impl Scenario {
                 applied.push(v);
                 continue;
             }
+            if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event" && raw["target"]["type"] == "point" && raw["op"] == "set",
+                raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| v >= 0.0),
+                raw["assumed_end_half_hour"].as_u64().filter(|&e| e < 48)) {
+                let venue_cut = self.cut_at(longitude, latitude);
+                let mut v = raw.clone();
+                v["understood"] = json!({ "comuna": c.names[self.ix(&venue_cut)], "attendance": attendance });
+                applied.push(v);
+                requests.push(attendance::AttendanceRequest { longitude, latitude, venue_cut, attendance: attendance as u32, assumed_end_half_hour: end as u8 });
+                continue;
+            }
             if !["jobs", "residents", "minutes"].contains(&kind) {
                 let mut v = raw.clone();
                 v["reason"] = json!(match kind {
                     "station" => "A station change needs target type station, op set and value 0 or 1. Only existing stations can be closed or reopened. The engine does not model new stations or lines.",
-                    "event" => "The engine does not model events yet. It models one usual work day.",
+                    "event" => "An event change needs a point target, op set, the attendance (0 or more) as value and an integer assumed_end_half_hour (0 to 47).",
                     _ => "The engine does not know this kind of change.",
                 });
                 not_modeled.push(v);
@@ -239,6 +254,9 @@ impl Scenario {
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
         let moved = rechoose(c, &mut pop, &weights, &minutes, &self.placed);
         self.fine_modes.apply(&mut pop);
+        let events: Vec<Value> = requests.into_iter().map(|r| json!(attendance::project(&pop, &self.access, &open, r))).collect();
+        let mut assumptions = ASSUMPTIONS.map(Value::from).to_vec();
+        if let Some(e) = events.first() { assumptions.extend(e["assumptions"].as_array().unwrap().iter().cloned()); }
         // The points whose jobs or residents changed, for the map: one row per block id. A new point has no id; its key is its coordinates.
         let (mut rows, mut at): (Vec<(Value, [f64; 2])>, HashMap<String, usize>) = (vec![], HashMap::new());
         for (k, v, old) in [(0, &pop.jobs, &self.pop.jobs), (1, &pop.homes, &self.pop.homes)] {
@@ -264,7 +282,8 @@ impl Scenario {
         order.sort_by(|&x, &y| (daily(s, y) - daily(b, y)).abs().total_cmp(&(daily(s, x) - daily(b, x)).abs()));
         let stations: Vec<Value> = self.stations.iter().enumerate().map(|(i, (id, name, x, y))| {
             let mut v = json!({ "id": id, "name": name, "longitude": x, "latitude": y,
-                "base_daily": r1(daily(b, i)), "scenario_daily": r1(daily(s, i)), "delta_daily": r1(daily(s, i) - daily(b, i)) });
+                "base_daily": r1(daily(b, i)), "scenario_daily": r1(daily(s, i)), "delta_daily": r1(daily(s, i) - daily(b, i)),
+                "base_half_hour": b.day[i].iter().map(|&x| r1(x)).collect::<Vec<_>>(), "scenario_half_hour": s.day[i].iter().map(|&x| r1(x)).collect::<Vec<_>>() });
             if order[..12].contains(&i) { v["delta"] = (0..48).map(|t| r1(s.day[i][t] - b.day[i][t])).collect(); }
             v
         }).collect();
@@ -289,6 +308,7 @@ impl Scenario {
             .map(|&i| json!({ "origin": c.cuts[i / n], "destination": c.cuts[i % n], "base": b.od[i], "scenario": s.od[i] })).collect();
 
         let total = |d: &State| (0..self.stations.len()).map(|i| daily(d, i)).sum::<f64>();
+        let trips = self.plan.sample(&pop);
         json!({
             "applied": applied,
             "not_modeled": not_modeled,
@@ -300,8 +320,9 @@ impl Scenario {
             },
             "stations": stations, "zones": zones, "flows": flows,
             "blocks_changed": blocks, "blocks_changed_total": blocks_total,
-            "trips_base": self.trips, "trips_scenario": self.plan.sample(&pop),
-            "assumptions": ASSUMPTIONS,
+            "trips_delta": trip_deltas(&self.trips, &trips), "trips_base": self.trips, "trips_scenario": trips,
+            "events": events,
+            "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         })
     }

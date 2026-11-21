@@ -1,38 +1,59 @@
 # Rust scenario core
 
-This core serves the first real-data MVP. It reads commune aggregates and observed work flows.
-It does not create a synthetic population or run individual agents.
+The [general-scenario startup fix](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/136) is in `main` at `29c56a9`.
+Independent canonical and renamed-input checks passed through HTTP, real MCP, SSE and cache.
+Native-view acceptance is separate. Response additions in PR #137 are still pending review.
 
-Prerequisites: Python 3 and an installed Rust toolchain with Cargo and Rust 2024 edition support. With a standard rustup installation, Cargo is in `~/.cargo/bin`. Add it to this terminal's PATH if needed:
+## Start the scenario API
 
-```sh
-export PATH="$HOME/.cargo/bin:$PATH"
-```
-
-From the repository root, start the API:
+Use an installed Rust toolchain with Rust 2024 support and Node.js 22 or later.
+From the repository root, run:
 
 ```sh
-cargo run --release --manifest-path engine/Cargo.toml -- data/mvp
+cargo run --release --manifest-path engine/Cargo.toml --bin santiago-scenario-core -- data/mvp 8787
 ```
 
-The first release build took about 75 seconds on the [fresh-clone review host](https://discord.com/channels/1573514576400752640/1573579088684253235/1573598214064701450). Other machines and later builds can differ; wait for the server to start.
+Wait for `Scenario core listening on http://127.0.0.1:8787`.
+Keep that terminal open. Press Ctrl+C there to stop the server.
+The first argument selects the data directory; the second selects a free port.
+The defaults are `data/mvp` and `8787`.
 
-In a second terminal, also from the repository root, serve the page on an unused port:
+Start or reopen your local agent in this checkout with `SANTIAGO_API_URL=http://127.0.0.1:8787` in its environment.
+The project config loads `tools/santiago-mcp/server.mjs`.
+Ask it to call `simulate_city` with the complete `changes` list.
+An empty list restores the baseline.
+The MCP uses `http://127.0.0.1:8787` unless its process has `SANTIAGO_API_URL` set to another API origin.
+The checked default uses L9 station access and original `jobs.csv`.
+The optional April station weighting is a different configuration and has a different score.
 
-```sh
-python3 -m http.server 5175
-```
+## General-scenario HTTP routes
 
-Open `http://localhost:5175/web/`. If 5175 is occupied, choose another free port and change the URL to match. Do not stop another session's server. Serving `web/` as the root breaks the page's `../data/mvp/` paths.
+| Method | Route | Result |
+| --- | --- | --- |
+| POST | `/api/scenario` | Run `Scenario::run` once with `{ "changes": [...] }` and publish the full result. |
+| GET | `/api/scenario-latest` | Return the latest result, or `null` before the first publication; `Cache-Control: no-store`. |
+| GET | `/api/scenario-events` | Keep an SSE connection open for published results. |
 
-The server binds to `127.0.0.1:8787`. It allows cross-origin requests for the local demo.
-An optional second argument changes the port for an independent run:
+The POST response, latest cache and SSE event carry the same full result and `revision`.
+The MCP omits `trips_base`, `trips_scenario`, `trips_delta` and the station half-hour arrays, and adds `trips_omitted: true`.
+Read `applied`, `not_modeled`, and `assumptions` before explaining a result.
+The engine supports jobs, residents, travel minutes, existing station closures or reopenings, and events (point target, op `set`, attendance 0 or more, end half hour 0 to 47).
+The event estimate in `events` is demand for the whole return period. The station deltas and the trip deltas do not include it.
+New stations and new lines remain unsupported.
+The output describes a model scenario, not a measured intervention.
 
-```sh
-cargo run --release --manifest-path engine/Cargo.toml -- /path/to/real-data 8788
-```
+The native city view has a separate acceptance run in progress.
+Its candidate defaults to `SANTIAGO_ENGINE=http://127.0.0.1:8790`, while engine and MCP default to 8787.
+A combined launch must set `SANTIAGO_ENGINE` and `SANTIAGO_API_URL` to the same selected engine origin.
+Do not use the old web launcher for this server cut: its controls use removed routes and an earlier response shape.
+A verified native-view command will follow its acceptance run.
 
-It reads the CSV files and `tobalaba_observations.json` once at startup. Each scenario starts from the observed baseline.
+## Historical MVP contracts and model records
+
+The sections below retain earlier input, route and model records.
+Their legacy HTTP routes return 404 in PR #136.
+Use the general-scenario routes above for this startup cut.
+Standalone binary examples below remain historical records; they were not rerun for this change.
 
 ## Inputs
 
@@ -440,3 +461,38 @@ Each file contains 48 half-hours for each of 126 GTFS parent IDs. The model proj
 2,700.9 fewer weekday boardings at Tobalaba and 1,655.7 fewer across the network.
 These are scenario estimates. When comparing hosts, check for equal values within
 the existing tolerance of 1e-9 boardings per half-hour.
+
+### Weekday station entries per scheduled place
+
+Run a scenario, then select a Metro parent and a half-hour index. Index 16 starts at 08:00 in Santiago.
+
+```sh
+printf '[]\n' | cargo run --quiet --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - |
+  cargo run --quiet --release --manifest-path engine/Cargo.toml --bin station_capacity -- data/mvp LIB 16
+```
+
+The result compares modeled entries with nominal places on boardable departures in both directions. It uses the weekday timetable of April 13–17, 2026. Event estimates have a separate time window and stay outside this ratio. Train occupancy and free places are unknown. A station with an unrated line, no scheduled departures, or a closure returns a null ratio and the reason. [Schedule and data sources](../data/mvp/metro_station_service.md)
+
+## April weights for station access
+
+The population CLI accepts two station projections. Both use the same workers
+and the same census job stocks. The April option changes the fit and the
+distribution of public-transport job mass within each comuna.
+
+```sh
+cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp /tmp/l9.json l9
+cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp /tmp/april.json april-transport
+python3 -I tools/pack/check_score.py /tmp/april.json
+```
+
+The frozen score covered 31 stations and all 1,123 observed cells.
+Absolute error fell from 238,349.700047 to 234,697.773506 boardings.
+Half-hour WAPE fell from 0.4178865487 to 0.4114838095.
+For Tobalaba, the two models predicted 39,823.55 and 53,720.26 entries
+in the observed weekday half-hours. DTPM recorded 81,612.80.
+
+A scenario caller can opt in with
+`StationAccess::load_with_april_transport_jobs(data)?`. For each projection,
+call `weight_job_masses` on the freshly aggregated public commuter masses
+in job-point order before calling `project_points`. The default constructor
+uses the census job stocks.

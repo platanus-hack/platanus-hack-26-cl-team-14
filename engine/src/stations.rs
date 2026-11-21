@@ -78,7 +78,7 @@ fn mass(st: &[Station], pts: &[PointMass], radius: f64, split: bool, inverse: bo
     (m, if assigned > 0.0 { multi / assigned } else { 0.0 })
 }
 
-fn baseline_points(data: &Path, share: &HashMap<String, (f64, f64)>, public_share: bool) -> (Vec<PointMass>, Vec<PointMass>) {
+fn baseline_points(data: &Path, jobs_file: &str, share: &HashMap<String, (f64, f64)>, public_share: bool) -> (Vec<PointMass>, Vec<PointMass>) {
     let (mut home, mut work) = (HashMap::new(), HashMap::new());
     for f in rows::<Od>(&data.join("work_od.csv")) {
         if !f.destination_cut.starts_with("13") { continue; } // RM-internal only, as main.rs
@@ -87,7 +87,7 @@ fn baseline_points(data: &Path, share: &HashMap<String, (f64, f64)>, public_shar
         *work.entry(f.destination_cut).or_insert(0.0) += f.workers * m;
     }
     let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
-    let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
+    let jobs: Vec<_> = rows::<Job>(&data.join(jobs_file)).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
     (point_masses(&home, &blocks), point_masses(&work, &jobs))
 }
 
@@ -96,13 +96,17 @@ fn baseline_points(data: &Path, share: &HashMap<String, (f64, f64)>, public_shar
 /// `split`: L4, equal split of each point among all parents within the radius.
 /// `inverse`: L4b, with `split`, shares are 1/max(d, 50 m) normalized instead of equal parts.
 pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool, inverse: bool) -> (Vec<Vec<f64>>, Report, Fit) {
+    predict_with_jobs(data, "jobs.csv", st, radius, public_share, classes, split, inverse)
+}
+
+fn predict_with_jobs(data: &Path, jobs_file: &str, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool, inverse: bool) -> (Vec<Vec<f64>>, Report, Fit) {
     let mut share: HashMap<String, (f64, f64)> = HashMap::new();
     for m in rows::<Mode>(&data.join("mode_share.csv")) {
         let e = share.entry(m.cut).or_default();
         e.1 += m.commuters;
         if m.mode == 2 { e.0 += m.commuters; }
     }
-    let (homes, jobs) = baseline_points(data, &share, public_share);
+    let (homes, jobs) = baseline_points(data, jobs_file, &share, public_share);
     let mut dist = Vec::new();
     let (h, multi_h) = mass(st, &homes, radius, split, inverse, &mut dist);
     let (j, multi_j) = mass(st, &jobs, radius, split, inverse, &mut dist);

@@ -1,29 +1,37 @@
-# Santiago responde
+# Cómo presentar ¿Y si Santiago…?
 
-El equipo humano decide el guion en [context/pitch.md](../pitch.md). La [propuesta de tres minutos](pitch-proposal.md) muestra una ciudad que responde. Primero el presentador muestra este ejemplo:
+Abre el [guion de tres minutos](pitch-proposal.md). Escribe esta pregunta desde el chat configurado para la demo:
 
 > ¿Cómo cambiarían los viajes al trabajo en Santiago si Estación Central tuviera la mitad más de residentes y Las Condes la mitad más de empleos?
 
-El ejemplo cambia los viajes en una comuna que el presentador no nombró. Luego alguien del público hace una pregunta que el equipo no preparó. El presentador la escribe en el chat. Ambas ejecuciones usan la misma herramienta.
+Lee del chat el cambio que estima el motor en Universidad de Chile, en subidas por día laboral. Muestra esa misma ejecución en la maqueta nativa. Luego escribe una pregunta del jurado. Ambas preguntas usan `simulate_city`.
 
-## Qué funciona en main
+## Qué puedes probar hoy
 
-En [98ae956](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/98ae956d5d4e047c0ceaa5c40b6263d2d49bd037), el motor en Rust simula cambios de residentes, empleos y tiempos de viaje. También puede cerrar o reabrir estaciones existentes. Emplea una población sintética que conserva los totales por comuna del Censo. Los trabajadores vuelven a elegir destino y modo ante un cambio. [Motor](../../engine/src/scenario.rs), [datos](../../data/mvp/README.md).
+El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. El cálculo de eventos aplica al período completo de retorno. Crear una estación en otro punto queda fuera del alcance actual. [Configuración y alcance](../../README.md#run-a-scenario-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
 
-Comprobamos que `simulate_city` aplica los dos cambios del ejemplo. El agente y la vista reciben el mismo identificador y las mismas cifras del resumen. La vista recibe además los grupos de viajes para dibujarlos. En esta versión, la vista de main sigue siendo la anterior. Falta probar juntos el chat y la vista de Santiago sin controles. [Cambio del motor](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/126).
+Necesitas Rust para el motor y Node.js 22 o posterior para el servidor MCP. Desde la raíz del repositorio, inicia el motor en un puerto libre:
 
-En esa revisión, el motor declara las preguntas que requieren una estación nueva, una línea nueva o un evento. Tampoco estima capacidad ni congestión. Conserva una dependencia del conjunto de datos original: si cambia el identificador de la manzana del MUT, el servidor no parte.
+```sh
+cargo run --release --manifest-path engine/Cargo.toml --bin santiago-scenario-core -- data/mvp 8790
+```
 
-## Cómo probar el motor
+Abre el cliente desde ese repositorio. Configura el servidor MCP `santiago` con `SANTIAGO_API_URL=http://127.0.0.1:8790`. En la ventana nativa, usa `SANTIAGO_ENGINE=http://127.0.0.1:8790`. Los tres componentes deben usar la misma dirección del motor.
 
-En un clon del repositorio, usa la revisión indicada y ejecuta `./run.sh`. Requiere Rust y Python. Abre Codex o Claude desde ese clon con Node instalado y haz la pregunta de arriba. La [guía del repositorio](../../README.md) explica cómo cargar la herramienta local.
+La maqueta nativa en Bevy está en `feat/view-city`. Para compilarla, usa `rustc` 1.97.1 o posterior. Ejecuta el comando de la vista desde la raíz del repositorio. La vista necesita los archivos de datos de esa revisión. Sigue pendiente fijar la revisión aceptada para presentar. [Comando de la vista candidata](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/92503cdac25aa451b76ea5089eb12282f653cbe7/viz/README.md).
 
-### Antes de presentar
+### Permiso para la herramienta en el cliente
 
-En Codex CLI, quien presenta puede autorizar solo esta herramienta con `-c 'mcp_servers.santiago.tools.simulate_city.approval_mode="approve"'`. En Claude Code, el permiso específico es `--allowedTools mcp__santiago__simulate_city`. [Codex](https://developers.openai.com/codex/config-reference), [Claude Code](https://code.claude.com/docs/en/permissions#match-mcp-tools).
+En Codex CLI, la prueba con el cliente usó este permiso específico y la llamada a la herramienta siguió sin una pausa de aprobación:
 
-## Qué queda para el ensayo
+```sh
+codex -c 'mcp_servers.santiago.tools.simulate_city.approval_mode="approve"'
+```
 
-El ensayo fijó y verificó la revisión [fdd9cff](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/fdd9cfffb1dda57d24f73dfe9f41a4273617a5e8). Tiene Tobalaba, Santiago, Puntaje y Evento. Los casos del MUT, la redistribución por comuna y el evento se calculan por separado en el mismo servicio. En Evento, «patrón» significa el exceso positivo de subidas de Parque O’Higgins por sobre su línea. [Verificación](https://discord.com/channels/1573514576400752640/1573579088684253235/1573677203466494159), [guion de esa revisión](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/fdd9cfffb1dda57d24f73dfe9f41a4273617a5e8/context/research/pitch-proposal.md).
+Claude Code ejecutó la pregunta preparada en el ensayo. El permiso documentado es `--allowedTools mcp__santiago__simulate_city`. Falta confirmar ese ajuste específico. [Codex](https://developers.openai.com/codex/config-reference), [Claude Code](https://code.claude.com/docs/en/permissions#match-mcp-tools).
 
-Codex CLI contestó una pregunta libre sobre el motor anterior en una prueba aislada con el permiso específico de la herramienta. Falta ensayar una pregunta inédita con el motor actual, la vista sin controles y el cronómetro. La ficha de votación apunta al repositorio. Falta la URL pública del proyecto funcionando.
+## Antes de presentar y entregar
+
+- El ensayo de la pregunta preparada mostró menos subidas en Universidad de Chile y un cambio de alturas en la misma ejecución. Lee la cifra de la estación y su unidad. Las capturas muestran Tobalaba. Quedan pendientes el plano de Universidad de Chile y la grabación continua. [Traza y capturas del ensayo](https://discord.com/channels/1573514576400752640/1573688250797658172/1573712370340204634).
+- Ensaya una pregunta inédita con la maqueta aceptada. Para cada pregunta, anota cuándo cambia la ventana y cuándo termina de responder el chat. Queda pendiente aceptar el detalle en la periferia y las personas que caminan en esa misma revisión.
+- El equipo decide el nombre final y la dirección de entrega. «¿Y si Santiago…?» es provisional. El campo `deploy-url` abre el repositorio. Falta el enlace público a la aplicación o a una descarga utilizable. [Ficha](../../platanus-hack-project.jsonc).

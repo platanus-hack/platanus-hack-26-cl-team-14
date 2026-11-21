@@ -70,21 +70,37 @@ SELECT count(*) AS reference_blocks, median(typical_area) AS footprint_m2,
        median(cover) AS developed_share, median(dwellings/n) AS dwellings_per_shape
 FROM sample WHERE n>=5 AND cover BETWEEN 0.2 AND 0.9;
 
+-- Union mapped roofs inside each populated block. Only the visible portion can receive infill.
+CREATE OR REPLACE TABLE sparse_roofs AS
+WITH roofs AS (
+    SELECT c.block_id, ST_Union_Agg(ST_Intersection(r.geom,c.clipped_geom)) AS geom
+    FROM hits h JOIN census c USING(block_id) JOIN real r USING(osm_id,part)
+    WHERE c.pop>0 GROUP BY c.block_id
+)
+SELECT r.* FROM roofs r JOIN census c USING(block_id)
+WHERE ST_Area(r.geom)<0.05*ST_Area(c.clipped_geom);
+
 -- Clip at the city boundary. Keep each component separate. Set back from its edge by 2 m.
 CREATE OR REPLACE TABLE sites AS
 WITH clipped AS (
-    SELECT c.block_id,c.cut,c.dwellings,c.jobs,c.area,
+    SELECT c.block_id,c.cut,c.dwellings,c.jobs,c.area, r.geom AS roofs,
            unnest(ST_Dump(ST_CollectionExtract(c.clipped_geom,3))) AS fragment
-    FROM coverage c WHERE c.pop>0 AND c.real_shapes=0
+    FROM coverage c LEFT JOIN sparse_roofs r USING(block_id)
+    WHERE c.pop>0 AND (c.real_shapes=0 OR r.block_id IS NOT NULL)
 ), interior AS (
     SELECT block_id,cut,dwellings,jobs,area,fragment.path AS component,
-           ST_Area(fragment.geom) AS clipped_m2, ST_Buffer(fragment.geom,-2) AS geom
+           ST_Area(fragment.geom) AS clipped_m2,
+           CASE WHEN roofs IS NULL THEN 0 ELSE ST_Area(ST_Intersection(fragment.geom,roofs)) END AS roof_m2,
+           ST_Buffer(CASE WHEN roofs IS NULL THEN fragment.geom
+                          ELSE ST_Difference(fragment.geom,roofs) END,-2) AS geom
     FROM clipped
+), targets AS (
+    SELECT s.*, greatest(1, round(least(clipped_m2*g.developed_share/g.footprint_m2,
+             clipped_m2/area*dwellings/g.dwellings_per_shape)))::INT
+             - ceil(roof_m2/g.footprint_m2)::INT AS target, g.footprint_m2
+    FROM interior s, grain g WHERE NOT ST_IsEmpty(geom) AND ST_Area(geom)>=12
 )
-SELECT s.*, greatest(1, round(least(clipped_m2*g.developed_share/g.footprint_m2,
-             clipped_m2/area*dwellings/g.dwellings_per_shape)))::INT AS target,
-       g.footprint_m2
-FROM interior s, grain g WHERE NOT ST_IsEmpty(geom) AND ST_Area(geom)>=12;
+SELECT * FROM targets WHERE target>0;
 
 -- Align a regular grid with the long side of the local block. Use the full geometry
 -- to accept footprints, including courtyards, concave edges and irregular block ends.
@@ -124,6 +140,33 @@ SELECT block_id,component,cut,seed,footprint FROM rectangles
 WHERE ST_Covers(geom,footprint)
 QUALIFY row_number() OVER (PARTITION BY block_id,component ORDER BY seed) <= target;
 
+-- Keep full OSM ground polygons and their simplified display outlines. The ground
+-- renderer clips, simplifies at 4 m in UTM, and rounds to five decimal places.
+CREATE OR REPLACE TABLE exclusions AS
+WITH selected AS (
+    SELECT id, ST_Intersection(ST_MakeValid(g.geom::GEOMETRY),b.geom) AS clipped
+    FROM ST_Read(@grounds@) g, bounds b
+    WHERE coalesce(area,'yes') <> 'no' AND (
+        amenity IN ('school','kindergarten','college','university')
+        OR landuse IN ('education','vacant','brownfield','greenfield','recreation_ground','forest','meadow','grass','village_green')
+        OR place='square'
+        OR leisure IN ('park','garden','nature_reserve','sports_centre','sports_hall','stadium')
+        OR (leisure='pitch' AND coalesce(indoor,'no')='no')
+        OR (leisure='track' AND coalesce(indoor,'no')='no' AND (area='yes' OR substr(id,2)::BIGINT%2=1))
+        OR "natural" IN ('wood','grassland','scrub','heath') OR landcover IN ('trees','grass','scrub')
+        OR (amenity='parking' AND coalesce(parking,'surface')='surface'
+            AND coalesce(covered,'no')='no' AND coalesce(indoor,'no')='no'
+            AND coalesce(building,'no')='no' AND coalesce("building:part",'no')='no'
+            AND coalesce(location,'surface') NOT IN ('underground','rooftop','roof','overground')
+            AND coalesce(try_cast(layer AS INTEGER),0)>=0)
+    )
+), outlines AS (
+    SELECT id, clipped, ST_ReducePrecision(ST_Intersection(
+        degrees(ST_SimplifyPreserveTopology(meters(clipped),4)),b.geom),0.00001) AS displayed
+    FROM selected,bounds b WHERE NOT ST_IsEmpty(clipped)
+)
+SELECT id, ST_Union(clipped,displayed) AS geom FROM outlines;
+
 -- Thin or irregular blocks can have no full rectangle. Their inscribed circle
 -- locates one small outline wholly inside the block. It uses the same edge setback.
 CREATE OR REPLACE TABLE generated AS
@@ -144,7 +187,8 @@ WITH missing AS (
            round(least((SELECT cap FROM height_limit),greatest(3.0,density_height(c.dwellings,c.jobs,c.area)*factor(seed//10467,0.78,46))),1) AS height_m
     FROM footprints f JOIN census c USING(block_id)
 )
-SELECT rounded.* FROM rounded,bounds WHERE ST_Area(polygon)>0 AND ST_Covers(bounds.geom,polygon);
+SELECT rounded.* FROM rounded,bounds WHERE ST_Area(polygon)>0 AND ST_Covers(bounds.geom,polygon)
+    AND NOT EXISTS (SELECT 1 FROM exclusions e WHERE ST_Intersects(rounded.polygon,e.geom));
 
 COPY (
     SELECT json_object('type','Feature','geometry',ST_AsGeoJSON(polygon)::JSON,
