@@ -411,39 +411,51 @@ async function pollDiscord() {
   const guilds = await discord("/users/@me/guilds");
   for (const guild of guilds) {
     const channels = await discord(`/guilds/${guild.id}/channels`);
-    const { threads } = await discord(`/guilds/${guild.id}/threads/active`);
-    for (const root of watchedRoots(channels)) {
-      const targets = new Map(threads
-        .filter(t => t.type !== 12 && t.name !== "secrets" && t.parent_id === root.id)
-        .map(t => [t.id, t]));
-      // Forum posts are threads. The forum parent has no message history.
-      if (root.type !== 15) targets.set(root.id, root);
-      // Include threads closed between polls, so their last messages still arrive.
+    const roots = watchedRoots(channels);
+    const parents = new Set(roots.map(root => root.id));
+    // Forum posts are threads. The forum parent has no message history.
+    const targets = new Map(roots.filter(root => root.type !== 15).map(root => [root.id, root]));
+    async function includeActive() {
+      const { threads } = await discord(`/guilds/${guild.id}/threads/active`);
+      for (const thread of threads) {
+        if (parents.has(thread.parent_id) && thread.type !== 12 && thread.name !== "secrets") {
+          targets.set(thread.id, thread);
+        }
+      }
+    }
+    await includeActive();
+    for (const root of roots) {
       let before;
       while (true) {
         const query = new URLSearchParams({ limit: "100", ...(before && { before }) });
         const page = await discord(`/channels/${root.id}/threads/archived/public?${query}`);
-        for (const thread of page.threads) if (thread.name !== "secrets") targets.set(thread.id, thread);
+        for (const thread of page.threads) {
+          if (thread.name !== "secrets" && Date.parse(thread.thread_metadata.archive_timestamp) >= coveredThrough) {
+            targets.set(thread.id, thread);
+          }
+        }
         const last = page.threads.at(-1)?.thread_metadata.archive_timestamp;
-        if (!page.has_more || !last || Date.parse(last) < connectedAt) break;
+        if (!page.has_more || !last || Date.parse(last) < coveredThrough) break;
         before = last;
       }
-      for (const channel of targets.values()) {
-        const cursor = cursors.get(channel.id) ?? initialCursor;
-        const fresh = [];
-        let before;
-        while (true) {
-          const query = new URLSearchParams({ limit: "100", ...(before && { before }) });
-          const page = await discord(`/channels/${channel.id}/messages?${query}`);
-          fresh.push(...page.filter((m) => BigInt(m.id) > BigInt(cursor)));
-          if (page.length < 100 || BigInt(page.at(-1).id) <= BigInt(cursor)) break;
-          before = page.at(-1).id;
-        }
-        fresh.reverse();
-        for (const message of fresh) {
-          inbox.push(`#${channel.name}: ${formatMessage(message)}`);
-          cursors.set(channel.id, message.id);
-        }
+    }
+    // A thread can reopen after the first active list and disappear from its archive page.
+    await includeActive();
+    for (const channel of targets.values()) {
+      const cursor = cursors.get(channel.id) ?? initialCursor;
+      const fresh = [];
+      let before;
+      while (true) {
+        const query = new URLSearchParams({ limit: "100", ...(before && { before }) });
+        const page = await discord(`/channels/${channel.id}/messages?${query}`);
+        fresh.push(...page.filter((m) => BigInt(m.id) > BigInt(cursor)));
+        if (page.length < 100 || BigInt(page.at(-1).id) <= BigInt(cursor)) break;
+        before = page.at(-1).id;
+      }
+      fresh.reverse();
+      for (const message of fresh) {
+        inbox.push(`#${channel.name}: ${formatMessage(message)}`);
+        cursors.set(channel.id, message.id);
       }
     }
   }
