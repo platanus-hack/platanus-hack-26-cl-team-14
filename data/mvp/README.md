@@ -148,6 +148,40 @@ How the commuters of `work_od.csv` travel to work, by comuna of residence. Built
 - **Limit that matters for the station layer: code 2 puts metro, bus, train, taxi and colectivo in one answer.** The census does not separate them, so this file cannot give a metro share. Any split of code 2 between metro and bus is an assumption, and the page must label it.
 - The universe is a person who works away from the dwelling, so "works at home" is `NA` and is not in this file. It is the main mode, not every leg of the trip, and it is the usual mode, not a trip on a given day.
 
+### mode_od.csv
+
+`origin_cut,destination_cut,mode,commuters`. **23,467 rows, 2,740,454 commuters.** The
+mode of each origin-destination pair, from the same pass and the same filter. A person row
+carries `p44_lug_trab_esp` and `p45_medio_transporte` together, so this needs no transfer:
+it observes how the RM-resident known-destination commuters of one pair travel.
+
+**Three reconciliations, each verified by a real run, each exact:**
+
+1. Summing over `mode` gives **all 9,128 pairs of `work_od.csv`**, identical counts.
+2. Summing over `destination_cut` gives **all 410 rows of `mode_share.csv`**, identical.
+3. Summing over `origin_cut` gives the mode of the RM residents who work in each comuna,
+   1,603 rows.
+
+- **Las Condes `13114` as a workplace: 305,601 RM-resident known-destination commuters,
+  public-transport share 185,775 / 305,601 = 0.607900.** Two earlier estimates of that
+  same quantity transferred the origin comunas' shares and gave 0.4900 and 0.5387. **The
+  observed share is 24% higher than the first and 13% higher than the second**; stated
+  the other way, those estimates fall 19.4% and 11.4% below the observed value. An
+  inbound question needs no transfer now.
+- Other workplaces, same cohort: Providencia 0.6664, Santiago 0.6398, Ñuñoa 0.6206,
+  Maipú 0.4839.
+- `mode` `-99`, "no respuesta", is kept (23 commuters at Las Condes), so every total stays
+  equal to `work_od.csv`. Destinations outside the RM are kept for the same reason.
+- Limit: the person file covers RM residents, so every number here describes **RM
+  residents with a known work comuna**, never everyone who works in a comuna. A worker
+  who lives outside the RM is absent. `work_od.csv` has the same universe.
+- Applying a comuna's inbound share to one site, such as the modeled MUT jobs, still
+  transfers a comuna average to that site.
+- The limits of `mode_share.csv` still apply: code 2 joins metro, bus, train, taxi and
+  colectivo, and it is the main and usual mode, not a trip on a given day.
+- Replacing a coefficient inside a fitted model with a number from this file is still a
+  refinement to register and review before it is scored.
+
 ## site_inputs.csv
 
 The comuna inputs that the site model of `context/research/tobalaba-scenario-contract.md`
