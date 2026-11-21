@@ -6,9 +6,9 @@ Propuesta de los agentes (keen-koala, 10:05 UTC); `context/pitch.md` sigue siend
 
 - **Un motor en Rust** con datos reales: Censo 2024 (7.400.741 personas; 2.740.454 personas con lugar de trabajo habitual conocido, sin las 517.018 que trabajan en casa ni las 313.358 sin lugar fijo), subidas al Metro de DTPM (abril 2026), permisos de edificación del INE y la encuesta EOD 2012 para ubicar los empleos dentro de cada comuna.
 - **Tres vistas en el navegador**, para proyector:
-  1. **Tobalaba**: edificios reales, la estación con sus 48 medias horas, 37 con dato observado y 11 sin dato (7.516 a las 18:00). Un control: sacar el MUT (4.679 empleos modelados) y poner una torre de N viviendas. Al correr, dos estimaciones con sus etiquetas: contabilidad del sitio (−513 subidas al día con 298 viviendas) y sensibilidad del modelo de estaciones (−2.781 con la capa L4b, base del modelo 41.702 frente a 81.613 observadas, regla de reparto visible). Debajo: "83 personas salen en auto al día · 51 en transporte público" (nuevos residentes; flujo diario después del supuesto de asistencia 0,8; el stock de ocupados es 104 / 64; reparto modal de Las Condes, supuesto de transferencia).
-  2. **Santiago**: las 52 comunas, flujos casa→trabajo. Un control de empleo y vivienda por comuna; el motor redistribuye y conserva los totales. Etiqueta: "reconstrucción del Censo 2024 + sensibilidad, sin validar".
-  3. **Puntaje**: 31 estaciones de Metro que el modelo nunca vio, columnas observadas y predichas, y el error agregado (45% con L4b). Es un puntaje de desarrollo; no valida el cambio del MUT.
+  1. **Tobalaba**: edificios reales y la estación con sus 48 medias horas (37 con dato, 11 sin dato; 7.516 a las 18:00). Un control: sacar el MUT (4.679 empleos modelados) y poner una torre de N viviendas. Al correr, dos estimaciones etiquetadas (−513 y −2.781 subidas al día con 298 viviendas, ver tabla) y "83 personas salen en auto al día · 51 en transporte público".
+  2. **Santiago**: las 52 comunas y los flujos casa→trabajo; un control de empleo y vivienda por comuna, totales conservados. Etiqueta: "reconstrucción del Censo 2024 + sensibilidad, sin validar".
+  3. **Puntaje**: 31 estaciones de Metro reservadas, columnas observadas y predichas, error agregado 45% (L4b). Puntaje de desarrollo; no valida el cambio del MUT.
 - **Lo que no funciona**: el estadio (caso 3 de la propuesta) no está construido. La Variante B (Estación Central 2017→2024) tampoco.
 
 ## Cómo verlo (requiere Rust y Python 3; una primera compilación medida tomó 75 s)
@@ -39,7 +39,7 @@ Cada número hablado lleva la capa de la versión elegida. Si una capa cambia de
 
 ## Lo que no sabemos (una línea cada uno)
 
-- Cuántos de los trabajadores del MUT entran al Metro: el 0,2 es un supuesto; el modelo de estaciones usa otra vía. Por eso −513 y −2.781 son dos estimaciones, no un rango.
+- Cuántos trabajadores del MUT entran al Metro: el 0,2 es un supuesto; el modelo de estaciones usa otra vía. −513 y −2.781 son dos estimaciones, no un rango.
 - El Censo no separa Metro de bus: digan "transporte público", nunca "Metro", para cifras del Censo.
 - Los 4.679 empleos del MUT son modelados, no medidos: superficie publicada de oficinas y locales, 88% y 75% arrendada en julio de 2024, 10 m² y 46 m² por puesto; el operador declara 4.000 personas en oficinas.
 - Datos de 2023 alrededor de la apertura del MUT (PR #77 a #79): entre abril y agosto, las subidas de Tobalaba en Línea 4 subieron 20,4% y la mediana de las otras 18 estaciones de la línea bajó 1,5%. Son dos semanas, por línea, con un conteo de combinaciones no documentado. Es descriptivo; no mide el efecto del MUT, no se compara con 2026 ni con los modelos.
@@ -49,9 +49,9 @@ Cada número hablado lleva la capa de la versión elegida. Si una capa cambia de
 ## Las 5 preguntas para ustedes (con nuestra recomendación)
 
 1. **Comuna y palabras**: decir "Las Condes, al lado de Tobalaba"; "transporte público" para el Censo, "Metro" solo para subidas DTPM.
-2. **La sorpresa del MUT**: mostrar las dos estimaciones con sus etiquetas, el cambio pequeño en la estación y los residentes que salen en auto. Recomendación: las dos, con la brecha de la base visible; esconder un resultado es peor que un límite visible.
+2. **La sorpresa del MUT**: ¿las dos estimaciones con sus etiquetas, el cambio pequeño en la estación y los residentes que salen en auto? Recomendación: todo visible, incluida la brecha de la base; un límite visible vale más que un resultado escondido.
 3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre hoy en la vista Santiago) como caso 2. El estadio no está construido. Recomendación: cortarlo del demo y nombrarlo solo como "la próxima pregunta" en el cierre; si los agentes encuentran una firma observada de evento antes de las 12:15 UTC, ustedes deciden si entra.
-4. **Los datos de 2023**: ¿se dicen en dos frases como contexto ("no sabemos cuánto es del MUT; nuestros modelos cuentan residentes y trabajadores, no visitantes") o se dejan para las preguntas del jurado? Recomendación: dejarlos para las preguntas si el ensayo pasa de 3 minutos.
+4. **Los datos de 2023**: ¿dos frases de contexto ("no sabemos cuánto es del MUT; nuestros modelos no cuentan visitantes") o se dejan para las preguntas del jurado? Recomendación: para las preguntas, si el ensayo pasa de 3 minutos.
 5. **Tiempo y cierre**: 256 palabras (~2 minutos a 130 por minuto, antes de clics y de la respuesta del jurado). El cierre dice "tres preguntas" con dos casos: recomendación, "dos preguntas, y la tercera la hacen ustedes". Si hay que cortar: primero el contexto 2023, después la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
 
 Respondan en `#agent-chat` o editen `context/pitch.md`. Los agentes siguen en el hilo.
