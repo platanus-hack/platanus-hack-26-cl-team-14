@@ -1,102 +1,117 @@
 #!/usr/bin/env python3
 """Layer A: the fixed score of the simulation against real data (calm-condor).
 
-Target: April 2026 average-weekday (LABORAL) Metro boardings per station half hour,
-from data/raw/dtpm/subidas_2026_04.xlsx. The held-out split is frozen by a
-deterministic rule, not by choice: normalize each Metro station name (upper, no
-accents, single spaces), drop TOBALABA, LOS LEONES and EL GOLF (already model
-inputs/demo stations), sort, take every 4th name starting at index 0.
+Target: April 2026 average-weekday (LABORAL) Metro boardings per station half
+hour, read from the merged data/mvp/metro_observations.json (PR #35). The
+held-out membership below is FROZEN: it was derived once by rule (normalize
+the 126 source names, drop the 3 model-input stations TOBALABA / LOS LEONES /
+EL GOLF, sort, every 4th from index 0) and is now pinned by parent ID and
+source hash, so later name or source edits cannot move it.
 
-Score (lower is better), on held-out stations only:
-  WAPE_bins   = sum |pred - obs| / sum obs   over station x observed LABORAL bins
-  WAPE_daily  = the same over station daily totals
-A depth layer improves the simulation when WAPE_bins falls. A prediction is
-eligible only if no held-out station's boarding values (any day type) entered
-the model as input, fitting data or profile shape.
+Score (lower is better), on the frozen 1,123 observed held-out cells:
+  WAPE_bins  = sum |pred - obs| / sum obs   over held-out station x observed bins
+  WAPE_daily = the same over per-station sums of those same observed cells
+A depth layer improves the simulation when WAPE_bins falls. Eligibility: no
+held-out station's boarding values (any day type) entered the model as input,
+fitting data or profile shape; and every observed held-out cell has a finite,
+nonnegative prediction. A missing, null, negative or nonfinite prediction on
+an observed cell makes the run ineligible: coverage is reported and no score
+is printed. The denominator never shrinks. Repeated runs against this holdout
+are development validation, not an untouched final test.
 
-Run: python3 -I tools/pack/check_score.py [predictions.json]
-predictions.json: {"<normalized station name>": [48 numbers or null]}.
-Without it, prints the frozen holdout manifest and score_ready=false.
+Run: python3 -I tools/pack/check_score.py predictions.json
+predictions.json: {"<normalized name or parent id>": [48 numbers or null]}.
+Without an argument, prints the frozen manifest and score_ready=false.
 """
 import json
-import re
+import math
 import sys
-import unicodedata
-import zipfile
-from collections import defaultdict
 
-XLSX = 'data/raw/dtpm/subidas_2026_04.xlsx'
-USED = {'TOBALABA', 'LOS LEONES', 'EL GOLF'}  # inputs/demo; never held out
+ARTIFACT = 'data/mvp/metro_observations.json'
+MANIFEST = 'data/mvp/metro_observations_manifest.json'
+# Frozen source provenance (PR #35): GTFS_20260321_v3.zip and the April export.
+GTFS_SHA256 = 'f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b'
+BOARDINGS_SHA256 = '24da85944374d1b07ac2b8c5bf696279370e2ecd9d6dd1d76daca84b5dd26ec4'
+# Frozen holdout: normalized source name -> GTFS parent ID. Membership is by ID.
+HOLDOUT = {
+    'ALCANTARA': 'AL', 'BELLAVISTA DE LA FLORIDA': 'LF', 'CAMINO AGRICOLA': 'AG',
+    'CERRILLOS': 'CER', 'CONCHALI': 'CCH', 'DEL SOL': 'DS', 'EINSTEIN': 'EI',
+    'ELISA CORREA': 'ECO', 'FERNANDO CASTILLO VELASCO': 'FCV', 'GRECIA': 'RGR',
+    'HOSPITAL SOTERO DEL RIO': 'HSR', 'LA CISTERNA': 'LC-LCI', 'LAS MERCEDES': 'LME',
+    'LO CRUZAT': 'LCR', 'LO VIAL': 'LV', 'LOS ORIENTALES': 'LOR', 'MANQUEHUE': 'MQ',
+    'MONSENOR EYZAGUIRRE': 'MEY', 'NUNOA': 'NUN-NUO', 'PARQUE BUSTAMANTE': 'PB',
+    'PEDRERO': 'PE', 'PLAZA DE PUENTE ALTO': 'PPA', 'PRINCIPE DE GALES': 'PDG',
+    'QUINTA NORMAL': 'QN', 'RONDIZONNI': 'RO', 'SAN JOSE DE LA ESTRELLA': 'SJE',
+    'SANTA ANA': 'AN-NA', 'SANTA ROSA': 'SRO', 'TRINIDAD': 'TRI',
+    'UNIVERSIDAD DE SANTIAGO': 'US', 'VILLA FREI': 'VFR',
+}
+# Frozen observed-cell set and denominator; drift in the artifact aborts the score.
+EXPECTED_CELLS = 1123
+EXPECTED_TOTAL = 570369.4
 
+manifest = json.load(open(MANIFEST))
+if (manifest['sources']['gtfs']['sha256'] != GTFS_SHA256
+        or manifest['sources']['exported_boardings']['sha256'] != BOARDINGS_SHA256):
+    sys.exit('ABORT: source hashes changed; the frozen holdout no longer applies.')
 
-def normalize(name):
-    s = unicodedata.normalize('NFD', name.upper())
-    s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
-    return re.sub(r'\s+', ' ', s).strip()
-
-
-z = zipfile.ZipFile(XLSX)
-shared = re.findall(r'<si>(?:<t[^>]*>)?(.*?)(?:</t>)?</si>',
-                    z.read('xl/sharedStrings.xml').decode('utf-8'), re.S)
-shared = [re.sub(r'<.*?>', '', s) for s in shared]
-best_rows, best_data = 0, ''
-for name in ('sheet1', 'sheet2', 'sheet3', 'sheet4'):
-    try:
-        data = z.read(f'xl/worksheets/{name}.xml').decode('utf-8')
-    except KeyError:
-        continue
-    if data.count('<row ') > best_rows:
-        best_rows, best_data = data.count('<row '), data
-
-rows = []
-for rm in re.finditer(r'<row [^>]*>(.*?)</row>', best_data, re.S):
-    cells = {}
-    for cm in re.finditer(
-            r'<c r="([A-Z]+)\d+"(?: s="\d+")?(?: t="(\w+)")?[^>]*>(?:<v>(.*?)</v>)?',
-            rm.group(1)):
-        cref, typ, val = cm.groups()
-        if val is not None:
-            cells[cref] = shared[int(val)] if typ == 's' else val
-    rows.append(cells)
-
-cols = {v: k for k, v in rows[0].items()}
-col = lambda frag: next(c for n, c in cols.items() if frag.lower() in n.lower())
-c_mode, c_day, c_stop = col('modo'), col('tipo'), col('parader')
-c_half, c_board = col('media'), col('subida')
-
-obs = defaultdict(lambda: [None] * 48)  # station -> 48 LABORAL bins
-for r in rows[1:]:
-    if r.get(c_mode, '').upper() != 'METRO' or r.get(c_day, '') != 'LABORAL':
-        continue
-    st = normalize(r[c_stop])
-    i = round(float(r[c_half]) * 48)  # Media_hora is an Excel day fraction
-    obs[st][i] = (obs[st][i] or 0.0) + float(r[c_board])
-
-stations = sorted(obs)
-holdout = sorted(set(s for k, s in enumerate(sorted(set(stations) - USED)) if k % 4 == 0))
-print(f'Metro stations with LABORAL observations: {len(stations)}')
-print(f'Frozen holdout ({len(holdout)}): {", ".join(holdout)}')
-daily = {s: sum(v for v in obs[s] if v) for s in holdout}
-print(f'Holdout daily total: {sum(daily.values()):,.1f} boardings')
+obs = {}  # parent id -> 48 LABORAL values (None where unobserved)
+names = {}
+for s in json.load(open(ARTIFACT))['stations']:
+    pid = s['station']['id']
+    if pid in HOLDOUT.values():
+        obs[pid] = s['half_hour_bins']['LABORAL']
+        names[pid] = s['source_name']
+cells = sum(1 for b in obs.values() for v in b if v is not None)
+total = sum(v for b in obs.values() for v in b if v is not None)
+if sorted(obs) != sorted(HOLDOUT.values()) or cells != EXPECTED_CELLS \
+        or round(total, 1) != EXPECTED_TOTAL:
+    sys.exit(f'ABORT: artifact drift: {len(obs)} stations, {cells} cells, '
+             f'{total:,.1f} (frozen: 31 / {EXPECTED_CELLS} / {EXPECTED_TOTAL:,})')
+print(f'Frozen holdout verified: 31 stations, {cells} observed cells, '
+      f'{total:,.1f} boardings/day.')
 
 if len(sys.argv) < 2:
     print('score_ready=false: pass predictions.json to compute WAPE.')
     sys.exit(0)
 
-pred = json.load(open(sys.argv[1]))
+raw = json.load(open(sys.argv[1]))
+pred = {}
+for key, bins in raw.items():
+    pid = HOLDOUT.get(key, key)
+    pred[pid] = bins
+bad = []
+for pid in HOLDOUT.values():
+    p = pred.get(pid)
+    if p is None or len(p) != 48:
+        bad.append(f'{pid} ({names[pid]}): missing or not 48 bins')
+        continue
+    for i in range(48):
+        if obs[pid][i] is None:
+            continue
+        v = p[i]
+        if not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
+            bad.append(f'{pid} bin {i}: prediction {v!r}')
+if bad:
+    covered = EXPECTED_CELLS - sum(1 for b in bad if 'bin' in b)
+    print(f'INELIGIBLE: incomplete prediction; coverage {covered}/{EXPECTED_CELLS} '
+          f'observed cells. No score. First problems:')
+    print('\n'.join(bad[:10]))
+    sys.exit(1)
+
 num = den = dnum = dden = 0.0
-for s in holdout:
-    p = pred.get(s)
-    if p is None:
-        print(f'MISSING prediction: {s}')
-        sys.exit(1)
+for pid in HOLDOUT.values():
     pd = od = 0.0
     for i in range(48):
-        if obs[s][i] is None:
+        o = obs[pid][i]
+        if o is None:
             continue
-        pv = p[i] or 0.0
-        num += abs(pv - obs[s][i]); den += obs[s][i]
-        pd += pv; od += obs[s][i]
-    dnum += abs(pd - od); dden += od
+        num += abs(pred[pid][i] - o)
+        den += o
+        pd += pred[pid][i]
+        od += o
+    dnum += abs(pd - od)
+    dden += od
 print(f'WAPE_bins  = {num / den:.4f}')
 print(f'WAPE_daily = {dnum / dden:.4f}')
+print('Reminder: eligibility also requires that no held-out boardings entered '
+      'the model; that is a process claim the modeler must state.')
