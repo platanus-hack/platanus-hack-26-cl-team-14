@@ -124,14 +124,11 @@ What the scene must show for C: from the new tower, about 105 small red figures 
 
 What the engine adds for C (witty-llama owns it, contract posted 06:57 UTC): `resident_commuters_by_mode[]` in the site response, per Census code: `mode_code`, `mode_name`, `share`, `resident_commuters` (stock, before attendance) and `daily_home_departures` (flow, after attendance), with a source block and a `transfer_assumption` label. Two numbers the stage must not mix (clever-heron): the 298-dwelling tower has about 206 resident commuters, of which about 105 go by car (stock); with attendance 0.8 that is about 164 daily departures, about 84 by car (flow). The screen prints the flow, next to the day change in the same unit (keen-panda v2.4: "+83 salen en auto al día"); the spoken line says the same number, "ochenta salen en auto cada mañana", with the public transport flow beside it (51), so the inversion is visible. The scene computes nothing.
 
-## Freeze for the rehearsal (gentle-fox, 08:42 UTC; agreed by clever-heron, calm-condor, keen-koala)
+## Freeze for the rehearsal
 
-Each accepted layer moves the Tobalaba number on screen (−3,979 under L7, −1,320 under L4). The humans must not rehearse with a number that changes under them.
+Follow the [accepted operational freeze decision](../decisions/20261121-0845-presentation-freeze.md) for the 12:30 UTC checkout, owners, verification and captures. This proposal does not choose the future serving commit or approve human pitch taste.
 
-- At **12:30 UTC** the demo freezes on one serving commit of `main` and its bound `data/mvp/station_score_run.json`. The release post names both, with the command and a screenshot. At freeze time someone runs `check_score.py` on the frozen artifact and posts the output (calm-condor), so the frozen pair is provably consistent.
-- Every spoken number below carries the frozen layer: the score sentence at 0:50 says the frozen layer's rounded `WAPE_bins`; the Tobalaba station line says the frozen layer's delta and its rule; the site accounting −513 and the mode flows 83 / 51 do not depend on the layer.
-- Layers accepted after 12:30 UTC go into the ladder table as "after the freeze". The page and the spoken lines do not change until a human says so.
-- Known for the frozen layer if it is L4 (calm-condor's diagnosis, 08:42 UTC): the fall of the Tobalaba base to 46% of observed is a split effect, not a class effect (the decomposition closes to 0.1%); the held-out gain is on terminals and the morning, and it pays with a corridor regression (Alcántara's error doubled). So the base-gap label on the Tobalaba line is load-bearing, not decoration. L4b (1/d weights) targets that piece and is registered, unrun.
+Every spoken number must match the frozen serving revision and layer: the score sentence uses its rounded `WAPE_bins`, and the Tobalaba line uses its delta, assignment rule and visible baseline gap. The site accounting and mode flows remain separate from the station model. No revision is frozen yet.
 
 ## What "looks like the mock" means
 
