@@ -61,4 +61,4 @@ for v in SPEEDS:
         faster = sum(w for w, b, rep in boat if b < rep)
         times = sorted((b, w) for w, b, _ in boat); acc = 0
         med = next(b for b, w in times if (acc := acc + w) >= total / 2)
-        print(f"{v:.0f},{h:.0f},{faster:,.0f},{faster / total:.3f},{med:.0f}")
+        print(f"{v:.0f},{h:.0f},{faster:.0f},{faster / total:.3f},{med:.0f}")
