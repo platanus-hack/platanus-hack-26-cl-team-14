@@ -203,6 +203,13 @@ over the person file and caches the tallies, then the join runs in 2 s).
   columns instead. Las Condes, 298 dwellings: the comuna chain gives 242.5 commuters
   and 123.8 of them travel by car; × 0.9105 and × 0.8213 gives **220.8 commuters and
   101.7 travelling by car**. Call the result "ratio-adjusted, block-table subset".
+- **The apartment pair with a comuna commuter rate is a conservative estimate, not a
+  neutral one.** It carries the smaller flat (2.0847 against 2.4185) but not the higher
+  travel of the people in it, so it counts the discount one time too many. Measured
+  with the rate 0.3545: the apartment pair gives 0.6837 commuters for each dwelling and
+  the ratio method gives 0.7342, which is 6.9% higher. Either use the comuna pair with
+  `travellers_per_dwelling_ratio_apartment_blocks`, or use the apartment pair and label
+  it conservative. Do not call the apartment-pair result a neutral measurement.
 - Limit of the subset: most Las Condes flat blocks are on the Apoquindo and Metro
   corridor, so part of the lower car share comes from the place, not from the dwelling
   type. For a tower 122 m from Tobalaba that bias points the right way, but it is a
@@ -357,6 +364,7 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
   - `floor_area`: 2 sites of the demo (Costanera Center, the MUT) get a fixed number from published floor area. See the sections below. The other manzanas of the comuna share the rest, so the comuna total does not change.
   - `persons_fallback`: 7 rural comunas have fewer than 50 sampled workers (Paine, Curacaví, Tiltil, San José de Maipo, Alhué, María Pinto, San Pedro). Their jobs spread by resident persons. 50,857 jobs, 1.9%.
 - The airport: the terminal point has 126 sampled workers (14,859 expanded) and is rural land with no manzana. The first version dropped it and spread its jobs over the other manzanas of Pudahuel. Now it is the row `13124_airport`, 27,070 jobs, the largest row of the file. No published count was checked against it.
+- **Check against independent data.** Jobs within 500 m of a Metro station against the observed weekday boardings from 16:00 to 21:00 (`metro_observations.json`, April 2026), on the 95 stations that are not in the held-out set of `tools/pack/check_score.py`: Pearson 0.76, Spearman 0.79. Within 800 m: 0.69, 0.79. Jobs of the nearest station with no distance limit: 0.33, 0.50, because the last stations of each line take the far jobs (the airport row goes to Plaza Quilicura, 6.9 km away). Use a radius, not the nearest station. Against the morning boardings the correlation is 0, as expected for work places.
 - Why these signals: they are the only ones on disk with coordinates. SII addresses have no coordinates and follow the head office. OSM and Overture places have no worker counts.
 - What the method gets wrong:
   - The base is from 2012. A place that lost jobs after 2012 keeps them.
