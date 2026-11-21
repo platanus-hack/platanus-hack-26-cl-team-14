@@ -230,8 +230,8 @@ export async function startInbox(token, discord) {
         publish();
       }
       if (subscribed.has(d.channel_id) && ["MESSAGE_CREATE", "MESSAGE_UPDATE", "MESSAGE_DELETE", "MESSAGE_DELETE_BULK"].includes(t)) {
-        const { id, ids, author, content, timestamp, embeds, attachments, message_reference, webhook_id } = d;
-        const row = JSON.stringify([t, { id, ids, author, content, timestamp, embeds, attachments, message_reference, webhook_id }],
+        const { id, ids, type, author, content, timestamp, embeds, attachments, message_reference, webhook_id } = d;
+        const row = JSON.stringify([t, { id, ids, type, author, content, timestamp, embeds, attachments, message_reference, webhook_id }],
           (_, value) => typeof value === "string" ? scrub(value) : value);
         appendFileSync(join(session, d.channel_id + ".jsonl"), row + "\n", { mode: 0o600 });
       }

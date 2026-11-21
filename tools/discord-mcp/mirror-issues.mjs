@@ -169,7 +169,7 @@ async function importReplies(number, thread, page) {
   do {
     messages = await page(thread.id, thread.after ?? thread.id);
     for (const message of messages) {
-      const isPost = [undefined, 0, 19].includes(message.type);
+      const isPost = [0, 19].includes(message.type);
       if (isPost && !ownDiscordPost(message, number, thread)) {
         const content = await issueReplyText(thread.id, message);
         if (content) {
