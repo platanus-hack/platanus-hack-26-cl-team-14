@@ -21,6 +21,23 @@ Home zones of the simulation. One row per Census 2024 block-table row of the Reg
 - `workers` (3,588,512) includes people who work at home and outside the RM. The Census work matrix keeps only real commutes (about 2.75 M). Use the matrix rows as shares, not as counts against `workers`.
 - INE suppresses some values (`*`) for disclosure control. The builder writes them as 0 (2 rows in `workers` and `students`).
 
+## communes.csv and communes.geojson
+
+The 52 comunas of the RM. Same builder as `zones.csv`: `python3 -I tools/pack/zones.py`.
+
+| Column | Meaning |
+| --- | --- |
+| `cut` | 5-digit INE comuna code |
+| `name` | INE comuna name |
+| `population` | sum of `n_per` over the comuna's block-table rows (containers included) |
+| `households` | sum of `n_hog` |
+| `dwellings` | sum of `n_vp`, private dwellings |
+| `longitude`, `latitude` | area-weighted centroid of the `Comunal_CPV24` polygon |
+
+- Totals: population 7,400,741, households 2,599,621, dwellings 2,763,387. Providencia `13123`: 143,974 / 69,157 / 76,376.
+- Check: all origins of `work_od.csv` are in this file. RM to RM workers in `work_od.csv`: 2,688,814.
+- `communes.geojson`: the same 52 polygons (MultiPolygon, properties `cut`, `name`, `population`). The builder rounds coordinates to 4 decimals (about 10 m) and removes repeated points. 2.0 MB. For the browser only.
+
 ## schools.csv
 
 School destinations. One row for each operating school of the Región Metropolitana that has a coordinate. Builder: `python3 -I tools/pack/schools.py`.
@@ -37,9 +54,10 @@ School destinations. One row for each operating school of the Región Metropolit
 - Filters: `COD_REG_RBD=13` and `ESTADO_ESTAB=1`. The file holds 4,467 RM rows; 3,227 are operating.
 - Rows: 3,220. Enrolment: 1,309,286. Comunas: 52. Providencia (`13123`): 83 schools, 29,641 students.
 - Dropped: 7 of the 3,227 operating schools. 6 have an empty coordinate, and RBD 41884 is at latitude -29.22, which is in Coquimbo. All 7 are nurseries with `MAT_TOTAL=0`, so the file loses 0 students. The box used is latitude -34.4 to -32.8 and longitude -71.8 to -69.7.
-- `MAT_TOTAL` is the exact sum of `MAT_ENS_1` to `MAT_ENS_8`, so it **does** count pre-school: 104,953 of the 1,309,286 students are in `MAT_ENS_1` (parvularia), spread over the 1,663 schools that offer that level.
-- **407 of the 3,220 rows have `enrollment` 0, and they are not closed schools.** All 414 operating RM schools with `MAT_TOTAL=0` declare no education level (`ENS_01=0`), and the names are salas cuna and jardines infantiles (107 "SALA CUNA", 101 "INFANTIL", 77 "JARDIN", 41 of the "VITAMINA" chain). MINEDUC lists them in the directory, but it does not publish their enrolment here; JUNJI and Integra report it separately. This is also why the 7 schools dropped above lose 0 students.
-- Consequence for the engine: `enrollment` is the destination weight, so those 407 points can never receive a student. That is the correct behaviour for the school trips that `school_od.csv` counts, because the census and MINEDUC school totals also exclude pre-school. Do not "fix" the 0 with an invented capacity.
+- `MAT_TOTAL` is the exact sum of `MAT_ENS_1` to `MAT_ENS_8`, so it **does** count pre-school: 104,953 of the 1,309,286 students are in `MAT_ENS_1` (parvularia). 1,663 of the 3,220 schools report enrolment in that level.
+- **407 of the 3,220 rows have `enrollment` 0, and they are not closed schools.** `ESTADO_ESTAB` is 1 ("Funcionando") for all of them; the codebook has a separate code 3 for "Cerrado" and 4 for "Autorizado sin matrícula". What the directory says about these 414 operating RM schools is: `MATRICULA=0` ("Establecimiento con matrícula al 30 de abril" = No) for all 414, and `ENS_01=0`, so the file records **no education level** for any of them. The names are nearly all pre-school ("ESCUELA DE PARVULOS", "SALA CUNA", "JARDIN INFANTIL", and 41 of the "VITAMINA" chain). 352 of the 414 are `COD_DEPE2=3`, particular pagado, and 242 have an `RBD` above 40000, so most are privately paid and recently registered. The same reason applies to the 7 schools dropped above, which is why dropping them loses 0 students.
+- **The 0 is consistent with the enrolment file, verified.** I counted the rows of `Matricula-Oficial-2026` whose `RBD` is one of these 407: **0 rows**. So no student in `school_od.csv` goes to one of these points. A 0 weight is the right behaviour, not a gap.
+- Consequence for the engine: `enrollment` is the destination weight, so those 407 points can never receive a student. Do not "fix" the 0 with an invented capacity; it would send students to schools that report none.
 - The codebook calls the coordinates approximate. Enrolment is not daily attendance.
 
 ## work_od.csv and school_od.csv
@@ -93,7 +111,7 @@ Both files keep only a pair where each code is one of the 346 comunas of the MIN
   | `schools.csv` enrolment, 1,309,286 | Students **at an RM school**, any home comuna. MINEDUC 2026. Includes 104,953 in pre-school (`MAT_ENS_1`) |
   | `school_od.csv` students, 1,413,489 | Students with an **RM home comuna** at a school anywhere in Chile. MINEDUC 2026 |
 
-  The two MINEDUC numbers meet on the RM: 1,277,336 of the 1,413,489 go to an RM school, and 1,309,286 − 1,277,336 = 31,950 students at RM schools live outside the RM. The census number is lower because it excludes pre-school and higher education, and because it counts 2024, not 2026.
+  **The two MINEDUC numbers reconcile to 4 students, measured in the enrolment file, not by subtraction.** Of the students at an RM school, 1,277,336 live in the RM and **31,946** live outside it, which is 1,309,282 against the 1,309,286 of `schools.csv`. The gap of 4 is the 7 schools that `schools.csv` drops for a bad coordinate plus rounding of the two publication cuts. The census number is lower because it excludes pre-school and counts 2024, not 2026.
 
 ## mode_share.csv
 
@@ -130,7 +148,7 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
 
 | Column | Meaning |
 | --- | --- |
-| `zone_id` | INE `MANZENT` code of the manzana, as text. Not all are in `zones.csv`: `zones.csv` has no manzanas with 0 residents |
+| `zone_id` | INE `MANZENT` code of the manzana, as text. 2,488 are not in `zones.csv` (902,321 jobs): `zones.csv` has only the rows of the Census block table, and most manzanas with 0 residents are not there. Do not join by id; use `lon`, `lat` |
 | `comuna_cut` | 5-digit INE comuna code |
 | `lon`, `lat` | Centroid of the manzana polygon, EPSG:4674 |
 | `jobs` | Jobs in the manzana, 2024, modeled. Integer |
@@ -146,6 +164,7 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
 - Why these two signals: they are the only ones on disk with coordinates. SII addresses have no coordinates and follow the head office. OSM and Overture places have no worker counts.
 - What the method gets wrong:
   - The base is from 2012. A place that lost jobs after 2012 keeps them.
+  - A building with a permit before 2010 that opened after the survey is missing: the permit file starts in 2010. Example, 500 m from the MUT: the Costanera Center manzana `13123081002004` has 1,259 jobs, far below the real mall and towers.
   - The sample is small: one sampled worker is about 120 jobs. Only 11,518 manzanas have jobs; a real small workplace with no sampled worker has 0. Use the file at a scale of about 500 m, not manzana by manzana.
   - 20% of the EOD workers have no usable workplace point (no answer, or coordinates 0,0). They are out of the signal. They are not random: workers with no fixed workplace are in this group.
   - 40 m² for each job is an assumption, equal for offices, shops, and warehouses. Permit area includes parking floors. 29% of the permit area does not count (outside a manzana, or a second permit of the same project).
@@ -160,3 +179,36 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
   - Shops: more than 200 in operation ([CNN Chile](https://www.cnnchile.com/pais/territoria-centros-comerciales-mut-chile/)). No published count of shop workers.
   - Visits: "más de tres millones de visitas en lo que va de año" in September 2025 ([Meganoticias](https://www.meganoticias.cl/nacional/498737-nuevos-mut-en-que-comunas-territoria-mercado-urbano-dcv-pdp-12-9-2025.html)), about 12,000 for each day. `context/research/data-sources-buildings-activity.md` has a different press claim: about 650,000 for each month, about 21,000 for each day. The two claims do not agree.
 - For the demo: remove the 7,124 jobs of the manzana and say "modeled". The only published jobs number is the claim of 4,000 office workers.
+
+## buildings.geojson
+
+3D buildings around Metro Tobalaba. Box: lon -70.635 to -70.565, lat -33.445 to -33.395.
+31,516 polygons, 9.80 MB. Builder: `tools/pack/buildings.py` (stdlib, 3 s).
+
+OSM puts many tower heights on `building:part` (Overture `building_part`, 223 parts in the box). Each building is drawn at its own height. Then each part that starts at ground level (`min_height` empty) and is taller than its building is added on top, so towers rise from their podiums. 4 parts with `min_height` > 0 (bridges, upper floors) are skipped.
+
+Properties: `height_m`, `height_source`, `name` (if any), `is_mut` (MUT base and its 4 towers).
+
+`height_source`, in priority order:
+- `tag`: Overture `height` (from OSM `height`). 210.
+- `levels`: Overture `num_floors` (from OSM `building:levels`) × 3.5 m. 8,551.
+- `permit`: max `NUM_PISOS` × 3.5 m of INE permit points inside the footprint. 300.
+- `exposure`: `stories_de` × 3.5 m of the Santiago residential exposure model (GitHub aleaicv/ExposureModels, release santiago_chile_ch_2025, reference year 2023, residential buildings with 5 or more stories), when the vertex mean of a model polygon is inside the footprint. 1,052. This is a model value, not a measurement. Check against OSM levels on 1,748 footprints with both: median difference 2 floors, 52% within 2 floors.
+- `default`: 6 m placeholder (2 floors). 21,403. Footprints under 55 m² with default height are dropped to keep the file under 10 MB.
+
+Real height (not `default`): 32% of footprints.
+Tallest: Gran Torre Costanera 300 m, Titanium La Portada 200 m, Torre Telefónica 143 m.
+MUT: base "Mercado Urbano Tobalaba" 17.5 m (5 levels); Torres 1, 2, 3 = 61.2, 64.6, 57.8 m (tags); Torre 4 has no data (6 m default).
+
+Sources: Overture Maps buildings and building parts, release 2026-11-18.0 (OSM, Google Open Buildings, Microsoft footprints); INE permits; [exposure model](https://github.com/aleaicv/ExposureModels/releases/download/santiago_chile_ch_2025/exposure_santiago.zip). Overpass did not answer from our network, so Overture replaced OSM Overpass. The Overture Parquet download is the only non-stdlib step:
+
+```
+uv run --with overturemaps overturemaps download --bbox=-70.635,-33.445,-70.565,-33.395 \
+  -f geojson --type=building -o data/raw/overture_buildings/tobalaba.geojson
+uv run --with overturemaps overturemaps download --bbox=-70.635,-33.445,-70.565,-33.395 \
+  -f geojson --type=building_part -o data/raw/overture_buildings/tobalaba_parts.geojson
+curl -L -o data/raw/exposure_santiago/exposure_santiago.zip \
+  https://github.com/aleaicv/ExposureModels/releases/download/santiago_chile_ch_2025/exposure_santiago.zip
+unzip -d data/raw/exposure_santiago data/raw/exposure_santiago/exposure_santiago.zip
+python3 tools/pack/buildings.py
+```
