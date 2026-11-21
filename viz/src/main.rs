@@ -16,13 +16,15 @@ use bevy::{
 };
 use std::{env, time::Instant};
 
+const DAY_SKY: Color = Color::srgb_u8(185, 202, 205);
+
 pub struct MiniatureCamera;
 
 impl Plugin for MiniatureCamera {
     fn build(&self, app: &mut App) {
         app.init_resource::<Rig>()
             .insert_resource(WinitSettings::continuous())
-            .insert_resource(ClearColor(Color::srgb_u8(185, 202, 205)))
+            .insert_resource(ClearColor(DAY_SKY))
             .add_systems(Startup, setup)
             .add_systems(Update, (navigate, aim).chain())
             .add_systems(Last, measure);
@@ -205,9 +207,13 @@ fn measure(
     mut commands: Commands,
     mut sample: Local<Sample>,
     buildings: Res<city::Buildings>,
+    mode: Res<city::SubwayView>,
     rig: Res<Rig>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
+    if mode.is_changed() || !buildings.ready {
+        *sample = Sample::default();
+    }
     if !buildings.ready || sample.finished {
         return;
     }
@@ -227,8 +233,10 @@ fn measure(
         return;
     }
     info!(
-        "Camera target {:?}, distance {} m",
-        rig.target, rig.distance
+        "Camera target {:?}, distance {} m, mode {}",
+        rig.target,
+        rig.distance,
+        if mode.0 { "subway" } else { "surface" }
     );
     let fps = sample.frames as f64 / elapsed;
     info!(
@@ -273,6 +281,13 @@ fn main() -> AppExit {
             movers::MoversPlugin,
             pixels::PixelMode,
         ))
+        .init_resource::<city::SubwayView>()
+        .add_systems(
+            PreUpdate,
+            city::toggle_subway.after(bevy::input::InputSystems).run_if(
+                bevy::input::common_conditions::input_just_pressed(KeyCode::KeyM),
+            ),
+        )
         .add_systems(Startup, (city::load_buildings, city::setup_ground))
         .add_systems(Update, city::draw_buildings)
         .run()
