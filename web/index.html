@@ -39,8 +39,8 @@
   <button id="go">Sacar el MUT</button>
   <div class="val"><span id="n">298</span> <small>viviendas · supuesto</small></div>
   <input id="slider" type="range" min="0" max="1500" step="2" value="298">
-  <small>MUT: 4.679 empleos · modelo</small>
-  <small>ocupación y uso de Metro · supuesto</small>
+  <small>MUT · Las Condes · 4.679 empleos</small>
+  <small>modelo · asistencia y Metro: supuesto</small>
   <small id="legend"><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#fff"></i>base<i style="background:#ff7a1a"></i>escenario</small>
 </div>
 
@@ -112,8 +112,8 @@ function siteScenario() {
     jobs_removed: P(4679, u, 'the scenario removes all assumed baseline jobs'),
     dwellings_added: P(homes, u, 'slider on the page'),
     parameters: {
-      occupied_share: P(0.9, u, 'not measured MUT occupancy'),
-      persons_per_occupied_dwelling: P(2.1, u, 'not measured Las Condes or MUT occupancy'),
+      occupied_share: P(0.9251, 'observed_aggregate', 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; its use for the tower is an assumption'),
+      persons_per_occupied_dwelling: P(2.0847, 'observed_aggregate', 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; its use for the tower is an assumption'),
       known_commuters_per_resident: P(104980 / 296134, 'observed_aggregate', 'Las Condes RM-to-RM commuters / residents, Census 2024; its use for new households is an assumption'),
       attendance_home: P(0.8, u, 'not measured daily attendance'),
       attendance_work: P(0.8, u, 'not measured MUT attendance'),
@@ -139,7 +139,6 @@ function tobalaba() {
   const cols = (id, key, dx, color, r = 18) => new ColumnLayer({id, data: [0].filter(() => at(site[key], t) != null),
     getPosition: [tob.lon + dx, tob.lat], diskResolution: 20, radius: r, getElevation: () => height(at(site[key], t)),
     getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
-  const zone = id => world && world.zones.find(z => z.id == id);
   return [
     new GeoJsonLayer({id: 'ground', data: ground, stroked: false,
       getFillColor: [26, 74, 62], getLineColor: f => /river|canal/.test(f.properties.kind) ? [40, 110, 200] : f.properties.major ? [70, 84, 130] : [38, 48, 86],
@@ -160,12 +159,9 @@ function tobalaba() {
     site && cols('scenario', 'scenario', 0.001, [255, 122, 26], 24),
     new TextLayer({id: 'names', data: stops.filter(s => s.name), getPosition: s => [s.lon, s.lat, height(at(s.observed, t) || 0)], getPixelOffset: [0, -34],
       getText: s => s.name, getSize: 36, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255], updateTriggers: {getPosition: t}}),
-    new TextLayer({id: 'label', data: [0], characterSet: 'auto', fontFamily: 'Helvetica, Arial, sans-serif', getPosition: [...MUT, active ? homes * 0.15 : 65], getPixelOffset: [0, -60], getText: () => active ? 'TORRE · supuesto' : 'MUT · Las Condes',
+    new TextLayer({id: 'label', data: [0], characterSet: 'auto', fontFamily: 'Helvetica, Arial, sans-serif', getPosition: [...MUT, 70], getPixelOffset: [70, -30], getTextAnchor: 'start', getText: () => active ? 'TORRE' : 'MUT',
       getSize: 44, fontWeight: 800, getColor: [255, 255, 255], background: true, getBackgroundColor: active ? [10, 15, 36] : [255, 122, 26],
-      backgroundPadding: [14, 8], updateTriggers: {getPosition: [active, homes], getText: active, getBackgroundColor: active}}),
-    site && world && new ArcLayer({id: 'siteflows', data: site.flows.filter(f => zone(f.destination_cut)), getSourcePosition: MUT,
-      getTargetPosition: f => [zone(f.destination_cut).longitude, zone(f.destination_cut).latitude],
-      getWidth: f => 2 + Math.sqrt(f.scenario_commuters), getSourceColor: [255, 255, 255], getTargetColor: [255, 122, 26]}),
+      backgroundPadding: [14, 8], updateTriggers: {getText: active, getBackgroundColor: active}}),
   ];
 }
 
@@ -190,7 +186,7 @@ function santiago() {
   }
   return [
     new GeoJsonLayer({id: 'communes', data: communes, extruded: !!sim, pickable: true,
-      getElevation: f => zs[f.properties.cut].jobs * KZ, getLineColor: [150, 170, 255],
+      getElevation: f => sim ? zs[f.properties.cut].jobs * KZ : 0, getLineColor: [150, 170, 255],
       getFillColor: f => {
         const c = f.properties.cut;
         if (c == sel || !sim) return [255, 122, 26, c == sel ? 255 : 0];
@@ -204,11 +200,11 @@ function santiago() {
     // modeled work flows: the selected comuna in full, the rest only when large
     sim && new ArcLayer({id: 'flows', data: sim.flows.filter(f => f.origin != f.destination && (f.origin == sel || f.destination == sel || f.workers > 6000)),
       getSourcePosition: f => pos(f.origin), getTargetPosition: f => pos(f.destination),
-      getWidth: f => Math.sqrt(f.workers) / 8, getHeight: .25,
+      getWidth: f => Math.sqrt(f.workers) / 8 * (1 + .3 * Math.sin(t * 6)), getHeight: .25,  // the pulse is motion only, not travel time
       getSourceColor: f => f.destination == sel ? [255, 255, 255] : f.origin == sel ? [255, 122, 26] : [120, 140, 220, 60],
       getTargetColor: f => f.destination == sel || f.origin == sel ? [255, 122, 26] : [120, 140, 220, 60],
-      updateTriggers: {getSourcePosition: sim, getTargetPosition: sim, getSourceColor: sel, getTargetColor: sel},
-      transitions: {getWidth: 600, getSourcePosition: 600, getTargetPosition: 600}}),
+      updateTriggers: {getWidth: t, getSourcePosition: sim, getTargetPosition: sim, getSourceColor: sel, getTargetColor: sel},
+      transitions: {getSourcePosition: 600, getTargetPosition: 600}}),
   ];
 }
 
@@ -229,7 +225,7 @@ function draw() {
 }
 
 function tick() {
-  if (playing && view == 't') { t += 1 / 50; if (t >= LAST) t = FIRST; draw(); }  // about 0.85 s for each half hour
+  if (playing) { t += 1 / 50; if (t >= LAST) t = FIRST; draw(); }  // about 0.85 s for each half hour
   requestAnimationFrame(tick);
 }
 

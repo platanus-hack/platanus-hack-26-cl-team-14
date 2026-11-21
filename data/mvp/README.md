@@ -172,6 +172,8 @@ over the person file and caches the tallies, then the join runs in 2 s).
 | `occupied_share_apartment_blocks` | `n_vp_ocupada / n_vp` over that same subset. Use it together with the column above, so the chain stays closed inside the subset | observed, subset |
 | `car_share_block_table`, `public_share_block_table` | `n_transporte_auto` and `n_transporte_publico` over the 7 travel columns of the comuna | observed |
 | `car_share_apartment_blocks`, `public_share_apartment_blocks` | the same two shares over the apartment-block subset | observed, subset |
+| `travellers_per_dwelling_ratio_apartment_blocks` | (travellers / `n_vp`) of the subset ÷ the same of the comuna. Multiply the comuna chain by this to get the subset value, instead of mixing two universes | observed, subset |
+| `car_travellers_per_dwelling_ratio_apartment_blocks` | the same ratio for `n_transporte_auto` alone | observed, subset |
 | `apartment_blocks`, `apartment_block_persons` | size of that subset | |
 | `dwellings_with_residents_present` | dwellings with at least one person record | observed |
 | `persons_all_dwelling_kinds` | `n_per`: private **plus** collective dwellings and the street operative | observed |
@@ -192,17 +194,40 @@ over the person file and caches the tallies, then the join runs in 2 s).
 - **How a tower resident travels, measured.** In Las Condes the apartment blocks use
   the car less than the comuna: `car_share_apartment_blocks` **0.4684** against
   `car_share_block_table` **0.5192**, and public transport **0.3219** against 0.3077.
-  Walking rises from 9.2% to 12.0%. So a new tower sends about 10% fewer people by car
-  than the comuna average, relative. In Providencia the gap is small (0.3371 against
+  Walking rises from 9.2% to 12.0%. In Providencia the gap is small (0.3371 against
   0.3469), and in Santiago the subset is almost the whole comuna (0.1286 both).
+- **Do not build a chain out of one column of the subset and one of the comuna.** A
+  flat holds fewer persons but its persons travel more: in Las Condes the subset has
+  0.8384 travellers for each dwelling against 0.9208 in the comuna, and 0.4347
+  travellers for each person against 0.4009. Scale the comuna chain by the two ratio
+  columns instead. Las Condes, 298 dwellings: the comuna chain gives 242.5 commuters
+  and 123.8 of them travel by car; × 0.9105 and × 0.8213 gives **220.8 commuters and
+  101.7 travelling by car**. Call the result "ratio-adjusted, block-table subset".
+- Limit of the subset: most Las Condes flat blocks are on the Apoquindo and Metro
+  corridor, so part of the lower car share comes from the place, not from the dwelling
+  type. For a tower 122 m from Tobalaba that bias points the right way, but it is a
+  bias.
 - **The 4 travel columns are a wider universe than `mode_share.csv` and the two must not
   be mixed.** The block table counts every person with a `p45` answer: 3,068,499 in the
-  RM, against 2,740,454 in `mode_share.csv`. The extra people work at home, work in
-  another country, or have no fixed place of work (`p44_lug_trab` 1, 4 and 5). That is
+  RM, against 2,740,454 in `mode_share.csv`. **Measured decomposition** of the
+  3,068,579 RM persons whose `p45` answer is 1 to 7: 2,740,156 are the commuters of
+  `mode_share.csv` without its 298 `-99` answers, 313,258 have no fixed place of work
+  (`p44_lug_trab` 5), 11,376 answered 2 or 3 but gave a comuna the matrix cannot use,
+  and 3,789 work in another country (code 4). The remaining 80 against the 3,068,499 of
+  the block table are the suppressed cells. **A person who works at home is not in this
+  universe**: `p45` is `NA` for `p44_lug_trab` 1, so its 517,018 people are out. That
+  is
   why the comuna car share here is 0.5192 and `mode_share.csv` gives 0.5107 for the
   same comuna. Use `mode_share.csv` for a commuter count, and these 4 columns only to
   compare a block subset against its comuna on one basis. 45 cells of the 7 travel
   columns are suppressed in the RM and count as 0.
+- **No released file joins the two.** A mode share for the commuter cohort below the
+  comuna does not exist: `mode_share.csv` has the correct cohort but stops at the
+  comuna, because the finest geography of the person microdata is comuna × urban/rural;
+  the block table has the block but a wider cohort, and INE publishes no cross-tab of
+  `p45` by `p44`. So **any apartment-block refinement of a commuter mode share is a
+  transfer assumption**, never a measured commuter count. Label it that way, or keep
+  the comuna share of `mode_share.csv`.
 - The two pairs do not give the same residents for each dwelling built: the comuna pair
   gives 0.9405 × 2.4185 = 2.2746 and the apartment-block pair gives
   0.9251 × 2.0847 = 1.9286, which is 15% lower. Always use a pair, never one column of
@@ -426,8 +451,10 @@ uv run --with overturemaps overturemaps download --bbox=-70.635,-33.445,-70.565,
   -f geojson --type=building -o data/raw/overture_buildings/tobalaba.geojson
 uv run --with overturemaps overturemaps download --bbox=-70.635,-33.445,-70.565,-33.395 \
   -f geojson --type=building_part -o data/raw/overture_buildings/tobalaba_parts.geojson
+mkdir -p data/raw/exposure_santiago
 curl -L -o data/raw/exposure_santiago/exposure_santiago.zip \
   https://github.com/aleaicv/ExposureModels/releases/download/santiago_chile_ch_2025/exposure_santiago.zip
 unzip -d data/raw/exposure_santiago data/raw/exposure_santiago/exposure_santiago.zip
+python3 -I tools/scrape/ine_permits.py   # writes data/raw/ine_permits/rm_permits.json
 python3 tools/pack/buildings.py
 ```
