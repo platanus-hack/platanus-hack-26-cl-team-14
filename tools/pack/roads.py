@@ -11,9 +11,9 @@ X_METRES = 111_320 * math.cos(math.radians(-33.45))
 Y_METRES = 110_540
 
 
-def read_roads():
+def read_roads(raw=RAW):
     points, ways = {}, []
-    for _, item in ET.iterparse(RAW):
+    for _, item in ET.iterparse(raw):
         if item.tag == "node":
             points[int(item.get("id"))] = (float(item.get("lon")), float(item.get("lat")))
             item.clear()

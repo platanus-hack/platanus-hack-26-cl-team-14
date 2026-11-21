@@ -707,3 +707,18 @@ osmium tags-filter region.osm.pbf 'w/highway=motorway,trunk,primary,secondary,mo
 cd ../../..
 python3 -I tools/pack/roads.py
 ```
+
+## cycleways.geojson
+
+The urban display box contains 2,157 paths and 643.5 km of mapped ways. The file is 488,457 bytes. Each feature gives its OSM way ID, name, kind and five-decimal WGS84 coordinates. A lane on both sides of one street contributes one street length. Separately mapped ways contribute one length each. Map credit: © OpenStreetMap contributors. [Geofabrik Chile extract, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile.html) · [Open Database License](https://www.openstreetmap.org/copyright)
+
+For comparison, the July 2026 SECTRA inventory reports 565.414 km in 442 existing segments across the 34 Gran Santiago comunas. The query sums the KM field for ETAPA = existentes and CUT_COM in 13101–13132, 13201 and 13401. SECTRA uses comuna boundaries. The display uses a rectangle and includes tagged lanes as well as separate cycleways. The two inventories have different coverage and counting rules. [SECTRA inventory](https://services6.arcgis.com/feQ9HId8vmgonvvD/ArcGIS/rest/services/CICLOV_validVisor_WFL1/FeatureServer/0)
+
+Rebuild with the regional PBF used for roads:
+
+```sh
+mkdir -p data/raw/osm
+osmium extract --bbox=-70.85,-33.65,-70.45,-33.30 data/raw/osm-roads/region.osm.pbf -o data/raw/osm/urban.pbf
+osmium tags-filter data/raw/osm/urban.pbf w/highway=cycleway w/cycleway=lane,track w/cycleway:right=lane,track w/cycleway:left=lane,track w/cycleway:both=lane,track -o data/raw/osm/cycleways.osm
+python3 tools/pack/cycleways.py
+```
