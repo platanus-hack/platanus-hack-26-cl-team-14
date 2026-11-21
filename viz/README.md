@@ -6,7 +6,7 @@ Run this command from the repository root. The engine must serve the latest scen
 CARGO_TARGET_DIR=/tmp/viz-target cargo run --manifest-path viz/Cargo.toml
 ```
 
-Drag to pan. Scroll to zoom. Set `SANTIAGO_ENGINE` to use another engine. Set `SANTIAGO_PIXEL=1` for the pixel-art view.
+Drag to pan. Scroll to zoom. Set `SANTIAGO_ENGINE` to use another engine. Set `SANTIAGO_PIXEL=1` for the pixel-art view. Each art pixel takes the most frequent palette color from four samples. Depth edges use a darker shade. [Pixel rendering reference](https://github.com/cobanov/pixelart-gaussiansplat)
 
 The two building packs contain 279,385 mapped footprints and 375,281 shapes generated inside census blocks. Camera distance selects the oriented boxes or the full polygons. Roof forms, window patterns and tree crowns are visual approximations.
 

@@ -170,13 +170,15 @@ fn navigate(
 
 fn aim(
     rig: Res<Rig>,
-    mut camera: Single<(&mut Transform, &mut DepthOfField), With<Camera3d>>,
+    mut camera: Single<(&mut Transform, Option<&mut DepthOfField>), With<Camera3d>>,
     mut shadow: Single<&mut CascadeShadowConfig, With<DirectionalLight>>,
 ) {
     if rig.is_changed() {
         let (pose_component, dof) = &mut *camera;
         **pose_component = pose(&rig);
-        **dof = lens(rig.distance);
+        if let Some(dof) = dof {
+            **dof = lens(rig.distance);
+        }
         **shadow = shadows(rig.distance);
     }
 }
