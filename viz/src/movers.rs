@@ -23,9 +23,12 @@ use bevy::{
 use serde_json::Value;
 use std::{collections::HashMap, fs, io::Read, sync::Arc};
 
-// Street walkers use one figure per 48 workers. Other modes and station entries use one per 96.
+// At street level one walker represents 48 workers and other figures represent 96.
 const PERSONS_PER_STREET_WALKER: f64 = 48.0;
 const PERSONS_PER_MOVER: f64 = 96.0;
+// From 1 km and 5 km, use 4× and 12× as many street figures from the same group count.
+const STREET_DENSITY: [f64; 3] = [1., 4., 12.];
+const CITY_SECONDS_PER_SECOND: f32 = 8.;
 const BIN: f32 = 1800.0;
 const DAY: f32 = 48.0 * BIN;
 
@@ -533,9 +536,9 @@ struct Group {
     itineraries: Vec<RiderPlan>,
     duration: f32,
     path: Arc<Path>,
-    copies: usize,
+    copies: [usize; 3],
     phase: f32,
-    changed: usize,
+    changed: [usize; 3],
     tint: Paint,
     lifecycle: Life,
 }
@@ -591,7 +594,7 @@ fn read_result(
             .rev()
             .max_by(|&a, &b| boardings[a].total_cmp(&boardings[b]))
             .unwrap();
-        peak as f32 * BIN - time.elapsed_secs()
+        peak as f32 * BIN - time.elapsed_secs() * CITY_SECONDS_PER_SECOND
     });
     let mut closed = std::collections::HashSet::new();
     for change in r["applied"].as_array().into_iter().flatten().filter(|c| c["kind"] == "station") {
@@ -637,7 +640,12 @@ fn read_result(
         } else {
             PERSONS_PER_MOVER
         };
-        let copies = (row["count"].as_f64().unwrap() / scale + seed).floor() as usize;
+        let density = match row["mode"].as_str() {
+            Some("car" | "walk" | "bicycle") => STREET_DENSITY,
+            _ => [1.; 3],
+        };
+        let count = row["count"].as_f64().unwrap();
+        let copies = density.map(|factor| (count * factor / scale + seed).floor() as usize);
         let (delta, flags) = deltas.get(&id).copied().unwrap_or_default();
         let tint = if flags & 8 != 0 || delta > 0. {
             Paint::Gain
@@ -651,12 +659,12 @@ fn read_result(
         let changed = if flags != 0 {
             copies
         } else {
-            (delta.abs() / scale).ceil() as usize
+            density.map(|factor| (delta.abs() * factor / scale).ceil() as usize)
         };
         let bin = row["half_hour"].as_u64().unwrap() as usize;
         let itineraries: Vec<_> = if row["mode"] == "public" {
             let legs = routes.riders.accessible_legs(&path, &closed);
-            (0..copies)
+            (0..copies[0])
                 .map(|j| {
                     let start = bin as f32 * BIN + departure_offset(seed as f32, j);
                     RiderPlan::build(&path, legs, start, j, &routes)
@@ -672,7 +680,7 @@ fn read_result(
         replay.longest = replay.longest.max(duration);
         replay.departures[bin].push(Group {
             cars: if row["mode"] == "car" {
-                fleet.cars(row["origin_cut"].as_str().unwrap(), id, copies)
+                fleet.cars(row["origin_cut"].as_str().unwrap(), id, copies[2])
             } else {
                 Vec::new()
             },
@@ -991,6 +999,7 @@ fn departure_offset(phase: f32, copy: usize) -> f32 {
 fn draw(
     time: Res<Time>,
     replay: Res<Replay>,
+    rig: Res<crate::Rig>,
     clock: Res<FixedClock>,
     subway: Res<crate::city::SubwayView>,
     routes: Res<Routes>,
@@ -1007,6 +1016,7 @@ fn draw(
         return;
     };
     let eye = camera.translation();
+    let tier = [1_000., 5_000.].partition_point(|&distance| rig.distance >= distance);
     let visible = |pos: Vec3, radius| {
         frustum.intersects_sphere(
             &Bounds {
@@ -1017,10 +1027,10 @@ fn draw(
         )
     };
     let size_at = |p: Vec3| (eye.distance(p) * 0.0024).clamp(1.35, 11.);
-    // The city clock runs in real time from the morning peak and survives scenario revisions.
+    // Anchor the accelerated playback to the first result's peak across scenario revisions.
     let now = clock
         .0
-        .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs())
+        .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs() * CITY_SECONDS_PER_SECOND)
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
@@ -1050,9 +1060,10 @@ fn draw(
             if since_bin > BIN + g.duration {
                 continue;
             }
-            for j in 0..g.copies {
+            let copies = g.copies[tier];
+            for j in 0..copies {
                 let age = since_bin - departure_offset(g.phase, j);
-                let paint = if j >= g.copies.saturating_sub(g.changed) {
+                let paint = if j >= copies.saturating_sub(g.changed[tier]) {
                     g.tint
                 } else {
                     Paint::Plain
@@ -1100,7 +1111,12 @@ fn draw(
                     Vehicle::Walk => Model::Person,
                     Vehicle::Rail => Model::Coach,
                 };
-                let scale = size_at(pos) * presence;
+                // In the overview keep moving figures legible when each pixel spans many metres.
+                let scale = if tier == 2 {
+                    size_at(pos).max(eye.distance(pos) * 0.0012)
+                } else {
+                    size_at(pos)
+                } * presence;
                 let lane = if kind == Vehicle::Walk { 3.4 } else { 1.6 };
                 let transform = pose(
                     pos + right(dir) * lane + Vec3::Y * 0.25,
