@@ -10,6 +10,7 @@ let directory;
 export function inboxDirectory(token) {
   const key = createHash("sha256").update(token).digest("hex").slice(0, 20);
   directory = join(tmpdir(), `team-discord-${process.getuid()}-${key}`);
+  return directory;
 }
 
 function currentSnapshot() {
@@ -18,7 +19,12 @@ function currentSnapshot() {
     if (Date.now() - statSync(join(directory, "alive")).mtimeMs > 3 * heartbeatMs) return;
     const state = JSON.parse(readFileSync(join(directory, "channels.json"), "utf8"));
     if (!state.pid) return;
-    process.kill(state.pid, 0);
+    try {
+      process.kill(state.pid, 0);
+    } catch (error) {
+      // A sandbox can read the heartbeat and still forbid probing another process.
+      if (error.code !== "EPERM") throw error;
+    }
     return state;
   } catch (error) {
     if (!["ENOENT", "ESRCH"].includes(error.code)) throw error;
@@ -38,10 +44,14 @@ export async function snapshot() {
 }
 
 const thread = (c) => [10, 11, 12].includes(c.type);
-export function watched(guild) {
-  const categories = new Set(guild.channels.filter(c => c.type === 4 && c.name === "Agents").map(c => c.id));
-  const roots = guild.channels.filter(c => [0, 5, 15].includes(c.type) && c.name !== "secrets"
+export function watchedRoots(channels) {
+  const categories = new Set(channels.filter(c => c.type === 4 && c.name === "Agents").map(c => c.id));
+  return channels.filter(c => [0, 5, 15].includes(c.type) && c.name !== "secrets"
     && (c.name === "general" || categories.has(c.parent_id)));
+}
+
+export function watched(guild) {
+  const roots = watchedRoots(guild.channels);
   const ids = new Set(roots.map(c => c.id));
   return [...roots, ...guild.threads.filter(c => c.type !== 12 && c.name !== "secrets" && ids.has(c.parent_id))];
 }
@@ -220,8 +230,8 @@ export async function startInbox(token, discord) {
         publish();
       }
       if (subscribed.has(d.channel_id) && ["MESSAGE_CREATE", "MESSAGE_UPDATE", "MESSAGE_DELETE", "MESSAGE_DELETE_BULK"].includes(t)) {
-        const { id, ids, author, content, timestamp, embeds, attachments, message_reference } = d;
-        const row = JSON.stringify([t, { id, ids, author, content, timestamp, embeds, attachments, message_reference }],
+        const { id, ids, author, content, timestamp, embeds, attachments, message_reference, webhook_id } = d;
+        const row = JSON.stringify([t, { id, ids, author, content, timestamp, embeds, attachments, message_reference, webhook_id }],
           (_, value) => typeof value === "string" ? scrub(value) : value);
         appendFileSync(join(session, d.channel_id + ".jsonl"), row + "\n", { mode: 0o600 });
       }

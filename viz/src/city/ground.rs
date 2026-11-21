@@ -111,7 +111,8 @@ fn roads(tiles: &mut GroundTiles, path: &Path) {
 fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     let data = read_geojson(path);
     for feature in data["features"].as_array().unwrap() {
-        let color = match feature["properties"]["kind"].as_str().unwrap() {
+        let kind = feature["properties"]["kind"].as_str().unwrap();
+        let color = match kind {
             "track" => [0.38, 0.13, 0.08, 1.0],
             "pitch" => [0.18, 0.38, 0.21, 1.0],
             "surface_parking" => [0.27, 0.28, 0.28, 1.0],
@@ -135,7 +136,14 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
         }
         // Small lawns need vector outlines. Large hillside forests use terrain triangles.
         if size.x.max(size.z) < 720.0 {
-            tile_for(tiles, rings[0][0]).polygon(&rings, 0.18, 0.0, color, color);
+            // Specific uses can overlap broad land use. Roads are drawn at 0.26 m.
+            let lift = match kind {
+                "surface_parking" | "parking_unspecified" | "track" => 0.22,
+                // Some mapped tracks include the infield in their exterior polygon.
+                "pitch" => 0.24,
+                _ => 0.18,
+            };
+            super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, lift, color);
         }
     }
 }
@@ -164,7 +172,17 @@ fn landmarks(tiles: &mut GroundTiles, path: &Path) {
     }
 }
 
-pub(crate) fn load_ground(root: &Path) -> Vec<(String, Mesh)> {
+pub(super) fn street_meshes(root: &Path) -> impl Iterator<Item = Mesh> {
+    let mut tiles = GroundTiles::new();
+    roads(
+        &mut tiles,
+        &root.join("web/data/residential_streets.geojson.gz"),
+    );
+    roads(&mut tiles, &root.join("data/mvp/roads.geojson"));
+    tiles.into_values().map(Surface::finish)
+}
+
+pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mesh)>) {
     let mut tiles = GroundTiles::new();
     let mut terrain = LandCover::default();
     land_areas(
@@ -177,23 +195,16 @@ pub(crate) fn load_ground(root: &Path) -> Vec<(String, Mesh)> {
         &mut terrain,
         &root.join("web/data/open_surfaces.geojson.gz"),
     );
-    roads(
-        &mut tiles,
-        &root.join("web/data/residential_streets.geojson.gz"),
-    );
-    roads(&mut tiles, &root.join("data/mvp/roads.geojson"));
     landmarks(
         &mut tiles,
         &root.join("web/data/santiago_landmarks.geojson"),
     );
     mapped_trees(&mut tiles, &root.join("web/data/city_trees.bin.gz"));
-    let mut meshes = terrain.meshes();
-    meshes.extend(
-        tiles
-            .into_iter()
-            .map(|((x, z), surface)| (format!("City ground {x} {z}"), surface.finish())),
-    );
-    meshes
+    let scenery = tiles
+        .into_iter()
+        .map(|((x, z), surface)| (format!("City ground {x} {z}"), surface.finish()))
+        .collect();
+    (terrain.meshes(), scenery)
 }
 
 // Append these functions to the ground module. Tree size and foliage are display symbols.

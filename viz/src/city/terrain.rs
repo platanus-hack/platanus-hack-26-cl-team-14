@@ -47,6 +47,93 @@ pub fn terrain_from_xz(x: f32, z: f32) -> f32 {
     y - DATUM
 }
 
+// Clip each Earcut triangle to the two planar faces of every DEM cell it crosses.
+// The overlay then has the same height as the ground at every interior point.
+pub(super) fn drape_land(mesh: &mut Surface, rings: &[Vec<Vec3>], lift: f32, color: Rgba) {
+    use bevy::math::DVec2;
+
+    let start = mesh.indices.len();
+    mesh.polygon(rings, lift, 0., color, color);
+    let earcut = mesh.indices.split_off(start);
+    let mut polygon = Vec::with_capacity(6);
+    let mut clipped = Vec::with_capacity(6);
+    for ids in earcut.chunks_exact(3) {
+        let tri = [ids[0], ids[1], ids[2]].map(|index| {
+            let [x, _, z] = mesh.positions[index as usize];
+            DVec2::new(
+                (f64::from(x) - f64::from(WEST)) / f64::from(DX),
+                (f64::from(z) - f64::from(NORTH)) / f64::from(DZ),
+            )
+        });
+        let lo = tri[0].min(tri[1]).min(tri[2]).floor().as_ivec2();
+        let hi = tri[0].max(tri[1]).max(tri[2]).floor().as_ivec2();
+        if lo == hi {
+            let diag = f64::from(lo.x + lo.y + 1);
+            if tri.iter().all(|p| p.x + p.y <= diag) || tri.iter().all(|p| p.x + p.y >= diag) {
+                mesh.indices.extend_from_slice(ids);
+                continue;
+            }
+        }
+        for row in lo.y..=hi.y {
+            for col in lo.x..=hi.x {
+                let x = f64::from(col);
+                let y = f64::from(row);
+                let diag = x + y + 1.;
+                for edges in [
+                    [(DVec2::X, x), (DVec2::Y, y), (-DVec2::ONE, -diag)],
+                    [
+                        (-DVec2::X, -x - 1.),
+                        (-DVec2::Y, -y - 1.),
+                        (DVec2::ONE, diag),
+                    ],
+                ] {
+                    polygon.clear();
+                    polygon.extend(tri);
+                    for (normal, boundary) in edges {
+                        clipped.clear();
+                        for (&a, &b) in polygon.iter().zip(polygon.iter().cycle().skip(1)) {
+                            let da = normal.dot(a) - boundary;
+                            let db = normal.dot(b) - boundary;
+                            if da >= 0. {
+                                clipped.push(a);
+                            }
+                            if da * db < 0. {
+                                clipped.push(a.lerp(b, da / (da - db)));
+                            }
+                        }
+                        std::mem::swap(&mut polygon, &mut clipped);
+                        if polygon.len() < 3 {
+                            break;
+                        }
+                    }
+                    if polygon.len() < 3 {
+                        continue;
+                    }
+                    let mut face = [0u32; 6]; // Intersection of two triangles has at most six corners.
+                    for (slot, &p) in face.iter_mut().zip(&polygon) {
+                        *slot = if let Some(i) = tri.iter().position(|&original| original == p) {
+                            ids[i]
+                        } else {
+                            let x = (p.x * f64::from(DX) + f64::from(WEST)) as f32;
+                            let z = (p.y * f64::from(DZ) + f64::from(NORTH)) as f32;
+                            let index = mesh.positions.len() as u32;
+                            mesh.vertex(
+                                Vec3::new(x, terrain_from_xz(x, z) + lift, z),
+                                Vec3::Y,
+                                color,
+                            );
+                            index
+                        };
+                    }
+                    for n in 1..polygon.len() - 1 {
+                        mesh.indices.extend([face[0], face[n], face[n + 1]]);
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub struct LandCover(Vec<Rgba>);
 
 impl Default for LandCover {
