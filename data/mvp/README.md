@@ -164,8 +164,9 @@ differently.** Over the RM:
 | works in another comuna (1,904,970) | **0.6122** | 0.3017 | 0.0116 |
 
 A person who stays inside the comuna walks 23 times more often than one who leaves it.
-So **a model that sends a cross-comuna flow must use the `work_place` 3 share**, never the
-comuna average.
+So the `work_place` 3 share is a **candidate** for a cross-comuna flow in place of the
+comuna average. It is a refinement to preregister and score, not a rule that this file
+imposes on an existing fit.
 
 - Effect on the number the engine uses today. The inbound public-transport factor for
   Las Condes, `Σ_c F_c,13114 · m_c / Σ_c F_c,13114`, is **0.4900** with the blended
@@ -182,11 +183,47 @@ comuna average.
   the blend of the two.
 - Largest origins, blended against cross-comuna: Santiago 0.617 → 0.755, Puente Alto
   0.600 → 0.680, La Florida 0.585 → 0.643, Ñuñoa 0.500 → 0.531.
-- **Limit that does not go away.** This is still the mode of the **home** comuna's
-  cross-comuna commuters, transferred to one destination. The Census publishes no mode by
-  comuna of work, so no file here observes how people arriving at a Las Condes workplace
-  travel. Use the split only inside a refinement that is registered and reviewed before
-  it is scored. It is not a drop-in fix for a number already inside a fitted model.
+- **This file is still a transfer, and it does not have to be.** A person row carries
+  `p44_lug_trab_esp` and `p45_medio_transporte` together, so the mode of a single
+  origin-destination pair can be aggregated in a separate export. This file does not
+  contain those pair-specific counts. Use this split for an outbound question about
+  a comuna's residents; review a joint mode/OD export before using it for inbound flows.
+  Either way, replacing a coefficient inside a fitted model is a refinement to register
+  and review before it is scored, not a drop-in fix.
+
+### mode_od.csv
+
+`origin_cut,destination_cut,mode,commuters`. **23,467 rows, 2,740,454 commuters.** The
+mode of each origin-destination pair, from the same pass and the same filter. A person row
+carries `p44_lug_trab_esp` and `p45_medio_transporte` together, so this needs no transfer:
+it observes how the RM-resident known-destination commuters of one pair travel.
+
+**Three reconciliations, each verified by a real run, each exact:**
+
+1. Summing over `mode` gives **all 9,128 pairs of `work_od.csv`**, identical counts.
+2. Summing over `destination_cut` gives **all 410 rows of `mode_share.csv`**, identical.
+3. Summing over `origin_cut` gives the mode of the RM residents who work in each comuna,
+   1,603 rows.
+
+- **Las Condes `13114` as a workplace: 305,601 RM-resident known-destination commuters,
+  public-transport share 185,775 / 305,601 = 0.607900.** Two earlier estimates of that
+  same quantity transferred the origin comunas' shares and gave 0.4900 and 0.5387. **The
+  observed share is 24% higher than the first and 13% higher than the second**; stated
+  the other way, those estimates fall 19.4% and 11.4% below the observed value. An
+  inbound question needs no transfer now.
+- Other workplaces, same cohort: Providencia 0.6664, Santiago 0.6398, Ñuñoa 0.6206,
+  Maipú 0.4839.
+- `mode` `-99`, "no respuesta", is kept (23 commuters at Las Condes), so every total stays
+  equal to `work_od.csv`. Destinations outside the RM are kept for the same reason.
+- Limit: the person file covers RM residents, so every number here describes **RM
+  residents with a known work comuna**, never everyone who works in a comuna. A worker
+  who lives outside the RM is absent. `work_od.csv` has the same universe.
+- Applying a comuna's inbound share to one site, such as the modeled MUT jobs, still
+  transfers a comuna average to that site.
+- The limits of `mode_share.csv` still apply: code 2 joins metro, bus, train, taxi and
+  colectivo, and it is the main and usual mode, not a trip on a given day.
+- Replacing a coefficient inside a fitted model with a number from this file is still a
+  refinement to register and review before it is scored.
 
 ## site_inputs.csv
 
@@ -208,7 +245,7 @@ over the person file and caches the tallies, then the join runs in 2 s).
 | `commuters_all` | the same, with a work comuna anywhere in Chile | observed |
 | `commuters_rm_per_resident`, `commuters_all_per_resident` | that count / `persons` | observed |
 | `apartment_share_of_dwellings` | `n_tipo_viv_depto / n_vp` | observed |
-| `persons_per_occupied_dwelling_apartment_blocks` | the same ratio, over the blocks of the comuna where 90% or more of the private dwellings are apartments and `n_vp` is 10 or more | observed, subset |
+| `persons_per_occupied_dwelling_apartment_blocks` | block-table `n_per` (all dwelling kinds) / `n_vp_ocupada`, over blocks where 90% or more of the private dwellings are apartments and `n_vp` is 10 or more. Its numerator differs from the private-person microdata numerator of the comuna ratio | observed, subset |
 | `occupied_share_apartment_blocks` | `n_vp_ocupada / n_vp` over that same subset. Use it together with the column above, so the chain stays closed inside the subset | observed, subset |
 | `car_share_block_table`, `public_share_block_table` | `n_transporte_auto` and `n_transporte_publico` over the 7 travel columns of the comuna | observed |
 | `car_share_apartment_blocks`, `public_share_apartment_blocks` | the same two shares over the apartment-block subset | observed, subset |
@@ -272,7 +309,7 @@ over the person file and caches the tallies, then the join runs in 2 s).
   ratio method is another. Neither is a bound on a real tower.** The pair carries the
   smaller flat (2.0847 against 2.4185) but not the higher travel of the people in it.
   Measured with the rate 0.3545: the pair gives 0.6837 commuters for each dwelling and
-  the ratio method gives 0.7342, which is 6.9% higher. The difference is between two
+  the ratio method gives 0.7342, which is 7.4% higher. The difference is between two
   models, not an error against a measurement, so **do not call either one conservative
   or a lower bound**. Label the one you send "supuesto de transferencia" and name it.
   The demo sends the apartment pair with 298 **physical** dwellings; do not fold a
