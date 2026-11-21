@@ -1011,3 +1011,18 @@ Tagged dimensions are map attributes. The remaining heights and all generated sh
 The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
 
 Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
+## Estadio Nacional components
+
+`web/data/estadio_nacional_parts.geojson` contains seven features that share `parent_id=estadio_nacional`. Point coordinates locate the four light towers. Polygon rings retain the source vertices and all holes. Each part records its OSM type, ID and URL. Map credit: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
+
+| Kind | OSM elements | Geometry and height |
+| --- | --- | --- |
+| `stadium_shell` | Relation 8647176 | Coliseo Central building. One exterior ring (perimeter way 28092600) and one interior ring around the arena. The OSM `height` tag gives 32 m. |
+| `pitch` | Way 52100528 | Grass football pitch. One exterior ring. |
+| `track` | Relation 8647177 | Athletics track. One exterior ring and three holes. |
+| `floodlight` | Nodes 3718842223, 3718842224, 3718862025, 3718862029 | Four lighting towers with OSM point locations. The Ministry of Public Works gives a historical height of 54 m for all four. |
+
+The Ministry's *Estadio Nacional*, PDF page 6, describes the changes for the 1962 World Cup: “agregando las cuatro torres de iluminación, de 54 metros de altura”. The source documents the installation height. A present-day measurement is unavailable. Each tower records `height_source=mop_1962_works` and the page URL. [Ministerio de Obras Públicas, Dirección de Arquitectura, p. 6](https://arquitectura.mop.gob.cl/uploads/sites/6/2024/11/estadio-nacional_bajo.pdf#page=6)
+
+For a detailed stadium view, extrude the shell with its inner ring open. The broad landmark perimeter is the same outer boundary. The shell, track and pitch have zero pairwise overlap area. Rebuild using `python3 tools/pack/estadio_nacional_parts.py data/raw/osm-buildings-city/urban.osm.pbf`.
