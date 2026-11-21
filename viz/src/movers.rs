@@ -592,6 +592,7 @@ struct Replay {
     platforms: Vec<Station>,
     longest: f32,
     clock_offset: Option<f32>,
+    metro_closure: Option<std::ops::Range<i32>>,
     revision_started: f32,
 }
 
@@ -609,6 +610,16 @@ fn read_result(
         return;
     }
     let r = &result.0;
+    let metro_removed = r["applied"].as_array().into_iter().flatten().any(|change| {
+        change["kind"] == "line"
+            && change["op"] == "remove"
+            && change["target"]["type"] == "mode"
+            && change["target"]["id"] == "metro"
+    });
+    replay.metro_closure = metro_removed.then(|| match r["closure_window"]["half_hours"].as_array() {
+        Some(window) => window[0].as_u64().unwrap() as i32..window[1].as_u64().unwrap() as i32,
+        None => 0..48,
+    });
     let stations = r["stations"].as_array().unwrap();
     let elapsed = time.elapsed_secs() * rate.0;
     if let Some(bin) = r["scene"]["half_hour"].as_u64() {
@@ -1119,7 +1130,16 @@ fn draw(
         .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs() * rate.0)
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
-    let mut trains = trains(&routes, now);
+    let mut trains = if replay
+        .metro_closure
+        .as_ref()
+        .is_some_and(|bins| bins.contains(&slot))
+    {
+        // Rider plans index the train lists by track, including while service is suspended.
+        (0..routes.tracks.len()).map(|_| Vec::new()).collect()
+    } else {
+        trains(&routes, now)
+    };
     let mut surface_load = std::collections::BTreeMap::new();
     for batch in pool.0.values_mut() {
         batch.used = 0;
