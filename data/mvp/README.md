@@ -37,7 +37,9 @@ School destinations. One row for each operating school of the Región Metropolit
 - Filters: `COD_REG_RBD=13` and `ESTADO_ESTAB=1`. The file holds 4,467 RM rows; 3,227 are operating.
 - Rows: 3,220. Enrolment: 1,309,286. Comunas: 52. Providencia (`13123`): 83 schools, 29,641 students.
 - Dropped: 7 of the 3,227 operating schools. 6 have an empty coordinate, and RBD 41884 is at latitude -29.22, which is in Coquimbo. All 7 are nurseries with `MAT_TOTAL=0`, so the file loses 0 students. The box used is latitude -34.4 to -32.8 and longitude -71.8 to -69.7.
-- `MAT_TOTAL` is the exact sum of `MAT_ENS_1` to `MAT_ENS_8`, so it **does** count pre-school: 104,953 of the 1,309,286 students are in `MAT_ENS_1`. I do not know why the 7 dropped nurseries have 0. Do not read a 0 as a closed school.
+- `MAT_TOTAL` is the exact sum of `MAT_ENS_1` to `MAT_ENS_8`, so it **does** count pre-school: 104,953 of the 1,309,286 students are in `MAT_ENS_1` (parvularia), spread over the 1,663 schools that offer that level.
+- **407 of the 3,220 rows have `enrollment` 0, and they are not closed schools.** All 414 operating RM schools with `MAT_TOTAL=0` declare no education level (`ENS_01=0`), and the names are salas cuna and jardines infantiles (107 "SALA CUNA", 101 "INFANTIL", 77 "JARDIN", 41 of the "VITAMINA" chain). MINEDUC lists them in the directory, but it does not publish their enrolment here; JUNJI and Integra report it separately. This is also why the 7 schools dropped above lose 0 students.
+- Consequence for the engine: `enrollment` is the destination weight, so those 407 points can never receive a student. That is the correct behaviour for the school trips that `school_od.csv` counts, because the census and MINEDUC school totals also exclude pre-school. Do not "fix" the 0 with an invented capacity.
 - The codebook calls the coordinates approximate. Enrolment is not daily attendance.
 
 ## work_od.csv and school_od.csv
@@ -83,6 +85,44 @@ Both files keep only a pair where each code is one of the 346 comunas of the MIN
 - `schools.csv` has no point for a school outside the RM, so those rows cannot become a point destination.
 - Enrolment is choice plus admission, so it understates demand for a school that turns students away. The home side never goes below the comuna.
 - One snapshot, cut 2026-04-30. No time of day.
+- **The 3 student totals of the pack are 3 different populations. They must not agree.**
+
+  | Number | Population |
+  | --- | --- |
+  | `zones.csv` students, 1,033,857 | RM **residents** who attend basic or secondary school. Census 2024. No pre-school, no higher education |
+  | `schools.csv` enrolment, 1,309,286 | Students **at an RM school**, any home comuna. MINEDUC 2026. Includes 104,953 in pre-school (`MAT_ENS_1`) |
+  | `school_od.csv` students, 1,413,489 | Students with an **RM home comuna** at a school anywhere in Chile. MINEDUC 2026 |
+
+  The two MINEDUC numbers meet on the RM: 1,277,336 of the 1,413,489 go to an RM school, and 1,309,286 − 1,277,336 = 31,950 students at RM schools live outside the RM. The census number is lower because it excludes pre-school and higher education, and because it counts 2024, not 2026.
+
+## mode_share.csv
+
+How the commuters of `work_od.csv` travel to work, by comuna of residence. Built for the pitch moment that sends new residents to a station. Builder: `python3 -I tools/pack/mode_share.py` (one full pass over the person file, about 5 minutes).
+
+| Column | Meaning |
+| --- | --- |
+| `cut` | 5-digit INE comuna code of the home. The 52 comunas of the RM |
+| `mode` | `p45_medio_transporte` code, see the table below |
+| `commuters` | Persons |
+
+- Source: INE Census 2024 person microdata, `p45_medio_transporte`. Year 2024.
+- Rows: 410. Commuters: **2,740,454**, exactly equal to the total of `work_od.csv`. The same filter builds both (`p44_lug_trab` 2 or 3 with a known comuna), so a share of one comuna divides its `work_od.csv` rows with no residual.
+- Codes, with the official labels from the microdata manual, and the RM share:
+
+  | `mode` | Label | Commuters | RM share |
+  | --- | --- | --- | --- |
+  | 2 | Transporte público (bus, micro, metro, tren, taxi, colectivo) | 1,435,056 | 52.4% |
+  | 1 | Auto particular | 814,204 | 29.7% |
+  | 3 | Caminando | 244,652 | 8.9% |
+  | 4 | Bicicleta (incluye scooter) | 102,801 | 3.8% |
+  | 7 | Otro | 97,432 | 3.6% |
+  | 5 | Motocicleta | 45,635 | 1.7% |
+  | 6 | Caballo, lancha o bote | 376 | 0.0% |
+  | -99 | No respuesta | 298 | 0.0% |
+
+- Comunas of the story: Providencia (`13123`) 64,203 commuters, **39.7% public transport**, 33.7% car, 14.9% walking. Las Condes (`13114`) 31.4% public transport against 51.1% car. Santiago (`13101`) 61.7% public transport. La Pintana (`13112`) 65.4%.
+- **Limit that matters for the station layer: code 2 puts metro, bus, train, taxi and colectivo in one answer.** The census does not separate them, so this file cannot give a metro share. Any split of code 2 between metro and bus is an assumption, and the page must label it.
+- The universe is a person who works away from the dwelling, so "works at home" is `NA` and is not in this file. It is the main mode, not every leg of the trip, and it is the usual mode, not a trip on a given day.
 
 ## jobs.csv
 
