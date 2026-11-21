@@ -3,8 +3,8 @@ use super::*;
 #[derive(Clone, Copy)]
 pub(super) struct Entrance {
     pub(super) position: Vec3,
-    pub(super) sign: Vec3,
-    pub(super) outward: Vec3,
+    sign: Vec3,
+    outward: Vec3,
 }
 
 pub(super) type Entrances = HashMap<String, Vec<Entrance>>;
@@ -160,7 +160,7 @@ impl Station {
         visible: &impl Fn(Vec3, f32) -> bool,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
-        let drew_arrivals = self.street_people.draw(now, eye, visible, place);
+        self.street_people.draw(now, eye, visible, place);
         if !visible(self.centre, self.radius) {
             return;
         }
@@ -180,9 +180,6 @@ impl Station {
                 Paint::Plain,
                 pose(side.base, side.dir, Vec3::new(58., 1., 4.2)),
             );
-        }
-        if drew_arrivals {
-            return;
         }
         // Close to an entrance, show one person per modeled boarding. The overview
         // samples those same boardings. The engine does not identify individual transfers.
