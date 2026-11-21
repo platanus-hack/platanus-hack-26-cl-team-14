@@ -12,10 +12,11 @@ from zipfile import ZipFile
 
 feed_path, data_dir, out_path = map(Path, sys.argv[1:])
 feed_sha = hashlib.sha256(feed_path.read_bytes()).hexdigest()
-# DTPM U19 Annex 4, Tabla Horaria row 3092, identifies this planned departure.
+# DTPM U19 Annex 4, Tabla Horaria rows 2401 and 3092, gives the planned bus types.
 # Source hashes and the March trip crosswalk: context/research/red-articulated-march.md.
 planned_types = {
     'f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b': {
+        '205-R-L-B03': [(23400, 'C2D')],
         '210-R-L-B04': [(28800, 'C2D')],
     },
 }.get(feed_sha, {})

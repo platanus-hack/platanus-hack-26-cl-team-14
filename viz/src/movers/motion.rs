@@ -117,26 +117,6 @@ impl Path {
         let fraction = (value - self.metres[lower]) / (self.metres[upper] - self.metres[lower]);
         self.points[lower].lerp(self.points[upper], fraction)
     }
-
-    // The timetable locates the front body. Both rigid halves meet at the same hinge.
-    // Route history orients the rear half even when the replay jumps to a new time.
-    pub(super) fn articulated_rear(
-        &self,
-        distance: f32,
-        front: Vec3,
-        heading: Vec3,
-        front_to_hinge: f32,
-        hinge_to_rear: f32,
-    ) -> (Vec3, Vec3) {
-        let hinge = front - heading * front_to_hinge;
-        let last = self.points.len() - 1;
-        let hinge_distance = distance - front_to_hinge;
-        let rear_heading = (self.route_point(hinge_distance, 0, last)
-            - self.route_point(hinge_distance - 2.0 * hinge_to_rear, 0, last))
-        .try_normalize()
-        .unwrap_or(heading);
-        (hinge - rear_heading * hinge_to_rear, rear_heading)
-    }
 }
 
 // The easing offset is zero at both endpoints. Walkers vary their pace within a leg
