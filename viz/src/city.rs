@@ -2,6 +2,7 @@ mod activity;
 pub(crate) mod edits;
 mod facade;
 mod ground;
+pub(crate) mod metro_service;
 mod streets;
 mod terrain;
 mod trees;
