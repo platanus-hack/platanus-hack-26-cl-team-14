@@ -3,17 +3,27 @@
 This core serves the first real-data MVP. It reads commune aggregates and observed work flows.
 It does not create a synthetic population or run individual agents.
 
-From the repository root:
+Prerequisites: Python 3 and an installed Rust toolchain with Cargo and Rust 2024 edition support. With a standard rustup installation, Cargo is in `~/.cargo/bin`. Add it to this terminal's PATH if needed:
+
+```sh
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+From the repository root, start the API:
 
 ```sh
 cargo run --release --manifest-path engine/Cargo.toml -- data/mvp
 ```
 
-The current host has an isolated temporary toolchain. On this host use:
+The first release build took about 75 seconds on the [fresh-clone review host](https://discord.com/channels/1573514576400752640/1573579088684253235/1573598214064701450). Other machines and later builds can differ; wait for the server to start.
+
+In a second terminal, also from the repository root, serve the page on an unused port:
 
 ```sh
-CARGO_HOME=/private/tmp/ph-cargo RUSTUP_HOME=/private/tmp/ph-rustup CARGO_BUILD_JOBS=2 /private/tmp/ph-cargo/bin/cargo run --release --manifest-path engine/Cargo.toml -- data/mvp
+python3 -m http.server 5175
 ```
+
+Open `http://localhost:5175/web/`. If 5175 is occupied, choose another free port and change the URL to match. Do not stop another session's server. Serving `web/` as the root breaks the page's `../data/mvp/` paths.
 
 The server binds to `127.0.0.1:8787`. It allows cross-origin requests for the local demo.
 An optional second argument changes the port for an independent run:
