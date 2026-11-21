@@ -18,7 +18,13 @@ cargo run --release --manifest-path engine/Cargo.toml --bin santiago-scenario-co
 
 Abre el cliente desde ese repositorio. Configura el servidor MCP `santiago` con `SANTIAGO_API_URL=http://127.0.0.1:8790`. En la ventana nativa, usa `SANTIAGO_ENGINE=http://127.0.0.1:8790`. Los tres componentes deben usar la misma dirección del motor.
 
-La maqueta nativa en Bevy está en `feat/view-city`. Para compilarla, usa `rustc` 1.97.1 o posterior. Ejecuta el comando de la vista desde la raíz del repositorio. La vista necesita los archivos de datos de esa revisión. Sigue pendiente fijar la revisión aceptada para presentar. [Comando de la vista candidata](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/92503cdac25aa451b76ea5089eb12282f653cbe7/viz/README.md).
+La maqueta nativa en Bevy está en `main`. Usa `rustc` 1.97.1 o posterior. Abre otra terminal en la raíz del mismo repositorio:
+
+```sh
+SANTIAGO_ENGINE=http://127.0.0.1:8790 cargo run --manifest-path viz/Cargo.toml
+```
+
+La vista lee los archivos de `web/data/`. Sigue pendiente fijar la revisión aceptada para presentar. [Maqueta nativa](../../viz/README.md).
 
 ### Permiso para la herramienta en el cliente
 
