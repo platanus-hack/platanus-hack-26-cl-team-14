@@ -158,7 +158,7 @@ function siteScenario() {
     const x = st && st.stations.find(y => y.id == 'TB-TOB');
     $('stl').textContent = st ? st.layer : '';
     $('st').innerHTML = x ? `<span class="model">${x.delta_daily > 0 ? '+' : ''}${fmt(x.delta_daily)}</span> <small style="display:inline">Tobalaba · ${fmt(x.predicted_base_daily)} / ${fmt(x.observed_daily)}</small>`
-      + (st.layer == 'L4' ? `<small>reparto igual entre ${st.stations.length} estaciones a menos de 1 km</small>` : '')
+      + `<small>${{L4: `reparto igual entre ${st.stations.length} estaciones a menos de 1 km`, L4b: 'reparto por cercanía entre estaciones a menos de 1 km'}[st.layer] || ''}</small>`
       : '<small>sin respuesta</small>';
     $('delta').style.display = 'block';
     draw();
