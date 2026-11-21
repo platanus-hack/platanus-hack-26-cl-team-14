@@ -998,14 +998,14 @@ The [Metro capacity table](metro_capacity.md) gives line departures and nominal 
 
 ## Citywide building polygons and boxes
 
-The two files in `web/data/` describe the same **766,079 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Populated census blocks supply 375,281 generated shapes in previously unmapped blocks and 111,413 in partly mapped blocks with less than 5% mapped roof cover. The binaries retain each shape's source.
+The two files in `web/data/` describe the same **739,230 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Populated census blocks supply 361,310 generated shapes in previously unmapped blocks and 98,535 in partly mapped blocks with less than 5% mapped roof cover. The binaries retain each shape's source. The builder omits generated roofs that touch mapped school grounds, plazas, parks, sports grounds, green areas, surface parking, or vacant sites.
 
 | File | Use | Gzip bytes | Inflated bytes |
 | --- | --- | ---: | ---: |
-| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 5,303,574 | 9,962,380 |
-| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 12,916,299 | 22,409,632 |
+| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 5,124,656 | 9,613,272 |
+| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 12,490,992 | 21,684,424 |
 
-The polygon file has 767,128 rings and 3,492,466 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 338 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 32,372,012 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
+The polygon file has 740,279 rings and 3,385,070 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 324 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 31,297,696 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
 
 The build keeps complete OSM building polygons inside the box and retains multipolygon components and holes. Of 279,387 complete raw components, two collapse when rounded to five decimals. It excludes 63 boundary-crossing components and standalone `building:part` objects. The mesh keeps the quantized source rings for 125 components whose geometry needed repair during the census spatial join. Their detailed rendering depends on the triangulator. Height priority and record counts:
 
@@ -1015,7 +1015,7 @@ The build keeps complete OSM building polygons inside the box and retains multip
 | 1 | Real OSM footprint, tagged levels × 3.5 m | 21,361 |
 | 2 | Real OSM footprint, estimated from census block density | 255,985 |
 | 3 | Real OSM footprint outside a matched census block, neutral 3 m styling | 42 |
-| 6 | Generated footprint, estimated from census block data | 486,694 |
+| 6 | Generated footprint, estimated from census block data | 459,845 |
 
 Tagged dimensions are map attributes. The remaining heights and all generated shapes are visual assumptions. [Coverage by comuna, estimates, and exclusions](../validation/city_buildings/README.md).
 

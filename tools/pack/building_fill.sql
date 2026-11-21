@@ -140,6 +140,33 @@ SELECT block_id,component,cut,seed,footprint FROM rectangles
 WHERE ST_Covers(geom,footprint)
 QUALIFY row_number() OVER (PARTITION BY block_id,component ORDER BY seed) <= target;
 
+-- Keep full OSM ground polygons and their simplified display outlines. The ground
+-- renderer clips, simplifies at 4 m in UTM, and rounds to five decimal places.
+CREATE OR REPLACE TABLE exclusions AS
+WITH selected AS (
+    SELECT id, ST_Intersection(ST_MakeValid(g.geom::GEOMETRY),b.geom) AS clipped
+    FROM ST_Read(@grounds@) g, bounds b
+    WHERE coalesce(area,'yes') <> 'no' AND (
+        amenity IN ('school','kindergarten','college','university')
+        OR landuse IN ('education','vacant','brownfield','greenfield','recreation_ground','forest','meadow','grass','village_green')
+        OR place='square'
+        OR leisure IN ('park','garden','nature_reserve','sports_centre','sports_hall','stadium')
+        OR (leisure='pitch' AND coalesce(indoor,'no')='no')
+        OR (leisure='track' AND coalesce(indoor,'no')='no' AND (area='yes' OR substr(id,2)::BIGINT%2=1))
+        OR "natural" IN ('wood','grassland','scrub','heath') OR landcover IN ('trees','grass','scrub')
+        OR (amenity='parking' AND coalesce(parking,'surface')='surface'
+            AND coalesce(covered,'no')='no' AND coalesce(indoor,'no')='no'
+            AND coalesce(building,'no')='no' AND coalesce("building:part",'no')='no'
+            AND coalesce(location,'surface') NOT IN ('underground','rooftop','roof','overground')
+            AND coalesce(try_cast(layer AS INTEGER),0)>=0)
+    )
+), outlines AS (
+    SELECT id, clipped, ST_ReducePrecision(ST_Intersection(
+        degrees(ST_SimplifyPreserveTopology(meters(clipped),4)),b.geom),0.00001) AS displayed
+    FROM selected,bounds b WHERE NOT ST_IsEmpty(clipped)
+)
+SELECT id, ST_Union(clipped,displayed) AS geom FROM outlines;
+
 -- Thin or irregular blocks can have no full rectangle. Their inscribed circle
 -- locates one small outline wholly inside the block. It uses the same edge setback.
 CREATE OR REPLACE TABLE generated AS
@@ -160,7 +187,8 @@ WITH missing AS (
            round(least((SELECT cap FROM height_limit),greatest(3.0,density_height(c.dwellings,c.jobs,c.area)*factor(seed//10467,0.78,46))),1) AS height_m
     FROM footprints f JOIN census c USING(block_id)
 )
-SELECT rounded.* FROM rounded,bounds WHERE ST_Area(polygon)>0 AND ST_Covers(bounds.geom,polygon);
+SELECT rounded.* FROM rounded,bounds WHERE ST_Area(polygon)>0 AND ST_Covers(bounds.geom,polygon)
+    AND NOT EXISTS (SELECT 1 FROM exclusions e WHERE ST_Intersects(rounded.polygon,e.geom));
 
 COPY (
     SELECT json_object('type','Feature','geometry',ST_AsGeoJSON(polygon)::JSON,
