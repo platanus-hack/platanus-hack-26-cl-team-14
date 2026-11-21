@@ -27,6 +27,8 @@ const ADJECTIVES = ["quiet", "brave", "swift", "calm", "bright", "lucky", "cleve
 const ANIMALS = ["heron", "otter", "fox", "lynx", "panda", "falcon", "koala", "tapir", "puma", "llama", "condor", "gecko"];
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const AGENT_NAME = `${pick(ADJECTIVES)}-${pick(ANIMALS)}`;
+// Same name, same picture. Only the random name goes to DiceBear.
+const AVATAR_URL = `https://api.dicebear.com/9.x/bottts/png?seed=${AGENT_NAME}`;
 let identity;
 
 // Example: quiet-heron (v4rgas@thinkpad)
@@ -289,7 +291,7 @@ async function post(channel_id, content, { files = [], reply_to, extra = {} } = 
     attachments.push({ name: "message.txt", blob: new Blob([content], { type: "text/plain" }) });
   }
   const form = new FormData();
-  form.set("payload_json", JSON.stringify({ allowed_mentions: { parse: ["users"] }, content: isLong ? header : full, username: sender(), ...extra }));
+  form.set("payload_json", JSON.stringify({ allowed_mentions: { parse: ["users"] }, content: isLong ? header : full, username: sender(), avatar_url: AVATAR_URL, ...extra }));
   attachments.forEach(({ name, blob }, index) => form.set(`files[${index}]`, blob, name));
   const query = new URLSearchParams({ wait: "true", ...threadQuery });
   return discord(`${webhookPath}?${query}`, { auth: false, method: "POST", body: form });
