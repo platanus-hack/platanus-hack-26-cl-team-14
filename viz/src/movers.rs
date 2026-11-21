@@ -447,27 +447,25 @@ impl Routes {
             return Some(path.clone());
         }
         let table = match mode {
-            "car" => Some(&self.cars),
-            "bicycle" => Some(&self.bikes),
+            "car" => &self.cars,
+            "bicycle" => &self.bikes,
             "public" => return self.public.get(&pair).cloned(),
-            "walk" => None,
             _ => return None,
         };
-        if let Some(path) = table.and_then(|t| t.get(&pair)) {
+        if let Some(path) = table.get(&pair) {
             return Some(path.clone());
         }
         let origin = point(&row["origin"]);
         let destination = point(&row["destination"]);
         // Missing OD routes show only a mapped local segment at the origin.
         match mode {
-            "walk" => self.streets.local_path(origin, destination, Vehicle::Walk),
             "bicycle" => self.cycleways.local_path(origin, destination, Vehicle::Bicycle),
             _ => self.streets.local_path(origin, destination, Vehicle::Car),
         }
     }
 }
 
-// Index actual street segments. Short local walks follow the street nearest the sampled origin.
+// Index actual street segments for local vehicle motion.
 struct StreetIndex(HashMap<(i32, i32), Vec<(Vec3, Vec3)>>);
 
 fn cell(p: Vec3) -> (i32, i32) {
