@@ -959,7 +959,7 @@ python3 -I tools/pack/city_footprints.py
 
 ## Santiago landmarks
 
-`web/data/santiago_landmarks.geojson` contains nine public landmarks (15,695 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
+`web/data/santiago_landmarks.geojson` contains nine public landmarks (15,778 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
 
 | ID | City-view geometry | Official reference |
 | --- | --- | --- |
@@ -971,10 +971,12 @@ python3 -I tools/pack/city_footprints.py
 | `parque_forestal` | Mapped park boundary. | [Municipal tourism office identifies Parque Forestal](https://www.santiagoturismo.cl/es/parque-forestal/) |
 | `parque_ohiggins` | Mapped park boundary. | [Municipal tourism office identifies Parque O’Higgins](https://www.santiagoturismo.cl/es/parque-ohiggins/) |
 | `rio_mapocho` | Main river centreline inside the Santiago roads view. | [Environment Ministry record for Río Mapocho](https://sistemahumedales.mma.gob.cl/HumedalesUrbanos/DetailsPublico/114) |
-| `movistar_arena` | Santander Arena footprint inside Parque O’Higgins. OSM way 32864171 has one exterior ring, no holes, and no height or levels tag. | [Venue operator](https://www.santanderarena.cl/) · [April 2026 event ticket lists Movistar Arena](https://www.puntoticket.com/red-bull-batalla-internacional-2026) |
+| `movistar_arena` | Santander Arena footprint inside Parque O’Higgins. OSM way 32864171 has one exterior ring, no holes, and no height or levels tag. | [Venue operator](https://www.santanderarena.cl/sobre-nosotros) · [April 2026 event ticket lists Movistar Arena](https://www.puntoticket.com/red-bull-batalla-internacional-2026) |
 
 The arena keeps the event-era ID `movistar_arena`. Its `name` is the current Santander Arena, and `former_name` is Movistar Arena. OSM also gives the roof colour (`roof_color` = `#e2dfdf`) and Wikidata ID (`wikidata` = `Q3302708`).
 
-The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
+The arena operator describes a “cúpula de 50 metros de altura”. The municipal tourism office gives 45 m for the same dome. The layer uses the operator's 50 m at the dome apex (`height_m` = 50, `height_source` = `venue_operator`, `height_scope` = `dome`). Neither source gives the height at the edge of the roof. [Venue operator](https://www.santanderarena.cl/sobre-nosotros) · [Santiago Turismo](https://www.santiagoturismo.cl/es/movistar-arena/)
+
+Other `height_m` values come from OSM structure-height tags. The `elevation_m` field gives a tagged summit elevation above sea level. The builder omits dimensions without a source. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
 
 Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).

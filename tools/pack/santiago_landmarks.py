@@ -18,7 +18,7 @@ PLACES = (
     ("parque_forestal", "park", "w332070819", "https://www.santiagoturismo.cl/es/parque-forestal/"),
     ("parque_ohiggins", "park", "w14817188", "https://www.santiagoturismo.cl/es/parque-ohiggins/"),
 )
-ARENA = ("movistar_arena", "arena", "w32864171", "https://www.santanderarena.cl/")
+ARENA = ("movistar_arena", "arena", "w32864171", "https://www.santanderarena.cl/sobre-nosotros")
 # Main-stream members of OSM waterway relation 7548664 inside the view, in river order.
 MAPOCHO = (313436483, 1557777157, 1146079769, 32920812, 607853671,
            23393901, 1570502197, 1570502190, 22716905, 22700378)
@@ -57,7 +57,8 @@ def place(place_id, kind, osm, source):
             item["properties"][field] = float(tags[tag])
     if kind == "arena":
         item["properties"].update(former_name=tags["old_name:2008-2026"],
-                                  roof_color=tags["roof:colour"], wikidata=tags["wikidata"])
+                                  roof_color=tags["roof:colour"], wikidata=tags["wikidata"],
+                                  height_m=50, height_source="venue_operator", height_scope="dome")
     return item
 
 landmarks = [place(*entry) for entry in PLACES]
