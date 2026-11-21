@@ -186,6 +186,7 @@ fn submit(
     keys: Res<ButtonInput<KeyCode>>,
     focus: Res<InputFocus>,
     mut ime: MessageReader<Ime>,
+    scenario: Res<crate::net::Scenario>,
     mut chat: ResMut<Chat>,
     mut inputs: Query<&mut EditableText, With<ChatInput>>,
     mut status: Single<&mut Text, With<ChatStatus>>,
@@ -222,9 +223,13 @@ fn submit(
         .iter()
         .map(|(question, answer)| serde_json::json!({"pregunta": question, "respuesta": answer}))
         .collect();
-    let context = serde_json::json!({"historial": turns, "pregunta_actual": &prompt});
+    let context = serde_json::json!({
+        "historial": turns,
+        "cambios_aplicados": scenario.0.get("applied"),
+        "pregunta_actual": &prompt,
+    });
     let request = format!(
-        "Responde a pregunta_actual. Usa historial como contexto. No repitas acciones anteriores.\n{context}"
+        "Responde a pregunta_actual usando el historial. Cada llamada a simulate_city parte de la base. Si el usuario amplía el escenario, envía en una sola llamada los cambios_aplicados que desea conservar y los cambios nuevos. Omite el campo de resultado understood. Para un escenario independiente, envía solo los cambios pedidos. Para restablecer la base, envía changes vacío.\n{context}"
     );
     chat.pending = Some((prompt, thread::spawn(move || ask(&request))));
 }
