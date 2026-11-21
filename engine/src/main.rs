@@ -64,7 +64,10 @@ async fn general_scenario(
 // A cached replay: publish a saved engine result to the viewer without a new run.
 async fn play_replay(State(core): State<Arc<Core>>, Json(mut result): Json<Value>) -> Json<Value> {
     core.scenario_events.send_modify(|latest| {
-        result["revision"] = json!(next_revision(latest));
+        let revision = json!(next_revision(latest));
+        result["revision"] = revision.clone();
+        // The viewer flies the camera on a new scene revision.
+        result["scene"]["revision"] = revision;
         *latest = result.clone();
     });
     Json(json!({"revision": result["revision"], "scene": result["scene"]}))
