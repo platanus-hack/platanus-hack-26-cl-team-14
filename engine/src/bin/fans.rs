@@ -9,6 +9,7 @@ use std::path::Path;
 fn main() {
     let a: Vec<String> = std::env::args().collect();
     let dir = Path::new(&a[1]);
-    let r = fans::Fans::load(dir).project(&choice::Choice::load(dir), &a[2], a[3].parse().unwrap());
+    let c = choice::Choice::load(dir);
+    let r = fans::Fans::load(dir).project(&c, &c.minutes, &a[2], a[3].parse().unwrap());
     serde_json::to_writer(std::io::stdout().lock(), &r).unwrap();
 }

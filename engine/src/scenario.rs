@@ -579,7 +579,7 @@ impl Scenario {
         let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &minutes, &self.placed);
         self.fine_modes.apply(&mut pop);
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
-            let f = fan_base.then(|| self.fans.project(car_choice.as_ref().unwrap_or(c), &r.venue_cut, f64::from(r.attendance)));
+            let f = fan_base.then(|| self.fans.project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
             let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
             if let Some(f) = f { e["fan_base"] = f; }
             e
