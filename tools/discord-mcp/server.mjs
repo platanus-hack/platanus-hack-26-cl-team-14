@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Discord MCP server for the team agents. No dependencies: Node 22+ only.
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { hostname } from "node:os";
 import { basename, dirname, isAbsolute, join } from "node:path";
@@ -22,11 +23,12 @@ const WEBHOOK_NAME = "agents";
 const TASKS_FORUM = "tasks";
 const TASK_STATES = ["open", "claimed", "blocked", "done"];
 
-// One name for each server process, so one agent session keeps one name.
+// The name comes from the agent process (the parent of this server), so one agent session
+// keeps one name for all its messages, also if its MCP server restarts.
 const ADJECTIVES = ["quiet", "brave", "swift", "calm", "bright", "lucky", "clever", "gentle", "bold", "witty", "sunny", "keen"];
 const ANIMALS = ["heron", "otter", "fox", "lynx", "panda", "falcon", "koala", "tapir", "puma", "llama", "condor", "gecko"];
-const pick = (list) => list[Math.floor(Math.random() * list.length)];
-const AGENT_NAME = `${pick(ADJECTIVES)}-${pick(ANIMALS)}`;
+const seed = createHash("sha256").update(`${hostname()}-${process.ppid}`).digest();
+const AGENT_NAME = `${ADJECTIVES[seed[0] % ADJECTIVES.length]}-${ANIMALS[seed[1] % ANIMALS.length]}`;
 // Same name, same picture. Only the random name goes to DiceBear.
 const AVATAR_URL = `https://api.dicebear.com/9.x/bottts/png?seed=${AGENT_NAME}`;
 let identity;
