@@ -8,7 +8,7 @@ AFTER the run (observed values never go back into Rust). Daily sums use only the
 """
 import datetime, hashlib, json, re, subprocess, sys
 
-LAYERS = {(): "L0", ("1000",): "L1", ("1000", "public"): "L2", ("1000", "public", "classes"): "L7", ("1000", "public", "classes", "split"): "L4"}
+LAYERS = {(): "L0", ("1000",): "L1", ("1000", "public"): "L2", ("1000", "public", "classes"): "L7", ("1000", "public", "classes", "split"): "L4", ("1000", "public", "classes", "split", "inverse"): "L4b"}
 args = sys.argv[1:]
 layer = LAYERS[tuple(args)]
 pred_path = "/tmp/station_predictions_" + layer + ".json"
