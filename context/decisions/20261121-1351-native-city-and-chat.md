@@ -1,6 +1,6 @@
 # Use a native Rust city with chat as the only input
 
-- Status: Accepted
+- Status: Accepted. [Camera navigation](20261121-1540-city-camera-navigation.md) updates the window controls.
 - Date: 2026-11-21
 - Source: Team Discord messages in the table below.
 
