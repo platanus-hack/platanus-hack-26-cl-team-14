@@ -2,7 +2,7 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
-use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripGroup, TripPlan, trip_deltas};
+use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripGroup, TripPlan, person_departure, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::{EntryOrigins, StationAccess, planned::PlannedStations};
 use santiago_scenario_core::{buildings::Buildings, editable_transit::LineCatalog, roads::RoadGraph};
@@ -276,6 +276,9 @@ impl Scenario {
         let mut minutes = c.minutes.clone();
         // Minute changes of temporary edits (`"temporary": true`): they move mode choice, not job choice.
         let mut temporary = vec![0.0; n * n];
+        // A closure window `half_hours: [start, end)` on any change: only workers who leave home inside it face the changed city.
+        let window = changes.iter().find_map(|v| v["half_hours"].as_array().map(|w| (w[0].as_u64().unwrap() as usize, w[1].as_u64().unwrap() as usize)));
+        let in_window = |i: usize, p: &Person| window.is_some_and(|(a, z)| (a..z).contains(&person_departure(p.mode, i)));
         let (mut applied, mut not_modeled) = (vec![], vec![]);
         let mut network = Network::new(&self.access);
         let mut building_edits = self.buildings.as_ref().map(Buildings::edits);
@@ -587,6 +590,12 @@ impl Scenario {
         let job_minutes: Vec<f64> = minutes.iter().zip(&temporary).map(|(&m, &t)| if t == 0.0 { m } else { (m - t).max(1.0) }).collect();
         let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &job_minutes, &minutes, &self.placed);
         self.fine_modes.apply(&mut pop);
+        // Workers who leave outside the window keep their baseline mode. Persons align with the baseline when no residents change.
+        if window.is_some() {
+            for (i, (p, base)) in pop.persons.iter_mut().zip(&self.pop.persons).enumerate() {
+                if !base.student && !in_window(i, base) { p.mode = base.mode; }
+            }
+        }
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
             let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
@@ -626,7 +635,15 @@ impl Scenario {
         let blocks_total = rows.len();
         let blocks: Vec<Value> = rows.into_iter().take(300).map(|(mut v, d)| { v["jobs_delta"] = json!(d[0]); v["residents_delta"] = json!(d[1]); v }).collect();
         let mut origins = vec![EntryOrigins::default(); self.stations.len() + network.additions.len()];
-        let (b, s) = (&self.base, &self.state(&pop, &network, &mut origins));
+        let b = &self.base;
+        let mut s = self.state(&pop, &network, &mut origins);
+        // Outside the window the stations keep their baseline entries.
+        if let Some((a, z)) = window {
+            for (day, base) in s.day.iter_mut().zip(&b.day) {
+                for t in (0..48).filter(|t| !(a..z).contains(t)) { day[t] = base[t]; }
+            }
+        }
+        let s = &s;
 
         let points: Vec<_> = self.stations.iter().map(|(id, name, x, y)| (id, name, *x, *y))
             .chain(network.additions.iter().map(|p| (&p.id, &p.name, p.longitude, p.latitude))).collect();
@@ -699,6 +716,20 @@ impl Scenario {
                 "base_share_source": cars.source[origin].0, "trip_rates_source": cars.source[origin].1,
                 "workers_base": counts(b.modes[origin]), "workers_scenario": counts(s.modes[origin]),
             })).collect();
+        }
+        if let Some((a, z)) = window {
+            // Workers who leave home inside the window, by mode, base and scenario. Membership uses the baseline departure.
+            let count = |persons: &[Person]| {
+                let mut m = [0u32; 5];
+                for (i, p) in persons.iter().enumerate().filter(|(i, _)| !self.pop.persons[*i].student && in_window(*i, &self.pop.persons[*i])) {
+                    m[match p.mode { 1..=4 => (p.mode - 1) as usize, _ => 4 }] += 1;
+                }
+                json!({ "car": m[0], "public": m[1], "walk": m[2], "bicycle": m[3], "other": m[4] })
+            };
+            result["closure_window"] = json!({
+                "half_hours": [a, z], "workers_by_mode_base": count(&self.pop.persons), "workers_by_mode_scenario": count(&pop.persons),
+                "rule": "Workers whose normal-weekday departure half-hour (EOD 2012 profile of their mode) is inside [start, end) face the changed city for the whole trip. Others keep the baseline. Station entries change only inside the window.",
+            });
         }
         result
     }
