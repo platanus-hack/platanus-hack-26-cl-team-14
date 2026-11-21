@@ -10,6 +10,7 @@ let directory;
 export function inboxDirectory(token) {
   const key = createHash("sha256").update(token).digest("hex").slice(0, 20);
   directory = join(tmpdir(), `team-discord-${process.getuid()}-${key}`);
+  return directory;
 }
 
 function currentSnapshot() {
@@ -229,8 +230,8 @@ export async function startInbox(token, discord) {
         publish();
       }
       if (subscribed.has(d.channel_id) && ["MESSAGE_CREATE", "MESSAGE_UPDATE", "MESSAGE_DELETE", "MESSAGE_DELETE_BULK"].includes(t)) {
-        const { id, ids, author, content, timestamp, embeds, attachments, message_reference } = d;
-        const row = JSON.stringify([t, { id, ids, author, content, timestamp, embeds, attachments, message_reference }],
+        const { id, ids, author, content, timestamp, embeds, attachments, message_reference, webhook_id } = d;
+        const row = JSON.stringify([t, { id, ids, author, content, timestamp, embeds, attachments, message_reference, webhook_id }],
           (_, value) => typeof value === "string" ? scrub(value) : value);
         appendFileSync(join(session, d.channel_id + ".jsonl"), row + "\n", { mode: 0o600 });
       }
