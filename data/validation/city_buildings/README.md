@@ -72,4 +72,4 @@ fn building_block(bytes: &[u8], col: usize, row: usize, i: usize) -> Option<(u64
 }
 ```
 
-Rebuild after the mesh preparation and fill steps with `python3 -B tools/pack/building_block_ids.py`. Its optional argument specifies another raw fill directory. It reads the same real and generated feature streams in the same order as the mesh packer. Use the sidecar and both meshes from the same build.
+Rebuild after the mesh preparation and fill steps with `python3 -B tools/pack/building_block_ids.py`. Its optional argument specifies another raw fill directory. It matches source assignments to the exact quantized exterior and hole coordinates of each published polygon. Mapped and generated shapes have separate lookup keys. All 654,666 source and mesh records match. Six identical source geometries have duplicate records, each with the same block assignment. Within-tile raw feature order can differ from the published order. Use the sidecar and both meshes from the same build.
