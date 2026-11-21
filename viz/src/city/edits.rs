@@ -31,18 +31,17 @@ fn rings(value: &Value) -> Vec<Vec<Vec3>> {
 fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
     let mut mesh = Surface::default();
     let geometry = &feature["geometry"];
-    let color = if removed {
-        [0.9, 0.08, 0.05, 1.]
-    } else if kind == "line" {
-        [0.02, 0.75, 0.95, 1.]
-    } else {
-        [0.95, 0.55, 0.07, 1.]
-    };
+    // The transparent pass lays engine edits over the printed city.
+    let color = [0.85, 0.13, 0.09, 1.];
     match kind {
         "building" => mesh.polygon(
             &rings(&geometry["coordinates"]),
             0.3,
-            feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32,
+            if removed {
+                0.
+            } else {
+                feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32
+            },
             color,
             color,
         ),
@@ -134,6 +133,7 @@ pub(crate) fn refresh(
             materials.add(StandardMaterial {
                 cull_mode: None,
                 unlit: true,
+                alpha_mode: AlphaMode::Blend,
                 ..default()
             })
         })
@@ -144,7 +144,6 @@ pub(crate) fn refresh(
                 || before["geometry"] != after["geometry"]
                 || (kind == "line"
                     && before["properties"]["mode"] != after["properties"]["mode"]))
-            && kind != "building"
         {
             let shape = draw(&before, &kind, true);
             if !shape.indices.is_empty() {

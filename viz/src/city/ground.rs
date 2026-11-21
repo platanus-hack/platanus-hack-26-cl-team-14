@@ -227,7 +227,6 @@ pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mes
         &root.join("web/data/open_surfaces.geojson.gz"),
     );
     mapocho(&mut tiles, root);
-    mapped_trees(&mut tiles, &root.join("web/data/city_trees.bin.gz"));
     let scenery = tiles
         .into_iter()
         .map(|((x, z), surface)| (format!("City ground {x} {z}"), surface.finish()))
@@ -235,66 +234,41 @@ pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mes
     (terrain.meshes(), scenery)
 }
 
-// Append these functions to the ground module. Tree size and foliage are display symbols.
-// The packed coordinates are individual OSM tree nodes.
-fn mapped_trees(tiles: &mut GroundTiles, path: &Path) {
+/// Camera-facing tree prints anchored to the packed OSM coordinates.
+pub(super) fn mapped_trees(path: &Path) -> impl Iterator<Item = Mesh> {
+    let mut tiles = GroundTiles::new();
     use std::io::Read;
     let mut bytes = Vec::new();
     GzDecoder::new(File::open(path).unwrap())
         .read_to_end(&mut bytes)
         .unwrap();
-    const LEAVES: [Color4; 4] = [
-        [0.144, 0.122, 0.456, 1.],
-        [0.091, 0.076, 0.342, 1.],
-        [0.205, 0.184, 0.552, 1.],
-        [0.068, 0.078, 0.323, 1.],
-    ];
-    let bark = [0.045, 0.037, 0.162, 1.];
     for pair in bytes.chunks_exact(4) {
         let x = u16::from_le_bytes([pair[0], pair[1]]) as u32;
         let y = u16::from_le_bytes([pair[2], pair[3]]) as u32;
         let base = world(-70.85 + x as f64 / 100_000., -33.65 + y as f64 / 100_000.);
-        let mesh = tile_for(tiles, base);
+        let mesh = tile_for(&mut tiles, base);
         let seed = x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663);
         let height = 5.8 + (seed % 41) as f32 * 0.10;
         let radius = height * (0.31 + ((seed >> 8) % 8) as f32 * 0.012);
-        let phase = (seed % 313) as f32 * 0.020;
-        let leaves = LEAVES[(seed as usize >> 7) % LEAVES.len()];
-        let mut ring = |sides: u32, width: f32, elevation: f32, normal_y: f32, color: Color4| {
-            let start = mesh.positions.len() as u32;
-            for n in 0..sides {
-                let (s, c) = (phase + n as f32 * std::f32::consts::TAU / sides as f32).sin_cos();
-                let dir = Vec3::new(c, 0., s);
-                mesh.positions
-                    .push((base + dir * width + Vec3::Y * elevation).to_array());
-                mesh.normals
-                    .push((dir + Vec3::Y * normal_y).normalize().to_array());
-                mesh.colors.push(color);
-            }
-            start
-        };
-        let trunk = ring(3, 0.17, 0.0, 0.0, bark);
-        ring(3, 0.14, height * 0.47, 0.0, bark);
-        let crown = ring(5, radius * 0.55, height * 0.32, -0.75, leaves);
-        ring(5, radius, height * 0.60, 0.0, leaves);
-        ring(5, radius * 0.65, height * 0.86, 0.64, leaves);
-        for (start, sides) in [(trunk, 3u32), (crown, 5), (crown + 5, 5)] {
-            for n in 0..sides {
-                let a = start + n;
-                let b = start + (n + 1) % sides;
-                mesh.indices
-                    .extend([a, a + sides, b, b, a + sides, b + sides]);
-            }
+        let right = Vec3::new(0.51, 0., -0.32).normalize() * radius;
+        let up = Vec3::Y * height;
+        let first = mesh.positions.len() as u32;
+        let u = (seed & 3) as f32 * 0.25;
+        mesh.textured = true;
+        for (position, uv) in [
+            (base - right, [u, 1.]),
+            (base + right, [u + 0.25, 1.]),
+            (base + right + up, [u + 0.25, 0.]),
+            (base - right + up, [u, 0.]),
+        ] {
+            mesh.positions.push(position.to_array());
+            mesh.normals.push(Vec3::Y.to_array());
+            mesh.colors.push([1.; 4]);
+            mesh.uvs.push(uv);
         }
-        let tip = mesh.positions.len() as u32;
-        mesh.positions.push((base + Vec3::Y * height).to_array());
-        mesh.normals.push(Vec3::Y.to_array());
-        mesh.colors.push(leaves);
-        for n in 0..5 {
-            mesh.indices
-                .extend([crown + 10 + n, tip, crown + 10 + (n + 1) % 5]);
-        }
+        mesh.indices.extend([0, 1, 2, 0, 2, 3].map(|i| first + i));
     }
+    tiles.into_values().map(Surface::finish)
 }
 
 fn arena(mesh: &mut Surface, rings: &[Vec<Vec3>], height: f32) {
