@@ -53,7 +53,9 @@ def table(name):
     return csv.DictReader(io.TextIOWrapper(z.open(name), encoding="utf-8-sig"))
 
 
+route_type = {r["route_id"]: r["route_type"] for r in table("routes.txt")}
 trips = {r["trip_id"]: r["service_id"] for r in table("trips.txt")}
+trip_mode = {r["trip_id"]: route_type[r["route_id"]] for r in table("trips.txt")}
 headways = collections.defaultdict(list)
 for row in table("frequencies.txt"):
     if seconds(row["start_time"]) <= DEPART < seconds(row["end_time"]):
@@ -97,23 +99,31 @@ for key, trip_list in patterns.items():
         pattern_wait[key] = (3600 / len(departures)) / 2
 print(f"{len(patterns)} patterns, {len(pattern_wait)} run at 08:00")
 
+# A pattern is Metro when its trips run on a route of type 1.
+pattern_metro = {key: trip_mode[trip_list[0]] == "1" for key, trip_list in patterns.items()}
+print(f"{sum(1 for k in pattern_wait if pattern_metro[k])} of the {len(pattern_wait)} "
+      f"patterns that run at 08:00 are Metro")
+
 # Graph. A street node is a stop. A ride node is one place in one pattern.
 # cost, in-vehicle seconds, boardings, access metres travel with each edge.
 graph = collections.defaultdict(list)
+metro_graph = collections.defaultdict(list)
 for index, (key, wait) in enumerate(pattern_wait.items()):
     ride_times, dwells = pattern_times[key]
     for position, stop in enumerate(key):
         if stop not in coords:
             continue
         ready, arrived = ("r", index, position), ("a", index, position)
-        # Reach the stop, wait, and be ready to depart.
-        graph[("s", stop)].append((ready, wait, 0, 1))
-        # Arrived on board: leave the vehicle, or stay on and pay this stop's dwell.
-        graph[arrived].append((("s", stop), 0.0, 0, 0))
-        graph[arrived].append((ready, dwells[position], dwells[position], 0))
-        if position + 1 < len(key):
-            on_board = max(ride_times[position], 0)
-            graph[ready].append((("a", index, position + 1), on_board, on_board, 0))
+        targets = [graph, metro_graph] if pattern_metro[key] else [graph]
+        for g in targets:
+            # Reach the stop, wait, and be ready to depart.
+            g[("s", stop)].append((ready, wait, 0, 1))
+            # Arrived on board: leave the vehicle, or stay on and pay this stop's dwell.
+            g[arrived].append((("s", stop), 0.0, 0, 0))
+            g[arrived].append((ready, dwells[position], dwells[position], 0))
+            if position + 1 < len(key):
+                on_board = max(ride_times[position], 0)
+                g[ready].append((("a", index, position + 1), on_board, on_board, 0))
 
 # Walk transfers: a grid keeps this to the near stops only.
 CELL = TRANSFER_M / 111320 * 2
@@ -130,14 +140,16 @@ for stop, (lon, lat) in coords.items():
                     continue
                 distance = metres(lon, lat, *coords[other])
                 if distance <= TRANSFER_M:
-                    graph[("s", stop)].append((("s", other), distance / WALK_MPS, 0, 0))
+                    for g in (graph, metro_graph):
+                        g[("s", stop)].append((("s", other), distance / WALK_MPS, 0, 0))
                     walk_edges += 1
 # A platform and its parent station are the same place.
 for stop, row in stop_rows.items():
     parent = row["parent_station"]
     if parent in coords:
-        graph[("s", stop)].append((("s", parent), 0.0, 0, 0))
-        graph[("s", parent)].append((("s", stop), 0.0, 0, 0))
+        for g in (graph, metro_graph):
+            g[("s", stop)].append((("s", parent), 0.0, 0, 0))
+            g[("s", parent)].append((("s", stop), 0.0, 0, 0))
 print(f"{len(graph)} nodes, {sum(len(v) for v in graph.values())} edges "
       f"({walk_edges} transfer walks)")
 
@@ -159,13 +171,9 @@ print(f"{len(outside)} comuna points have NO stop within {ACCESS_M:.0f} m, so th
       f"row: {[(c, round(nearest[c] / 1000, 1)) for c in outside]}")
 print(f"pairs left out for that reason: {52 * 51 - len(served) * (len(served) - 1)}")
 
-rows = []
-for origin in sorted(points):
-    if not covered[origin]:
-        continue
-    best = {}
-    queue = []
-    order = 0
+def search(network, origin):
+    """Earliest-cost labels for every node, from the comuna point of `origin`."""
+    best, queue, order = {}, [], 0
     for stop, distance in reachable[origin]:
         heapq.heappush(queue, (distance / WALK_MPS, order, 0, 0, distance, ("s", stop)))
         order += 1
@@ -174,32 +182,50 @@ for origin in sorted(points):
         if node in best:
             continue
         best[node] = (cost, on_board, boardings, access)
-        for target, edge, vehicle, board in graph[node]:
+        for target, edge, vehicle, board in network[node]:
             if target not in best:
                 order += 1
                 heapq.heappush(queue, (cost + edge, order, on_board + vehicle,
                                        boardings + board, access, target))
+    return best
+
+
+def arrival(best, destination):
+    """Cheapest label among the stops within ACCESS_M of the destination point."""
+    answer = None
+    for stop, distance in reachable[destination]:
+        label = best.get(("s", stop))
+        if label:
+            total = label[0] + distance / WALK_MPS
+            if answer is None or total < answer[0]:
+                answer = (total, label[1], label[2], label[3], distance)
+    return answer
+
+
+rows = []
+for origin in sorted(points):
+    if not covered[origin]:
+        continue
+    best = search(graph, origin)
+    metro_best = search(metro_graph, origin)
     for destination in sorted(points):
         if destination == origin or not covered[destination]:
             continue
-        answer = None
-        for stop, distance in reachable[destination]:
-            label = best.get(("s", stop))
-            if label:
-                total = label[0] + distance / WALK_MPS
-                if answer is None or total < answer[0]:
-                    answer = (total, label[1], label[2], label[3], distance)
+        answer = arrival(best, destination)
+        metro_answer = arrival(metro_best, destination)
         if answer:
             rows.append([origin, destination, round(answer[0] / 60, 1),
                          round(answer[1] / 60, 1), max(answer[2] - 1, 0),
-                         round(answer[3]), round(answer[4])])
+                         round(answer[3]), round(answer[4]),
+                         round(metro_answer[0] / 60, 1) if metro_answer else ""])
     print(f"  {origin} {len(best)} nodes", end=" ", flush=True)
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 with OUT.open("w", newline="", encoding="utf-8") as fh:
     writer = csv.writer(fh)
     writer.writerow(["origin_cut", "destination_cut", "minutes_door_to_door",
-                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress"])
+                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress",
+                     "minutes_metro_only"])
     writer.writerows(rows)
 print(OUT, len(rows), "directed pairs over", len(served), "comunas")
 
@@ -252,15 +278,38 @@ def compare_with_eod():
           f"p10 {ratios[len(ratios) // 10]:.3f} p90 {ratios[9 * len(ratios) // 10]:.3f}")
     print(f"mean absolute error {statistics.mean(abs(m - s) for m, s in zip(model, survey)):.1f}"
           f" min | WAPE {sum(abs(m - s) for m, s in zip(model, survey)) / sum(survey):.1%}")
-    ms, mm = statistics.mean(survey), statistics.mean(model)
-    pearson = (sum((s - ms) * (m - mm) for s, m in zip(survey, model))
-               / (sum((s - ms) ** 2 for s in survey) * sum((m - mm) ** 2 for m in model)) ** 0.5)
-    rank = lambda values: {v: i for i, v in enumerate(sorted(range(len(values)),
-                                                            key=lambda j: values[j]))}
-    rs, rm = rank(survey), rank(model)
-    n = len(survey)
-    spearman = 1 - 6 * sum((rs[i] - rm[i]) ** 2 for i in range(n)) / (n * (n * n - 1))
-    print(f"Pearson {pearson:.3f} | Spearman {spearman:.3f}")
+    print(f"Pearson {correlation(survey, model):.3f} | "
+          f"Spearman {correlation(ranks(survey), ranks(model)):.3f}")
+    ties = len(survey) - len(set(survey))
+    print(f"tied survey medians: {ties} of {len(survey)} values share a value with another")
+
+
+def correlation(xs, ys):
+    """Pearson correlation."""
+    mx, my = statistics.mean(xs), statistics.mean(ys)
+    return (sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+            / (sum((x - mx) ** 2 for x in xs) * sum((y - my) ** 2 for y in ys)) ** 0.5)
+
+
+def ranks(values):
+    """Ranks with the average rank for a group of equal values.
+
+    EOD durations are reported in round minutes and the model times are rounded to one
+    decimal, so ties are certain. Spearman is then the Pearson correlation of these
+    ranks, not the no-ties shortcut 1 - 6*sum(d^2)/(n^3-n).
+    """
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    out = [0.0] * len(values)
+    start = 0
+    while start < len(order):
+        stop = start
+        while stop + 1 < len(order) and values[order[stop + 1]] == values[order[start]]:
+            stop += 1
+        average = (start + stop) / 2
+        for i in order[start:stop + 1]:
+            out[i] = average
+        start = stop + 1
+    return out
 
 
 if "eod" in sys.argv:

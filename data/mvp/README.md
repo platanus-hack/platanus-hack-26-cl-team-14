@@ -473,6 +473,7 @@ its distance. Builder: `python3 -I tools/pack/travel_times.py` (7 s).
 | `minutes_in_vehicle` | only the time on board. Free of the headway assumption below |
 | `transfers` | number of boardings minus 1 |
 | `walk_m_access`, `walk_m_egress` | straight-line metres walked at each end |
+| `minutes_metro_only` | the same search on the Metro patterns alone (`route_type` 1), with walking. Empty when Metro cannot reach the destination point |
 
 - Source: DTPM `GTFS_20260321_v3.zip` (`data/raw/dtpm-gtfs-march/`, sha256
   `f10945e8…b77b`, equal to the hash that `tobalaba_observations.json` publishes). It is
@@ -533,6 +534,28 @@ its distance. Builder: `python3 -I tools/pack/travel_times.py` (7 s).
 - **A comuna point is not a trip end.** These are times between two population centres.
   No value here is fitted to an observed travel time.
 
+### `minutes_metro_only`: the one thing this file says that `mode_share.csv` cannot
+
+`mode_share.csv` code 2 joins metro, bus, train, taxi and colectivo, so no Census column
+can say whether **Metro** serves a comuna pair. This file can: the same search runs a
+second time on the Metro patterns alone, and the ratio
+`minutes_metro_only / minutes_door_to_door` measures how much a rider loses by refusing
+the bus.
+
+- 992 of the 1,190 pairs have a Metro-only time; on the other 198 the Metro network
+  cannot reach the destination point, and the column is empty, not a large number.
+- The ratio runs from 1.00 to 2.98, median **1.27**, p90 1.93. **260 pairs are at 1.05 or
+  below**, which means Metro alone is as fast as the mixed trip.
+- It behaves as a person from Santiago expects. Ratio 1.00: Santiago → Conchalí 26.1 min,
+  Santiago → Estación Central 24.4, Santiago → Independencia 22.6, all Metro corridors.
+  Worst: La Pintana → Puente Alto 89.6 against 30.1, and Cerro Navia → Quinta Normal
+  48.5 against 16.6 — adjacent comunas with no Metro between them.
+- **It is new information, not a restatement.** The Pearson correlation between this
+  ratio and `mode_share.csv`'s public-transport share of the home comuna is **−0.073**,
+  near zero. A model that already uses the origin share gains a signal it does not hold.
+- Same limits as the rest of the file: a comuna point is not a trip end, and the ratio is
+  a supply measure, not an observed choice. Nothing here says a rider does refuse the bus.
+
 ### Check against EOD 2012, the only observed travel times we hold
 
 Command: `python3 -I tools/pack/travel_times.py eod` (it rebuilds the matrix, then
@@ -547,8 +570,8 @@ I compared the matrix with the real trip durations of EOD 2012
 (`data/raw/eod2012/.../viajes.csv`, `TiempoViaje`). Filter: weekday factor present,
 `Periodo` 2 (the 07:31 to 09:00 peak, which brackets the 08:00 departure),
 `ModoAgregado` in {2, 3, 4, 7, 9, 10} (bus and Metro and their pure combinations, no
-taxi, no colectivo, no car), origin comuna different from destination comuna, and the
-and the pair present in this file. That gives **3,184 sampled trips on 620 pairs**;
+taxi, no colectivo, no car), a reported duration above 0 and not above 300 minutes,
+origin comuna different from destination comuna, and the pair present in this file. That gives **3,184 sampled trips on 620 pairs**;
 I kept the **80 pairs with 10 or more sampled trips** and took the **unweighted** median
 of the sampled durations of each pair. `FactorLaboralNormal` is used only to select
 weekday trips, never as a weight, so a pair median is a median over sampled trips and
@@ -561,7 +584,13 @@ not over the expanded population.
 | ratio mine / EOD, median | **0.651** (p10 0.452, p90 0.867) |
 | mean absolute error | 20.9 min, WAPE 36.4% |
 | Pearson r | **0.783** |
-| Spearman | **0.744** |
+| Spearman | **0.734** |
+
+**Spearman uses the average rank inside a group of equal values.** 50 of the 80 survey
+medians share a value with another pair, because EOD reports round minutes, so the
+no-ties shortcut `1 − 6Σd²/(n³−n)` is not Spearman here and its answer depends on the
+order of the pairs. The number above is the Pearson correlation of the tie-corrected
+ranks; the shortcut gave 0.744.
 
 Before the dwell was charged, the same check gave 34.1 min, ratio 0.608, WAPE 40.6% and
 Pearson 0.739. Charging the dwell moved every one of those numbers toward the
@@ -574,6 +603,7 @@ A model that puts these minutes in a decay function with one freely fitted coeff
 absorbs a **common multiplicative** factor, so a uniform level bias would not reach its
 score. That is only part of the story here: the ratio runs from 0.45 at p10 to 0.87 at
 p90, so the bias is not uniform, and the pair-by-pair part does reach any such score.
+What survives is the ordering: Spearman 0.734.
 
 Four causes of the gap, and they do not all point the same way:
 1. A comuna point is not a trip end. An EOD trip runs door to door anywhere inside the
