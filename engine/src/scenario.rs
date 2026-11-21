@@ -9,7 +9,7 @@ use santiago_scenario_core::{buildings::Buildings, editable_transit::LineCatalog
 use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[path = "car_ownership.rs"]
@@ -275,8 +275,8 @@ impl Scenario {
         let copy = |v: &[Point]| v.iter().map(|p| Point { id: p.id.clone(), cut: p.cut.clone(), ..*p }).collect::<Vec<_>>();
         let mut pop = Population { homes: copy(&self.pop.homes), jobs: copy(&self.pop.jobs), schools: vec![], persons: self.pop.persons.clone() };
         let mut minutes = c.minutes.clone();
-        // Minute changes of temporary edits (`"temporary": true`): they move mode choice, not job choice.
-        let mut temporary = vec![0.0; n * n];
+        // Temporary line edits change mode choice only.
+        let mut job_minutes = minutes.clone();
         let (mut applied, mut not_modeled) = (vec![], vec![]);
         let mut network = Network::new(&self.access);
         let mut building_edits = self.buildings.as_ref().map(Buildings::edits);
@@ -287,6 +287,7 @@ impl Scenario {
         } else { None };
         // For an outage keep the last finite graph time. None means this pair had no graph baseline.
         let mut transit_reference: HashMap<usize, Option<f64>> = HashMap::new();
+        let mut permanent_transit_pairs = HashSet::new();
         let mut resident_stock_edits = 0;
         let mut city_edits = Vec::new();
         let mut car_shares = BTreeMap::new();
@@ -306,15 +307,17 @@ impl Scenario {
                 match edit {
                     Ok(mut edit) => {
                         if is_line {
+                            let temporary = raw["temporary"] == true;
                             for pair in edit["effects"]["pairs"].as_array_mut().unwrap() {
                                 let index = self.ix(pair["origin_cut"].as_str().unwrap()) * n
                                     + self.ix(pair["destination_cut"].as_str().unwrap());
+                                if !temporary { permanent_transit_pairs.insert(index); }
                                 let reference = transit_reference.entry(index).or_insert(pair["before_minutes"].as_f64());
                                 match (*reference, pair["after_minutes"].as_f64()) {
                                     (Some(last), Some(next)) => {
                                         let before = minutes[index].max(1.0);
                                         minutes[index] += next - last;
-                                        if raw["temporary"] == true { temporary[index] += next - last; }
+                                        if !temporary { job_minutes[index] += next - last; }
                                         pair["choice_minutes_delta"] = json!(minutes[index].max(1.0) - before);
                                         *reference = Some(next);
                                     }
@@ -551,7 +554,10 @@ impl Scenario {
                         _ => unreachable!(),
                     };
                     let before: f64 = cells.iter().map(|&i| if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).sum();
-                    for &i in &cells { minutes[i] = op(if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).max(1.0); } // a trip is 1 minute or more
+                    for &i in &cells {
+                        minutes[i] = op(if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).max(1.0);
+                        job_minutes[i] = op(if permanent_transit_pairs.contains(&i) { job_minutes[i].max(1.0) } else { job_minutes[i] }).max(1.0);
+                    }
                     let after: f64 = cells.iter().map(|&i| minutes[i]).sum();
                     note["understood"] = json!({ "pairs": cells.len(), "mean_minutes_before": r1(before / cells.len() as f64), "mean_minutes_after": r1(after / cells.len() as f64) });
                 }
@@ -573,6 +579,9 @@ impl Scenario {
         for index in transit_reference.keys() {
             minutes[*index] = minutes[*index].max(1.0);
         }
+        for index in permanent_transit_pairs {
+            job_minutes[index] = job_minutes[index].max(1.0);
+        }
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
         let mut car_choice = None;
         if let Some(cars) = &self.car_ownership {
@@ -585,7 +594,6 @@ impl Scenario {
                 }
             }
         }
-        let job_minutes: Vec<f64> = minutes.iter().zip(&temporary).map(|(&m, &t)| if t == 0.0 { m } else { (m - t).max(1.0) }).collect();
         let modes_before: Vec<i8> = pop.persons.iter().map(|p| p.mode).collect();
         let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &job_minutes, &minutes, &self.placed);
         // Workers and mode changes by age band and household size (rechoose changes `mode` only for a new mode class).
