@@ -59,32 +59,18 @@ Platanus Hack 26 (Santiago) — track Simulaciones.
 
 Regla de oro: **si no sale en la demo, y nada de la demo lo necesita, no se hace.**
 
-### Run a scenario from your local agent
+### Run the native Santiago demo
 
-The [general-scenario startup fix](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/136) is in `main` at `29c56a9`.
-Independent checks passed with canonical data and a copy that changes only one block identifier.
-
-Use an installed Rust toolchain with Rust 2024 support and Node.js 22 or later.
-From the repository root, start the API on a free port:
+Install Rust 1.97.1 or newer with Cargo, and install curl. From the repository root, run:
 
 ```sh
-cargo run --release --manifest-path engine/Cargo.toml --bin santiago-scenario-core -- data/mvp 8787
+./run.sh
 ```
 
-Start or reopen your local agent in this checkout with `SANTIAGO_API_URL=http://127.0.0.1:8787` in its environment.
-It loads the `santiago` MCP server from the project config.
-Ask it to call `simulate_city` with the complete list of changes.
-For example, multiply jobs in Maipú (`13119`) by 1.2.
-An empty `changes` list restores the baseline. Each call starts from the baseline.
-Read `applied`, `not_modeled`, and `assumptions`. Results are model values, not observed changes.
+The launcher starts the engine on port 8787, waits for it to answer, and opens the native city window. Drag to pan and scroll to zoom. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
 
-`engine/src/scenario.rs` runs the scenario.
-The MCP forwards the request to `/api/scenario`; SSE and the latest cache carry the full result with the same revision.
-See [the engine guide](engine/README.md) for port selection and HTTP routes.
+### Ask a question from your local agent
 
-The native city view has a separate acceptance run in progress.
-Its final launch command remains pending acceptance.
-That candidate defaults to port 8790; engine and MCP default to 8787.
-A combined launch must set `SANTIAGO_ENGINE` and `SANTIAGO_API_URL` to the same engine origin.
-The old `./run.sh` web page uses the removed legacy routes and an earlier response shape.
-It is not the launch path for this server cut.
+Install Node.js 22 or later. Start your MCP client in this checkout with the `SANTIAGO_API_URL` printed by the launcher in its environment. The project config registers the `santiago` server. Ask the client to use `simulate_city`. For example, ask what happens if jobs in Maipú increase by 20%.
+
+Each call starts from the baseline. An empty list of changes restores it. The engine sends the same scenario revision to the client and the open city window. The results are model estimates. [Engine guide](engine/README.md)
