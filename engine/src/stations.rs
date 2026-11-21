@@ -59,19 +59,8 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
 
 /// `classes`: L7, two station classes with their own profile.
 /// `public_share`: L2, weight each OD pair by the share of public-transport commuters (mode 2) of its home comuna.
-#[derive(Deserialize)]
-struct ModeOd { origin_cut: String, destination_cut: String, mode: i32, commuters: f64 }
-
-/// RM-internal pairs with their measured mode-2 (public transport) commuters, from mode_od.csv.
-fn public_pairs(data: &Path) -> Vec<(String, String, f64)> {
-    rows::<ModeOd>(&data.join("mode_od.csv")).into_iter()
-        .filter(|r| r.mode == 2 && r.destination_cut.starts_with("13"))
-        .map(|r| (r.origin_cut, r.destination_cut, r.commuters)).collect()
-}
-
 /// `split`: L4, equal split of each point among all parents within the radius.
-/// `pair_mode`: L8, measured public commuters of each pair in place of L2's transferred origin share.
-pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool, pair_mode: bool) -> (Vec<Vec<f64>>, Report, Fit) {
+pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool) -> (Vec<Vec<f64>>, Report, Fit) {
     let mut share: HashMap<String, (f64, f64)> = HashMap::new();
     for m in rows::<Mode>(&data.join("mode_share.csv")) {
         let e = share.entry(m.cut).or_default();
@@ -79,19 +68,11 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
         if m.mode == 2 { e.0 += m.commuters; }
     }
     let (mut home, mut work) = (HashMap::new(), HashMap::new());
-    if pair_mode {
-        // L8: the measured public-transport commuters of each RM-internal pair (mode_od.csv, mode 2).
-        for (o, d, w) in public_pairs(data) {
-            *home.entry(o).or_insert(0.0) += w;
-            *work.entry(d).or_insert(0.0) += w;
-        }
-    } else {
-        for f in rows::<Od>(&data.join("work_od.csv")) {
-            if !f.destination_cut.starts_with("13") { continue; } // RM-internal only, as main.rs
-            let m = if public_share { let (p, t) = share[&f.origin_cut]; p / t } else { 1.0 };
-            *home.entry(f.origin_cut).or_insert(0.0) += f.workers * m;
-            *work.entry(f.destination_cut).or_insert(0.0) += f.workers * m;
-        }
+    for f in rows::<Od>(&data.join("work_od.csv")) {
+        if !f.destination_cut.starts_with("13") { continue; } // RM-internal only, as main.rs
+        let m = if public_share { let (p, t) = share[&f.origin_cut]; p / t } else { 1.0 };
+        *home.entry(f.origin_cut).or_insert(0.0) += f.workers * m;
+        *work.entry(f.destination_cut).or_insert(0.0) += f.workers * m;
     }
     let blocks: Vec<_> = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
     let jobs: Vec<_> = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
@@ -156,11 +137,11 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
     let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
         distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), mass_share_with_2_or_more_parents: [multi_h, multi_j] };
-    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share, split, pair_mode })
+    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share, split })
 }
 
 /// The frozen parts of a fit that a scenario reuses: baseline classes, profiles, scale, radius, mode shares.
-pub struct Fit { class: Vec<usize>, p: Vec<Vec<f64>>, a: f64, radius: f64, share: HashMap<String, (f64, f64)>, public_share: bool, split: bool, pair_mode: bool }
+pub struct Fit { class: Vec<usize>, p: Vec<Vec<f64>>, a: f64, radius: f64, share: HashMap<String, (f64, f64)>, public_share: bool, split: bool }
 
 const MUT_BLOCK: &str = "13114131009033";
 const MUT_CUT: &str = "13114";
@@ -177,7 +158,7 @@ const TARGET_SHA256: &str = "ecd8131fac2bfcf401bb5700dda7a7a0a31534990b8b962134d
 const SCORER_SHA256: &str = "ea807561049a3e62a847455b98863594744ae1768201a498f3d720af2991dcaa";
 
 /// Files the fit reads; their hashes must equal the artifact's before its score is shown.
-const FIT_INPUTS: [&str; 6] = ["work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json", "mode_od.csv"];
+const FIT_INPUTS: [&str; 5] = ["work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json"];
 
 fn sha256(bytes: &[u8]) -> String {
     use sha2::Digest;
@@ -186,7 +167,7 @@ fn sha256(bytes: &[u8]) -> String {
 
 fn layer_of(args: &[String]) -> Option<&'static str> {
     match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
-        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), ["1000", "public", "classes", "split"] => Some("L4"), ["1000", "public", "classes", "pair_mode"] => Some("L8"), _ => None,
+        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), ["1000", "public", "classes", "split"] => Some("L4"), _ => None,
     }
 }
 #[derive(Deserialize)]
@@ -221,7 +202,7 @@ impl StationModel {
         let st: Vec<Station> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
         let has = |k: &str| art.stations_args.iter().any(|x| x == k);
         let radius = art.stations_args.first().and_then(|r| r.parse().ok()).unwrap_or(f64::INFINITY);
-        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"), has("split"), has("pair_mode"));
+        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"), has("split"));
         // The stored score belongs to this fit only if: same model source, frozen target bytes and scorer, 1,123 cells, same input bytes, the label of these
         // arguments, all 31 frozen held-out stations present, and exactly the same held-out predictions.
         let held: std::collections::BTreeSet<&str> = st.iter().filter(|s| s.holdout).map(|s| s.id.as_str()).collect();
@@ -240,22 +221,12 @@ impl StationModel {
             if f.origin_cut == MUT_CUT { out += f.workers; }
             if f.destination_cut == MUT_CUT { inb += f.workers; inb_w += f.workers * m(&f.origin_cut); }
         }
-        let (mut out_w, mut home_share) = (0.0, m(MUT_CUT));
-        if fit.pair_mode {
-            // L8: measured public commuters of the pairs from and to the MUT comuna.
-            inb_w = 0.0;
-            for (o, d, w) in public_pairs(data) {
-                if o == MUT_CUT { out_w += w; }
-                if d == MUT_CUT { inb_w += w; }
-            }
-            home_share = out_w / out;
-        }
         let pop = rows::<Commune>(&data.join("communes.csv")).into_iter().find(|c| c.cut == MUT_CUT).unwrap().population;
         let row = rows::<JobRow>(&data.join("jobs.csv")).into_iter().find(|j| j.block_id == MUT_BLOCK).unwrap();
         StationModel {
             layer: art.layer, args: art.stations_args, wape_bins: same.then_some(art.wape_bins),
             mut_point: (row.longitude, row.latitude), mut_jobs: row.jobs, commuters_per_resident: out / pop,
-            home_public_share: home_share, job_public_factor: inb_w / inb, st, base, fit,
+            home_public_share: m(MUT_CUT), job_public_factor: inb_w / inb, st, base, fit,
         }
     }
 
