@@ -1,6 +1,9 @@
+mod site;
+
 use axum::{
     Json, Router,
     extract::State,
+    http::StatusCode,
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
@@ -74,6 +77,8 @@ struct World {
 struct Core {
     baseline: World,
     pairs: Vec<(usize, usize)>,
+    site: site::SiteModel,
+    site_destinations: Vec<(String, f64)>,
 }
 
 #[derive(Deserialize)]
@@ -159,19 +164,26 @@ impl Core {
                 workers: f.workers,
             });
         }
+        let site_destinations = flows
+            .iter()
+            .filter(|flow| flow.origin == "13114")
+            .map(|flow| (flow.destination.clone(), flow.workers))
+            .collect();
+        let observations: site::ObservationData = serde_json::from_reader(
+            std::fs::File::open(directory.join("tobalaba_observations.json")).unwrap(),
+        )
+        .unwrap();
         Self {
             baseline: World {
                 metadata: Metadata {
                     model: "empirical-od-relative-capacity-v1",
                     state: "observed_baseline",
                     data_vintages: HashMap::from([
-                        (
-                            "communes",
-                            "Unconfirmed: awaiting extract provenance".to_owned(),
-                        ),
+                        ("communes", "INE Census 2024 commune aggregates".to_owned()),
                         (
                             "work_od",
-                            "Unconfirmed: awaiting extract provenance".to_owned(),
+                            "INE Census 2024 usual work location, valid comuna, work codes 2/3"
+                                .to_owned(),
                         ),
                     ]),
                     coverage,
@@ -200,6 +212,8 @@ impl Core {
                 flows,
             },
             pairs,
+            site: site::SiteModel::new(observations).unwrap(),
+            site_destinations,
         }
     }
 
@@ -266,11 +280,26 @@ impl Core {
     }
 }
 
+async fn site_scenario(
+    State(core): State<Arc<Core>>,
+    Json(request): Json<site::SiteRequest>,
+) -> Result<Json<site::SiteResponse>, (StatusCode, Json<serde_json::Value>)> {
+    core.site
+        .simulate(request, &core.site_destinations)
+        .map(Json)
+        .map_err(|error| {
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(serde_json::json!({ "error": error })),
+            )
+        })
+}
+
 #[tokio::main]
 async fn main() {
-    let directory = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "data/mvp".to_owned());
+    let mut args = std::env::args().skip(1);
+    let directory = args.next().unwrap_or_else(|| "data/mvp".to_owned());
+    let port = args.next().unwrap_or_else(|| "8787".to_owned());
     let core = Arc::new(Core::load(Path::new(&directory)));
     let app = Router::new()
         .route(
@@ -285,11 +314,15 @@ async fn main() {
                 },
             ),
         )
+        .route("/api/site-scenario", post(site_scenario))
         .layer(CorsLayer::permissive())
         .with_state(core);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8787")
+    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
         .await
         .unwrap();
-    eprintln!("Scenario core listening on http://127.0.0.1:8787");
+    eprintln!(
+        "Scenario core listening on http://{}",
+        listener.local_addr().unwrap()
+    );
     axum::serve(listener, app).await.unwrap();
 }
