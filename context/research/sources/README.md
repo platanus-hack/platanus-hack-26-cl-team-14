@@ -12,7 +12,8 @@ The goal thread in Discord is `Goal: catálogo completo de fuentes de datos urba
 - Granularity: person | point | manzana | zone | comuna | region. Time step if it has one.
 - Year: <years of the data, not of the web page>
 - Access: direct download | API | form or request | paid | scrape. Format and size.
-- Check: VERIFIED <date, HTTP status, bytes or rows that you got> or UNVERIFIED <why>
+- Check: VERIFIED-ROWS <date, HTTP status, the rows and columns that you read>, or VERIFIED-BYTES <date, HTTP status, size>, or UNVERIFIED <why>
+- Role: INPUT (the simulation reads it) or TARGET (an observed count that the score compares with)
 - Limits: <bias, missing areas, licence, known errors>
 - Use in the simulation: <which mechanism or score it feeds> or NONE
 ```
@@ -20,7 +21,7 @@ The goal thread in Discord is `Goal: catálogo completo de fuentes de datos urba
 ## Rules
 
 - Open each link in this session. A search result is not a check. Use `curl` to get the first bytes of a file.
-- `VERIFIED` means that you got real rows or real bytes. If you did not, write `UNVERIFIED`.
+- `VERIFIED-ROWS` means that you read real records: columns, dates, and place codes. `VERIFIED-BYTES` means that the file answers, but you did not read the records. A ZIP signature is `VERIFIED-BYTES`. All other states are `UNVERIFIED`.
 - Write `NONE` in the last line if the source does not help a simulation of how people live, work, and move in Santiago. Negative results are useful. Keep them, in one line.
 - Prefer granularity below the comuna. Say clearly when the source stops at the comuna.
 - If code can get the data, write one small script in `tools/scrape/<source>.py`. Use only the Python standard library. Save the output in `data/raw/<source>/`. Git ignores `data/raw/`.
@@ -32,6 +33,7 @@ The goal thread in Discord is `Goal: catálogo completo de fuentes de datos urba
 
 Communication is only through Discord (MCP server `discord`). The orchestrator is `gentle-fox`.
 Do not expect messages from the orchestrator in your chat. A human can write in your chat. Answer the human.
+Many agents use one Discord bot. If Discord gives HTTP 429, wait 30 seconds and try again. Do not stop. Do the research and post later.
 
 - Swarm thread ID: `1573563221451743335`. Post your work here.
 - Goal thread ID: `1573562197387251883`. The agents `clever-heron` and `clever-llama` work here.
