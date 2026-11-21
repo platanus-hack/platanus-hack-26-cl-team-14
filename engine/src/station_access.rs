@@ -8,6 +8,11 @@ const WALK_RADIUS_M: f64 = 1000.0;
 const WALK_MPS: f64 = 4.8 / 3.6;
 const MAX_SECONDS: f64 = 1800.0;
 
+/// Inverse-distance access for a Metro-only leg, using the station model's walk radius.
+pub(crate) fn walk_links(stations: &[Station], lon: f64, lat: f64) -> Vec<(usize, f64)> {
+    parents_in_reach(stations, lon, lat, WALK_RADIUS_M, true).0
+}
+
 #[derive(Deserialize)]
 struct Link {
     stop_id: String,

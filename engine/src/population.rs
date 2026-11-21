@@ -57,9 +57,13 @@ impl Sampler {
 }
 
 impl Population {
+    pub fn homes(data: &Path) -> Vec<Point> {
+        rows::<Block>(&data.join("blocks.csv")).into_iter()
+            .map(|b| Point { id: b.block_id, cut: b.cut, longitude: b.longitude, latitude: b.latitude, weight: b.population }).collect()
+    }
+
     pub fn build(data: &Path) -> Population {
-        let homes: Vec<Point> = rows::<Block>(&data.join("blocks.csv")).into_iter()
-            .map(|b| Point { id: b.block_id, cut: b.cut, longitude: b.longitude, latitude: b.latitude, weight: b.population }).collect();
+        let homes = Self::homes(data);
         let jobs: Vec<Point> = rows::<Job>(&data.join("jobs.csv")).into_iter()
             .map(|j| Point { id: j.block_id, cut: j.cut, longitude: j.longitude, latitude: j.latitude, weight: j.jobs }).collect();
         let schools: Vec<Point> = rows::<School>(&data.join("schools.csv")).into_iter()
@@ -101,3 +105,6 @@ pub use trips::{TripDelta, TripGroup, TripPlan, sample_trips, trip_deltas};
 mod fine_modes;
 #[allow(unused_imports)]
 pub use fine_modes::{FineModes, NEW_OTHER_MODE};
+
+#[path = "population/shopping_health.rs"]
+pub mod shopping_health;
