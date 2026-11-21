@@ -53,7 +53,7 @@ def near(p):
         if d < best[0]: best = (d, q[0])
     return best
 num = lambda s: float(s.replace(',', '.'))
-MODES = {1:'auto',2:'bus',3:'bus',4:'metro',5:'colectivo',6:'taxi',7:'bus',8:'auto+metro',9:'bus+metro',10:'bus+metro',11:'metro',12:'metro',13:'metro',14:'bus',15:'bus+metro',16:'otros',17:'caminata',18:'bicicleta'}
+MODES = {1:'auto',2:'bus',3:'bus',4:'metro',5:'colectivo',6:'taxi',7:'bus',8:'auto+metro',9:'bus+metro',10:'bus+metro',11:'colectivo+metro',12:'taxi+metro',13:'otros+metro',14:'otros+bus',15:'otros+bus+metro',16:'otros',17:'caminata',18:'bicicleta'}
 pf = {}
 for r in csv.DictReader(open(eod_dir + '/personas.csv', encoding='latin-1'), delimiter=';'):
     if r['Factor_LaboralNormal']: pf[r['Persona']] = num(r['Factor_LaboralNormal'])
