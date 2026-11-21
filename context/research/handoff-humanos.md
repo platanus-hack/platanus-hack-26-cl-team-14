@@ -32,6 +32,6 @@ Claude Code ejecutó la pregunta preparada en el ensayo. El permiso documentado 
 
 ## Antes de presentar y entregar
 
-- El ensayo de la pregunta preparada mostró menos subidas en Universidad de Chile y un cambio de alturas en la misma ejecución. Lee la cifra de la estación y su unidad. Queda pendiente grabar el recorrido continuo. [Traza y capturas del ensayo](https://discord.com/channels/1573514576400752640/1573688250797658172/1573712370340204634).
-- Ensaya una pregunta inédita y cronometra ambas con la maqueta aceptada. Queda pendiente aceptar el detalle en la periferia y las personas que caminan en esa misma revisión.
+- El ensayo de la pregunta preparada mostró menos subidas en Universidad de Chile y un cambio de alturas en la misma ejecución. Lee la cifra de la estación y su unidad. Las capturas muestran Tobalaba. Quedan pendientes el plano de Universidad de Chile y la grabación continua. [Traza y capturas del ensayo](https://discord.com/channels/1573514576400752640/1573688250797658172/1573712370340204634).
+- Ensaya una pregunta inédita con la maqueta aceptada. Para cada pregunta, anota cuándo cambia la ventana y cuándo termina de responder el chat. Queda pendiente aceptar el detalle en la periferia y las personas que caminan en esa misma revisión.
 - El equipo decide el nombre final y la dirección de entrega. «¿Y si Santiago…?» es provisional. El campo `deploy-url` abre el repositorio. Falta el enlace público a la aplicación o a una descarga utilizable. [Ficha](../../platanus-hack-project.jsonc).
