@@ -61,6 +61,17 @@ Command: `target/release/scenario data/mvp - < context/research/mapocho/piers.js
 
 **Do not quote this as boat passengers.** The pier entries are larger than the whole corridor market (88,962 trips). The model treats each pier like a Metro station on the full network, with no boat speed, capacity, headway or season. It shows where river access would compete with Metro, not how many people would take a boat.
 
+## 7. Second engine test: the boat as faster travel minutes
+
+The engine already moves job and mode choice when `minutes` between two comunas change (gravity + logit in `engine/src/choice.rs`). This is how activity-based models add a mode: a new time, a cost, and a constant (ActivitySim tour mode choice, MATSim scoring with a constant per mode).
+`python3 -I tools/pack/mapocho_boat_minutes.py` writes one `minutes` `set` per comuna pair where a boat is faster door to door. Assumptions: 17 km/h (Brisbane CityCat average, Tanko & Burke 2019), a boat every 10 min, walk at 4.5 km/h with a 1.3 detour, 1 min per intermediate pier.
+
+**Result: 0 pairs.** Seven comunas have a pier within 2.5 km of their point (Cerro Navia, Renca, Quinta Normal, Independencia, Santiago, Providencia, Vitacura). For all 42 pairs between them the boat is 2 to 3 times slower than today's public transport. Example: Providencia → Vitacura 72 min by boat, 30 min today; Cerro Navia → Renca 49 against 27. The walk from the comuna point to the pier takes most of the time.
+
+What this means: at comuna scale, a river boat at realistic speed takes no commuters. It competes only for people who live or work a few blocks from a pier (the corridor market in section 3), and for leisure. The Brisbane stated-preference study values the ferry preference at about 17 in-vehicle minutes for its users ([Daniels & Streeting 2002](https://australasiantransportresearchforum.org.au/wp-content/uploads/2022/03/2002_Daniels_Streeting.pdf)). That still does not close a 30–60 minute gap.
+
+Chilean value of time for appraisal (MDSF, Precios Sociales 2025, Table 2.1): 3,126 CLP/h in vehicle, 6,252 CLP/h waiting or walking ([SNI](https://sni.gob.cl/wp-content/uploads/Precios_Sociales_2025.pdf)). Waiting and walking count double, which makes the boat worse, not better.
+
 ## Open questions and confidence
 
 - No boat speed, pier spacing or lock time from a Mapocho source. Use stated assumptions.
