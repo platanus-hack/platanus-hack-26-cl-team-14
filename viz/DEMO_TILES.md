@@ -73,3 +73,41 @@ The operator observed a native frame with textured geometry from the full
 does not establish venue recognition, correct orientation, level overlap,
 working controls, offline reopening, or frame rate. Those checks remain open.
 Monumental capture and native checks remain open. No automated tests ran.
+
+## Selection correction and saved-data replay
+
+The original horizontal-only selection also admitted far-side Earth geometry.
+A far-side tile can project into the same east/south square while its local
+height is about −12.7 million metres. The earlier native MUT frame therefore
+does not establish valid placement or complete local coverage.
+
+Capture now rejects a box only when its entire upper Y extent is below the
+Earth-centre plane in the anchor frame. Coarse parents that cross that plane
+remain eligible. Sphere support uses the affine matrix row lengths, so scale
+and shear cannot make the new hemisphere bound too small. GLB axes, root
+placement, and ADD/REPLACE selection are unchanged.
+
+All saved Google volumes are boxes: 7,465 nodes for Monumental and 7,931 for
+MUT. For curved region volumes, capture skips the new hemisphere cull because
+corner samples can miss an interior extremum. The existing region X/Z corner
+approximation remains an unexercised generic-format limit. This work does not
+claim general region correctness.
+
+A read-only manual replay of the saved traversal, without downloads, retained
+268 of 650 Monumental tiles and 595 of 995 MUT tiles. It rejected the exact
+far-side example, retained a near-side example, and retained the global parent
+that crosses the Earth-centre plane. All retained GLB bytes and hashes stayed
+unchanged. Actual retained vertex bounds, in metres, are:
+
+| Site | X | Y | Z |
+| --- | --- | --- | --- |
+| Monumental | −262.64 to 280.67 | 17.67 to 73.30 | −261.79 to 272.30 |
+| MUT | −265.48 to 278.38 | −32.79 to 107.31 | −262.59 to 271.50 |
+
+Whole edge tiles can extend beyond the requested square. Retained geometry
+has no Earth-scale coordinates in this audit. The replay evaluates the new
+predicate against saved data; it is not execution of the corrected Rust binary.
+Sphere arithmetic was checked manually for far-side, crossing, near-side and
+sheared examples. No real sphere volume was present. The correction has not
+yet been built or captured. New native and denied-network observations remain
+pending. The original bundles and capture statistics were preserved.

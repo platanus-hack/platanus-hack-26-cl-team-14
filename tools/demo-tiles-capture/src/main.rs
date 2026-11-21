@@ -117,6 +117,7 @@ fn center_distance(b: &Value, transform: DMat4, local: DMat4) -> f64 {
 
 // Conservative projected bounds retain full edge tiles. No mesh clipping.
 fn intersects(b: &Value, transform: DMat4, local: DMat4) -> bool {
+    let earth_center_y = local.transform_point3(DVec3::ZERO).y;
     let mut points = Vec::new();
     if let Some(a) = b["box"].as_array() {
         let p = |i: usize| {
@@ -153,20 +154,29 @@ fn intersects(b: &Value, transform: DMat4, local: DMat4) -> bool {
             a[1].as_f64().unwrap(),
             a[2].as_f64().unwrap(),
         ));
-        let r = a[3].as_f64().unwrap()
-            * transform
-                .x_axis
-                .truncate()
-                .length()
-                .max(transform.y_axis.truncate().length())
-                .max(transform.z_axis.truncate().length());
-        return c.x + r >= -HALF && c.x - r <= HALF && c.z + r >= -HALF && c.z - r <= HALF;
+        // Row lengths give each axis support of the affine-transformed sphere.
+        let radius = a[3].as_f64().unwrap();
+        let support = DVec3::new(
+            DVec3::new(m.x_axis.x, m.y_axis.x, m.z_axis.x).length(),
+            DVec3::new(m.x_axis.y, m.y_axis.y, m.z_axis.y).length(),
+            DVec3::new(m.x_axis.z, m.y_axis.z, m.z_axis.z).length(),
+        ) * radius;
+        return c.y + support.y >= earth_center_y
+            && c.x + support.x >= -HALF
+            && c.x - support.x <= HALF
+            && c.z + support.z >= -HALF
+            && c.z - support.z <= HALF;
     } else {
         panic!("Unsupported bounding volume");
     }
     let lo = points.iter().copied().reduce(DVec3::min).unwrap();
     let hi = points.iter().copied().reduce(DVec3::max).unwrap();
-    hi.x >= -HALF && lo.x <= HALF && hi.z >= -HALF && lo.z <= HALF
+    // Cull only a complete box on the far hemisphere. Global parents that
+    // cross the Earth-centre plane must remain eligible for traversal.
+    // A curved region can have extrema between its corners: skip the new
+    // hemisphere cull for regions rather than reject a valid near-side child.
+    let near_hemisphere = !b["box"].is_array() || hi.y >= earth_center_y;
+    near_hemisphere && hi.x >= -HALF && lo.x <= HALF && hi.z >= -HALF && lo.z <= HALF
 }
 
 fn content_url(base: &Url, uri: &str) -> Result<Url> {
