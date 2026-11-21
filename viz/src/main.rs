@@ -119,7 +119,7 @@ fn setup(mut commands: Commands, rig: Res<Rig>, mut fonts: ResMut<Assets<Font>>)
     let terrain: serde_json::Value =
         serde_json::from_slice(include_bytes!("../../web/data/terrain.json")).unwrap();
     let credit = format!(
-        "© OpenStreetMap contributors · {}",
+        "© OpenStreetMap contributors · Google Research, Open Buildings 2.5D Temporal · {}",
         terrain["attribution"].as_str().unwrap()
     );
     let font = fonts.add(Font::from_bytes(

@@ -111,7 +111,8 @@ fn roads(tiles: &mut GroundTiles, path: &Path) {
 fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     let data = read_geojson(path);
     for feature in data["features"].as_array().unwrap() {
-        let color = match feature["properties"]["kind"].as_str().unwrap() {
+        let kind = feature["properties"]["kind"].as_str().unwrap();
+        let color = match kind {
             "track" => [0.38, 0.13, 0.08, 1.0],
             "pitch" => [0.18, 0.38, 0.21, 1.0],
             "surface_parking" => [0.27, 0.28, 0.28, 1.0],
@@ -135,7 +136,14 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
         }
         // Small lawns need vector outlines. Large hillside forests use terrain triangles.
         if size.x.max(size.z) < 720.0 {
-            tile_for(tiles, rings[0][0]).polygon(&rings, 0.18, 0.0, color, color);
+            // Specific uses can overlap broad land use. Roads are drawn at 0.26 m.
+            let lift = match kind {
+                "surface_parking" | "parking_unspecified" | "track" => 0.22,
+                // Some mapped tracks include the infield in their exterior polygon.
+                "pitch" => 0.24,
+                _ => 0.18,
+            };
+            super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, lift, color);
         }
     }
 }
