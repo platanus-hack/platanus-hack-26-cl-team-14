@@ -1002,8 +1002,8 @@ The two files in `web/data/` describe the same **739,230 building shapes** in th
 
 | File | Use | Gzip bytes | Inflated bytes |
 | --- | --- | ---: | ---: |
-| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 5,124,656 | 9,613,272 |
-| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 12,490,992 | 21,684,424 |
+| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 5,234,365 | 9,613,272 |
+| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 12,635,045 | 21,684,424 |
 
 The polygon file has 740,279 rings and 3,385,070 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 324 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 31,297,696 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
 
@@ -1013,18 +1013,22 @@ The build keeps complete OSM building polygons inside the box and retains multip
 | ---: | --- | ---: |
 | 0 | Real OSM footprint, tagged height | 1,997 |
 | 1 | Real OSM footprint, tagged levels × 3.5 m | 21,361 |
-| 2 | Real OSM footprint, estimated from census block density | 255,985 |
-| 3 | Real OSM footprint outside a matched census block, neutral 3 m styling | 42 |
+| 16 | Real OSM footprint, tagged height on a matched part | 1 |
+| 17 | Real OSM footprint, tagged floors on matched parts × 3.5 m | 1 |
+| 32 | Real OSM footprint, arena operator’s stated dome height | 1 |
+| 10 | Real OSM footprint, 2023 satellite height estimate | 65,857 |
+| 2 | Real OSM footprint, estimated from census block density | 190,130 |
+| 3 | Real OSM footprint outside a matched census block, neutral 3 m styling | 37 |
 | 6 | Generated footprint, estimated from census block data | 459,845 |
 
-Tagged dimensions are map attributes. The remaining heights and all generated shapes are visual assumptions. [Coverage by comuna, estimates, and exclusions](../validation/city_buildings/README.md).
+Among 739,230 shapes, 1,999 (0.2704%) have a reported height, 21,362 (2.8898%) use a reported floor count, and 65,857 (8.9089%) use a satellite estimate. The satellite data come from Google Research, Open Buildings 2.5D Temporal (2023). The derived height lookup uses ODbL 1.0. [Credit, matching rules and accuracy check](../../context/research/santiago-roof-heights.md). [Coverage by comuna, estimates, and exclusions](../validation/city_buildings/README.md).
 
 **Read in the browser.** Import `loadBuildingTiles` from `web/data/building_tiles.mjs`. Pass the URL to either gzip file. The decoder supports servers that deliver the gzip archive directly and servers that set `Content-Encoding: gzip`. Call `mesh.tile(column, row)` for zero-copy typed arrays, or `null` for an empty tile.
 
 - Each tile measures 0.02° per side except the top row. Columns increase east, rows north. For a quantized pair `x,y`, convert to degrees with `lon = (mesh.west + x)/100000` and `lat = (mesh.south + y)/100000`.
 - Polygon tile: `polygonOffsets[i..i+1]` gives the half-open range of rings. `ringOffsets[j..j+1]` gives the half-open vertex range in interleaved `positions`. Rings are implicitly closed. The first is the exterior. Other rings are holes. `heights[i]` is decimetres.
 - Box tile: `boxes.subarray(6*i,6*i+6)` gives center X, center Y, width in decimetres, depth in decimetres, rotation in hundredths of a degree, and height in decimetres. Rotation follows the width axis counterclockwise from east, in [0°, 180°).
-- In either file, `flags[i] & 4` marks a generated shape and `flags[i] & 3` gives the height source in the table above.
+- In either file, `flags[i] & 4` marks a generated shape and the full flag byte identifies the source in the table above. `flags[i] & 8` marks an image estimate, `flags[i] & 16` marks an OSM part, and `flags[i] & 32` marks the operator’s value. The two low bits retain the original tagged-height, tagged-levels, estimate, and neutral classes.
 
 **Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Rebuild the block sidecar with `python3 -B tools/pack/building_block_ids.py` after packing both meshes. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
 

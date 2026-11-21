@@ -22,6 +22,9 @@ X_METRES = 1.11320 * math.cos(math.radians(-33.475))
 Y_METRES = 1.10540
 TAGGED, LEVELS, CENSUS, UNASSIGNED = range(4)
 GENERATED = 4
+SATELLITE = 8 | CENSUS
+# OSM parts that cover over 90% of one untagged parent. See the height source notes.
+PART_HEIGHTS = {("a2782182460", 0): (42, 16 | TAGGED), ("a2600312548", 0): (7, 16 | LEVELS)}
 
 
 def quantize(ring):
@@ -158,6 +161,14 @@ def binary(tiles, boxes):
 
 
 def real_features():
+    landmarks = json.loads((OUT / "santiago_landmarks.geojson").read_text())["features"]
+    operator_heights = {}
+    for feature in landmarks:
+        p = feature["properties"]
+        if p.get("height_source") == "venue_operator" and p["osm_type"] == "way":
+            operator_heights[(f"a{2 * p['osm_id']}", 0)] = p["height_m"]
+    with gzip.open("data/mvp/satellite_roof_heights.csv.gz", "rt") as f:
+        satellite = {(r["osm_id"], int(r["part"])): int(r["height_dm"]) / 10 for r in csv.DictReader(f)}
     with (RAW / "real_blocks.csv").open() as f:
         density = {(r["osm_id"], int(r["part"])): float(r["density_height_m"])
                    for r in csv.DictReader(f) if r["block_id"]}
@@ -165,11 +176,18 @@ def real_features():
         for row in f:
             feature = json.loads(row)
             p = feature["properties"]
+            key = (p["osm_id"], p["part"])
             if p["height_m"]:
                 height, flag = p["height_m"], TAGGED
             elif p["levels"]:
                 height, flag = 3.5 * p["levels"], LEVELS
-            elif (key := (p["osm_id"], p["part"])) in density:
+            elif key in PART_HEIGHTS:
+                height, flag = PART_HEIGHTS[key]
+            elif key in operator_heights:
+                height, flag = operator_heights[key], 32 | TAGGED
+            elif key in satellite:
+                height, flag = satellite[key], SATELLITE
+            elif key in density:
                 height, flag = density[key], CENSUS
             else:
                 height, flag = 3, UNASSIGNED

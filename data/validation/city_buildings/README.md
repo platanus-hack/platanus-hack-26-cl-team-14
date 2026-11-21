@@ -14,7 +14,7 @@ The view extends from −70.85 to −70.45 longitude and −33.65 to −33.30 la
 | With new infill in a partly mapped block | 3,845 |
 | With generated buildings, including blocks without a mapped roof | 29,271 |
 
-One zero-OSM polygon in Padre Hurtado (`13605022006052`) enters the box as a narrow strip of 182 m². No footprint fits inside its 2 m setback. The [comuna table](coverage_by_comuna.csv) lists all 52 RM comunas. The `real_share` column divides populated polygons with any rendered OSM intersection by the number of populated polygons in the view, rounded to six decimals. Nine comunas have no such populated polygon in the view. Their share is blank. A share of zero means the view contains populated polygons but none touch a mapped building. Its real-shape count includes both populated and unpopulated blocks. It excludes 43 OSM shapes without a positive-area assignment to INE. Of those, one has a tagged height or floor count. The other 42 receive a separate neutral 3 m height source.
+One zero-OSM polygon in Padre Hurtado (`13605022006052`) enters the box as a narrow strip of 182 m². No footprint fits inside its 2 m setback. The [comuna table](coverage_by_comuna.csv) lists all 52 RM comunas. The `real_share` column divides populated polygons with any rendered OSM intersection by the number of populated polygons in the view, rounded to six decimals. Nine comunas have no such populated polygon in the view. Their share is blank. A share of zero means the view contains populated polygons but none touch a mapped building. Its real-shape count includes both populated and unpopulated blocks. It excludes 43 OSM shapes without a positive-area assignment to INE. Of those, one has a tagged height or floor count. Of the other 42, five now have a satellite estimate and 37 receive the neutral 3 m height.
 
 ## How the geometry is built
 
@@ -44,7 +44,7 @@ Count every packed polygon that intersects a 500 m circle in UTM zone 19S. Clip 
 | Puente Alto (−70.57536, −33.60958) | 337 | 5 → 69 | 17.51% → 18.25% |
 | Quilicura (−70.72939, −33.36569) | 319 | 540 → 757 | 17.86% → 20.24% |
 
-Compared with the original packed files, 13,971 of the 375,281 previously generated roofs intersect exclusions and were removed. Of the 111,413 candidate additions in partly mapped blocks, 98,535 survive. The net change is 84,564 generated roofs. The retained additions have a median area of 92.25 m². All 279,385 mapped footprints retain their packed coordinates, flags, heights and block assignments.
+Compared with the original packed files, 13,971 of the 375,281 previously generated roofs intersect exclusions and were removed. Of the 111,413 candidate additions in partly mapped blocks, 98,535 survive. The net change is 84,564 generated roofs. The retained additions have a median area of 92.25 m². The infill change preserved the coordinates, flags, heights and block assignments of all 279,385 mapped footprints. The subsequent height update is described below.
 
 Of the 361,310 surviving older generated footprints, 14 have a different modeled height in the rebuilt data. Two examples are block 13201141006003 (10.9 → 13.0 m) and block 13119041001011 (23.7 → 29.1 m). Comparison used the delivered polygon binaries and block dictionaries. Every surviving older generated outline retains its geometry and assigned block. The 5% cutoff remains a modeling choice.
 
@@ -52,7 +52,9 @@ Of the 361,310 surviving older generated footprints, 14 have a different modeled
 
 For an INE polygon of area `A` m² with `D` dwellings and `J` modeled jobs at the same block ID, estimate height as `3 × max(1, (65D + 20J) / (0.30A))` metres. The display assumes 65 m² per dwelling, 20 m² per job, 30% building coverage, and 3 m per storey. These are display assumptions. Census dwelling counts and modeled jobs remain distinct inputs. The airport has no block ID match.
 
-Tagged OSM height takes priority. The packer uses tagged levels times 3.5 m when height is absent. Cap density estimates at 77 m, the 99th percentile among 23,358 shapes with a height or levels tag. For generated footprints, multiply the block estimate by a deterministic factor from 0.78 to 1.23, then constrain the result to 3–77 m. The median generated height is 3.6 m. The cap applies only to modeled heights.
+The packer prefers a reported height or floor count on the OSM outline, then a matching OSM part, then the operator’s value. It estimates previously untagged mapped roofs from Google Open Buildings 2.5D Temporal (2023) where one 4 m sample fits inside the roof and meets the presence threshold. For the 665 matched outlines with height tags and a census assignment, the median absolute difference was 3.00 m with satellite data and 4.00 m with the density rule. The comparison leaves the tagged height in the pack. [Sources, method and accuracy by height](../../../context/research/santiago-roof-heights.md).
+
+The packer converts reported floor counts to metres at 3.5 m per floor. Cap density estimates at 77 m, the 99th percentile among 23,358 shapes with a height or levels tag. For generated footprints, multiply the block estimate by a deterministic factor from 0.78 to 1.23, then constrain the result to 3–77 m. The median generated height is 3.6 m. The 77 m cap applies to the census model. Google caps its estimates at 100 m.
 
 ## Rebuild
 
