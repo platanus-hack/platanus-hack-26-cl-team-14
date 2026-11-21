@@ -161,6 +161,13 @@ impl StationAccess {
         masses
     }
 
+    /// Networkwide access for an event attendee who could use Metro. Walk shares sum to one.
+    /// A one-bus connection outside walking range receives the fitted bus mix as a transfer assumption.
+    pub fn event_access_share(&self, longitude: f64, latitude: f64, active: &HashSet<String>) -> f64 {
+        self.place(&[(longitude, latitude, 1.0)], &[], active).iter()
+            .map(|m| m.walk[0] + self.bus_mix * m.bus[0]).sum()
+    }
+
     fn components(&self, mass: &Mass, i: usize, t: usize) -> (f64, f64) {
         let profile = self.fit.p[self.fit.class[i]][t];
         let half = t / 24;
