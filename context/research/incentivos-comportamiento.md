@@ -48,7 +48,7 @@ El alza de $30 de octubre 2019 (Metro punta $830) se revirtió el 19 oct. tras e
 
 MDSF, Precios Sociales 2025, pesos de dic. 2024 ([pdf](https://sni.gob.cl/wp-content/uploads/Precios_Sociales_2025.pdf)). Conf. A.
 
-Son precios sociales (evaluación de proyectos), no disposición a pagar privada.
+Son precios sociales (evaluación de proyectos), en CLP por pasajero-hora, no disposición a pagar privada. La tabla 2026 ([pdf](https://sni.gob.cl/wp-content/uploads/Precios-Sociales-2026.pdf)) da 3.338 en vehículo y 6.676 en espera y caminata; usa 2026 y declara el año. El factor 2× es un supuesto del escenario.
 
 - Promedio urbano ponderado por motivo, en vehículo: **3.126 CLP/h** (52 CLP/min).
 - Espera y caminata: **6.252 CLP/h** (2× en vehículo).
