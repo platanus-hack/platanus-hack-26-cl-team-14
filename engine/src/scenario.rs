@@ -183,13 +183,18 @@ impl Scenario {
             let ch = &serde_json::from_value::<Change>(raw.clone()).unwrap();
             let op = |x: f64| match ch.op { Op::Add => x + ch.value, Op::Multiply => x * ch.value, Op::Set => ch.value }.max(0.0);
             let mut note = serde_json::to_value(ch).unwrap();
-            // The points of the target (indices into pop.jobs or pop.homes) and its comuna. A point target is the point at these coordinates (6 decimals), or else a new point.
+            // The points of the target (indices into pop.jobs or pop.homes) and its comuna. A point target is the point at these coordinates (6 decimals), the nearest point within 500 m for a change that gives 0 on an empty point, or else a new point.
             let points = |v: &mut Vec<Point>| -> (Vec<usize>, String) {
                 match &ch.target {
                     Target::Block { id } => { let i = v.iter().position(|p| p.id == *id).unwrap(); (vec![i], v[i].cut.clone()) }
                     Target::Comuna { id } => ((0..v.len()).filter(|&i| v[i].cut == *id).collect(), id.clone()),
                     Target::Point { longitude, latitude } => {
                         if let Some(i) = v.iter().position(|p| r6(p.longitude) == r6(*longitude) && r6(p.latitude) == r6(*latitude)) { return (vec![i], v[i].cut.clone()); }
+                        // A change that leaves an empty point empty (remove, reduce, scale) means an existing place: the nearest point within 500 m.
+                        if op(0.0) == 0.0 {
+                            let d = |p: &Point| ((p.longitude - longitude) * 0.835).powi(2) + (p.latitude - latitude).powi(2);
+                            if let Some(i) = (0..v.len()).filter(|&i| d(&v[i]) < (500.0f64 / 111_320.0).powi(2)).min_by(|&a, &b| d(&v[a]).total_cmp(&d(&v[b]))) { return (vec![i], v[i].cut.clone()); }
+                        }
                         let cut = self.cut_at(*longitude, *latitude);
                         v.push(Point { id: format!("new{}", v.len()), cut: cut.clone(), longitude: *longitude, latitude: *latitude, weight: 0.0 });
                         (vec![v.len() - 1], cut)
