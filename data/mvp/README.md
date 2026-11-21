@@ -1,6 +1,6 @@
 # Data pack
 
-Some sections describe builder outputs that are not on `main` yet: `site_inputs.csv`, `jobs.csv`, `buildings.geojson`. They arrive in later PRs.
+Some sections describe builder outputs that are not on `main` yet: `site_inputs.csv`. They arrive in later PRs.
 
 ## blocks.csv
 
