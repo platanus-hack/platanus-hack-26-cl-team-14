@@ -5,6 +5,7 @@ pub(crate) mod clock;
 pub(crate) mod follow;
 mod fleet;
 mod motion;
+mod road_water;
 mod instanced;
 mod levels;
 mod riders;
@@ -86,6 +87,7 @@ struct Leg {
 }
 
 struct Path {
+    crossings: Vec<(f32, f32, road_water::Crossing)>,
     points: Vec<Vec3>,
     metres: Vec<f32>,
     seconds: Vec<f32>,
@@ -107,6 +109,7 @@ impl Path {
             seconds.push(seconds[i - 1] + step / legs[leg].vehicle.speed());
         }
         Arc::new(Self {
+            crossings: Vec::new(),
             points,
             metres,
             seconds,
@@ -291,6 +294,7 @@ type Table = HashMap<String, Arc<Path>>;
 
 #[derive(Resource)]
 struct Routes {
+    water: road_water::Water,
     cars: Table,
     bikes: Table,
     public: Table,
@@ -394,7 +398,7 @@ fn gzip_json(file: &str) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-fn local_routes(riders: &RiderNetwork) -> HashMap<LocalKey, Arc<Path>> {
+fn local_routes(riders: &RiderNetwork, water: &road_water::Pack) -> HashMap<LocalKey, Arc<Path>> {
     let mut local = HashMap::new();
     let active = gzip_json("web/data/local_mover_routes.json.gz");
     for g in active["groups"].as_array().unwrap() {
@@ -407,7 +411,11 @@ fn local_routes(riders: &RiderNetwork) -> HashMap<LocalKey, Arc<Path>> {
         };
         let line = points(&active["paths"][g["route"].as_u64().unwrap() as usize]);
         let key = local_key(g["id"].as_u64().unwrap(), mode, &g["origin"], &g["destination"]);
-        local.insert(key, Path::single(line, kind));
+        let mut path = Path::single(line, kind);
+        if kind == Vehicle::Car {
+            road_water::set_crossings(&mut path, water.local.get(&g["route"].to_string()));
+        }
+        local.insert(key, path);
     }
     let gtfs = gzip_json("web/data/local_public_routes.json.gz");
     let records = gtfs["paths"].as_array().unwrap();
@@ -444,7 +452,10 @@ impl Routes {
             .iter()
             .map(|(key, row)| (key.clone(), public_path(row, &riders)))
             .collect();
-        let local = local_routes(&riders);
+        let water: road_water::Pack = serde_json::from_reader(flate2::read::GzDecoder::new(fs::File::open("web/data/car_water_spans.json.gz").unwrap())).unwrap();
+        let local = local_routes(&riders, &water);
+        let mut cars = table("web/data/car_routes.json", Vehicle::Car);
+        for (key, path) in &mut cars { road_water::set_crossings(path, water.od.get(key)); }
         Self {
             public,
             local,
@@ -452,7 +463,8 @@ impl Routes {
             riders,
             entrances,
             station_walk_routes: street_people::WalkRoutes::load(),
-            cars: table("web/data/car_routes.json", Vehicle::Car),
+            water: road_water::Water::new(water),
+            cars,
             bikes: table("web/data/bicycle_routes.json", Vehicle::Bicycle),
             streets: StreetIndex::load("data/mvp/roads.geojson", true),
             cycleways: StreetIndex::load("data/mvp/cycleways.geojson", false),
@@ -1212,8 +1224,13 @@ fn draw(
                     size_at(pos)
                 } * presence;
                 let lane = if kind == Vehicle::Walk { 3.4 } else { 1.6 };
+                let mut position = pos + right(dir) * lane + Vec3::Y * 0.25;
+                if kind == Vehicle::Car {
+                    let Some(surface) = routes.water.surface_position(&g.path, metres, position, dir) else { continue; };
+                    position = surface;
+                }
                 let transform = pose(
-                    pos + right(dir) * lane + Vec3::Y * 0.25,
+                    position,
                     dir,
                     Vec3::splat(scale),
                 );
@@ -1230,7 +1247,9 @@ fn draw(
                         Paint::Loss => Some([255, 136, 144]),
                         Paint::Rerouted => Some([144, 217, 255]),
                     };
-                    let center = transform.translation + Vec3::Y * scale;
+                    // A map mark sits at the lane. Raising a bank car with camera distance
+                    // can project its centre onto the river in a tilted overview.
+                    let center = if kind == Vehicle::Car { transform.translation } else { transform.translation + Vec3::Y * scale };
                     if let Some([r, g, b]) = tint {
                         let accent = if models.ink {
                             Color::linear_rgb(0.85, 0.13, 0.09)
