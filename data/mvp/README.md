@@ -356,20 +356,20 @@ its distance. Builder: `python3 -I tools/pack/travel_times.py` (7 s).
 | `minutes_in_vehicle` | only the time on board. Free of the headway assumption below |
 | `transfers` | number of boardings minus 1 |
 | `walk_m_access`, `walk_m_egress` | straight-line metres walked at each end |
-| `coverage` | `in_feed` when both comuna points have a stop within 1,000 m, else `outside_feed` |
 
 - Source: DTPM `GTFS_20260321_v3.zip` (`data/raw/dtpm-gtfs-march/`, sha256
   `f10945e8…b77b`, equal to the hash that `tobalaba_observations.json` publishes). It is
   the release that `context/mvp.md` names. Points: the population-weighted comuna points
   of `communes.csv`.
-- Rows: 2,454 of the 2,652 directed pairs. **1,190 have `coverage` `in_feed`**; use those.
-  Median 45.5 minutes, from 12.8 to 114.7, median 58% of the time on board.
-  Transfers: 79 pairs need none, 319 need one, 487 need two, 254 three, 51 four or five.
-- Check against trips a person from Santiago knows: Santiago → Las Condes 27.4 min
-  (14.6 on board, 0 transfers); Las Condes → Santiago 25.1; Providencia → Las Condes
-  23.0; Puente Alto → Santiago 44.5 (26.4 on board, 2 transfers); La Pintana → Santiago
-  48.9. The matrix is **not symmetric**: the median gap between A→B and B→A is 1.7
-  minutes and the largest is 74.7.
+- Rows: **1,190**, every directed pair of the 35 comunas whose point has a stop within
+  1,000 m. Median 48.4 minutes, from 12.8 to 123.6.
+- Check against trips a person from Santiago knows: Santiago → Las Condes 33.8 min
+  (21.1 on board, 1 transfer); Las Condes → Santiago 28.9; Puente Alto → Santiago 48.5
+  (30.4 on board, 2 transfers); La Pintana → Santiago 50.1; Maipú → Santiago 41.7. The
+  matrix is **not symmetric**, as a directed matrix must not be.
+- `minutes_in_vehicle` is never above `minutes_door_to_door`, no value is negative, the
+  largest access walk is 992 m and the largest egress walk 857 m, both inside the
+  declared 1,000 m.
 
 ### What the model is
 
@@ -380,25 +380,33 @@ its distance. Builder: `python3 -I tools/pack/travel_times.py` (7 s).
   bus trips (`route_type` 3) are in `frequencies.txt`, so their `stop_times` start at
   `0:00:00` and are offsets from an unknown trip start. 11,528 Metro trips have absolute
   times. A timetable search would have to invent a departure clock for 55.5% of the trips.
-- So the 10,601 weekday trips collapse to **891 stop patterns** (46,668 pattern edges).
-  The ride time on an edge is the exact offset difference. One boarding costs
+- So the 10,601 weekday trips collapse to **891 stop patterns**. The sample trip of a
+  pattern is the one whose first departure is nearest 08:00: a frequency trip carries
+  offsets, so every trip of its pattern gives the same numbers, but a Metro trip has
+  absolute times and the trip near 08:00 is the right sample.
+- A rider who stays on board pays the **dwell** at each intermediate stop. The ride state
+  of a place in a pattern is split in two, "arrived" and "ready to depart", and staying
+  on board costs that stop's `departure − arrival`. Check on the L1 pattern
+  `DL_L1_101_113826_V1`: the rides alone are 1,614 s, the intermediate dwells are 637 s,
+  and the two together are 2,251 s, which is exactly the end-to-end time of that trip in
+  the feed. One boarding costs
   **headway / 2 at 08:00**: from `frequencies.txt` for a bus, and from the count of trips
   that depart between 08:00 and 09:00 for Metro. **702 of the 891 patterns run at 08:00**;
   the other 189 have no service then and are excluded, not given an invented headway.
 - Access and egress: straight line to a stop within 1,000 m at 4.8 km/h. A transfer is a
   walk under 300 m, or 0 m between a platform and its `parent_station` (this feed has no
-  `transfers.txt`). One Dijkstra for each of the 52 origins, 49,874 nodes, 208,089 edges.
+  `transfers.txt`). One Dijkstra for each of the 35 served origins, 86,249 nodes, 245,166 edges.
 
 ### Limits
 
 - **The feed covers Gran Santiago, not the whole region. 17 of the 52 comuna points have
-  no stop within 1,000 m**: Pirque 5.3 km, San José de Maipo 14.4, Colina 10.3, Lampa
-  6.5, Tiltil 24.9, Buin 1.5, Calera de Tango 3.9, Paine 2.1, Melipilla 38.5, Alhué 36.9,
-  Curacaví 20.3, María Pinto 24.9, San Pedro 67.6, Talagante 13.5, El Monte 21.3, Isla de
-  Maipo 14.5, Peñaflor 6.4. Their rural services are not in this GTFS. Those rows keep
-  their nearest stop so nothing is hidden, but the walk becomes the whole trip (San Pedro
-  to Alhué reads 1,353 minutes). **Filter on `coverage = in_feed`.** Alhué reaches nothing
-  at all and has no row as an origin, which is why there are 2,454 rows and not 2,652.
+  no stop within 1,000 m, and they get no row**: Buin 1.5 km, Paine 2.1, Calera de Tango
+  3.9, Pirque 5.3, Peñaflor 6.4, Lampa 6.5, Colina 10.3, Talagante 13.5, San José de
+  Maipo 14.4, Isla de Maipo 14.5, Curacaví 20.3, El Monte 21.3, Tiltil 24.9, María Pinto
+  24.9, Alhué 36.9, Melipilla 38.5, San Pedro 67.6. Their rural services are not in this
+  GTFS. **1,462 of the 2,652 directed pairs are missing for that reason.** An earlier
+  version kept those pairs with their nearest stop, which reported a 67 km walk as a
+  travel time. That is gone: a pair with no stop inside the limit has no row.
 - The headway gives an **expected** wait, not a real 08:00 timetable. A pattern that runs
   every 90 minutes reads as a 45-minute wait. `minutes_in_vehicle` has none of that, which
   is why it is a separate column.
@@ -415,19 +423,23 @@ I compared the matrix with the real trip durations of EOD 2012
 `Periodo` 2 (the 07:31 to 09:00 peak, which brackets the 08:00 departure),
 `ModoAgregado` in {2, 3, 4, 7, 9, 10} (bus and Metro and their pure combinations, no
 taxi, no colectivo, no car), origin comuna different from destination comuna, and the
-pair present with `coverage` `in_feed`. That gives **3,184 sampled trips on 620 pairs**;
+and the pair present in this file. That gives **3,184 sampled trips on 620 pairs**;
 I kept the **80 pairs with 10 or more sampled trips** and took the median of each.
 
 | | result |
 | --- | --- |
 | EOD 2012 observed median | 53.8 min |
-| this matrix | 34.1 min |
-| ratio mine / EOD, median | **0.608** (p10 0.438, p90 0.822) |
-| mean absolute error | 23.3 min, WAPE 40.6% |
-| Pearson r | **0.739** |
-| Spearman | **0.730** |
+| this matrix | 35.5 min |
+| ratio mine / EOD, median | **0.651** (p10 0.452, p90 0.867) |
+| mean absolute error | 20.9 min, WAPE 36.4% |
+| Pearson r | **0.783** |
+| Spearman | **0.744** |
 
-**Read it this way: the ranking is good and the level is 39% too fast.** Use the file as
+Before the dwell was charged, the same check gave 34.1 min, ratio 0.608, WAPE 40.6% and
+Pearson 0.739. Charging the dwell moved every one of those numbers toward the
+observation. That is an independent sign that the fix was right.
+
+**Read it this way: the ranking is good and the level is 35% too fast.** Use the file as
 a relative cost between pairs, not as a minute count a person would recognise. Any model
 that puts these minutes in a decay function with one fitted coefficient absorbs a
 constant factor, so the level bias does not reach such a score; the rank does.
@@ -435,16 +447,16 @@ constant factor, so the level bias does not reach such a score; the rank does.
 Four causes of the gap, and they do not all point the same way:
 1. A comuna point is not a trip end. An EOD trip runs door to door anywhere inside the
    comuna; this matrix runs between two population-weighted centroids, which is shorter
-   than an average real pair. This is probably the largest term.
+   than an average real pair. This is probably the largest remaining term.
 2. Walking is a straight line, so every walk here is shorter than the real one.
 3. `headway / 2` assumes a passenger arrives at the stop at random.
 4. **Part of the gap is real: the network improved.** L6 opened in 2017 and L3 in 2019,
    after the survey. The pairs where this matrix is fastest against EOD are exactly the
-   pairs those lines serve: Quilicura → Las Condes 48.1 against 120.0, Maipú → Las Condes
-   50.6 against 107.5, Renca → Las Condes 48.1 against 95.0. On those pairs EOD 2012 is
-   the out-of-date number, not this matrix.
+   pairs those lines serve: Quilicura → Las Condes, Maipú → Las Condes and Renca → Las
+   Condes each read about half of their EOD time. On those pairs EOD 2012 is the
+   out-of-date number, not this matrix.
 
-I apply **no correction factor**. The 1.64 that would close the level is a fit to EOD,
+I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
 ## jobs.csv
@@ -455,10 +467,10 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
 | --- | --- |
 | `block_id` | INE `MANZENT` code of the manzana, as text. 2,489 are not in `blocks.csv` (916,985 jobs): most manzanas with 0 residents are not there. `13124_airport` is not a manzana. Do not join by id; use `longitude`, `latitude` |
 | `cut` | 5-digit INE comuna code |
-| `longitude`, `latitude` | Centroid of the manzana polygon, EPSG:4674 |
+| `longitude`, `latitude` | Centroid of the manzana polygon, EPSG:4674. One exception: Costanera Center, see its section |
 | `jobs` | Jobs in the manzana, 2024, modeled. Integer |
 | `method` | Signals that put jobs there, joined with `+` |
-| `quality` | `ok`, or `known_low`: the real number is higher. 1 row is `known_low` (Costanera Center) |
+| `quality` | `ok`; `known_low`: the real number is higher (1 row, Costanera Center); `known_high`: the number is probably too high (3 rows, see the limits below). The value of a `known_high` row is not corrected |
 
 - Rows: 11,519. Jobs: 2,688,814. All 52 comunas of the RM.
 - 55 rows (25,273 jobs) have the centroid 2 to 73 m outside the polygon of their own comuna (check by lucky-llama). `cut` is the INE code and is correct. Use `cut` for the comuna, not a point-in-polygon test.
@@ -470,14 +482,15 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
   - `floor_area`: 2 sites of the demo (Costanera Center, the MUT) get a fixed number from published floor area. See the sections below. The other manzanas of the comuna share the rest, so the comuna total does not change.
   - `persons_fallback`: 7 rural comunas have fewer than 50 sampled workers (Paine, Curacaví, Tiltil, San José de Maipo, Alhué, María Pinto, San Pedro). Their jobs spread by resident persons. 50,857 jobs, 1.9%.
 - The airport: the terminal point has 126 sampled workers (14,859 expanded) and is rural land with no manzana. The first version dropped it and spread its jobs over the other manzanas of Pudahuel. Now it is the row `13124_airport`, 27,070 jobs, the largest row of the file. No published count was checked against it.
-- **Association with Metro boardings on the training stations (not a held-out validation).** Jobs within 500 m of a Metro station against the observed weekday boardings from 16:00 to 21:00 (`metro_observations.json`, April 2026), on the 95 stations that are not in the held-out set of `tools/pack/check_score.py`: Pearson 0.76, Spearman 0.79. Within 800 m: 0.69, 0.79. Jobs of the nearest station with no distance limit: 0.33, 0.50, because the last stations of each line take the far jobs (the airport row goes to Plaza Quilicura, 6.9 km away). Use a radius, not the nearest station. Against the morning boardings the correlation is 0, as expected for work places.
+- **Association with Metro boardings on the training stations (not a held-out validation).** Jobs within 500 m of a Metro station against the observed weekday boardings from 16:00 to 21:00 (`metro_observations.json`, April 2026), on the 95 stations that are not in the held-out set of `tools/pack/check_score.py`: Pearson 0.76, Spearman 0.79. Within 800 m: 0.69, 0.79. Jobs of the nearest station with no distance limit: 0.33, 0.50, because the last stations of each line take the far jobs (the airport row goes to Plaza Quilicura, 6.9 km away). Use a radius, not the nearest station. This association did not carry to the held-out score: a 500 m radius for jobs was scored as layer L2b by lucky-llama and was worse (WAPE_bins 0.5202 against 0.4688 with 1,000 m), so the station model keeps 1,000 m. Against the morning boardings the correlation is 0, as expected for work places.
 - Why these signals: they are the only ones on disk with coordinates. SII addresses have no coordinates and follow the head office. OSM and Overture places have no worker counts.
 - What the method gets wrong:
   - The base is from 2012. A place that lost jobs after 2012 keeps them.
   - A building with a permit before 2010 that opened after the survey is missing: the permit file starts in 2010. Costanera Center was the known case, corrected below. Other cases can exist.
-  - The sample is small: one sampled worker is about 120 jobs. Only 11,519 rows have jobs; a real small workplace with no sampled worker has 0. Use the file at a scale of about 500 m, not manzana by manzana.
+  - The sample is small: one sampled worker is about 120 jobs. Only 11,519 rows have jobs; a real small workplace with no sampled worker has 0. Use the file at a scale of about 1 km, not manzana by manzana.
   - 20% of the EOD workers have no usable workplace point (no answer, or coordinates 0,0). They are out of the signal. They are not random: workers with no fixed workplace are in this group.
-  - 40 m² for each job is an assumption, equal for offices, shops, and warehouses. Permit area includes parking floors. 29% of the permit area does not count (outside a manzana, or a second permit of the same project). So a large mall or warehouse permit is probably too high: Mall Barrio Independencia `13108071002002` has 5,330 jobs from a permit of 233,382 m²; Megacentro Buenaventura `13301031001050` has 5,107, most of them from a permit of 99,887 m² of storage.
+  - 40 m² for each job is an assumption, equal for offices, shops, and warehouses. Permit area includes parking floors. 29% of the permit area does not count (outside a manzana, or a second permit of the same project). So a large mall or warehouse permit is probably too high: Mall Barrio Independencia `13108071002002` has 5,330 jobs from a permit of 233,382 m²; Megacentro Buenaventura `13301031001050` has 5,107, most of them from a permit of 99,887 m² of storage. Both are `known_high`.
+  - A row with only `eod2012` and a large number is a few sampled workers on one block. `13120111005004` (Leopoldo Urrutia, Ñuñoa, a residential block) has 3,650 jobs and is `known_high`: it gives the station Monseñor Eyzaguirre 29% of its job mass.
 
 ### Top 20 rows, with the place a person from Santiago knows
 
@@ -520,6 +533,7 @@ Ciudad Empresarial is not one row: the rows within 700 m of its center add 18,13
 - Mall: 134,000 m² of leasable area ([Wikipedia](https://es.wikipedia.org/wiki/Cenco_Costanera), which cites La Tercera, 2012). 134,000 / 46 = 2,913 jobs.
 - Why `known_low`: the office number is the occupancy of 2023, and more floors have tenants now. With all 92,000 m² in use the total is 12,113. The hotel (14,000 m²) is not in the number. No operator count of workers was found.
 - The 4,604 added jobs come from the other manzanas of Providencia. Each lost about 2%.
+- **The point of this row is not the centroid.** It is the point of the block edge nearest to the Tobalaba entrance `TB-TOB:A` (Av. Luis Thayer Ojeda Norte, March GTFS): -70.605298, -33.417821, 232 m from that entrance. Reason: a nearest-station rule on the centroid (409 m from Los Leones, 446 m from Tobalaba) sends the 5,863 jobs to Los Leones, but public guides name Tobalaba as the station of the complex ([Moovit](https://moovitapp.com/index/es-419/transporte_p%C3%BAblico-Costanera_Center-Santiago-site_17434438-642), [Recorrido.cl](https://www.blog.recorrido.cl/destinos/como-se-puede-ir-al-mirador-sky-costanera-center-en-santiago/)). This is an assumption, not a measured share: the block edge is 213 m from a Los Leones entrance and 232 m from a Tobalaba entrance, so part of the workers use Los Leones. Effect in the station model at 1,000 m (L1): afternoon boardings at Tobalaba 50,704 → 56,554 (observed 70,963) and at Los Leones 39,055 → 33,204 (observed 46,674). One station gets better and the other gets worse by the same amount. Both are training stations; the score on the 31 held-out stations does not change (0.4736) and does not judge this change.
 
 ### The MUT (Mercado Urbano Tobalaba)
 
