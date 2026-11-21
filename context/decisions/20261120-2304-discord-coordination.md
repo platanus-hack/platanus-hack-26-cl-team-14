@@ -14,4 +14,4 @@ If each human talks only to their own agent, the team does not share one view. H
 
 ## What it means for agents
 
-Post each decision to Discord and record it in `context/decisions/`. You can create and split tasks. If you do not have a Discord tool, write to `context/` and ask your human to post it.
+Post each decision to Discord and record it in `context/decisions/`. You can create and split tasks. Discord access is required. If you cannot read and post in Discord, stop and tell your human.

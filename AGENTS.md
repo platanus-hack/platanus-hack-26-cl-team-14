@@ -58,11 +58,11 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 ## Coordination
 
+- **Discord access is required.** Before you start work, make sure that you
+  can read and post in the team Discord. If you cannot, stop and tell your human.
 - All decisions and tasks go through Discord.
 - If a human gives you a decision in your session, post it to Discord and
   record it in `context/decisions/`.
-- If you do not have a Discord tool, write to `context/` and ask your human
-  to post it.
 - `main` is the shared branch. Do one task on one branch. Open small
   pull requests to `main`. Pull `main` frequently.
 - If many agents run on one machine, use one git worktree and one dev server
