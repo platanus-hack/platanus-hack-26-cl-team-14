@@ -1251,3 +1251,46 @@ python3 -B tools/pack/car_colour_proxy.py data/raw/car-reference/offer-sample.cs
 ```
 
 A national industry study by acuanto.cl found 17,241 white (32.3%) and 14,257 grey (26.7%) among 53,445 active used-car ads with reported colour. Colour was available for 85% of all ads. The study observed Chilean listings from 8 July 2026 and published its results on 19 August. Its national figures give context for the regional sample. They do not establish colour shares by comuna. [Study and methodology](https://acuanto.cl/estudios/colores)
+
+## Normal-weekday trips by residence and purpose
+
+[eod_trip_rates.csv](eod_trip_rates.csv) covers 45 home comunas in the Santiago EOD 2012 survey. The 78,820 sampled trips represent 18,461,134 trips on a normal weekday. Residence comes from the household table. A trip can start away from home. The resident denominator includes people who reported zero trips. It represents 6,651,735 residents and repeats for each purpose. Use each comuna's denominator once. The trip weight equals the person normal-weekday factor times the trip normal-weekday factor. [Survey archive and dates](../../context/research/sources/verify-transport.md)
+
+| Purpose | EOD purpose codes |
+| --- | --- |
+| Work | 1, 2 (to work or on business) |
+| Study | 3, 4 |
+| Shopping | 11 |
+| Health | 5 |
+| Errands | 12 (trámites) |
+| Leisure | 6, 9, 13 (visits, meals, recreation) |
+| Other | 8, 10, 14, blank (pick up or drop off a person or item, other or missing purpose) |
+| Home | 7 (return home) |
+
+[eod_trip_profiles.csv](eod_trip_profiles.csv) gives three separate distributions within each residence and purpose. Each distribution uses all trips in that group as its denominator. Preserve the survey's 18 aggregate mode codes from `Tablas_parametros/ModoAgregado.csv`. Local start bins 0 through 47 begin at midnight and advance by 30 minutes. Distances measure straight-line separation. Positive distances use lower-inclusive bins with edges at 1, 3, 5, 10 and 20 km. Separate bins retain 13,121 imputed distances, 2,988 unknown or nonpositive distances and 108 missing start times. The profiles describe each dimension separately. Use the paired [tour profiles](eod_tours/README.md) when the joint time and mode of a return trip matter.
+
+Both tables include the unweighted sample count for each cell. A value of 1 in `under_30` marks fewer than 30 sampled trips, including zero. A blank share means the whole home-purpose group has zero sampled trips. Of the 360 home-purpose totals, 52 have fewer than 30 sampled trips.
+
+[eod_destinations.csv](eod_destinations.csv) gives the distribution of destinations for each home comuna and purpose. It includes each observed cell. The denominator retains missing destinations. Of 10,438 sampled shopping, health and errand trips, 244 have unknown destinations (survey codes 0 and 999). The table flags 1,070 of 1,141 destination cells as under 30. A pair absent from the table has zero sample support. The EOD groups all trámites together. Of 2,862 sampled errand trips, 2,800 have a known destination comuna. All 2,862 lack a destination activity, so the survey cannot identify visits to a public office.
+
+### Comparison with mapped places and April Metro arrivals
+
+The [comparison table](../validation/trip_purpose_2026_04/eod_destination_comparison.csv) pools homes within each purpose. Both sides use the same 25 destination comunas, identified by the coordinates of the 95 training stations. The builder selects those station IDs before summing April arrivals. The comparison measures agreement on destination totals across comunas. Neither comparison source identifies a traveler's home comuna.
+
+| Survey distribution | Comparison source | EOD expanded trips in footprint | Source count in footprint | Total variation distance |
+| --- | --- | ---: | ---: | ---: |
+| Shopping | OSM shops, supermarkets and malls | 1,297,615 | 13,228 objects | 0.223 |
+| Health | OSM clinics and hospitals | 305,396 | 469 objects | 0.209 |
+| Errands | OSM government offices | 597,501 | 478 objects | 0.236 |
+| All three purposes | DTPM OTROS at final Metro stops, 15 April 2026 | 2,200,512 | 343,100 expanded arrivals | 0.349 |
+
+Total variation is half the sum of the absolute differences in comuna shares. Zero means the shares agree in every comuna. For example, Santiago accounts for 11.8% of EOD shopping destinations and 25.8% of shopping objects. One mapped place can contribute multiple objects. Parque Arauco appears at the same coordinates under IDs r21382866 and w691562246. The object count measures neither unique venues nor visits. Counts depend on mapping coverage, the urban extract boundary and the November 2026 snapshot. The EOD covers all modes. April OTROS covers additional purposes and measures arrivals at the final transit stop. These comparisons provide no frozen boarding score. [OSM inventory](activity_points.md) · [April source](../validation/trip_purpose_2026_04/README.md)
+
+Run from the repository root. Set SURVEY to the extracted EOD_STGO directory.
+
+```sh
+SURVEY=data/raw/eod2012/x/eod2012/EOD_STGO
+python3 -IB tools/pack/eod_trip_rates.py --survey "$SURVEY"
+python3 -IB tools/pack/eod_destinations.py --survey "$SURVEY"
+uv run --with 'shapely>=2,<3' python tools/pack/eod_destination_comparison.py
+```
