@@ -343,6 +343,7 @@ fn main() -> AppExit {
             chart::ChartPlugin,
             label::LabelPlugin,
             movers::MoversPlugin,
+            city::metro_service::MetroServicePlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,
         ))
