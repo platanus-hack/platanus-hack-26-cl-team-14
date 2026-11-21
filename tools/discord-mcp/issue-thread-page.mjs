@@ -25,7 +25,9 @@ export async function issueThreadReader() {
     const previous = covered.get(threadId);
     if (active && previous?.session === state.session
       && previous.baseline === local.last_message_id && BigInt(after) >= previous.after) {
-      return newMessages(state, local, after).slice(0, 100);
+      const page = newMessages(state, local, after).slice(0, 100);
+      // Older inbox writers omitted the type. Read these messages from Discord.
+      if (page.every(message => message.type != null)) return page;
     }
     const rows = await discord(`/channels/${threadId}/messages?after=${after}&limit=100`);
     const page = rows.filter(m => BigInt(m.id) > BigInt(after))
