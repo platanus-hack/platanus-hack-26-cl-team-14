@@ -461,3 +461,14 @@ Each file contains 48 half-hours for each of 126 GTFS parent IDs. The model proj
 2,700.9 fewer weekday boardings at Tobalaba and 1,655.7 fewer across the network.
 These are scenario estimates. When comparing hosts, check for equal values within
 the existing tolerance of 1e-9 boardings per half-hour.
+
+### Weekday station entries per scheduled place
+
+Run a scenario, then select a Metro parent and a half-hour index. Index 16 starts at 08:00 in Santiago.
+
+```sh
+printf '[]\n' | cargo run --quiet --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - |
+  cargo run --quiet --release --manifest-path engine/Cargo.toml --bin station_capacity -- data/mvp LIB 16
+```
+
+The result compares modeled entries with nominal places on boardable departures in both directions. It uses the weekday timetable of April 13–17, 2026. Event estimates have a separate time window and stay outside this ratio. Train occupancy and free places are unknown. A station with an unrated line, no scheduled departures, or a closure returns a null ratio and the reason. [Schedule and data sources](../data/mvp/metro_station_service.md)
