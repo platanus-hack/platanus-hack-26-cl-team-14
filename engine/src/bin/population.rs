@@ -13,11 +13,7 @@ fn main() {
     let t = std::time::Instant::now();
     let pop = population::Population::build(data);
     let build_ms = t.elapsed().as_secs_f64() * 1e3;
-    let access = a.get(3).map(|layer| match layer.as_str() {
-        "l9" => stations::access::StationAccess::load(data),
-        "april-transport" => stations::access::StationAccess::load_with_april_transport_jobs(data).unwrap(),
-        _ => panic!("use l9 or april-transport"),
-    });
+    let access = a.get(3).map(|layer| stations::access::StationAccess::load_layer(data, layer));
     let walk = access.is_none().then(|| stations::StationModel::new(data));
     let t = std::time::Instant::now();
     // L4b weighting kept on purpose: each worker counts with the public share of its home comuna (L2), so the

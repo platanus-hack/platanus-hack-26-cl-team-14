@@ -105,7 +105,8 @@ impl Scenario {
         }
         let share = modes.iter().map(|m| m.0 / m.1).collect();
         let plan = TripPlan::new(&pop, 2000);
-        let access = StationAccess::load(dir);
+        let layer = std::env::var("SANTIAGO_STATION_JOB_WEIGHTS");
+        let access = StationAccess::load_layer(dir, layer.as_deref().unwrap_or("l9"));
         // Older data packs can still run the current-network and user-defined point scenarios.
         let planned = if dir.join("metro_planned.geojson").exists() { PlannedStations::load(dir) } else { PlannedStations::default() };
         let st: Vec<Value> = serde_json::from_reader(std::fs::File::open(dir.join("metro_training.json")).unwrap()).unwrap();
@@ -146,6 +147,7 @@ impl Scenario {
             j[p.dest as usize] += share[o];
         }
         let pts = |v: &[Point], m: &[f64]| v.iter().zip(m).map(|(p, &x)| (p.longitude, p.latitude, x)).collect::<Vec<_>>();
+        self.access.weight_job_masses(pop.jobs.iter().map(|p| (p.id.as_str(), p.cut.as_str())), &mut j);
         let day = self.access.project_with_additions(&pts(&pop.homes, &h), &pts(&pop.jobs, &j), &network.open, &network.additions)
             .into_iter().map(|x| x.2).collect();
         State { od, modes, day }
@@ -458,6 +460,7 @@ impl Scenario {
             "applied": applied,
             "not_modeled": not_modeled,
             "summary": {
+                "station_job_weights_file": self.access.job_weights_file(),
                 "workers_base": b.od.iter().sum::<f64>(), "workers_scenario": s.od.iter().sum::<f64>(), "workers_moved": moved,
                 "workers_new": s.od.iter().sum::<f64>() - b.od.iter().sum::<f64>(),
                 "boardings_base": r1(total(b)), "boardings_scenario": r1(total(s)),

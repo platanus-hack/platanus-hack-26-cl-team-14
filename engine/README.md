@@ -491,11 +491,21 @@ Half-hour WAPE fell from 0.4178865487 to 0.4114838095.
 For Tobalaba, the two models predicted 39,823.55 and 53,720.26 entries
 in the observed weekday half-hours. DTPM recorded 81,612.80.
 
-A scenario caller can opt in with
-`StationAccess::load_with_april_transport_jobs(data)?`. For each projection,
-call `weight_job_masses` on the freshly aggregated public commuter masses
-in job-point order before calling `project_points`. The default constructor
-uses the census job stocks.
+The scenario CLI and HTTP server use L9 by default. Set
+`SANTIAGO_STATION_JOB_WEIGHTS=april-transport` on the engine process at startup
+to use the April projection for its baseline and subsequent scenarios.
+`summary.station_job_weights_file` reports `jobs.csv` for L9 and
+`jobs_2026.csv` for April. Worker counts, job stocks and job choices use the
+same Census inputs in both runs. The April constructor checks both job file hashes.
+
+To score the scenario CLI output, run these commands from the repository root.
+The scenario JSON rounds each half-hour estimate to one decimal place.
+
+```sh
+printf '[]\n' | SANTIAGO_STATION_JOB_WEIGHTS=april-transport cargo run --locked --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - |
+  jq '[.stations[] | {key: .id, value: .base_half_hour}] | from_entries' > /tmp/scenario-april-bins.json
+python3 -I tools/pack/check_score.py /tmp/scenario-april-bins.json
+```
 
 ## Residents from housing permits
 
