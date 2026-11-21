@@ -357,6 +357,12 @@ fn main() -> AppExit {
                 .run_if(resource_changed::<net::Scenario>)
                 .before(city::draw_buildings),
         )
+        .add_systems(
+            PostUpdate,
+            city::edits::place_closure_ends
+                .after(TransformSystems::Propagate)
+                .before(bevy::ui::UiSystems::Layout),
+        )
         .add_systems(Update, city::draw_buildings)
         .run()
 }
