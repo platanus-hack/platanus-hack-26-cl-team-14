@@ -194,6 +194,7 @@ struct JobRow { block_id: String, longitude: f64, latitude: f64, jobs: f64 }
 /// The accepted station model, fitted once with the arguments of `station_score_run.json`.
 pub struct StationModel {
     st: Vec<Station>, base: Vec<Vec<f64>>, fit: Fit, layer: String, args: Vec<String>, wape_bins: Option<f64>,
+    blocks: Vec<(String, f64, f64, f64)>, jobs: Vec<(String, f64, f64, f64)>,
     mut_point: (f64, f64), mut_jobs: f64, commuters_per_resident: f64, home_public_share: f64, job_public_factor: f64,
 }
 
@@ -239,11 +240,34 @@ impl StationModel {
         }
         let pop = rows::<Commune>(&data.join("communes.csv")).into_iter().find(|c| c.cut == MUT_CUT).unwrap().population;
         let row = rows::<JobRow>(&data.join("jobs.csv")).into_iter().find(|j| j.block_id == MUT_BLOCK).unwrap();
+        let blocks = rows::<Block>(&data.join("blocks.csv")).into_iter().map(|b| (b.cut, b.longitude, b.latitude, b.population)).collect();
+        let jobs = rows::<Job>(&data.join("jobs.csv")).into_iter().map(|j| (j.cut, j.longitude, j.latitude, j.jobs)).collect();
         StationModel {
-            layer: art.layer, args: art.stations_args, wape_bins: same.then_some(art.wape_bins),
+            layer: art.layer, args: art.stations_args, wape_bins: same.then_some(art.wape_bins), blocks, jobs,
             mut_point: (row.longitude, row.latitude), mut_jobs: row.jobs, commuters_per_resident: out / pop,
             home_public_share: m(MUT_CUT), job_public_factor: inb_w / inb, st, base, fit,
         }
+    }
+
+    /// Station boardings for any RM-internal OD flows `(origin_cut, destination_cut, workers)`, through the frozen
+    /// fit: only the home and job masses are recomputed (same public share, point split and 1/d shares); scale,
+    /// classes and profiles stay those of the baseline fit. With the baseline `work_od.csv` flows, in file order,
+    /// it returns the baseline predictions exactly. On changed flows it is a projection, not a validated forecast.
+    pub fn project(&self, flows: &[(String, String, f64)]) -> Vec<(String, String, Vec<f64>)> {
+        let (mut home, mut work) = (HashMap::new(), HashMap::new());
+        for (o, d, w) in flows {
+            if !d.starts_with("13") { continue; }
+            let m = if self.fit.public_share { let (p, t) = self.fit.share[o]; p / t } else { 1.0 };
+            *home.entry(o.clone()).or_insert(0.0) += w * m;
+            *work.entry(d.clone()).or_insert(0.0) += w * m;
+        }
+        let mut dist = Vec::new();
+        let (h, _) = mass(&self.st, &home, &self.blocks, self.fit.radius, self.fit.split, self.fit.inverse, &mut dist);
+        let (j, _) = mass(&self.st, &work, &self.jobs, self.fit.radius, self.fit.split, self.fit.inverse, &mut dist);
+        self.st.iter().enumerate().map(|(i, s)| {
+            let p = &self.fit.p[self.fit.class[i]];
+            (s.id.clone(), s.name.clone(), (0..48).map(|t| p[t] * if t < 24 { h[i] } else { j[i] } * self.fit.a).collect())
+        }).collect()
     }
 
     /// MUT only: new dwellings become home mass, removed jobs leave job mass, both at the MUT jobs row,
