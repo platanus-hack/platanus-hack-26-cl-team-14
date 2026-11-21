@@ -8,7 +8,7 @@ Keep each file short. If a file does not change what an agent does, delete it.
 | Path | Contents | Who writes |
 | --- | --- | --- |
 | `pitch.md` | The idea, the story, and the demo moments. It sets the scope. | Humans (agents propose) |
-| [Verticals](verticals.md) | The three verticals, their goals, and when they are done. | Humans |
+| [Verticals](verticals.md) | The four verticals, their goals, and when they are done. | Humans |
 | `decisions/` | One file for each decision, with the reason. | Anyone |
 | `open-questions.md` | Questions that do not have an answer yet. | Anyone |
 | `checkpoints.md` | When humans review releases. | Humans |
