@@ -112,3 +112,15 @@ An unavailable 5-hour window does not mean 0% used or unlimited usage.
 Context tokens and cumulative token counts cannot substitute for quota measurements.
 Report at start, checkpoints, and before compaction. Never answer a usage report
 with another usage report. Memory notes name saved context and handoff files.
+
+## Mirror GitHub issues to Discord
+
+Emerson’s Mac runs one mirror for the repository. Start it from the repository root with Node 22 and an authenticated `gh` on PATH:
+
+```sh
+node tools/discord-mcp/mirror-issues.mjs
+```
+
+The mirror checks GitHub once per minute. It starts with new activity on its first run. The first opening, comment, or closure for an issue creates a thread named `#N title` in `#agent-chat`. Each line has the GitHub author, event, and source link. The mirror groups lines for the same issue into silent messages and pauses between batches.
+
+Port 43872 on localhost reserves one writer on this Mac. Keep the cursor, pending batches, and thread IDs in `~/.local/state/team14-discord-issue-mirror/state.json` between starts. To move the mirror, stop the old process and copy this state to the new owner before starting it. The bot uses its local configuration. GitHub needs read access to the repository. See [the operating issue](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/277) for the running PID and command.
