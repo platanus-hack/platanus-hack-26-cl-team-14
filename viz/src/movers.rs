@@ -1,11 +1,14 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
-use crate::{city::world, net::Scenario};
+use crate::{
+    city::{Surface, terrain_from_xz, world},
+    net::Scenario,
+};
 use bevy::{
     camera::primitives::{Frustum, Sphere as Bounds},
     prelude::*,
 };
 use serde_json::Value;
-use std::{collections::HashMap, fs, sync::Arc};
+use std::{collections::HashMap, fs, io::Read, sync::Arc};
 
 // One moving figure represents 96 workers. The engine's counts stay in persons.
 const PERSONS_PER_MOVER: f64 = 96.0;
@@ -116,7 +119,9 @@ impl Path {
         let to = self.points[end];
         let t = (value - axis[end - 1]) / (axis[end] - axis[end - 1]);
         let leg = self.legs.partition_point(|leg| leg.end < end);
-        Some((from.lerp(to, t), (to - from).normalize(), self.legs[leg].vehicle))
+        let mut pos = from.lerp(to, t);
+        pos.y = terrain_from_xz(pos.x, pos.z);
+        Some((pos, (to - from).normalize(), self.legs[leg].vehicle))
     }
 }
 
@@ -134,6 +139,7 @@ struct Routes {
     cars: Table,
     bikes: Table,
     public: Table,
+    local: HashMap<LocalKey, Arc<Path>>,
     tracks: Vec<RailLine>,
     streets: StreetIndex,
     cycleways: StreetIndex,
@@ -150,6 +156,106 @@ fn table(file: &str, mode: Vehicle) -> Table {
         .iter()
         .map(|(key, row)| (key.clone(), Path::single(points(row), mode)))
         .collect()
+}
+
+fn public_path(row: &Value, tracks: &[RailLine]) -> Arc<Path> {
+    let path = points(&row["path"]);
+    let legs = row["segments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|leg| Leg {
+            end: leg["end"].as_u64().unwrap() as usize,
+            vehicle: match leg["mode"].as_str().unwrap() {
+                "walk" => Vehicle::Walk,
+                "bus" => Vehicle::Bus,
+                "metro" => {
+                    let first = path[leg["start"].as_u64().unwrap() as usize];
+                    let last = path[leg["end"].as_u64().unwrap() as usize];
+                    tracks
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, t)| t.service == leg["service"].as_str().unwrap())
+                        .find_map(|(track, t)| {
+                            let board = t.path.nearest(first).2;
+                            let exit = t.path.nearest(last).2;
+                            (board < exit).then_some(Vehicle::Metro { track, board, exit })
+                        })
+                        .unwrap()
+                }
+                "rail" => Vehicle::Rail,
+                mode => panic!("unknown public route mode {mode}"),
+            },
+        })
+        .collect();
+    Path::new(path, legs)
+}
+
+type LocalKey = (u64, String, [i64; 4]);
+
+fn local_key(id: u64, mode: &str, origin: &Value, destination: &Value) -> LocalKey {
+    let coords = [&origin[0], &origin[1], &destination[0], &destination[1]].map(|v| {
+        let n = v.as_f64().unwrap();
+        // The GTFS pack preserves endpoints to five decimal places. OSRM keeps the exact source fields.
+        if mode == "public" {
+            (n * 100000.).round() as i64
+        } else {
+            n.to_bits() as i64
+        }
+    });
+    (id, mode.to_owned(), coords)
+}
+
+fn gzip_json(file: &str) -> Value {
+    let mut bytes = Vec::new();
+    flate2::read::GzDecoder::new(fs::File::open(file).unwrap())
+        .read_to_end(&mut bytes)
+        .unwrap();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+fn local_routes(tracks: &[RailLine]) -> HashMap<LocalKey, Arc<Path>> {
+    let mut local = HashMap::new();
+    let active = gzip_json("web/data/local_mover_routes.json.gz");
+    for g in active["groups"].as_array().unwrap() {
+        let mode = g["mode"].as_str().unwrap();
+        let kind = match mode {
+            "car" => Vehicle::Car,
+            "bicycle" => Vehicle::Bicycle,
+            "walk" => Vehicle::Walk,
+            _ => unreachable!(),
+        };
+        let mut line = points(&active["paths"][g["route"].as_u64().unwrap() as usize]);
+        if kind == Vehicle::Walk {
+            // The close view shows the first block of the real walking route.
+            let mut remaining = 180.;
+            for i in 1..line.len() {
+                let length = line[i - 1].distance(line[i]);
+                if length > remaining {
+                    line[i] = line[i - 1].lerp(line[i], remaining / length);
+                    line.truncate(i + 1);
+                    break;
+                }
+                remaining -= length;
+            }
+        }
+        let key = local_key(g["id"].as_u64().unwrap(), mode, &g["origin"], &g["destination"]);
+        local.insert(key, Path::single(line, kind));
+    }
+    let gtfs = gzip_json("web/data/local_public_routes.json.gz");
+    let records = gtfs["paths"].as_array().unwrap();
+    let paths: Vec<_> = records.iter().map(|r| public_path(r, tracks)).collect();
+    for state in ["base", "scenario"] {
+        for (id, index) in gtfs["groups"][state].as_object().unwrap() {
+            let i = index.as_u64().unwrap() as usize;
+            let line = records[i]["path"].as_array().unwrap();
+            local.insert(
+                local_key(id.parse().unwrap(), "public", &line[0], line.last().unwrap()),
+                paths[i].clone(),
+            );
+        }
+    }
+    local
 }
 
 impl Routes {
@@ -180,41 +286,12 @@ impl Routes {
             .as_object()
             .unwrap()
             .iter()
-            .map(|(key, row)| {
-                let path = points(&row["path"]);
-                let legs = row["segments"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|leg| Leg {
-                        end: leg["end"].as_u64().unwrap() as usize,
-                        vehicle: match leg["mode"].as_str().unwrap() {
-                            "walk" => Vehicle::Walk,
-                            "bus" => Vehicle::Bus,
-                            "metro" => {
-                                let first = path[leg["start"].as_u64().unwrap() as usize];
-                                let last = path[leg["end"].as_u64().unwrap() as usize];
-                                tracks
-                                    .iter()
-                                    .enumerate()
-                                    .filter(|(_, t)| t.service == leg["service"].as_str().unwrap())
-                                    .find_map(|(track, t)| {
-                                        let board = t.path.nearest(first).2;
-                                        let exit = t.path.nearest(last).2;
-                                        (board < exit).then_some(Vehicle::Metro { track, board, exit })
-                                    })
-                                    .unwrap()
-                            }
-                            "rail" => Vehicle::Rail,
-                            mode => panic!("unknown public route mode {mode}"),
-                        },
-                    })
-                    .collect();
-                (key.clone(), Path::new(path, legs))
-            })
+            .map(|(key, row)| (key.clone(), public_path(row, &tracks)))
             .collect();
+        let local = local_routes(&tracks);
         Self {
             public,
+            local,
             tracks,
             cars: table("web/data/car_routes.json", Vehicle::Car),
             bikes: table("web/data/bicycle_routes.json", Vehicle::Bicycle),
@@ -230,6 +307,10 @@ impl Routes {
             row["destination_cut"].as_str()?
         );
         let mode = row["mode"].as_str()?;
+        let key = local_key(row["id"].as_u64()?, mode, &row["origin"], &row["destination"]);
+        if let Some(path) = self.local.get(&key) {
+            return Some(path.clone());
+        }
         let table = match mode {
             "car" => Some(&self.cars),
             "bicycle" => Some(&self.bikes),
@@ -357,6 +438,7 @@ struct Platform {
     pos: Vec3,
     dir: Vec3,
     daily: f64,
+    half_hour: Vec<f64>,
     delta: Vec<f32>,
 }
 
@@ -438,6 +520,12 @@ fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut 
                 pos,
                 dir,
                 daily: s["scenario_daily"].as_f64().unwrap(),
+                half_hour: s["scenario_half_hour"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|v| v.as_f64().unwrap())
+                    .collect(),
                 delta: s["delta"]
                     .as_array()
                     .into_iter()
@@ -514,19 +602,173 @@ fn shape(parts: impl IntoIterator<Item = Mesh>) -> Mesh {
     shape
 }
 
+// Hand-drawn top-down slices, from tires to roof. The nose faces +X (right).
+// Each slice gives the near side up to the centerline. The other side mirrors it.
+const CAR_SLICES: &[&[&str]] = &[
+    &["..TT....TT..", "..TT....TT..", "............"],
+    &[".PTTPPPPTTP.", "WPPPPPPPPPPL", "TPPPPPPPPPPT"],
+    &[".PPPPPPPPPL.", "PPPGVVVGPPPL", "PPPGGGGGPPPP"],
+    &["...VGGGV....", "..VGGGGGV...", "..VGGGGGG..."],
+    &["............", "...WWWWG....", "...WWWWG...."],
+];
+
+const BUS_SLICES: &[&[&str]] = &[
+    &[
+        "...TT................TTT.....",
+        "...TT................TTT.....",
+        ".............................",
+        ".............................",
+    ],
+    &[
+        "PPPTTPPPPPPPPPPPPPPPPTTTPPPPL",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    ],
+    &[
+        "PPPTTPPPPPPPPPPPPPPPPTTTPPPPL",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPL",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    ],
+    &[
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    ],
+    &[
+        "PPGGGGTGGGGTGGGGTGGGGTGGGGGTG",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+    ],
+    &[
+        "PPVVVVTGGGGTGGGGTGGGGTGGGGGTV",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGV",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGV",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGV",
+    ],
+    &[
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPT",
+        "WWWWWWWWWWWWWWWWWWWWWWWWWWWWT",
+        "WWWWWWWWWWWWWWWWWWWWWWWWWWWWL",
+        "WWWWWWWWWWWWWWWWWWWWWWWWWWWWL",
+    ],
+    &[
+        ".............................",
+        ".WWWWWWWWWWWWWWWWWWWWWWWWWWW.",
+        ".WWWWWWWWWWWWWWWWWWWWWWWWWWW.",
+        ".WWWWWWWWWWWWWWWWWWWWWWWWWWW.",
+    ],
+    &[
+        ".............................",
+        ".............................",
+        ".....VVVVV.........VVVV......",
+        ".....VVVVV.........VVVV......",
+    ],
+];
+
+fn stacked_vehicle(slices: &[&[&str]], body: Rgb) -> Mesh {
+    use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
+
+    let cell = [0.4; 3];
+    let half = slices[0].len();
+    let size = [
+        slices[0][0].len() as i32,
+        slices.len() as i32,
+        (half * 2 - 1) as i32,
+    ];
+    let pixel = |[x, y, z]: [i32; 3]| -> u8 {
+        if x < 0 || y < 0 || z < 0 || x >= size[0] || y >= size[1] || z >= size[2] {
+            return b'.';
+        }
+        slices[y as usize][z.min(size[2] - z - 1) as usize].as_bytes()[x as usize]
+    };
+    let tint = |key| {
+        let [r, g, b] = match key {
+            b'P' => body,
+            b'T' => [28, 39, 47],
+            b'G' => [53, 105, 127],
+            b'V' => [118, 169, 177],
+            b'W' => [241, 233, 211],
+            b'L' => [255, 211, 119],
+            _ => unreachable!(),
+        };
+        Color::srgb_u8(r, g, b).to_linear().to_f32_array()
+    };
+
+    let mut vertices = Vec::new();
+    let mut normals = Vec::new();
+    let mut colors = Vec::new();
+    let mut indices = Vec::new();
+    let origin = Vec3::new(
+        -0.5 * size[0] as f32 * cell[0],
+        0.,
+        -0.5 * size[2] as f32 * cell[2],
+    );
+    let cell = Vec3::from_array(cell);
+
+    // Each outward-facing run of equal color becomes one quad. Hidden faces cost no triangles.
+    for axis in 0..3 {
+        let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
+        for side in [-1, 1] {
+            let mut normal = [0.; 3];
+            normal[axis] = side as f32;
+            for depth in 0..size[axis] {
+                for row in 0..size[v] {
+                    let face = |col| {
+                        let mut p = [0; 3];
+                        p[axis] = depth;
+                        p[u] = col;
+                        p[v] = row;
+                        let key = pixel(p);
+                        p[axis] += side;
+                        if pixel(p) == b'.' { key } else { b'.' }
+                    };
+                    let mut col = 0;
+                    while col < size[u] {
+                        let start = col;
+                        let key = face(col);
+                        col += 1;
+                        if key == b'.' {
+                            continue;
+                        }
+                        while col < size[u] && face(col) == key {
+                            col += 1;
+                        }
+                        let index = vertices.len() as u32;
+                        let rgb = tint(key);
+                        for (a, b) in [(start, row), (col, row), (col, row + 1), (start, row + 1)] {
+                            let mut p = Vec3::ZERO;
+                            p[axis] = (depth + i32::from(side == 1)) as f32;
+                            p[u] = a as f32;
+                            p[v] = b as f32;
+                            vertices.push((origin + p * cell).to_array());
+                            normals.push(normal);
+                            colors.push(rgb);
+                        }
+                        let winding = if side == 1 {
+                            [0, 1, 2, 0, 2, 3]
+                        } else {
+                            [0, 2, 1, 0, 3, 2]
+                        };
+                        indices.extend(winding.map(|j| index + j));
+                    }
+                }
+            }
+        }
+    }
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
+        .with_inserted_indices(Indices::U32(indices))
+}
+
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mats: ResMut<Assets<StandardMaterial>>) {
-    let car = shape([
-        block([4.7, 0.38, 1.85], [0., 0.36, 0.], GLASS),
-        block([4.9, 0.78, 2.05], [0., 0.86, 0.], [241, 169, 58]),
-        block([2.55, 0.62, 1.69], [-0.12, 1.48, 0.], GLASS),
-        block([1.95, 0.15, 1.66], [-0.25, 1.85, 0.], IVORY),
-    ]);
-    let bus = shape([
-        block([11.6, 1.55, 2.65], [0., 1.05, 0.], [205, 53, 49]),
-        block([11.35, 1.12, 2.63], [0., 2.36, 0.], GLASS),
-        block([11.4, 0.28, 2.72], [0., 3.05, 0.], IVORY),
-        block([2.8, 0.25, 1.55], [-1.8, 3.3, 0.], [151, 164, 171]),
-    ]);
+    let car = stacked_vehicle(CAR_SLICES, [235, 160, 53]);
+    let bus = stacked_vehicle(BUS_SLICES, [213, 48, 53]);
     let bike = shape([
         wheel(-0.7),
         wheel(0.7),
@@ -582,7 +824,56 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mats: Res
     })
     .collect();
     commands.insert_resource(Models { mesh, paint });
-    commands.insert_resource(Routes::load());
+    let routes = Routes::load();
+    let track_material = mats.add(StandardMaterial {
+        perceptual_roughness: 0.85,
+        ..default()
+    });
+    for line in &routes.tracks {
+        commands.spawn((
+            Mesh3d(meshes.add(track_mesh(&line.path))),
+            MeshMaterial3d(track_material.clone()),
+        ));
+    }
+    commands.insert_resource(routes);
+}
+
+// A surface cutaway exposes the published Metro alignment, including underground sections.
+fn track_mesh(path: &Path) -> Mesh {
+    let mut surface = Surface::default();
+    let bed = Color::srgb_u8(93, 91, 84).to_linear().to_f32_array();
+    let steel = Color::srgb_u8(159, 162, 155).to_linear().to_f32_array();
+    for edge in path.points.windows(2) {
+        let delta = edge[1] - edge[0];
+        let side = right(delta).normalize_or_zero();
+        let steps = (delta.length() / 50.).ceil() as usize;
+        for i in 0..steps {
+            let a = edge[0] + delta * (i as f32 / steps as f32);
+            let b = edge[0] + delta * ((i + 1) as f32 / steps as f32);
+            for (left, right, lift, color) in [
+                (1.0, 4.0, 0.32, bed),
+                (1.59, 1.8, 0.38, steel),
+                (3.2, 3.41, 0.38, steel),
+            ] {
+                let start = surface.positions.len() as u32;
+                for mut p in [
+                    a + side * left,
+                    a + side * right,
+                    b + side * right,
+                    b + side * left,
+                ] {
+                    p.y = terrain_from_xz(p.x, p.z) + lift;
+                    surface.positions.push(p.to_array());
+                    surface.normals.push([0., 1., 0.]);
+                    surface.colors.push(color);
+                }
+                surface
+                    .indices
+                    .extend([start, start + 1, start + 2, start, start + 2, start + 3]);
+            }
+        }
+    }
+    surface.finish()
 }
 
 struct Train<'a> {
@@ -816,8 +1107,13 @@ fn draw(
             Paint::Plain,
             pose(center, p.dir, Vec3::new(52., 1., 6.)),
         );
-        // Platform figures represent daily boardings; the engine publishes only changes by half hour.
-        let count = (p.daily / 1600.).round() as usize;
+        // With a half-hour profile each figure uses the same scale as a moving group.
+        // Results that publish daily totals show one figure per 1,600 daily boardings.
+        let count = p
+            .half_hour
+            .get(slot as usize)
+            .map_or(p.daily / 1600., |n| n / PERSONS_PER_MOVER)
+            .round() as usize;
         let delta = p.delta.get(slot as usize).copied().unwrap_or_default();
         let accent = if delta > 0. {
             Paint::Gain
