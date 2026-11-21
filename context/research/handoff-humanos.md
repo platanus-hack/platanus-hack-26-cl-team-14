@@ -24,7 +24,7 @@ Vistas: `/web/?t=36&mut=1` (Tobalaba), `/web/?v=s` (Santiago), `/web/?v=p&t=36` 
 
 ## Los números de referencia de hoy (la versión congelada se elige a las 12:30 UTC)
 
-A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada** (commit de `main` + artefacto de puntaje; regla en `context/decisions/20261121-0845-presentation-freeze.md`; una capa aún en revisión a las 12:15 queda fuera) y el demo corre esa versión, no `main`. Una **capa** es una versión del modelo de estaciones: cada una agrega un mecanismo y se queda solo si baja el error en las 31 estaciones reservadas. Hoy la capa aceptada es **L4b**; L5 y L8 empeoraron el puntaje y L6 se retiró sin correr, así que L4b es la candidata:
+A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada** (commit de `main` + artefacto de puntaje; regla en `context/decisions/20261121-0845-presentation-freeze.md`; una capa aún en revisión a las 12:15 queda fuera) y el demo corre esa versión, no `main`. Una **capa** es una versión del modelo de estaciones; se queda solo si baja el error en las 31 estaciones reservadas. Hoy la capa aceptada es **L4b**; L5 y L8 empeoraron el puntaje y L6 se retiró sin correr, así que L4b es la candidata:
 
 | En pantalla | Valor | Qué es |
 | --- | --- | --- |
@@ -40,11 +40,11 @@ Cada número hablado lleva la capa de la versión elegida; nada cambia después 
 ## Lo que no sabemos (una línea cada uno)
 
 - Cuántos trabajadores del MUT entran al Metro: el 0,2 es un supuesto; el modelo de estaciones usa otra vía. −513 y −2.781 son dos estimaciones, no un rango.
-- El Censo no separa Metro de bus: digan "transporte público", nunca "Metro", para cifras del Censo.
+- El Censo no separa Metro de bus: para cifras del Censo digan "transporte público", nunca "Metro".
 - Los 4.679 empleos del MUT son modelados (superficie publicada de oficinas y locales, 88% y 75% arrendada en 2024, 10 y 46 m² por puesto); el operador declara 4.000 personas en oficinas.
 - Datos de 2023 alrededor de la apertura del MUT (PR #77 a #79): entre abril y agosto, Tobalaba en Línea 4 subió 20,4% y la mediana de las otras 18 estaciones bajó 1,5%. Dos semanas, por línea, conteo de combinaciones no documentado. Descriptivo: no mide el efecto del MUT ni se compara con 2026 ni con los modelos.
 - Los dos modelos mueven residentes y trabajadores; no incorporamos una fuente verificada de visitantes al modelo.
-- Tobalaba es una estación de entrenamiento, no una de las 31 reservadas: el 45% nunca midió Tobalaba.
+- Tobalaba no es una de las 31 estaciones reservadas: el 45% nunca la midió.
 
 ## Las 5 preguntas para ustedes (con nuestra recomendación)
 
