@@ -135,7 +135,6 @@ fn setup(mut commands: Commands, rig: Res<Rig>, mut fonts: ResMut<Assets<Font>>)
             ..default()
         },
         TextColor(Color::WHITE),
-        TextShadow::default(),
         Node {
             position_type: PositionType::Absolute,
             bottom: px(8),
