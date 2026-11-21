@@ -24,17 +24,17 @@ Out of scope: physics simulation, terrain, flood zones, wildfire, seismic hazard
 - Access: direct download. PDF. Each year is a separate file at airerm.mma.gob.cl. Size: ~1-5 MB per report.
 - Check: VERIFIED 2026-11-21, HTTP 206, application/pdf, 1024+ bytes (2025 report). Also checked 2024 and 2022 reports: same pattern.
 - Limits: PDF format, not machine-readable. Would need to parse tables from PDF. Only covers May-August. No CSV series found. Declared vs. confirmed episodes differ in count.
-- Use in the simulation: TARGET. The count of preemergencia days per year and the specific dates are observable outcomes. The simulation can compare its air-quality-driven restriction schedule against the real GEC record.
+- Use in the simulation: INPUT. The specific dates and types of episodes (alerta, preemergencia, emergencia) are scenario inputs that trigger restriction rules. The simulation does not predict air quality; it takes the episode calendar as given and simulates how movement changes in response.
 
 ### Restricción vehicular (car restriction calendar)
 - Link: https://www.diariooficial.interior.gob.cl/publicaciones/2026/04/30/44438/01/2805129.pdf (2026 decree)
-- Contents: the annual decree sets which last-digit pairs cannot drive on each weekday during May-August. For green-seal cars: Mon 8-9, Tue 0-1, Wed 2-3, Thu 4-5, Fri 6-7. On preemergencia days, 4 digits are restricted. On emergencia days, 6 digits. Hours: 07:30-21:00. Area: Provincia de Santiago plus Puente Alto and San Bernardo.
+- Contents: the annual decree sets which last-digit pairs cannot drive on each weekday during May-August. Applies to non-catalytic (green-seal) cars only; catalytic (blue-seal), electric, and exempt vehicles (disability, emergency) are not restricted on normal days. For green-seal cars: Mon 8-9, Tue 0-1, Wed 2-3, Thu 4-5, Fri 6-7. On preemergencia days, 4 digits are restricted and catalytic cars registered before 2011-09-01 also join. On emergencia days, 6 digits plus more catalytic vehicles. Hours: 07:30-21:00. Area: Provincia de Santiago plus Puente Alto and San Bernardo.
 - Granularity: zone (the restriction area). Time step: 1 day.
 - Year: published annually since ~1990. The 2026 decree is Resolución Exenta from the Seremi de Transportes.
 - Access: direct download. PDF from Diario Oficial. Can be encoded as a simple lookup table (day-of-week × plate-digit → restricted yes/no).
 - Check: VERIFIED 2026-11-21, HTTP 200 for Diario Oficial PDF. News sources confirm the 2026 calendar.
 - Limits: no structured dataset. Must be parsed from the decree or news. Changes yearly. Separate calendar for trucks/buses/motorcycles. The simulation needs to combine this with GEC episode type to get the full restriction for each day.
-- Use in the simulation: INPUT. On each simulated day, the restriction removes ~20% of cars (normal) or ~40% (preemergencia) or ~60% (emergencia) from the road. This directly changes mode choice: restricted drivers switch to transit or stay home.
+- Use in the simulation: INPUT. On each simulated day, the restriction removes a share of cars that depends on fleet age composition (green-seal share, pre-2011 catalytic share) and episode type. The simulation must encode vehicle eligibility rules, not assume a fixed percentage. Restricted drivers switch to transit or stay home.
 
 ### DMC weather stations (Dirección Meteorológica de Chile)
 - Link: https://climatologia.meteochile.gob.cl/application/informacion/fichaDeEstacion/330020 (Quinta Normal)
