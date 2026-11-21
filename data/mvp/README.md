@@ -1052,6 +1052,34 @@ Other `height_m` values come from OSM structure-height tags. The `elevation_m` f
 
 Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
 
+### Saturday Metro use among public transport trips
+
+`saturday_public_metro.json` gives two conditional shares from the Santiago EOD 2012.
+The denominator counts each complete normal-Saturday trip that uses only public transport.
+The numerator for `metro_any_share` counts trips with a Metro stage anywhere in the trip.
+The numerator for `metro_first_share` counts trips whose first stage is Metro.
+
+Of 2,862 surveyed trips, 869 included Metro and 505 started on Metro. After expansion,
+1,154,358.09403654 of 3,638,246.57528746 trips used Metro at any stage (31.73%).
+696,340.70226136 of that same total started on Metro (19.14%). The JSON preserves
+the expanded counts as exact decimal strings. Each trip contributes its weight once.
+
+The builder joins `Etapas` to `viajes`, checks the recorded number of stages and reads
+their order from `Etapa`. It includes EOD stage modes 2, 3, 4, 5, 7, 12, 14 and 16.
+These codes cover bus, Metro, colectivo, taxi and train. All stages must qualify.
+It multiplies `viajes.FactorSabadoNormal` by `personas.Factor_SabadoNormal` and keeps
+positive weights. The survey assigns Saturday, day class 2 (weekend) and season 1
+(normal) to every trip with a positive Saturday trip weight.
+
+The survey covers all purposes and predates the 2026 event. Transferring its probabilities
+to event attendees is a scenario assumption. A rider who starts by bus may board Metro
+farther from the venue. The aggregate provides no participant origins or event attendance.
+[SECTRA survey](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) · [Public survey tables](https://users.dcc.uchile.cl/~egraells/gds-data/eod2012.tgz) · [INE trip and person expansion method](https://www.ine.gob.cl/docs/default-source/sistema-de-indicadores-y-estandares-de-desarrollo-urbano/manuales/actualizaci%C3%B3n-2019/manual-procedimientos-siedu-act2019.pdf)
+
+```sh
+python3 -I tools/pack/saturday_public_metro.py --survey /path/to/EOD_STGO
+```
+
 ## Residential streets and mapped green areas
 
 The native view can read two gzip-compressed GeoJSON FeatureCollections under `web/data/`. Both cover the full Santiago roads rectangle (longitude −70.85 to −70.45, latitude −33.65 to −33.30). Each feature has `osm_type`, numeric `osm_id`, and `kind`. Named objects also have `name`. A source object may have several clipped parts. Coordinates use WGS84 longitude and latitude to five decimals.
