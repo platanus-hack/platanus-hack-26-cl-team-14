@@ -468,13 +468,44 @@ fn inside(ring: &[Vec3], p: Vec2) -> bool {
     odd
 }
 
+/// The same cross-sections used to draw the terraces, in the landmark's local frame.
+#[derive(Component)]
+pub(crate) struct StadiumSeating {
+    outer: Vec<Vec3>,
+    inner: Vec<Vec3>,
+    heights: Vec<f32>,
+    floor: f32,
+}
+
+impl StadiumSeating {
+    pub(crate) fn contains(&self, local: Vec3) -> bool {
+        inside(&self.outer, local.xz())
+    }
+
+    // A turn follows the perimeter; depth runs from the infield edge to the outer wall.
+    pub(crate) fn terrace(&self, turn: f32, depth: f32) -> Vec3 {
+        let position = turn.rem_euclid(1.) * self.outer.len() as f32;
+        let i = position as usize % self.outer.len();
+        let j = (i + 1) % self.outer.len();
+        let inner = self.inner[i].lerp(self.inner[j], position.fract());
+        let outer = self.outer[i].lerp(self.outer[j], position.fract());
+        let mut point = inner.lerp(outer, depth);
+        point.y = self.floor + self.heights[i] * terrace_level(depth);
+        point
+    }
+}
+
+fn terrace_level(depth: f32) -> f32 {
+    0.07 + 0.90 * depth
+}
+
 fn stadium_bowl(
     mesh: &mut Surface,
     rings: &[Vec<Vec3>],
     floor: f32,
     height: f32,
     stands: &[(Vec<Vec3>, f32)],
-) -> Vec<bool> {
+) -> (Vec<bool>, StadiumSeating) {
     let mut used = vec![false; stands.len()];
     let mut center = rings[1].iter().copied().sum::<Vec3>() / rings[1].len() as f32;
     center.y = floor;
@@ -497,6 +528,7 @@ fn stadium_bowl(
             rim_point(&rings[1], center, d),
         ));
     }
+    let mut heights = Vec::with_capacity(N);
     for i in 0..N {
         let (outer, inner) = rim[i];
         let (next_outer, next_inner) = rim[(i + 1) % N];
@@ -517,6 +549,7 @@ fn stadium_bowl(
                 })
             })
             .map_or(height, |s| s.1);
+        heights.push(height);
         let bottom = |mut p: Vec3| {
             p.y = terrain_from_xz(p.x, p.z) - 0.05;
             p
@@ -550,7 +583,7 @@ fn stadium_bowl(
                 shade,
             );
         }
-        let row = |a: Vec3, b: Vec3, t: f32| at(a.lerp(b, t), height * (0.07 + 0.90 * t));
+        let row = |a: Vec3, b: Vec3, t: f32| at(a.lerp(b, t), height * terrace_level(t));
         for tier in 0..12 {
             let low = tier as f32 / 12.;
             let high = (tier + 1) as f32 / 12.;
@@ -587,7 +620,8 @@ fn stadium_bowl(
             );
         }
     }
-    used
+    let (outer, inner) = rim.into_iter().unzip();
+    (used, StadiumSeating { outer, inner, heights, floor })
 }
 
 fn field_line(mesh: &mut Surface, a: Vec3, b: Vec3, width: f32, color: Color4) {
@@ -695,7 +729,7 @@ fn floodlight(mesh: &mut Surface, p: Vec3, center: Vec3, height: f32) {
     }
 }
 
-fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
+fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) -> StadiumSeating {
     let fc = read_geojson(path);
     let parts = fc["features"].as_array().unwrap();
     let shell = parts
@@ -718,7 +752,7 @@ fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
         })
         .collect();
 
-    let used = stadium_bowl(
+    let (used, seating) = stadium_bowl(
         mesh,
         &rings,
         floor,
@@ -763,6 +797,7 @@ fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
             _ => (),
         }
     }
+    seating
 }
 
 // These tile-local identities match the named OSM footprints in SGBX and SGB1.
@@ -781,7 +816,7 @@ pub(super) const HIDDEN: [(usize, usize); 10] = [
     (152, 1180),
     (152, 1181),
 ];
-pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
+pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh, Option<StadiumSeating>)> {
     let fc = read_geojson(&root.join("web/data/santiago_landmarks.geojson"));
     let mut objects = Vec::new();
     for feature in fc["features"].as_array().unwrap() {
@@ -798,6 +833,7 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
         };
         let rings = open_rings(&feature["geometry"]["coordinates"]);
         let mut shape = Surface::default();
+        let mut seating = None;
         match kind {
             "tower" => gran_torre(
                 &mut shape,
@@ -815,11 +851,11 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
             ),
             _ => {
                 let mut tiles = GroundTiles::new();
-                estadio_nacional(
+                seating = Some(estadio_nacional(
                     &mut tiles,
                     &root.join("web/data/estadio_nacional_parts.geojson"),
                     1.0,
-                );
+                ));
                 shape = tiles.into_values().next().unwrap();
             }
         }
@@ -827,7 +863,10 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
         for pos in &mut shape.positions {
             pos[1] -= base;
         }
-        objects.push((NAMED[index], base, shape.finish()));
+        if let Some(bowl) = &mut seating {
+            bowl.floor -= base;
+        }
+        objects.push((NAMED[index], base, shape.finish(), seating));
     }
     // Estadio Monumental, from tools/pack/pitch_sites.py; it replaces the footprints in NAMED[4] and HIDDEN.
     let path = root.join("web/data/estadio_monumental_parts.geojson");
@@ -840,11 +879,12 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
         .unwrap();
     let base = open_rings(&shell["geometry"]["coordinates"])[0][0].y;
     let mut tiles = GroundTiles::new();
-    estadio_nacional(&mut tiles, &path, 1.0);
+    let mut seating = estadio_nacional(&mut tiles, &path, 1.0);
+    seating.floor -= base;
     let mut shape = tiles.into_values().next().unwrap();
     for pos in &mut shape.positions {
         pos[1] -= base;
     }
-    objects.push((NAMED[4], base, shape.finish()));
+    objects.push((NAMED[4], base, shape.finish(), Some(seating)));
     objects
 }
