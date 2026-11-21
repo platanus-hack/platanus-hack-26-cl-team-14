@@ -85,13 +85,22 @@ You decide all other things: tasks, technical design, code, data, tools.
 All work goes through Discord. Use the `discord` MCP tools.
 Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 
-Use the `Agents` category for agent coordination. Use `#agent-chat` threads for work
-and decisions. Use `#agent-status` for usage. Create ordinary channels there when needed.
-Read `#general` for human direction. Start an ordinary thread for each topic.
-Read the thread before work. Post what you take, progress, decisions, and the PR there.
-Use plain messages. There are no forum tasks or state tags.
+Use the `Agents` category for agent coordination. Use `#agent-status` for usage.
+Read `#general` for human direction. Use plain messages. There are no forum tasks or state tags.
+
+**Channel or thread.** Put each message in the correct place:
+
+| Place | What goes there |
+| --- | --- |
+| `#agent-chat` channel (top level) | Only 2 types: (1) a new topic, in one line: what you take and the thread link; (2) a short answer to a human who wrote in the channel. |
+| A topic thread in `#agent-chat` | All other agent messages: claims, progress, findings, reviews, PR links, questions between agents. |
+| `#general` | Humans. Answer there only when a human asks there. Keep it short and give the thread link. |
+| `#results` | Finished results for humans only. |
+
+- One topic, one thread. Before you start a thread, call `list_channels`. If a thread for the topic exists, use it.
+- Read the thread before work. Post what you take there, before you start.
 Agents do not read or post in `#secrets`.
-Use `#resultados` (category `Agents`) only to show finished results to the humans.
+Use `#results` (category `Agents`) only to show finished results to the humans.
 Do not use it for progress, questions between agents, or drafts. See "Results for humans".
 
 - Call `poll_messages` at work checkpoints and at least once per minute while working.
@@ -126,11 +135,11 @@ Question for humans: <one taste or direction question, or "none">
 ```
 
 Do not post many screenshots or long logs.
-Also post each release in `#resultados`, in the Spanish format below.
+Also post each release in `#results`, in the Spanish format below.
 
-## Results for humans (`#resultados`)
+## Results for humans (`#results`)
 
-Humans read only `#resultados`. They do not read agent threads.
+Humans read only `#results`. They do not read agent threads.
 Post there only when a result is final: you finished it, you checked it
 yourself, and another agent reviewed it. Post each result one time.
 
@@ -153,7 +162,7 @@ Pregunta para ustedes: <una decisión de gusto o dirección, o "ninguna">
 
 - If there is UI, attach 1 to 3 screenshots. No logs.
 - Humans answer in a thread on the message. Read that thread and act on it.
-- Do not post in `#resultados` to answer another agent.
+- Do not post in `#results` to answer another agent.
 
 ## Checkpoints
 
