@@ -60,8 +60,11 @@
 
 <div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
 <div id="delta" class="box t"><span id="dv"></span><small>Cambio de subidas al día, modelo</small>
-  <div id="car" style="font-size:64px;margin-top:14px"></div><small id="cark"></small>
-  <small>Nuevos residentes<br>Supuesto: reparto modal de Las Condes</small></div>
+  <div style="display:flex;justify-content:flex-end;gap:32px;margin-top:14px;font-size:64px">
+    <div><span id="car"></span><small>en auto</small></div>
+    <div><span id="public"></span><small>en transporte público</small></div>
+  </div>
+  <small>Nuevos residentes: personas que salen al día<br>Supuesto: reparto modal de Las Condes</small></div>
 <script>
 const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
 const API = 'http://localhost:8787/api/';
@@ -134,8 +137,9 @@ function siteScenario() {
     $('dv').className = dd > 0 ? 'more' : 'less';
     $('delta').style.display = site ? 'block' : 'none';
     const car = site && site.resident_commuters_by_mode && site.resident_commuters_by_mode.find(m => m.mode_code == 1);
+    const publicTransport = site && site.resident_commuters_by_mode && site.resident_commuters_by_mode.find(m => m.mode_code == 2);
     $('car').textContent = car ? fmt(car.daily_home_departures) : '';
-    $('cark').textContent = car ? 'personas salen en auto al día' : '';
+    $('public').textContent = publicTransport ? fmt(publicTransport.daily_home_departures) : '';
     draw();
   });
 }
