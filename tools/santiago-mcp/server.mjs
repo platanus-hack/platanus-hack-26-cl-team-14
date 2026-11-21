@@ -131,7 +131,12 @@ const sceneTool = {
 
 // Cached replays for the demo: create before the pitch, list and run during it. The engine computes nothing on run.
 const replays = new URL('../../data/replays/', import.meta.url);
-const readReplay = (id) => JSON.parse(readFileSync(new URL(`${id}.json`, replays), 'utf8'));
+// An id is a file name inside data/replays, never a path.
+const replayFile = (id) => {
+  if (!/^[a-z0-9-]+$/.test(id)) throw new Error('A replay id uses only a-z, 0-9 and -.');
+  return new URL(`${id}.json`, replays);
+};
+const readReplay = (id) => JSON.parse(readFileSync(replayFile(id), 'utf8'));
 const listReplaysTool = {
   name: 'list_replays',
   description: 'List the cached demo replays: id, title, the presenter question, the changes, the scene place and start half hour, the duration and what to analyze. Use it to match the presenter question to a replay.',
@@ -291,10 +296,11 @@ async function dispatch({ method, params }) {
       text = { replay: meta, result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
     } else if (params.name === createReplayTool.name) {
       const { scene, changes, stations = [], ...meta } = args;
+      replayFile(meta.id);
       await setScene(scene);
       const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
-      writeFileSync(new URL(`${meta.id}.json`, replays), JSON.stringify(replay));
+      writeFileSync(replayFile(meta.id), JSON.stringify(replay));
       text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
     } else text = (await runScenario(args)).short;
     return { content: [{ type: 'text', text: JSON.stringify(text) }] };
