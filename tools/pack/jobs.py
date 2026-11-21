@@ -20,6 +20,15 @@ CELL = 0.002     # index cell, degrees (about 200 m)
 LANDMARK_N = 10  # sampled workers on one identical point
 LANDMARK_M = 500 # a landmark spreads over the manzanas with exact-address workers within this distance
 MIN_SAMPLE = 50  # a comuna with fewer placed sampled workers uses resident persons
+OFFICE_M2 = 10   # usable m2 for one office worker: OGUC art. 4.2.4 occupant load; the MUT claim (4,000 people, 40,000 m2) gives the same
+MALL_M2 = 46     # leasable m2 for one mall job: 4.61 million m2 GLA (CCC index, Q3 2024) / about 100,000 jobs (CNC study, 2021)
+# Two sites of the demo get jobs from published floor area, not from the 2012 signal. Sources: data/mvp/README.md.
+SITE = {  # manzana -> (jobs, quality)
+    # Costanera Center: 29,500 m2 of offices occupied in March 2023 + 134,000 m2 of mall. Office occupancy grew later: low.
+    "13123081002004": (round(29500 / OFFICE_M2 + 134000 / MALL_M2), "known_low"),
+    # MUT: 45,765 m2 of offices, 88% leased + 40,000 m2 of shops, 75% leased (July 2024)
+    "13114131009033": (round(45765 * 0.88 / OFFICE_M2 + 40000 * 0.75 / MALL_M2), "ok"),
+}
 
 
 def utm19s_to_lonlat(x, y):
@@ -173,17 +182,21 @@ for cut, jobs in sorted(total.items()):
     if not w:
         w = {mz: (z["persons"], "persons_fallback") for mz, z in zones.items() if z["comuna_cut"] == cut and z["persons"]}
         stats["jobs_fallback"] += jobs
+    fixed = {mz: j for mz, (j, _) in SITE.items() if zones[mz]["comuna_cut"] == cut}
+    w = {mz: v for mz, v in w.items() if mz not in fixed}
+    jobs -= sum(fixed.values())  # the comuna total stays: the other manzanas share the rest
     s = sum(v for v, _ in w.values())
     # largest remainder: integer jobs that sum to the Census total
     share = {mz: jobs * v / s for mz, (v, _) in w.items()}
     n = {mz: int(v) for mz, v in share.items()}
     for mz in sorted(share, key=lambda m: share[m] - n[m], reverse=True)[: jobs - sum(n.values())]:
         n[mz] += 1
-    rows += [(mz, cut, zones[mz]["lon"], zones[mz]["lat"], n[mz], w[mz][1]) for mz in sorted(n) if n[mz]]
+    rows += [(mz, cut, zones[mz]["lon"], zones[mz]["lat"], n[mz], w[mz][1], "ok") for mz in sorted(n) if n[mz]]
+    rows += [(mz, cut, zones[mz]["lon"], zones[mz]["lat"], j, "floor_area", SITE[mz][1]) for mz, j in fixed.items()]
 
 with open(PACK + "/jobs.csv", "w", newline="") as f:
     out = csv.writer(f)
-    out.writerow(["zone_id", "comuna_cut", "lon", "lat", "jobs", "method"])
+    out.writerow(["block_id", "cut", "longitude", "latitude", "jobs", "method", "quality"])
     out.writerows(rows)
 
 print(len(rows), "rows,", sum(r[4] for r in rows), "jobs, Census total", sum(total.values()))
