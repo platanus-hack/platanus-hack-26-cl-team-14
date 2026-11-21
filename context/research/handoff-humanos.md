@@ -24,7 +24,7 @@ Vistas directas: `/web/?t=36&mut=1` (Tobalaba), `/web/?v=s` (Santiago), `/web/?v
 
 ## Los números de referencia de hoy (la versión congelada se elige a las 12:30 UTC)
 
-A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada** (un commit completo de `main` + su artefacto de puntaje; regla en `context/decisions/20261121-0845-presentation-freeze.md`: una capa aún en revisión a las 12:15 queda fuera). Desde entonces el demo corre esa versión, no `main`. Una **capa** es una versión del modelo de estaciones: cada una agrega un mecanismo y se queda solo si baja el error en las 31 estaciones reservadas. Hoy la capa aceptada es **L4b**; L5 y L8 empeoraron el puntaje y L6 se retiró sin correr, así que L4b es la candidata:
+A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada** (commit de `main` + artefacto de puntaje; regla en `context/decisions/20261121-0845-presentation-freeze.md`; una capa aún en revisión a las 12:15 queda fuera) y el demo corre esa versión, no `main`. Una **capa** es una versión del modelo de estaciones: cada una agrega un mecanismo y se queda solo si baja el error en las 31 estaciones reservadas. Hoy la capa aceptada es **L4b**; L5 y L8 empeoraron el puntaje y L6 se retiró sin correr, así que L4b es la candidata:
 
 | En pantalla | Valor | Qué es |
 | --- | --- | --- |
@@ -35,14 +35,14 @@ A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada**
 | 45% | error agregado del modelo en 31 estaciones reservadas | puntaje de desarrollo |
 | 0,1 ms | tiempo del cálculo por comuna, medido en el portátil de Emerson (no es el tiempo del navegador ni del modelo de estaciones) | medido |
 
-Cada número hablado lleva la capa de la versión elegida. Si una capa cambia después de las 12:30, la pantalla y el discurso no cambian hasta que ustedes lo digan.
+Cada número hablado lleva la capa de la versión elegida; nada cambia después de las 12:30 hasta que ustedes lo digan.
 
 ## Lo que no sabemos (una línea cada uno)
 
 - Cuántos trabajadores del MUT entran al Metro: el 0,2 es un supuesto; el modelo de estaciones usa otra vía. −513 y −2.781 son dos estimaciones, no un rango.
 - El Censo no separa Metro de bus: digan "transporte público", nunca "Metro", para cifras del Censo.
-- Los 4.679 empleos del MUT son modelados, no medidos: superficie publicada de oficinas y locales, 88% y 75% arrendada en julio de 2024, 10 m² y 46 m² por puesto; el operador declara 4.000 personas en oficinas.
-- Datos de 2023 alrededor de la apertura del MUT (PR #77 a #79): entre abril y agosto, las subidas de Tobalaba en Línea 4 subieron 20,4% y la mediana de las otras 18 estaciones de la línea bajó 1,5%. Son dos semanas, por línea, con un conteo de combinaciones no documentado. Es descriptivo; no mide el efecto del MUT, no se compara con 2026 ni con los modelos.
+- Los 4.679 empleos del MUT son modelados (superficie publicada de oficinas y locales, 88% y 75% arrendada en 2024, 10 y 46 m² por puesto); el operador declara 4.000 personas en oficinas.
+- Datos de 2023 alrededor de la apertura del MUT (PR #77 a #79): entre abril y agosto, Tobalaba en Línea 4 subió 20,4% y la mediana de las otras 18 estaciones bajó 1,5%. Dos semanas, por línea, conteo de combinaciones no documentado. Descriptivo: no mide el efecto del MUT ni se compara con 2026 ni con los modelos.
 - Los dos modelos mueven residentes y trabajadores; no incorporamos una fuente verificada de visitantes al modelo.
 - Tobalaba es una estación de entrenamiento, no una de las 31 reservadas: el 45% nunca midió Tobalaba.
 
@@ -54,4 +54,4 @@ Cada número hablado lleva la capa de la versión elegida. Si una capa cambia de
 4. **Los datos de 2023**: ¿dos frases de contexto ("no sabemos cuánto es del MUT; nuestros modelos no cuentan visitantes") o se dejan para las preguntas del jurado? Recomendación: para las preguntas, si el ensayo pasa de 3 minutos.
 5. **Tiempo y cierre**: 256 palabras (~2 minutos a 130 por minuto, antes de clics y de la respuesta del jurado). El cierre dice "tres preguntas" con dos casos: recomendación, "dos preguntas, y la tercera la hacen ustedes". Si hay que cortar: primero el contexto 2023, después la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
 
-Respondan en `#agent-chat` o editen `context/pitch.md`. Los agentes siguen en el hilo.
+Respondan en `#agent-chat` o editen `context/pitch.md`.
