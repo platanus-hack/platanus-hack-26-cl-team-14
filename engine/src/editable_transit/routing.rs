@@ -1,4 +1,5 @@
 //! Weekday 08:00 impedance, with the same walk limits as tools/pack/travel_times.py.
+use super::timetable::{ARRIVAL_LIMIT, DEPARTURE_MINUTE, Starts};
 use super::{Pattern, Stop};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BinaryHeap, HashMap};
@@ -14,6 +15,7 @@ struct Edge {
     next: usize,
     minutes: f64,
     ride: bool,
+    schedule: Option<usize>,
 }
 
 impl Edge {
@@ -22,6 +24,7 @@ impl Edge {
             next,
             minutes,
             ride: false,
+            schedule: None,
         }
     }
 }
@@ -104,41 +107,59 @@ impl Routing {
         patterns: impl Iterator<Item = &'a Pattern>,
     ) -> Vec<Option<f64>> {
         let mut edges = self.walk.clone();
+        let mut schedules = Vec::new();
         for pattern in patterns {
-            let Some(headway) = pattern.headway_minutes else {
-                continue;
-            };
-            let first = edges.len();
-            edges.resize_with(first + 2 * pattern.stop_ids.len(), Vec::new);
-            for (i, id) in pattern.stop_ids.iter().enumerate() {
-                let stop = self.stops[id];
-                let arrival = first + 2 * i;
-                let departure = arrival + 1;
-                if pattern.pickup_type[i] == 0 {
-                    edges[stop].push(Edge::transfer(departure, headway * 0.5));
+            for schedule in pattern.schedules.iter() {
+                if !schedule.starts.overlaps(
+                    schedule.calls[0][1],
+                    schedule.calls[schedule.calls.len() - 2][1],
+                ) {
+                    continue;
                 }
-                if pattern.drop_off_type[i] == 0 {
-                    edges[arrival].push(Edge::transfer(stop, 0.0));
-                }
-                edges[arrival].push(Edge::transfer(departure, pattern.dwell_minutes[i]));
-                if let Some(&ride) = pattern.segment_minutes.get(i) {
-                    edges[departure].push(Edge {
-                        next: arrival + 2,
-                        minutes: ride,
-                        ride: true,
-                    });
+                let first = edges.len();
+                let index = schedules.len();
+                schedules.push(&schedule.starts);
+                edges.resize_with(first + 2 * pattern.stop_ids.len(), Vec::new);
+                for (i, id) in pattern.stop_ids.iter().enumerate() {
+                    let stop = self.stops[id];
+                    let arrival = first + 2 * i;
+                    let departure = arrival + 1;
+                    let [arrive, leave] = schedule.calls[i];
+                    if pattern.drop_off_type[i] == 0 {
+                        edges[arrival].push(Edge::transfer(stop, 0.0));
+                    }
+                    if let Some(&[next_arrive, _]) = schedule.calls.get(i + 1) {
+                        if pattern.pickup_type[i] == 0 {
+                            edges[stop].push(Edge {
+                                next: departure,
+                                minutes: leave,
+                                ride: false,
+                                schedule: Some(index),
+                            });
+                        }
+                        edges[arrival].push(Edge::transfer(departure, leave - arrive));
+                        edges[departure].push(Edge {
+                            next: arrival + 2,
+                            minutes: next_arrive - leave,
+                            ride: true,
+                            schedule: None,
+                        });
+                    }
                 }
             }
         }
         let mut matrix = Vec::with_capacity(self.access.len().pow(2));
         for (origin, sources) in self.access.iter().enumerate() {
-            let distances = shortest(&edges, sources);
+            let distances = shortest(&edges, &schedules, sources);
             for (destination, stops) in self.access.iter().enumerate() {
                 let best = stops
                     .iter()
                     .map(|&(stop, egress)| distances[stop][1] + egress)
                     .fold(f64::INFINITY, f64::min);
-                matrix.push((origin != destination && best.is_finite()).then_some(best));
+                matrix.push(
+                    (origin != destination && best <= ARRIVAL_LIMIT)
+                        .then_some(best - DEPARTURE_MINUTE),
+                );
             }
         }
         matrix
@@ -170,10 +191,11 @@ impl PartialOrd for Label {
     }
 }
 
-fn shortest(edges: &Edges, sources: &[(usize, f64)]) -> Vec<[f64; 2]> {
+fn shortest(edges: &Edges, schedules: &[&Starts], sources: &[(usize, f64)]) -> Vec<[f64; 2]> {
     let mut distance = vec![[f64::INFINITY; 2]; edges.len()];
     let mut queue = BinaryHeap::new();
-    for &(node, minutes) in sources {
+    for &(node, walk) in sources {
+        let minutes = DEPARTURE_MINUTE + walk;
         distance[node][0] = minutes;
         queue.push(Label {
             minutes,
@@ -193,8 +215,11 @@ fn shortest(edges: &Edges, sources: &[(usize, f64)]) -> Vec<[f64; 2]> {
         for edge in &edges[node] {
             let rode = rode || edge.ride;
             let next_distance = &mut distance[edge.next][usize::from(rode)];
-            let candidate = minutes + edge.minutes;
-            if candidate < *next_distance {
+            let candidate = match edge.schedule {
+                Some(index) => schedules[index].next(minutes, edge.minutes),
+                None => minutes + edge.minutes,
+            };
+            if candidate <= ARRIVAL_LIMIT && candidate < *next_distance {
                 *next_distance = candidate;
                 queue.push(Label {
                     minutes: candidate,
