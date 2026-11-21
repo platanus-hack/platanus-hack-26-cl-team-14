@@ -1046,10 +1046,6 @@ Among 739,230 shapes, 1,999 (0.2704%) have a reported height, 21,362 (2.8898%) u
 
 `web/data/santiago_landmarks.geojson` contains nine public landmarks (15,778 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
 
-## Santiago landmarks
-
-`web/data/santiago_landmarks.geojson` contains eight public landmarks (14,810 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
-
 | ID | City-view geometry | Official reference |
 | --- | --- | --- |
 | `gran_torre_costanera` | Exterior tower footprint. OSM tags 300 m height and 64 levels. | [Sky Costanera names the tower and gives the viewpoint height of 300 m](https://www.skycostanera.cl/es) |
@@ -1136,10 +1132,6 @@ Of these nodes, 3,185 (4.12%) have a `height` tag. Of the 3,185 values, 3,184 gi
 Run `python3 -I tools/pack/city_trees.py data/raw/osm-buildings-city/urban.osm.pbf` with osmium-tool installed. The input is the same urban extract used for the building mesh. Its SHA-256 is `4a1cfdb3ffdfdb58cbc6247ab36cac38ad2dc35509b5c1e102a7e53461234cb3`.
 
 Credit the map as [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The point data use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). [Geofabrik Chile snapshot, November 20, 2026](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf)
-
-The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
-
-Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
 
 ## Estadio Nacional components
 
