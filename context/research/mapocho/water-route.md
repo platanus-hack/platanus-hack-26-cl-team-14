@@ -6,7 +6,7 @@ The route follows the OpenStreetMap centerline from WaterwayMap. Projecting the 
 
 ## Timing
 
-The 22.778 km route takes 72.4 minutes at the model's 17 km/h speed. Eight one-minute stops bring one-way time to 88.4 minutes, before any terminal layover. The [boat line input](boat_line.json) used straight distances between piers. To use this route for both motion and modeled travel time, update `segment_minutes` from `ride_minutes_at_17_kmh` and regenerate the replay. Preserve the separate dwell and headway assumptions.
+The 22.778 km route takes 80.4 minutes at the model's 17 km/h speed. Eight one-minute stops bring one-way time to 88.4 minutes, before any terminal layover. The [boat line input](boat_line.json) used straight distances between piers. To use this route for both motion and modeled travel time, update `segment_minutes` from `ride_minutes_at_17_kmh` and regenerate the replay. Preserve the separate dwell and headway assumptions.
 
 ## Reproduce
 
