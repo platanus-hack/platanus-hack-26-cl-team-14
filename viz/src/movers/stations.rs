@@ -1,7 +1,8 @@
 use super::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) struct Entrance {
+    pub(super) gtfs: Option<Box<str>>,
     pub(super) position: Vec3,
     sign: Vec3,
     outward: Vec3,
@@ -35,6 +36,7 @@ pub(super) fn entrances() -> Entrances {
                         )
                     });
                     Entrance {
+                        gtfs: r["gtfs"].as_str().map(Into::into),
                         position,
                         sign,
                         outward,
