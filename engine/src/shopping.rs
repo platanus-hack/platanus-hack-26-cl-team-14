@@ -11,8 +11,8 @@ use std::path::Path;
 const ALPHA: f64 = 0.586;
 const BETA: f64 = 0.2047;
 
-/// One shop point: longitude, latitude, comuna index.
-pub type Shop = (f64, f64, usize);
+/// One shop point: longitude, latitude, comuna index, id (baseline points 0..n, added points after).
+pub type Shop = (f64, f64, usize, u32);
 
 pub struct Shopping {
     /// Weekday shopping trips by home comuna. Zero for a comuna without an EOD 2012 rate.
@@ -58,7 +58,8 @@ impl Shopping {
         let trips: Vec<f64> = (0..n).map(|o| residents[o] * rate[o].unwrap_or(0.0)).collect();
         let shops: Vec<Shop> = records(&dir.join("activity_points.csv"))
             .filter(|r| ["shop", "mall", "supermarket"].contains(&&r[0]))
-            .filter_map(|r| Some((r[2].parse().unwrap(), r[3].parse().unwrap(), ix(&r[4])?))).collect();
+            .filter_map(|r| Some((r[2].parse().unwrap(), r[3].parse().unwrap(), ix(&r[4])?)))
+            .enumerate().map(|(i, (x, y, c))| (x, y, c, i as u32)).collect();
         // EOD 2012 destination totals by comuna, homes pooled. Unknown destinations are left out of both sides.
         let mut observed = vec![0.0; n];
         for r in records(&dir.join("eod_destinations.csv")).filter(|r| &r[1] == "shopping") {
@@ -71,11 +72,11 @@ impl Shopping {
         Shopping { trips, shops, no_rate, destination_tv }
     }
 
-    /// Add `delta` shop points at a point (comuna `cut`), or remove the `-delta` nearest shop points.
+    /// Add `delta` shop points at a point (comuna `cut`), with ids from `next_id`, or remove the `-delta` nearest shop points.
     /// Returns what it took and the added or removed points.
-    pub fn edit(shops: &mut Vec<Shop>, longitude: f64, latitude: f64, cut: usize, delta: i64) -> (Value, Vec<Shop>) {
+    pub fn edit(shops: &mut Vec<Shop>, next_id: &mut u32, longitude: f64, latitude: f64, cut: usize, delta: i64) -> (Value, Vec<Shop>) {
         if delta >= 0 {
-            let added = vec![(longitude, latitude, cut); delta as usize];
+            let added: Vec<Shop> = (0..delta).map(|_| { *next_id += 1; (longitude, latitude, cut, *next_id - 1) }).collect();
             shops.extend(&added);
             return (json!({ "shops_added": delta }), added);
         }
@@ -109,8 +110,8 @@ impl Shopping {
         // A removed site reports its shoppers in the base, an added site in the scenario.
         // Only baseline shops count as removed and only shops still in the final stock count as added.
         let sites: Vec<Value> = sites.iter().map(|(x, y, removed, added)| {
-            let removed: Vec<Shop> = removed.iter().filter(|p| self.shops.contains(p)).copied().collect();
-            let added: Vec<Shop> = added.iter().filter(|p| shops.contains(p)).copied().collect();
+            let removed: Vec<Shop> = removed.iter().filter(|p| (p.3 as usize) < self.shops.len()).copied().collect();
+            let added: Vec<Shop> = added.iter().filter(|p| shops.iter().any(|s| s.3 == p.3)).copied().collect();
             let (shops, visitors) = if added.is_empty() { (-(removed.len() as i64), visitors(&b, &b_size, &removed)) } else { (added.len() as i64, visitors(&s, &s_size, &added)) };
             json!({ "longitude": x, "latitude": y, "shops": shops, "shoppers": summary(visitors) })
         }).collect();

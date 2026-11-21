@@ -295,6 +295,7 @@ impl Scenario {
         let mut requests = vec![];
         let mut shops = self.shopping.shops.clone();
         let mut shop_sites = vec![];
+        let mut next_shop = shops.len() as u32;
 
         // Apply derived stock changes at the parent edit’s position in the request.
         let mut pending: Vec<_> = changes.iter().rev().cloned().map(|change| (change, false)).collect();
@@ -416,7 +417,7 @@ impl Scenario {
                 match (t["type"].as_str(), t["longitude"].as_f64(), t["latitude"].as_f64(), raw["op"].as_str(), raw["value"].as_f64()) {
                     (Some("point"), Some(x), Some(y), Some("add"), Some(v)) if v.fract() == 0.0 => {
                         let cut = self.ix(&self.cut_at(x, y));
-                        let (mut understood, points) = Shopping::edit(&mut shops, x, y, cut, v as i64);
+                        let (mut understood, points) = Shopping::edit(&mut shops, &mut next_shop, x, y, cut, v as i64);
                         understood["comuna"] = json!(c.names[cut]);
                         note["understood"] = understood;
                         applied.push(note);
