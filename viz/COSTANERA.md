@@ -1,9 +1,9 @@
 # Local Costanera viewer
 
-Build the separate binary:
+Use Rust1.97.1 or later. Build the separate binary:
 
 ```sh
-CARGO_TARGET_DIR=/tmp/costanera-view-target cargo build --manifest-path viz/Cargo.toml --bin view_costanera -j1
+CARGO_TARGET_DIR=/tmp/costanera-view-target cargo build --locked --manifest-path viz/Cargo.toml --bin view_costanera -j1
 ```
 
 The operator opens the captured bundle:
