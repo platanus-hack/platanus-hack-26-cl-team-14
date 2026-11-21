@@ -1247,9 +1247,16 @@ fn draw(
                         Paint::Loss => Some([255, 136, 144]),
                         Paint::Rerouted => Some([144, 217, 255]),
                     };
-                    // A map mark sits at the lane. Raising a bank car with camera distance
-                    // can project its centre onto the river in a tilted overview.
-                    let center = if kind == Vehicle::Car { transform.translation } else { transform.translation + Vec3::Y * scale };
+                    // Lift the billboard toward the eye along the lane's own projection ray.
+                    // This preserves the overview's depth clearance without shifting a bank
+                    // car sideways over the river on screen.
+                    let lane = transform.translation;
+                    let center = if kind == Vehicle::Car {
+                        let to_eye = eye - lane;
+                        lane + to_eye * (scale / to_eye.y.max(1.))
+                    } else {
+                        lane + Vec3::Y * scale
+                    };
                     if let Some([r, g, b]) = tint {
                         let accent = if models.ink {
                             Color::linear_rgb(0.85, 0.13, 0.09)
