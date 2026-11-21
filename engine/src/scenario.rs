@@ -367,7 +367,7 @@ impl Scenario {
         if let Some(cars) = &self.car_ownership {
             for (&origin, &share) in &car_shares {
                 if share == cars.base[origin] { continue; }
-                let choice = car_choice.get_or_insert_with(|| Choice::load(&self.data_dir));
+                let choice = car_choice.get_or_insert_with(|| self.choice.clone());
                 let factors = cars.factors(origin, share);
                 for pair in &mut choice.mode_k[origin * n..][..n] {
                     for (weight, factor) in pair.iter_mut().zip(factors) { *weight *= factor; }
