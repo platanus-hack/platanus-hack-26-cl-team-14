@@ -67,7 +67,13 @@ Install Rust 1.97.1 or newer with Cargo, and install curl. From the repository r
 ./run.sh
 ```
 
-The launcher starts the engine on port 8787, waits for it to answer, and opens the native city window. Drag to pan and scroll to zoom. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
+The launcher starts the engine on port 8787 and opens the native city window. When “Enter para empezar” appears, press Enter to enter Santiago and open the chat on the right. Drag to pan and scroll to zoom. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
+
+### Native city data credits
+
+- Map geometry © OpenStreetMap contributors, licensed under the Open Database License 1.0. [Copyright and attribution](https://www.openstreetmap.org/copyright)
+- Estimated building heights use Google Research, *Open Buildings 2.5D Temporal* (2023), derived from Copernicus Sentinel-2 observations. We aggregate the heights by building footprint and use the data under CC BY 4.0. [Dataset and terms](https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_Research_open-buildings-temporal_v1) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- Terrain produced using Copernicus WorldDEM-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved. [DEM licence](https://dataspace.copernicus.eu/sites/default/files/media/files/2025-06/copernicus_contributing_mission_data_access_v2_cop_dem_licenses.pdf)
 
 ### Ask a question from your local agent
 
