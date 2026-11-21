@@ -77,7 +77,10 @@ impl Network {
                 } else {
                     id.to_owned()
                 };
-                if stations.iter().any(|s| s.0 == key) || catalog.physical_id(&key).is_some() {
+                let normalized = plain(&key);
+                if stations.iter().any(|s| plain(&s.0) == normalized || plain(&s.1) == normalized)
+                    || catalog.physical_id(&key).is_some()
+                {
                     return Err(
                         "This ID already identifies a Metro station. Use a station target.".into(),
                     );
