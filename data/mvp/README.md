@@ -345,7 +345,7 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
 | `longitude`, `latitude` | Centroid of the manzana polygon, EPSG:4674 |
 | `jobs` | Jobs in the manzana, 2024, modeled. Integer |
 | `method` | Signals that put jobs there, joined with `+` |
-| `quality` | `ok`, or `known_low`: the real number is higher. 1 row is `known_low` (Costanera Center) |
+| `quality` | `ok`; `known_low`: the real number is higher (1 row, Costanera Center); `known_high`: the number is probably too high (3 rows, see the limits below). The value of a `known_high` row is not corrected |
 
 - Rows: 11,519. Jobs: 2,688,814. All 52 comunas of the RM.
 - 55 rows (25,273 jobs) have the centroid 2 to 73 m outside the polygon of their own comuna (check by lucky-llama). `cut` is the INE code and is correct. Use `cut` for the comuna, not a point-in-polygon test.
@@ -357,14 +357,15 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
   - `floor_area`: 2 sites of the demo (Costanera Center, the MUT) get a fixed number from published floor area. See the sections below. The other manzanas of the comuna share the rest, so the comuna total does not change.
   - `persons_fallback`: 7 rural comunas have fewer than 50 sampled workers (Paine, Curacaví, Tiltil, San José de Maipo, Alhué, María Pinto, San Pedro). Their jobs spread by resident persons. 50,857 jobs, 1.9%.
 - The airport: the terminal point has 126 sampled workers (14,859 expanded) and is rural land with no manzana. The first version dropped it and spread its jobs over the other manzanas of Pudahuel. Now it is the row `13124_airport`, 27,070 jobs, the largest row of the file. No published count was checked against it.
-- **Check against independent data.** Jobs within 500 m of a Metro station against the observed weekday boardings from 16:00 to 21:00 (`metro_observations.json`, April 2026), on the 95 stations that are not in the held-out set of `tools/pack/check_score.py`: Pearson 0.76, Spearman 0.79. Within 800 m: 0.69, 0.79. Jobs of the nearest station with no distance limit: 0.33, 0.50, because the last stations of each line take the far jobs (the airport row goes to Plaza Quilicura, 6.9 km away). Use a radius, not the nearest station. Against the morning boardings the correlation is 0, as expected for work places.
+- **Association with Metro boardings on the training stations (not a held-out validation).** Jobs within 500 m of a Metro station against the observed weekday boardings from 16:00 to 21:00 (`metro_observations.json`, April 2026), on the 95 stations that are not in the held-out set of `tools/pack/check_score.py`: Pearson 0.76, Spearman 0.79. Within 800 m: 0.69, 0.79. Jobs of the nearest station with no distance limit: 0.33, 0.50, because the last stations of each line take the far jobs (the airport row goes to Plaza Quilicura, 6.9 km away). Use a radius, not the nearest station. This association did not carry to the held-out score: a 500 m radius for jobs was scored as layer L2b by lucky-llama and was worse (WAPE_bins 0.5202 against 0.4688 with 1,000 m), so the station model keeps 1,000 m. Against the morning boardings the correlation is 0, as expected for work places.
 - Why these signals: they are the only ones on disk with coordinates. SII addresses have no coordinates and follow the head office. OSM and Overture places have no worker counts.
 - What the method gets wrong:
   - The base is from 2012. A place that lost jobs after 2012 keeps them.
   - A building with a permit before 2010 that opened after the survey is missing: the permit file starts in 2010. Costanera Center was the known case, corrected below. Other cases can exist.
-  - The sample is small: one sampled worker is about 120 jobs. Only 11,519 rows have jobs; a real small workplace with no sampled worker has 0. Use the file at a scale of about 500 m, not manzana by manzana.
+  - The sample is small: one sampled worker is about 120 jobs. Only 11,519 rows have jobs; a real small workplace with no sampled worker has 0. Use the file at a scale of about 1 km, not manzana by manzana.
   - 20% of the EOD workers have no usable workplace point (no answer, or coordinates 0,0). They are out of the signal. They are not random: workers with no fixed workplace are in this group.
-  - 40 m² for each job is an assumption, equal for offices, shops, and warehouses. Permit area includes parking floors. 29% of the permit area does not count (outside a manzana, or a second permit of the same project). So a large mall or warehouse permit is probably too high: Mall Barrio Independencia `13108071002002` has 5,330 jobs from a permit of 233,382 m²; Megacentro Buenaventura `13301031001050` has 5,107, most of them from a permit of 99,887 m² of storage.
+  - 40 m² for each job is an assumption, equal for offices, shops, and warehouses. Permit area includes parking floors. 29% of the permit area does not count (outside a manzana, or a second permit of the same project). So a large mall or warehouse permit is probably too high: Mall Barrio Independencia `13108071002002` has 5,330 jobs from a permit of 233,382 m²; Megacentro Buenaventura `13301031001050` has 5,107, most of them from a permit of 99,887 m² of storage. Both are `known_high`.
+  - A row with only `eod2012` and a large number is a few sampled workers on one block. `13120111005004` (Leopoldo Urrutia, Ñuñoa, a residential block) has 3,650 jobs and is `known_high`: it gives the station Monseñor Eyzaguirre 29% of its job mass.
 
 ### Top 20 rows, with the place a person from Santiago knows
 
@@ -407,6 +408,7 @@ Ciudad Empresarial is not one row: the rows within 700 m of its center add 18,13
 - Mall: 134,000 m² of leasable area ([Wikipedia](https://es.wikipedia.org/wiki/Cenco_Costanera), which cites La Tercera, 2012). 134,000 / 46 = 2,913 jobs.
 - Why `known_low`: the office number is the occupancy of 2023, and more floors have tenants now. With all 92,000 m² in use the total is 12,113. The hotel (14,000 m²) is not in the number. No operator count of workers was found.
 - The 4,604 added jobs come from the other manzanas of Providencia. Each lost about 2%.
+- The point of this row is the centroid of the block, like every other row. The centroid is 409 m from Los Leones and 446 m from Tobalaba, and the block edge is 213 m from a Los Leones entrance and 232 m from a Tobalaba entrance (March GTFS). So a nearest-station rule sends all 5,863 jobs to Los Leones, and no measured share between the 2 stations exists. A test that moved the point toward Tobalaba moved 5,850 afternoon boardings of error from one station to the other and did not reduce it; it was reverted. A rule that shares a block between the stations within the radius is the correct mechanism.
 
 ### The MUT (Mercado Urbano Tobalaba)
 
