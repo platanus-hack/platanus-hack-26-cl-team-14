@@ -664,6 +664,7 @@ fn read_result(
     }
     replay.platforms = stations
         .iter()
+        .filter(|station| routes.entrances.contains_key(station["id"].as_str().unwrap()))
         .map(|station| Station::new(station, &routes))
         .collect();
 }
