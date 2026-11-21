@@ -442,6 +442,12 @@ impl Scenario {
                 }
                 continue;
             }
+            if kind == "event" && raw["audience"] == "colo_colo" && !self.data_dir.join("fan_base.csv").exists() {
+                let mut v = raw.clone();
+                v["reason"] = json!("This data pack has no fan_base.csv, so the Colo-Colo fan base is not available.");
+                not_modeled.push(v);
+                continue;
+            }
             if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event" && raw["target"]["type"] == "point" && raw["op"] == "set",
                 raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| v >= 0.0),
                 raw["assumed_end_half_hour"].as_u64().filter(|&e| e < 48)) {
