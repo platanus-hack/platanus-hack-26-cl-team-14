@@ -743,3 +743,33 @@ Run `python3 -I tools/pack/travel_times_blocks.py` with the March 2026 GTFS feed
 `origin_access_share` and `destination_access_share` give the fraction of resident workers within 1 km of a stop at each end. The minutes describe travel between the sampled blocks with access. `worker_pairs` counts routed block pairs.
 
 Eleven comunas have no worker block within 1 km of a stop in this feed. These are San José de Maipo, Tiltil, Melipilla, Alhué, Curacaví, María Pinto, San Pedro, Talagante, El Monte, Isla de Maipo, and Peñaflor. They account for 211,532 workers. A time for these comunas requires a separate assumption. The table contains no car times. The reported median ratio to EOD 2012 survey times is about 0.65 and serves only as a descriptive comparison.
+
+## roads.geojson
+
+Major roads in the Santiago city view. Each GeoJSON LineString has the OSM way ID in `id`, the road class in `kind`, and the mapped `name` when available. Link roads use their parent class. A way that leaves and re-enters the view has several features with the same ID.
+
+The view spans longitude −70.85 to −70.45 and latitude −33.65 to −33.30. It contains 18,649 ways and 18,651 paths, with 2,781 km of mapped carriageways before simplification. Opposing carriageways count separately. Paths use an 8 m simplification tolerance and five decimal places per coordinate. File size is 3,578,472 bytes.
+
+Map credit: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). Road data and derived geometry are available under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). The [Geofabrik Chile extract](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf) records the OSM state on 2026-11-20 at 21:21:21 UTC. Its MD5 is `fef09ad7ee6f28c7afc925ef68c737a4`.
+
+Place the extract at `data/raw/osm-roads/chile.osm.pbf`. Run the following commands from the repository root. The larger extraction box includes all 52 comuna reference points.
+
+```sh
+cd data/raw/osm-roads
+osmium extract -b -71.59,-34.12,-70.23,-32.88 chile.osm.pbf -o region.osm.pbf
+osmium tags-filter region.osm.pbf 'w/highway=motorway,trunk,primary,secondary,motorway_link,trunk_link,primary_link,secondary_link' -o santiago.osm
+cd ../../..
+python3 -I tools/pack/roads.py
+```
+
+## car_paths.json and car_minutes.csv
+
+The two files cover all 2,652 directed pairs between **different** comunas in the RM. Each JSON record contains the string keys `origin_cut` and `destination_cut` and a `path` array of longitude and latitude pairs. Paths follow the OSM major-road network described above. They contain 147,558 points after 20 m display simplification. The CSV uses the same keys and gives free-flow `car_minutes`, road `distance_km`, and the two straight-line gaps to the road in `origin_snap_m` and `destination_snap_m`. Travel time and distance use the full geometry.
+
+Each comuna uses its population-weighted reference point from `communes.csv`. We use the nearest primary or secondary road node to enter and leave the network. The median gap is 135 m. The largest is 2,976 m at Tiltil. The model omits local access time and same-comuna travel.
+
+The route minimizes driving time. A road's assumed free-flow speed follows the [OSRM car profile](https://github.com/Project-OSRM/osrm-backend/blob/master/profiles/car.lua): 90, 85, 65 and 55 km/h on motorways, trunk, primary and secondary roads. Corresponding link speeds are 45, 40, 30 and 25 km/h. Lower numeric OSM speed limits cap each direction. The graph respects static one-way roads, roundabouts, and mapped car-access bans. It excludes roads tagged reversible or alternating. The model omits turn restrictions, conditional traffic rules, signals, queues and congestion. Peak trips can take longer.
+
+Maipú to Las Condes takes **28.03 modeled minutes over 28.276 km**. The route passes through Avenida Los Pajaritos, Ruta 78, the Alameda, and Costanera Norte. The gaps to the major roads are 21 m in Maipú and 131 m in Las Condes. These are estimates for the two reference points.
+
+Build both files from the same regional OSM extract with `python3 tools/pack/car_paths.py`. Display the map credit **© OpenStreetMap contributors** with a link to [the OSM copyright page](https://www.openstreetmap.org/copyright). The derived network data use ODbL 1.0.
