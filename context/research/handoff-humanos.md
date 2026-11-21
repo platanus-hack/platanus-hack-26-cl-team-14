@@ -1,6 +1,6 @@
 # Cómo presentar ¿Y si Santiago…?
 
-Abre el [guion de tres minutos](pitch-proposal.md). Escribe esta pregunta desde el chat configurado para la demo:
+Usa esta pregunta del primer ensayo para comprobar el arranque del chat y de la maqueta. El caso principal ahora es el intercambio MUT ↔ Monumental. [Decisión de presentación](https://discord.com/channels/1573514576400752640/1573688250797658172/1573733563491291157).
 
 > ¿Cómo cambiarían los viajes al trabajo en Santiago si Estación Central tuviera la mitad más de residentes y Las Condes la mitad más de empleos?
 
@@ -8,7 +8,7 @@ Lee del chat el cambio que estima el motor en Universidad de Chile, en subidas p
 
 ## Qué puedes probar hoy
 
-El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. El cálculo de eventos aplica al período completo de retorno. Crear una estación en otro punto queda fuera del alcance actual. [Configuración y alcance](../../README.md#run-a-scenario-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
+El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. El cálculo de eventos aplica al período completo de retorno. El chat ya puede estimar entradas en nuevos puntos de Metro. Esta función estima demanda del modelo. [PR #193](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/193). [Configuración y alcance](../../README.md#run-a-scenario-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
 
 Instala Rust 1.97.1 o posterior con Cargo, curl y Node.js 22 o posterior. Desde la raíz del repositorio, inicia el motor y la maqueta:
 
