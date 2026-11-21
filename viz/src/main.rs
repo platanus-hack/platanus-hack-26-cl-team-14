@@ -1,6 +1,7 @@
 mod chart;
 mod city;
 mod focus;
+mod label;
 mod movers;
 mod net;
 mod pixels;
@@ -37,6 +38,7 @@ impl Plugin for MiniatureCamera {
                 Update,
                 (
                     focus::select.run_if(resource_changed::<net::Scenario>),
+                    focus::cue,
                     navigate,
                     focus::advance,
                     aim,
@@ -44,7 +46,7 @@ impl Plugin for MiniatureCamera {
                     .chain()
                     .before(city::draw_buildings),
             )
-            .add_plugins(movers::clock::ClockPlugin)
+            .add_plugins((movers::clock::ClockPlugin, movers::follow::FollowPlugin))
             .add_systems(Last, measure);
     }
 }
@@ -339,6 +341,7 @@ fn main() -> AppExit {
             MiniatureCamera,
             net::NetPlugin,
             chart::ChartPlugin,
+            label::LabelPlugin,
             movers::MoversPlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,

@@ -160,11 +160,25 @@ const createReplayTool = {
       id: { type: 'string', pattern: '^[a-z0-9-]+$' },
       title: { type: 'string' },
       question: { type: 'string', description: 'The question the presenter types.' },
-      scene: sceneTool.inputSchema,
+      scene: {
+        ...sceneTool.inputSchema,
+        properties: {
+          ...sceneTool.inputSchema.properties,
+          layer: { enum: ['metro_service'], description: 'Show the Metro service lines for this saved shot.' },
+        },
+      },
       changes: tool.inputSchema.properties.changes,
       stations: tool.inputSchema.properties.stations,
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
       analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
+      cues: {
+        type: 'array', description: 'Camera moves during the replay, after the first scene. Example: whole city, then zoom to a station.',
+        items: { type: 'object', required: ['after_seconds', 'longitude', 'latitude', 'distance'], properties: {
+          after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts.' },
+          longitude: { type: 'number' }, latitude: { type: 'number' },
+          distance: { type: 'number', exclusiveMinimum: 0, description: 'Camera distance in meters: 360 street, 4000 comuna, 18000 whole city.' },
+        } },
+      },
       chart: {
         type: 'object', required: ['title', 'unit', 'bars'],
         description: 'The final chart of the replay, drawn in the city view as stacked bars. Each bar reads one field of a saved result: a number, or an object of numbers (one stack segment per key). Example: {"title":"Entradas al Metro","unit":"entradas por día hábil","bars":[{"label":"Antes","field":"summary.boardings_base"},{"label":"Después","field":"summary.boardings_scenario"}]}.',
@@ -321,6 +335,7 @@ async function dispatch({ method, params }) {
     else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
+      if (meta.cues) result.scene.cues = meta.cues;
       if (meta.chart) result.chart = chartValues(meta);
       await engineJSON('/api/replay', result);
       text = { replay: meta, result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
@@ -329,6 +344,7 @@ async function dispatch({ method, params }) {
       replayFile(meta.id);
       await setScene(scene);
       const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
+      if (scene.layer === 'metro_service') full.scene.layer = scene.layer;
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
       text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
