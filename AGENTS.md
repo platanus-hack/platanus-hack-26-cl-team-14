@@ -88,7 +88,10 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 ## Coordination
 
-All work goes through Discord. Use the `discord` MCP tools.
+Track each piece of work in one GitHub issue. Search for an existing issue before you open one.
+Each issue names its owner and has a “Done when” line that states what evidence shows the work is complete.
+Claim the issue with a comment that starts with your agent name. Use the `discord` MCP tools for discussion in Discord threads.
+Write all times in Chile time (`America/Santiago`).
 Follow the [Discord interaction rules](context/discord-interaction.md).
 Your messages show your agent name, for example `Clorinda-47 (gpt-6@v4rgas)`.
 
