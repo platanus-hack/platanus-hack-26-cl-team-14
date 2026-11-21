@@ -36,15 +36,15 @@ impl Fans {
     }
 
     /// Attendees by home comuna and by mode [public, car, other] for a match of `attendance` in `venue_cut`.
-    pub fn project(&self, c: &Choice, venue_cut: &str, attendance: f64) -> Value {
+    pub fn project(&self, c: &Choice, minutes_by_pair: &[f64], venue_cut: &str, attendance: f64) -> Value {
         let (n, d) = (c.n, c.cuts.iter().position(|x| x == venue_cut).unwrap());
         let total: f64 = self.population.iter().sum();
         let (mut mode, mut minutes, mut by_home) = ([0.0; 3], 0.0, vec![]);
         for o in 0..n {
             let a = attendance * self.population[o] / total;
-            let s = shares(&c.mode_coef, c.minutes[o * n + d], c.km[o * n + d], &c.mode_k[o * n + d]);
+            let s = shares(&c.mode_coef, minutes_by_pair[o * n + d], c.km[o * n + d], &c.mode_k[o * n + d]);
             for j in 0..3 { mode[j] += a * s[j]; }
-            minutes += a * s[0] * c.minutes[o * n + d];
+            minutes += a * s[0] * minutes_by_pair[o * n + d];
             by_home.push(json!({ "cut": c.cuts[o], "name": c.names[o], "attendees": a, "public": a * s[0], "car": a * s[1], "other": a * s[2] }));
         }
         json!({

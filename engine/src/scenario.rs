@@ -20,6 +20,8 @@ use car_ownership::CarOwnership;
 mod building_permits;
 #[path = "attendance.rs"]
 mod attendance;
+#[path = "fans.rs"]
+mod fans;
 #[path = "scenario_stations.rs"]
 mod station_changes;
 use station_changes::Network;
@@ -440,6 +442,12 @@ impl Scenario {
                 }
                 continue;
             }
+            if kind == "event" && raw["audience"] == "colo_colo" && !self.data_dir.join("fan_base.csv").exists() {
+                let mut v = raw.clone();
+                v["reason"] = json!("This data pack has no fan_base.csv, so the Colo-Colo fan base is not available.");
+                not_modeled.push(v);
+                continue;
+            }
             if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event" && raw["target"]["type"] == "point" && raw["op"] == "set",
                 raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| v >= 0.0),
                 raw["assumed_end_half_hour"].as_u64().filter(|&e| e < 48)) {
@@ -447,7 +455,8 @@ impl Scenario {
                 let mut v = raw.clone();
                 v["understood"] = json!({ "comuna": c.names[self.ix(&venue_cut)], "attendance": attendance });
                 applied.push(v);
-                requests.push(attendance::AttendanceRequest { longitude, latitude, venue_cut, attendance: attendance as u32, assumed_end_half_hour: end as u8 });
+                // "audience":"colo_colo" adds the fixed fan base (fans.rs): the same fans at any venue. fan_base.csv loads only for such an event.
+                requests.push((raw["audience"] == "colo_colo", attendance::AttendanceRequest { longitude, latitude, venue_cut, attendance: attendance as u32, assumed_end_half_hour: end as u8 }));
                 continue;
             }
             if !["jobs", "residents", "minutes"].contains(&kind) {
@@ -574,8 +583,11 @@ impl Scenario {
         }
         let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &minutes, &self.placed);
         self.fine_modes.apply(&mut pop);
-        let events: Vec<Value> = requests.into_iter().map(|r| {
-            json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions))
+        let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
+            let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
+            let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
+            if let Some(f) = f { e["fan_base"] = f; }
+            e
         }).collect();
         let mut assumptions = ASSUMPTIONS.map(Value::from).to_vec();
         if resident_stock_edits > 1 {
