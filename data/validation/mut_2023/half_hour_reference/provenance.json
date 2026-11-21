@@ -1,0 +1,58 @@
+{
+  "checked_date": "2026-11-21",
+  "frozen_at_utc": "2026-11-21T09:03:24Z",
+  "source_pr": 78,
+  "source_commit": "4b6d552fc27974a0a0c15cf3ac7e10bae511cc8e",
+  "source_artifacts": [
+    {
+      "role": "All 94 candidate records and all 48 source half-hour cells.",
+      "path": "data/validation/mut_2023/line_reference/station_half_hours.csv",
+      "immutable_url": "https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/4b6d552fc27974a0a0c15cf3ac7e10bae511cc8e/data/validation/mut_2023/line_reference/station_half_hours.csv",
+      "sha256": "526ec9feac15b5788adc14d7a2827339ce38264e48c22fd9d03434b8c0686d82"
+    },
+    {
+      "role": "Exact 46 eligible station/line keys; TOBALABA excluded from each line reference.",
+      "path": "data/validation/mut_2023/line_reference/included_stations.csv",
+      "immutable_url": "https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/4b6d552fc27974a0a0c15cf3ac7e10bae511cc8e/data/validation/mut_2023/line_reference/included_stations.csv",
+      "sha256": "fb10358acfa531912f7ba391a711fccb75e59d01bf8d706f1ee850bfddeebd49"
+    },
+    {
+      "role": "Original official URLs, member names, source schemas, and hashes.",
+      "path": "data/validation/mut_2023/line_reference/provenance.json",
+      "immutable_url": "https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/4b6d552fc27974a0a0c15cf3ac7e10bae511cc8e/data/validation/mut_2023/line_reference/provenance.json",
+      "sha256": "96d3689a3609065dc9f3a9ba8b02438cd71e0c959e008860382cabea64cebd2f"
+    }
+  ],
+  "original_workbooks": [
+    {
+      "cut": "2023.04",
+      "archive_url": "https://www.dtpm.cl/descargas/modelos_y_matrices/Tablas%20de%20Subidas%20y%20Bajadas.zip",
+      "zip_member": "Tablas de Subidas y Bajadas/2023.04 Matriz_sub_SS_MH.xlsb",
+      "member_sha256": "fb6b5207921ace566bfa415bc735286355cb9e566ce5e3b2a2226f375d5f331c",
+      "actual_sheets": [
+        "FICHA_DATOS",
+        "subidas_prom_laboral"
+      ],
+      "weekend_availability": "Unavailable from these retrieved boarding members; no weekend worksheet."
+    },
+    {
+      "cut": "2023.08",
+      "archive_url": "https://www.dtpm.cl/descargas/modelos_y_matrices/Tablas%20de%20subidas%20y%20bajadas%20ago23.zip",
+      "zip_member": "Tablas de subidas y bajadas/2023.08 Matriz_sub_SS_MH.xlsb",
+      "member_sha256": "f8b5c418048c83ec5e8c92d054c14817c37886b75df696d928c0c36804546856",
+      "actual_sheets": [
+        "FICHA_DATOS",
+        "subidas_prom_laboral"
+      ],
+      "weekend_availability": "Unavailable from these retrieved boarding members; no weekend worksheet."
+    }
+  ],
+  "calculation": "Use exact source keys from included_stations.csv. Read corresponding cells from station_half_hours.csv. Follow method.md for each line and all 48 bins, retaining null statistics outside its 36-bin window. Percentages and medians use Decimal(str(source cell)), with the mean of the middle two for even reference counts.",
+  "source_universe_limit": "Qualifying records in the two workbooks, not a verified roster of every physical-line station.",
+  "no_new_downloads_or_dependencies": true,
+  "artifacts_sha256": {
+    "method.md": "5143a0777f71e6fc33281b43d25cccf1baa537fe324291453e5ccc487a9018df",
+    "line_bin_summary.csv": "757a2f03db5431cbb56c34ab666a76413d493559ba640e2c483cab29fcf27475",
+    "results.json": "6da928e992cc4986161da885c58b2524d49cd48e88e05ac254cecdd8a4acff85"
+  }
+}
