@@ -1,5 +1,5 @@
 //! A hypothetical event supplies totals for the whole return period. The route,
-//! departure order and spacing below illustrate those totals on the city clock.
+//! departure order and spacing illustrate those totals during the event replay.
 use super::*;
 use crate::{Rig, city::SubwayView};
 
@@ -11,7 +11,6 @@ impl Plugin for EventsPlugin {
             Update,
             refresh
                 .after(crate::city::draw_buildings)
-                .before(super::draw)
                 .run_if(resource_changed::<Scenario>),
         )
         .add_systems(
@@ -28,16 +27,10 @@ struct Slot {
 }
 
 #[derive(Resource)]
-pub(super) struct EventClock {
+struct EventClock {
     slots: Vec<Slot>,
     anchor: Slot,
     offset: f32,
-}
-
-pub(super) fn city_seconds(clock: &FixedClock, time: &Time, event: Option<&EventClock>) -> f32 {
-    clock
-        .0
-        .unwrap_or_else(|| event.map_or(8. * 3600. + 10. * 60., |e| e.offset) + time.elapsed_secs())
 }
 
 #[derive(Component)]
@@ -135,7 +128,7 @@ fn refresh(
         .copied()
         .or_else(|| previous.map(|p| p.anchor).filter(|s| slots.contains(s)))
         .unwrap_or(slots[0]);
-    // Open the shot one minute into the departure bin. All scheduled movers share this clock.
+    // Start the event replay one minute into its end bin. Scheduled city traffic keeps its own time.
     let offset = previous.filter(|p| p.anchor == anchor).map_or_else(
         || f32::from(anchor.bin) * BIN + 60. - time.elapsed_secs(),
         |p| p.offset,
@@ -366,7 +359,7 @@ fn animate(
         return;
     }
     *next = time.elapsed_secs() + 1. / 30.;
-    let now = city_seconds(&clock, &time, Some(&event));
+    let now = clock.0.unwrap_or(event.offset + time.elapsed_secs());
     for mut visible in &mut venues {
         visible.set_if_neq(if subway.0 {
             Visibility::Hidden

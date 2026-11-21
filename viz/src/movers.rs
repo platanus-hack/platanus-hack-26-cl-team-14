@@ -964,7 +964,6 @@ fn draw(
     time: Res<Time>,
     replay: Res<Replay>,
     clock: Res<FixedClock>,
-    event_clock: Option<Res<events::EventClock>>,
     subway: Res<crate::city::SubwayView>,
     routes: Res<Routes>,
     models: Res<Models>,
@@ -990,7 +989,11 @@ fn draw(
         )
     };
     let size_at = |p: Vec3| (eye.distance(p) * 0.0024).clamp(1.35, 11.);
-    let now = events::city_seconds(&clock, &time, event_clock.as_deref()).rem_euclid(DAY);
+    // The city clock runs in real time from the morning peak and survives scenario revisions.
+    let now = clock
+        .0
+        .unwrap_or(8. * 3600. + 10. * 60. + time.elapsed_secs())
+        .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
     let mut surface_load = std::collections::BTreeMap::new();
