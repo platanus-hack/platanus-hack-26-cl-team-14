@@ -270,6 +270,22 @@ over the person file and caches the tallies, then the join runs in 2 s).
   `commuters_all_per_resident` 0.3670, apartment share 0.7288,
   `persons_per_occupied_dwelling_apartment_blocks` **2.0847** with
   `occupied_share_apartment_blocks` **0.9251**, over 320 blocks and 160,457 persons.
+- **Do not compare `commuters_rm` with `work_od.csv`.** The two count different
+  universes, so they differ and both are correct. For Las Condes, `commuters_rm` is
+  **104,918**, over persons in private dwellings only (`tipo_operativo` 2). The Las Condes
+  origin rows of `work_od.csv` with a destination in region 13 sum to **104,980**, over all
+  dwelling kinds. The gap of 62 persons is the RM commuters who live in collective
+  dwellings or were counted by the street operative. A ratio must keep one universe on
+  both sides: 104,918 / `persons` 293,272 = 0.3577 (private dwellings), or 104,980 /
+  `persons_all_dwelling_kinds` 296,134 = 0.3545 (all dwelling kinds). The site request of
+  the demo uses 0.3577, because the occupancy inputs beside it are apartment-block
+  aggregates, which are a subset of private dwellings.
+- **The mode mix beside it is a third universe, and it changes nothing.** Las Condes in
+  `mode_share.csv` totals **107,707**, every known national work destination, equal to the
+  all-destination origin total of `work_od.csv`. Restricted to destinations in region 13
+  with `mode_od.csv` (104,980 commuters), the car share is 0.510802 against 0.510728 and
+  the public share 0.318308 against 0.314130. On the 298-dwelling scenario both versions
+  give the same two whole numbers, 84 by car and 52 by public transport a day.
 - **Observed travel shares in the apartment-dominated blocks.** In Las Condes they use
   the car less than the comuna: `car_share_apartment_blocks` **0.4684** against
   `car_share_block_table` **0.5192**, and public transport **0.3219** against 0.3077.
@@ -689,3 +705,33 @@ Four causes of the gap, and they do not all point the same way:
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
+
+## jobs_2026.csv
+
+Experimental destination weights for each job point, in the order of `jobs.csv`. The `jobs` column contains a relative weight. Keep the census totals for each comuna when allocating workers. The weights reflect transit use as well as job density.
+
+Run `python3 -I tools/pack/jobs_2026.py` with the [April 15 arrival groups](../validation/trip_purpose_2026_04/README.md). The builder assigns each point to its nearest training station within 500 m. For each of the 95 training stations it divides the station's share of expanded work arrivals by its share of assigned job mass. That ratio multiplies the point's original weight. Points outside the radius keep their weights. The builder uses no boardings or held-out arrivals.
+
+The frozen L4b run used the candidate file as its jobs input in an isolated directory. Across 31 held-out stations and 1,123 observed half-hours, absolute error fell from 254,347.44 to 252,057.91 boardings. Half-hour WAPE fell from 0.4459345830 to 0.4419204606. Tobalaba, a training station, rose from 41,702.00 to 56,543.75 predicted boardings across the observed bins. The observed sum was 81,612.80.
+
+## transit_paths.json
+
+The city view loads `web/data/transit_paths.json`. The pack links to the same file.
+Run `python3 -I tools/pack/transit_paths.py` from the repo root to rebuild it.
+Source: [March 2026 Santiago GTFS](https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip).
+
+Each Metro record gives the line, GTFS color, direction (0 or 1), ordered parent station IDs, and a path of longitude/latitude points.
+The 48 values in `trips` count departures by half hour from 00:00 Santiago time on a regular Monday (service IDs L and LJ).
+A train contributes once, at the first stop of its scheduled trip. Short-turn and express trips contribute to their direction's total.
+The path shows the full line. It does not describe the stops of each train.
+
+The 14 paths cover 7 lines. One direction per line gives 143 station entries, which matches the [Ministry of Transport network count](https://mtt.gob.cl/extension-de-linea-2-comenzo-su-operacion-y-beneficiara-a-618-mil-personas/).
+Interchange lines can share a parent station. The feed has 126 distinct parent IDs across these paths.
+
+Each bus record represents one GTFS route. Its path uses the shape with the most expected departures that day.
+The builder keeps every third shape point and the last point. The route's `trips` values cover all directions and variants.
+For each overlapping headway interval the builder divides its duration in the half hour by the published headway.
+All bus intervals use `exact_times=0`. Fractional values are expected departures, rounded to three decimal places.
+These counts describe scheduled service. They do not measure passenger demand or vehicle positions. [GTFS frequencies reference](https://gtfs.org/documentation/schedule/reference/#frequenciestxt)
+
+The file contains 878 Metro path points and 68,715 bus path points across 416 bus routes. Size: 1,635,778 bytes.
