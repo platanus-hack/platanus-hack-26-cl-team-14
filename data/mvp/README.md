@@ -959,19 +959,19 @@ python3 -I tools/pack/city_footprints.py
 
 ## Santiago landmarks
 
-`web/data/santiago_landmarks.geojson` contains eight public landmarks (13,649 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
+`web/data/santiago_landmarks.geojson` contains eight public landmarks (14,810 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
 
 | ID | City-view geometry | Official reference |
 | --- | --- | --- |
 | `gran_torre_costanera` | Exterior tower footprint. OSM tags 300 m height and 64 levels. | [Sky Costanera names the tower and gives the viewpoint height of 300 m](https://www.skycostanera.cl/es) |
 | `estadio_nacional` | Mapped stadium perimeter in Ñuñoa. | [Law 20.264 gives the name Estadio Nacional Julio Martínez Prádanos](https://www.bcn.cl/leychile/navegar?idNorma=273588) |
-| `la_moneda` | Exterior palace outline. OSM tags three levels. | [National Heritage Service entry for Palacio de La Moneda](https://ide.patrimoniocultural.gob.cl/patrimonio/909) |
+| `la_moneda` | Palace footprint with four courtyard holes. OSM tags three levels. | [National Heritage Service entry for Palacio de La Moneda](https://ide.patrimoniocultural.gob.cl/patrimonio/909) |
 | `san_cristobal` | Summit point. OSM elevation 880 m above sea level. | [Parquemet visitor map identifies the summit at 880 m](https://mapas.parquemet.gob.cl/doc/MAP_ParqueMet_es.pdf) |
 | `santa_lucia` | Summit point. OSM elevation 629 m above sea level. | [Municipal tourism office identifies Cerro Santa Lucía](https://www.santiagoturismo.cl/es/cerro-santa-lucia/) |
 | `parque_forestal` | Mapped park boundary. | [Municipal tourism office identifies Parque Forestal](https://www.santiagoturismo.cl/es/parque-forestal/) |
 | `parque_ohiggins` | Mapped park boundary. | [Municipal tourism office identifies Parque O’Higgins](https://www.santiagoturismo.cl/es/parque-ohiggins/) |
 | `rio_mapocho` | Main river centreline inside the Santiago roads view. | [Environment Ministry record for Río Mapocho](https://sistemahumedales.mma.gob.cl/HumedalesUrbanos/DetailsPublico/114) |
 
-The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The three built landmarks use exterior outlines, and the parks use exterior boundaries. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
+The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
 
 Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).

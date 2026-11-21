@@ -45,8 +45,9 @@ for place_id, kind, osm, source in PLACES:
     else:
         # Osmium uses doubled OSM IDs for areas, with the low bit set for relations.
         obj = objects[f"a{2 * int(osm[1:]) + (osm[0] == 'r')}"]
-        ring = obj["geometry"]["coordinates"][0][0]
-        shape = {"type": "Polygon", "coordinates": [rounded_path(ring, 4 if kind == "park" else 1)]}
+        rings = obj["geometry"]["coordinates"][0]
+        tolerance = 4 if kind == "park" else 1
+        shape = {"type": "Polygon", "coordinates": [rounded_path(ring, tolerance) for ring in rings]}
     tags = obj["properties"]
     item = feature(place_id, tags["name"], kind, osm, source, shape)
     for tag, field in (("height", "height_m"), ("building:levels", "levels"), ("ele", "elevation_m")):
