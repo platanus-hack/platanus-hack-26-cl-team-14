@@ -12,7 +12,7 @@ Propuesta de los agentes; `context/pitch.md` sigue siendo de ustedes. Fuentes: `
   4. **Evento**: dos botones (Estadio Nacional, Monumental) y un control de 0 a 3. Añade, como supuesto, el patrón de subidas de la noche del sábado 11 de abril de 2026 en Parque O'Higgins (día de un evento agotado en el Movistar Arena) a las estaciones a menos de 1 km del sitio; con 0 no cambia nada. Límites: solo 19:00–23:30, la llegada no se modela; dos supuestos en pantalla; sin validar.
 - **No construido**: la Variante B (Estación Central 2017→2024).
 
-## Cómo verlo (requiere Rust y Python 3; una primera compilación medida tomó 75 s)
+## Cómo verlo (requiere Rust y Python 3; una compilación medida tomó 75 s)
 
 ```
 git clone https://github.com/platanus-hack/platanus-hack-26-cl-team-14.git
@@ -25,7 +25,7 @@ Vistas: `/web/?t=36&mut=1`, `/web/?v=s`, `/web/?v=p&t=36`, `/web/?v=e`. Ctrl-C e
 
 ## Los números de referencia de hoy (la versión congelada se elige a las 12:30 UTC)
 
-A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada** (commit + artefacto de puntaje; regla en `context/decisions/20261121-0845-presentation-freeze.md`) y el demo corre esa versión, no `main`. Una **capa** es una versión del modelo de estaciones; se queda solo si baja el error en las 31 estaciones reservadas. Hoy la capa aceptada es **L4b**; L5 y L8 empeoraron el puntaje y L6 se retiró sin correr, así que L4b es la candidata:
+A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada** (commit + artefacto de puntaje; regla en `context/decisions/20261121-0845-presentation-freeze.md`) y el demo corre esa versión, no `main`. Una **capa** es una versión del modelo de estaciones; se queda solo si baja el error en las 31 reservadas. Hoy la capa aceptada es **L4b**; L5 y L8 empeoraron el puntaje y L6 se retiró sin correr, así que L4b es la candidata:
 
 | En pantalla | Valor | Qué es |
 | --- | --- | --- |
@@ -44,7 +44,7 @@ Nada cambia después de las 12:30 hasta que ustedes lo digan.
 - El Censo no separa Metro de bus: digan "transporte público", nunca "Metro".
 - Los 4.679 empleos del MUT son modelados (superficie publicada de oficinas y locales, 88% y 75% arrendada, 10 y 46 m² por puesto); el operador declara 4.000 en oficinas.
 - Datos de 2023 (PR #77 a #79): entre abril y agosto, Tobalaba en Línea 4 subió 20,4% y la mediana de las otras 18 estaciones bajó 1,5%. Dos semanas, por línea, conteo no documentado. Descriptivo: no mide el efecto del MUT ni se compara con 2026 ni con los modelos.
-- Los dos modelos mueven residentes y trabajadores; no incorporamos una fuente verificada de visitantes al modelo.
+- Los dos modelos mueven residentes y trabajadores; no incorporamos una fuente verificada de visitantes.
 - Tobalaba no está entre las 31 estaciones reservadas: el 45% nunca la midió.
 
 ## Las 5 preguntas para ustedes (con nuestra recomendación)
