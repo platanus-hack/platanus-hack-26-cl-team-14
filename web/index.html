@@ -73,7 +73,7 @@
 <div id="delta" class="box t" style="width:770px;font-size:76px"><span id="dv"></span>
   <small>Cambio de subidas al día en Tobalaba</small><small>contabilidad del sitio, supuestos visibles</small>
   <div style="margin-top:10px"><small>sensibilidad del modelo de estaciones <span id="stl"></span>, sin validar</small>
-    <small>cambio · estación · base del modelo / observado</small>
+    <small>cambio al día · base del modelo / observado</small>
     <div id="st" style="font-size:44px"></div></div>
   <div style="font-size:44px;margin-top:10px"><span id="car"></span> <small style="display:inline">en auto ·</small> <span id="public"></span> <small style="display:inline">en transp. público</small></div>
   <small>nuevos residentes que salen al día</small><small>supuesto: reparto modal de Las Condes</small></div>
@@ -154,9 +154,11 @@ function siteScenario() {
     $('dv').className = dd > 0 ? 'more' : 'less';
     const mode = c => fmt(r.resident_commuters_by_mode.find(m => m.mode_code == c).daily_home_departures);
     $('car').textContent = mode(1); $('public').textContent = mode(2);
-    // second estimate of the same change, from the scored station model: its own label, one row for each station that it changes
+    // second estimate of the same change, from the scored station model: its own label, the Tobalaba station only
+    const x = st && st.stations.find(y => y.id == 'TB-TOB');
     $('stl').textContent = st ? st.layer : '';
-    $('st').innerHTML = st ? st.stations.map(x => `<div><span class="model">${x.delta_daily > 0 ? '+' : ''}${fmt(x.delta_daily)}</span> <small style="display:inline">${x.name} · ${fmt(x.predicted_base_daily)} / ${fmt(x.observed_daily)}</small></div>`).join('')
+    $('st').innerHTML = x ? `<span class="model">${x.delta_daily > 0 ? '+' : ''}${fmt(x.delta_daily)}</span> <small style="display:inline">Tobalaba · ${fmt(x.predicted_base_daily)} / ${fmt(x.observed_daily)}</small>`
+      + (st.layer == 'L4' ? `<small>reparto igual entre ${st.stations.length} estaciones a menos de 1 km</small>` : '')
       : '<small>sin respuesta</small>';
     $('delta').style.display = 'block';
     draw();
