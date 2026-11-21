@@ -1,0 +1,42 @@
+{
+  "frozen_at_utc": "2026-11-21T08:57:28Z",
+  "method_sha256": "706798ad5938a7adb8388a29a5b6b49062fe5b340b7f3315b723505b7332add8",
+  "unit": "Sampled weekday-average recorded numeric half-hour boardings; line accounting unresolved.",
+  "included_count": 46,
+  "excluded_count": 1,
+  "unnamed_exclusions": [],
+  "excluded": [
+    {
+      "line": "L4",
+      "station": "PLAZA EGANA",
+      "reasons": [
+        "2023.04: non-numeric fixed bins: 23:00:00",
+        "2023.08: non-numeric fixed bins: 23:00:00"
+      ],
+      "april_rows": [
+        38094
+      ],
+      "august_rows": [
+        38563
+      ]
+    }
+  ],
+  "line_summaries": [
+    {
+      "line": "L1",
+      "included_station_count": 27,
+      "reference_station_count": 26,
+      "reference_median_percent_change": "-0.1433195909084442493760530350",
+      "tobalaba_percent_change": "2.772414409582551175471529500",
+      "tobalaba_minus_reference_median_percentage_points": "2.915734000490995424847582535"
+    },
+    {
+      "line": "L4",
+      "included_station_count": 19,
+      "reference_station_count": 18,
+      "reference_median_percent_change": "-1.477051772088826438147053850",
+      "tobalaba_percent_change": "20.40419364044640040854949910",
+      "tobalaba_minus_reference_median_percentage_points": "21.88124541253522684669655295"
+    }
+  ]
+}
