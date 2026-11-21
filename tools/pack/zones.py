@@ -84,7 +84,8 @@ for r in rows:
     out.writerow([mz, r["CUT"], f"{lon:.6f}", f"{lat:.6f}", n(r["n_per"]), n(r["n_hog"]), n(r["n_vp"]),
                   n(r["n_ocupado"]), n(r["n_asistencia_basica"]) + n(r["n_asistencia_media"])])
 
-# communes.csv: sums of the same block rows; point = polygon centroid of the comuna.
+# communes.csv: sums of the same block rows; point = person-weighted mean of the block centroids
+# (the polygon centroid of Lo Barnechea is 15 km away in the Andes; flows and distances start where people live).
 com = {}
 for r in rows:
     c = com.setdefault(r["CUT"], [r["COMUNA"], 0, 0, 0])
@@ -94,7 +95,8 @@ out.writerow(["cut", "name", "population", "households", "dwellings", "longitude
 feats = []
 for cut, shape in db.execute("select CUT, SHAPE from Comunal_CPV24 order by CUT"):
     name, p, h, d = com[str(cut)]
-    lon, lat = centroid(shape)
+    w, x, y = acc[str(cut)]
+    lon, lat = x / w, y / w
     out.writerow([cut, name, p, h, d, f"{lon:.6f}", f"{lat:.6f}"])
     polys, _ = rings(shape, 8 + ENV[(shape[3] >> 1) & 7])
     geo = []
