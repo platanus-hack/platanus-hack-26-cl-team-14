@@ -1,5 +1,7 @@
 # Santiago people and work source verification
 
+Evidence below describes the recorded samples, not a complete ingestion pipeline. No new downloads were made for the label correction.
+
 Checked 2026-11-21 against the ten entries in [clever-heron's catalog](../santiago-people-work.md). RM means Región Metropolitana. Survey row counts are unweighted. Use the survey design and weights for estimates.
 
 Download a direct data link with `python3 tools/scrape/verify_people_work.py '<URL>'`. The script saves files in `data/raw/verify-people-work/`. Add `--sample` for the Census person ZIP. If macOS Python lacks the system CA bundle, set `SSL_CERT_FILE=/etc/ssl/cert.pem`.
@@ -14,7 +16,7 @@ Download a direct data link with `python3 tools/scrape/verify_people_work.py '<U
 - Check: VERIFIED-ROWS, 2026-11-21, HTTP 200, 25,468,009 bytes. Parsed 197,032 rows, including 50,071 urban and 2,575 rural RM rows. The RM cartography returned HTTP 200 and 64,475,234 bytes. Normalize `MANZENT` to an integer ID. Join against both polygon layers. In RM, 50,022 urban blocks, 499 rural village blocks, and 2,072 rural entities match.
 - Role: INPUT / TARGET candidate.
 - Limits: The sample verifies the publisher's bulk table. Disclosure control suppresses some values. 53 RM rows are comuna containers with no polygon by design. They hold 108,997 people. Keep their counts at comuna level. See section 4.1 of the cartography manual.
-- Use in the simulation: INPUT for residential population, dwelling, and household totals. TARGET candidate for held-out aggregates.
+- Use in the simulation: INPUT for residential population, dwelling, and household totals. TARGET candidate for published aggregates held out from calibration; suppressed values are unavailable.
 - Verdict: OK. Public bulk data exist at the stated resolution.
 
 ### INE Census 2024 microdata

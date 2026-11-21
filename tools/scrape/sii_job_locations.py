@@ -3,6 +3,7 @@
 
 import pathlib
 import subprocess
+import time
 
 
 FILES = {
@@ -13,7 +14,9 @@ FILES = {
 OUT = pathlib.Path("data/raw/sii-job-locations")
 OUT.mkdir(parents=True, exist_ok=True)
 
-for filename, url in FILES.items():
+for index, (filename, url) in enumerate(FILES.items()):
+    if index:
+        time.sleep(1)
     subprocess.run(
         ["curl", "-fL", url, "-o", str(OUT / filename)], check=True
     )

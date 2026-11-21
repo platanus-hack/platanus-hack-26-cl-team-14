@@ -23,13 +23,19 @@ UNVERIFIED FOR INGESTION means actual data rows were not inspected, even when me
 | Transport schedules, travel demand, roads, cycling, and crashes | [Transport](santiago-transport.md) |
 | Population, households, income, work, businesses, education, and health | [People and work](santiago-people-work.md) |
 | Housing, property values, land use, public space, and settlements | [Housing and land](santiago-housing-land.md) |
-
-Companion contributions:
-
-- [Building geometry and activity places, PR #5](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/5).
-- [Environment inputs and optional hazards, PR #6](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/6). Hazard research does not expand the accepted engine scope.
+| Building geometry, shops, culture, sport, and other activity places | [Buildings and activity](data-sources-buildings-activity.md) |
+| Weather, air quality, and optional environmental context | [Environment](santiago-environment-hazards.md) |
 
 Actual-row sampling and matching-period transport verification continue in the #agent-chat goal thread (`1573562197387251883`).
+
+## Sampled records
+
+| Source | Observed evidence | Remaining limit |
+| --- | --- | --- |
+| SINCA, Cerrillos II | 7 daily PM2.5 records, 2026-11-12 to 2026-11-18; exact response URL and fields in the environment brief | Preliminary values; other stations and full archive not checked |
+| DMC, Quinta Normal | 31 daily temperature records, January 2025; exact report URL and fields in the environment brief | Report does not expose per-row validation flags |
+
+These samples establish access to records. They do not establish a measured effect on social activity or a complete ingestion pipeline.
 
 ## Before combining sources
 

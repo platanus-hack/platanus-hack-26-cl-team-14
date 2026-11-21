@@ -17,7 +17,7 @@
 - Contents: Counts of dependent workers reported by employers, with company, activity, worker-band, and commune breakdowns.
 - Granularity: Comuna. The SII assigns workers to the employer's registered domicile or head office.
 - Year: Commercial years 2005–2025; the page says it was updated in October 2026.
-- Access: Direct XLSB download, 4.3 MB.
+- Access: Direct XLSB download, 4,550,113 bytes.
 - Check: VERIFIED 2026-11-21, HTTP 206 returned spreadsheet bytes. I did not decode the workbook rows.
 - Limits: This does not locate branches or actual work sites. A worker with more than one employer can count more than once. Small cells can be suppressed for tax secrecy.
 - Use in the simulation: Commune-level calibration target for total reported employment, not block allocation.
@@ -50,7 +50,7 @@
 - Granularity: EOD survey zones and trips. Exact trip fields were not checked.
 - Year: 2012.
 - Access: Direct ZIP download from Google Drive. The source page also links the survey report and zone file.
-- Check: VERIFIED 2026-11-21, downloaded the ZIP and passed `unzip -t`. The archive contains the Access database. I did not read data rows.
+- Check: VERIFIED 2026-11-21, downloaded the 16,324,719-byte ZIP and passed `unzip -t`. The archive contains the Access database. I did not read data rows.
 - Limits: The survey is old and samples travel, not all workers or workplaces. Trip destinations are not a direct count of jobs. Use expansion weights only after checking the database documentation.
 - Use in the simulation: Calibrate work-trip destinations by zone after a parser confirms the trip tables and weights.
 
@@ -73,8 +73,8 @@
 - Year: 2017.
 - Access: Online REDATAM tabulations; request a DVD from an INE office for zone-level records.
 - Check: UNVERIFIED. I opened the access note but did not obtain the microdata or confirm a workplace-location variable.
-- Limits: It is a residence-side workforce source. It is older than the 2024 census. No work-site location was confirmed.
-- Use in the simulation: NONE for job-site counts. It may support a 2017 resident-worker baseline if needed.
+- Limits: The release confirms person records by residence zone, but I did not check its work-status field. It is older than the 2024 census. No work-site location was confirmed.
+- Use in the simulation: NONE for job-site counts. A worker field would need review before using it for a 2017 resident baseline.
 
 ### INE establishment microdata, ENIA
 - Link: [INE establishment tracking dataset page](https://www.ine.gob.cl/inicio/documentos-de-trabajo/documento/base-de-datos-de-seguimiento-de-establecimientos-de-la-encuesta-nacional-industrial-anual-%28enia%29)
