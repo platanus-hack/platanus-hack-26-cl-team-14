@@ -25,6 +25,7 @@ impl Plugin for FerryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Service>()
             .add_systems(PostStartup, setup)
+            .add_systems(PostUpdate, crate::city::edits::ferry_routes)
             .add_systems(
                 Update,
                 (refresh.run_if(resource_changed::<Scenario>), animate)
@@ -48,6 +49,7 @@ struct Symbols {
     boat: Handle<Mesh>,
     person: Handle<Mesh>,
     plank: Handle<Mesh>,
+    font: Handle<Font>,
     hull: Handle<StandardMaterial>,
     coat: Handle<StandardMaterial>,
     timber: Handle<StandardMaterial>,
@@ -58,6 +60,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
     models: Res<Models>,
+    mut fonts: ResMut<Assets<Font>>,
 ) {
     let mut person = meshes.get(&models.mesh[&Model::Person]).unwrap().clone();
     person.remove_attribute(Mesh::ATTRIBUTE_COLOR);
@@ -70,6 +73,9 @@ fn setup(
     };
     commands.insert_resource(Symbols {
         access: access::load(),
+        font: fonts.add(Font::from_bytes(
+            include_bytes!("../../assets/barlow/Barlow-Regular.ttf").to_vec(),
+        )),
         boat: meshes.add(vessel::mesh()),
         person: meshes.add(person),
         plank: meshes.add(Cuboid::from_size(Vec3::ONE)),
@@ -173,10 +179,11 @@ fn refresh(
             FerryEntity,
             FerryLegend,
             Text::new(format!(
-                "Ferry · 1 figura ≈ {} viajes al trabajo",
+                "Ferry · 1 figura por cada {} viajes al trabajo",
                 passengers::TRIPS_PER_FIGURE
             )),
             TextFont {
+                font: symbols.font.clone().into(),
                 font_size: bevy::text::FontSize::Px(21.),
                 ..default()
             },

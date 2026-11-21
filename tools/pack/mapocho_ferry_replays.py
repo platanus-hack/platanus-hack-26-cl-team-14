@@ -14,7 +14,7 @@ for line in lines:
     line["geometry"] = {"type": "LineString", "coordinates": points if east else points[::-1]}
     line["properties"]["segment_minutes"] = minutes if east else minutes[::-1]
 
-focus = {"longitude": -70.63535, "latitude": -33.43583}
+focus = {"longitude": -70.63556, "latitude": -33.43586}
 for i, (case, changes) in enumerate([("base", []), ("ferry", lines)], 1):
     args = {
         "id": "mapocho-muelle-" + case,
@@ -24,7 +24,7 @@ for i, (case, changes) in enumerate([("base", []), ("ferry", lines)], 1):
         "duration_half_hours": 6,
         "analyze": "Viajes al trabajo por sentido y movimiento ilustrativo en el muelle.",
         "changes": changes,
-        "cues": [{"after_seconds": 0, **focus, "distance": 270}],
+        "cues": [{"after_seconds": 0, **focus, "distance": 155}],
     }
     if changes:
         args["chart"] = {

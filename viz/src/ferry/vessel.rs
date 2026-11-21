@@ -163,6 +163,6 @@ pub(super) fn mesh() -> Mesh {
         Vec3::new(2.1, 0., -2.4),
         Vec3::new(2.1, 0., -7.5),
     ];
-    hull.polygon(&[cabin], 1.26, 1.7, ink, [0.38, 0.70, 0.77, 1.]);
+    hull.polygon(&[cabin], 1.26, 1.7, ink, [0.85, 0.13, 0.09, 1.]);
     hull.finish()
 }
