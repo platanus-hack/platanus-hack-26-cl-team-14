@@ -110,7 +110,7 @@ for site, spec in SITES.items():
             p.update(height_m=h, height_source=src, height_source_url=url)
         features.append({"type": "Feature", "id": f"{p['kind']}_{osm_id}", "properties": p, "geometry": geometry})
     satellite(features)
-    # Most stands are narrower than a whole 4 m pixel band; they take the median of the stadium shell.
+    # A stand with no pixel that passes all filters (whole pixel inside, presence, 2-100 m) takes the shell median.
     shell = next((f["properties"] for f in features if f["properties"]["kind"] == "stadium_shell"), None)
     for f in features:
         if f["properties"]["kind"] == "stand" and "height_m" not in f["properties"]:
