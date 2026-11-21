@@ -304,6 +304,12 @@ fn main() -> AppExit {
             ),
         )
         .add_systems(Startup, (city::load_buildings, city::setup_ground))
+        .add_systems(
+            Update,
+            city::edits::refresh
+                .run_if(resource_changed::<net::Scenario>)
+                .before(city::draw_buildings),
+        )
         .add_systems(Update, city::draw_buildings)
         .run()
 }

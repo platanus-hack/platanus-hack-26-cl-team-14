@@ -31,7 +31,13 @@ fn tile_for(tiles: &mut GroundTiles, point: Vec3) -> &mut Surface {
 }
 
 // Clip each strip quad to the DEM faces so terrain cannot cut through its interior.
-fn ribbon(mesh: &mut Surface, points: &[Vec3], half_width: f32, elevation: f32, color: Color4) {
+pub(super) fn ribbon(
+    mesh: &mut Surface,
+    points: &[Vec3],
+    half_width: f32,
+    elevation: f32,
+    color: Color4,
+) {
     let mut draped = Vec::with_capacity(points.len());
     for pair in points.windows(2) {
         let horizontal = Vec2::new(pair[1].x - pair[0].x, pair[1].z - pair[0].z).length();
