@@ -1,0 +1,72 @@
+{
+  "kind": "fixed_event_venue_centroids",
+  "crs": "EPSG:4326",
+  "retrieved_at_utc": "2026-11-21",
+  "coordinate_role": "Derived stadium-bowl polygon centroid; assumed single event origin, not an entrance or Metro station.",
+  "centroid_method": "Closed-polygon area centroid in longitude/latitude. Translate each vertex by the first vertex before shoelace sums, then translate the centroid back. See data/validation/event_venues/README.md.",
+  "parent_audit": {
+    "source": "data/mvp/metro_training.json",
+    "sha256": "6811e2044d2e777d6f0b350493c43c2ca7a4eb0bc892f6f876bb4f7c4bf35639",
+    "count": 126,
+    "distance": "hypot(delta_longitude * 111320 * cos(-33.45 degrees), delta_latitude * 110540)",
+    "eligibility": "distance <= 1000 metres",
+    "weight": "1 / max(distance, 50 metres), normalized over eligible parents",
+    "use": "Audit only. Runtime must derive parents and shares from the fixed rule, not read these expected results."
+  },
+  "venues": [
+    {
+      "site_id": "estadio_nacional",
+      "name": "Estadio Nacional Julio Martínez Prádanos",
+      "longitude": -70.6106404880707,
+      "latitude": -33.4644707146861,
+      "source_url": "https://www.openstreetmap.org/api/0.6/way/28092600/full",
+      "source_object_id": "way/28092600",
+      "source_way_version": 27,
+      "source_way_timestamp": "2023-12-04T21:26:31Z",
+      "source_snapshot": "data/validation/event_venues/osm-way-28092600.xml",
+      "source_sha256": "6e53a277b405ce4d40f33d3defb57093f5f76857d73f1b10807075690b967530",
+      "expected_parents": [
+        {
+          "id": "ESN",
+          "name": "ESTADIO NACIONAL",
+          "distance_m": 400.10278795985045,
+          "share": 1.0
+        }
+      ],
+      "nearest_excluded_parent": {
+        "id": "NUN-NUO",
+        "distance_m": 1223.526051868321
+      }
+    },
+    {
+      "site_id": "estadio_monumental",
+      "name": "Estadio Monumental",
+      "longitude": -70.60596628713479,
+      "latitude": -33.50653677377368,
+      "source_url": "https://www.openstreetmap.org/api/0.6/way/297163434/full",
+      "source_object_id": "way/297163434",
+      "source_way_version": 7,
+      "source_way_timestamp": "2025-02-24T12:27:28Z",
+      "source_snapshot": "data/validation/event_venues/osm-way-297163434.xml",
+      "source_sha256": "8cb3a5ca7500f75670129966c488838b1e2980cb854b25e1204a7109703bac39",
+      "expected_parents": [
+        {
+          "id": "PE",
+          "name": "PEDRERO",
+          "distance_m": 615.6573667862509,
+          "share": 0.5405772952290269
+        },
+        {
+          "id": "MA",
+          "name": "MIRADOR",
+          "distance_m": 724.4099838101074,
+          "share": 0.4594227047709732
+        }
+      ],
+      "nearest_excluded_parent": {
+        "id": "SJ",
+        "distance_m": 1246.1580826574695
+      }
+    }
+  ]
+}
