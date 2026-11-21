@@ -2,6 +2,7 @@
 name = "santiago-scenario-core"
 version = "0.1.0"
 edition = "2024"
+default-run = "santiago-scenario-core"
 
 [dependencies]
 axum = "0.8"
