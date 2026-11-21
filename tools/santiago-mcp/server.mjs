@@ -18,11 +18,16 @@ const named = (counts, names) => Object.fromEntries(Object.entries(counts).map((
 const stationComuna = Object.fromEntries(JSON.parse(data('metro_training.json')).map((s) => [s.id,
   communes.find((f) => f.geometry.coordinates.some(([outer, ...holes]) => inRing([s.longitude, s.latitude], outer) && !holes.some((h) => inRing([s.longitude, s.latitude], h))))?.properties]));
 
+// Housing permits (MINVU, building_permits.csv) and Census 2024 residents per dwelling (site_inputs.csv), by comuna CUT.
+const table = (file) => { const [head, ...r] = data(file).trim().split('\n').map((line) => line.split(',')); return r.map((v) => Object.fromEntries(head.map((k, i) => [k, v[i]]))); };
+const residentsPerDwelling = Object.fromEntries(table('site_inputs.csv').map((r) => [r.cut, r.occupied_share * r.persons_per_occupied_dwelling]));
+const permits = table('building_permits.csv');
+
 const api = process.env.SANTIAGO_API_URL ?? 'http://127.0.0.1:8787';
 const comunas = '13101 Santiago, 13102 Cerrillos, 13103 Cerro Navia, 13104 Conchalí, 13105 El Bosque, 13106 Estación Central, 13107 Huechuraba, 13108 Independencia, 13109 La Cisterna, 13110 La Florida, 13111 La Granja, 13112 La Pintana, 13113 La Reina, 13114 Las Condes, 13115 Lo Barnechea, 13116 Lo Espejo, 13117 Lo Prado, 13118 Macul, 13119 Maipú, 13120 Ñuñoa, 13121 Pedro Aguirre Cerda, 13122 Peñalolén, 13123 Providencia, 13124 Pudahuel, 13125 Quilicura, 13126 Quinta Normal, 13127 Recoleta, 13128 Renca, 13129 San Joaquín, 13130 San Miguel, 13131 San Ramón, 13132 Vitacura, 13201 Puente Alto, 13202 Pirque, 13203 San José de Maipo, 13301 Colina, 13302 Lampa, 13303 Tiltil, 13401 San Bernardo, 13402 Buin, 13403 Calera de Tango, 13404 Paine, 13501 Melipilla, 13502 Alhué, 13503 Curacaví, 13504 María Pinto, 13505 San Pedro, 13601 Talagante, 13602 El Monte, 13603 Isla de Maipo, 13604 Padre Hurtado, 13605 Peñaflor';
 const tool = {
   name: 'simulate_city',
-  description: `Run one usual work day of Santiago (2.7 million synthetic workers, Census 2024) after a list of changes, and update the open city view. The workers choose a job place and a mode again. Each call starts from the baseline and applies the complete list together; an empty list restores the baseline. Translate the user's question into changes: a new building, mall or office is jobs and/or residents at a point (use its longitude and latitude); the jobs of a named existing place, or an event there, use kind "jobs" or "event" with {type:"place",id}, ids with their jobs status: ${placeRows.map((r) => `${r[0]} (${r[12]})`).join(', ')}; never send a point for a listed place; an event at any listed place uses its point, whatever its jobs status; for a jobs change, an unresolved place returns an error, so ask the user for a block id, and a multi_block place changes only its main census block: say that, and do not say how large the effect on the whole place would be; a named place takes no residents; to remove, reduce or scale an existing place that is not listed, use op "set" 0 or "multiply" at its point: the engine takes the nearest existing point within 500 m, which can be a neighbour block; applied[].understood gives the jobs_before that it took; a policy for a whole comuna uses the comuna id; a faster or slower trip is minutes; closing or reopening an existing Metro station is kind "station" with target {type:"station",id:<station name, for example "TOBALABA">}, op "set" and value 0 (closed) or 1 (open). An event (a concert, a match) is kind "event" with a point target, op "set", value = attendance and assumed_end_half_hour (0 to 47, 40 = 20:00); the result has events[] with the attendees by mode, by return comuna and the Metro users. The event estimate is demand for the whole return period, separate from the commuter station totals: the station deltas and the trip deltas do not include it. The end half hour does not select the service of that hour: the estimate is the same for an end at 20:00 and at 23:00. For a question the kinds below cannot express (a new Metro station or line), send kind "station" with a point target: the engine returns it in not_modeled, and you must tell the user that the engine cannot simulate that part yet. All results are model values, not measurements; say that, and read the assumptions. State only what a field of the result says. Do not infer distances, durations, causes, sectors, or what a real-world effect would be; a station's place is its comuna field. summary.workers_moved counts workers who change job place (lugar de trabajo), which can be in the same comuna. Give the unit of each number (daily Metro boardings on a work day, workers, jobs). Answer in 6 lines or fewer unless the user asks for more. Comuna ids: ${comunas}.`,
+  description: `Run one usual work day of Santiago (2.7 million synthetic workers, Census 2024) after a list of changes, and update the open city view. The workers choose a job place and a mode again. Each call starts from the baseline and applies the complete list together; an empty list restores the baseline. Translate the user's question into changes: a new building, mall or office is jobs and/or residents at a point (use its longitude and latitude); the jobs of a named existing place, or an event there, use kind "jobs" or "event" with {type:"place",id}, ids with their jobs status: ${placeRows.map((r) => `${r[0]} (${r[12]})`).join(', ')}; never send a point for a listed place; an event at any listed place uses its point, whatever its jobs status; for a jobs change, an unresolved place returns an error, so ask the user for a block id, and a multi_block place changes only its main census block: say that, and do not say how large the effect on the whole place would be; a named place takes no residents; to remove, reduce or scale an existing place that is not listed, use op "set" 0 or "multiply" at its point: the engine takes the nearest existing point within 500 m, which can be a neighbour block; applied[].understood gives the jobs_before that it took; a policy for a whole comuna uses the comuna id; the housing that the city already authorized (building permits) is kind "residents" with target {type:"permits",id:"2023", "2024", "2025" or "2023-2025"}, op "multiply" and value = the share of those dwellings that is built and occupied (1 = all); permits_used gives the dwellings, the residents added and the assumptions, say them; a faster or slower trip is minutes; closing or reopening an existing Metro station is kind "station" with target {type:"station",id:<station name, for example "TOBALABA">}, op "set" and value 0 (closed) or 1 (open). An event (a concert, a match) is kind "event" with a point target, op "set", value = attendance and assumed_end_half_hour (0 to 47, 40 = 20:00); the result has events[] with the attendees by mode, by return comuna and the Metro users. The event estimate is demand for the whole return period, separate from the commuter station totals: the station deltas and the trip deltas do not include it. The end half hour does not select the service of that hour: the estimate is the same for an end at 20:00 and at 23:00. For a question the kinds below cannot express (a new Metro station or line), send kind "station" with a point target: the engine returns it in not_modeled, and you must tell the user that the engine cannot simulate that part yet. All results are model values, not measurements; say that, and read the assumptions. State only what a field of the result says. Do not infer distances, durations, causes, sectors, or what a real-world effect would be; a station's place is its comuna field. summary.workers_moved counts workers who change job place (lugar de trabajo), which can be in the same comuna. Give the unit of each number (daily Metro boardings on a work day, workers, jobs). Answer in 6 lines or fewer unless the user asks for more. Comuna ids: ${comunas}.`,
   inputSchema: {
     type: 'object',
     required: ['changes'],
@@ -40,7 +45,7 @@ const tool = {
               required: ['type'],
               description: 'jobs and residents: {type:"point",longitude,latitude} for a place (new or existing), {type:"comuna",id} for a whole comuna, {type:"block",id} for a census block id, {type:"place",id} for a named place. minutes: {type:"comuna",id} for all trips to and from a comuna, or {type:"pair",origin,destination} for one direction between two comunas.',
               properties: {
-                type: { enum: ['point', 'comuna', 'block', 'place', 'pair', 'station'] },
+                type: { enum: ['point', 'comuna', 'block', 'place', 'pair', 'station', 'permits'] },
                 id: { type: 'string' },
                 longitude: { type: 'number' },
                 latitude: { type: 'number' },
@@ -69,7 +74,26 @@ async function dispatch({ method, params }) {
   if (method !== 'tools/call' || params?.name !== tool.name) return null;
   try {
     const placesUsed = [];
-    for (const change of params.arguments.changes ?? []) {
+    const permitsUsed = [];
+    // Permits become one residents change per comuna: dwellings x built share x Census occupied share x persons per occupied dwelling.
+    params.arguments.changes = (params.arguments.changes ?? []).flatMap((change) => {
+      if (change.target?.type !== 'permits') return [change];
+      if (change.kind !== 'residents' || change.op !== 'multiply') throw new Error('Permits take kind "residents", op "multiply" and value = the built share.');
+      const [from, to = from] = change.target.id.split('-').map(Number);
+      const dwellings = {};
+      for (const r of permits.filter((r) => r.year >= from && r.year <= to)) dwellings[r.cut] = (dwellings[r.cut] ?? 0) + Number(r.dwellings_authorized);
+      const out = Object.entries(dwellings).filter(([, d]) => d > 0)
+        .map(([cut, d]) => ({ kind: 'residents', target: { type: 'comuna', id: cut }, op: 'add', value: Math.round(d * change.value * residentsPerDwelling[cut]) }));
+      permitsUsed.push({ years: change.target.id, built_share: change.value, dwellings_authorized: Object.values(dwellings).reduce((a, b) => a + b, 0),
+        residents_added: out.reduce((a, c) => a + c.value, 0), comunas: out.length, assumptions: [
+          'MINVU building permits authorize dwellings; they give no completion date. The built share is the user\'s assumption.',
+          'Residents per dwelling = occupied share x persons per occupied dwelling of the comuna in the Census 2024.',
+          'The Census 2024 baseline does not include these dwellings: a permit from 2023 or later is assumed not built at the census date.',
+          'A permit locates a comuna, not a building: the new residents spread over the comuna like its current residents.',
+          ...(to >= 2025 ? ['2025 permits are preliminary MINVU figures.'] : [])] });
+      return out;
+    });
+    for (const change of params.arguments.changes) {
       if (change.target?.type !== 'place') continue;
       const place = places[change.target.id];
       // A named place is a job block; a residents change there would ask the engine for a home block it does not have.
@@ -104,6 +128,7 @@ async function dispatch({ method, params }) {
       .filter((z) => z.jobs_scenario !== z.jobs_base || z.residents_working_scenario !== z.residents_working_base)
       .sort((a, b) => Math.abs(b.jobs_scenario - b.jobs_base) - Math.abs(a.jobs_scenario - a.jobs_base)).slice(0, 5);
     if (placesUsed.length) result.places_used = placesUsed;
+    if (permitsUsed.length) result.permits_used = permitsUsed;
     result.blocks_changed = blocks_changed.slice(0, 5);
     result.omitted = 'Other stations, zones, comuna flows and trip groups are in the city view, not here. Do not describe them.';
     return { content: [{ type: 'text', text: JSON.stringify(result) }] };
