@@ -56,7 +56,7 @@ data = json.loads(source)
 scenes = {name: data["trips_" + name] for name in ("base", "scenario")}
 selected = sorted({signature(g) for groups in scenes.values() for g in groups
                    if g["count"] >= 2 and g["mode"] in PORTS})
-results, paths, groups = {}, [], []
+results, statuses, paths, groups = {}, {}, [], []
 if baseline:
     if baseline["max_snap_m"] != MAX_SNAP_M:
         raise ValueError("Baseline must use the same snap radius")
@@ -68,9 +68,10 @@ if baseline:
     modes = {"walk"} if WALK_ONLY else {"walk", "bicycle"}
     selected = [s for s in selected if s not in known and s[1] in modes]
 for group_id, mode, origin, destination in selected:
+    group_key = group_id, mode, origin, destination
     key = mode, origin, destination
-    if (group_id, mode, origin, destination) in EXCLUDED_WALKS:
-        results[key] = ("ReviewedDetour", None, None, None)
+    if group_key in EXCLUDED_WALKS:
+        statuses[group_key] = "ReviewedDetour"
         continue
     if key not in results:
         status, detail = query(*key)
@@ -81,6 +82,7 @@ for group_id, mode, origin, destination in selected:
         else:
             results[key] = (status, None, None, None)
     status, index, snaps, length = results[key]
+    statuses[group_key] = status
     if status == "Routed":
         groups.append({"id": group_id, "mode": mode, "origin": origin, "destination": destination,
                        "route": index, "snap_m": snaps, "length_m": length})
@@ -98,8 +100,8 @@ for scene, rows in scenes.items():
     for g in rows:
         if g["count"] < 2 or g["mode"] not in PORTS:
             continue
-        key = signature(g)[1:]
-        status = "Routed" if signature(g) in routed else results.get(key, ("Missing",))[0]
+        key = signature(g)
+        status = "Routed" if key in routed else statuses.get(key, "Missing")
         counts[g["mode"], status, g["origin_cut"] == g["destination_cut"]] += 1
     print(scene, sorted(counts.items()))
 for mode in PORTS:
