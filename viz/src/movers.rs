@@ -600,6 +600,12 @@ fn read_result(
             .get(&row["id"].as_u64().unwrap())
             .is_some_and(|&(_, flags)| flags & 16 != 0)
     });
+    // Capture the same street and clock at three pedestrian densities.
+    let walk_scale = match std::env::var("SANTIAGO_WALK_SCALE").as_deref() {
+        Ok("24") => 24.,
+        Ok("48") => 48.,
+        _ => PERSONS_PER_MOVER,
+    };
     for row in r["trips_scenario"].as_array().unwrap().iter().chain(removed) {
         let Some(path) = routes.group_path(row) else {
             continue;
@@ -607,7 +613,8 @@ fn read_result(
         let id = row["id"].as_u64().unwrap();
         // Stable fractional rounding keeps the same represented people at the same phase on revision.
         let seed = (id as u32).wrapping_mul(2654435761) as f64 / 4294967296.;
-        let copies = (row["count"].as_f64().unwrap() / PERSONS_PER_MOVER + seed).floor() as usize;
+        let scale = if row["mode"] == "walk" { walk_scale } else { PERSONS_PER_MOVER };
+        let copies = (row["count"].as_f64().unwrap() / scale + seed).floor() as usize;
         let (delta, flags) = deltas.get(&id).copied().unwrap_or_default();
         let tint = if flags & 8 != 0 || delta > 0. {
             Paint::Gain
@@ -621,7 +628,7 @@ fn read_result(
         let changed = if flags != 0 {
             copies
         } else {
-            (delta.abs() / PERSONS_PER_MOVER).ceil() as usize
+            (delta.abs() / scale).ceil() as usize
         };
         let bin = row["half_hour"].as_u64().unwrap() as usize;
         let itineraries: Vec<_> = if row["mode"] == "public" {
