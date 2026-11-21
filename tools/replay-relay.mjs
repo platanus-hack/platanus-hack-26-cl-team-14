@@ -8,6 +8,13 @@ const { meta, result } = JSON.parse(readFileSync(new URL(`../data/replays/${id}.
 // Same camera cues as run_replay. The final chart is too wide for a tile, so tiles show the map only.
 if (meta.cues) result.scene.cues = meta.cues;
 result.label = meta.title;
+if (meta.comparison) {
+  const { fields, unit } = meta.comparison;
+  const values = fields.map(field => field.split('.').reduce((value, key) => value?.[key], result));
+  if (!values.length || !values.every(Number.isFinite)) throw new Error(`Invalid comparison fields in replay ${id}.`);
+  const count = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(values.reduce((sum, value) => sum + value, 0));
+  result.label_detail = `${count} · ${unit}`;
+}
 result.revision = 1;
 result.scene.revision = 1;
 const body = JSON.stringify(result);
