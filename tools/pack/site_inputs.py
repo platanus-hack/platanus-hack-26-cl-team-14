@@ -89,6 +89,7 @@ def block_totals():
         if vp >= 10 and int(row["n_tipo_viv_depto"]) >= 0.9 * vp:
             flats[cut]["persons"] += int(row["n_per"])
             flats[cut]["occupied"] += int(row["n_vp_ocupada"])
+            flats[cut]["dwellings"] += vp
             flats[cut]["blocks"] += 1
     return totals, flats, names
 
@@ -111,6 +112,7 @@ def build():
                     "commuters_rm_per_resident", "commuters_all_per_resident",
                     "apartment_share_of_dwellings",
                     "persons_per_occupied_dwelling_apartment_blocks",
+                    "occupied_share_apartment_blocks",
                     "apartment_blocks", "apartment_block_persons",
                     "dwellings_with_residents_present", "persons_all_dwelling_kinds"])
         for cut in sorted(totals):
@@ -125,13 +127,15 @@ def build():
                         round(p["commuters_all"] / persons, 4),
                         round(t["n_tipo_viv_depto"] / t["n_vp"], 4),
                         round(fl["persons"] / fl["occupied"], 4) if fl["occupied"] else "",
+                        round(fl["occupied"] / fl["dwellings"], 4) if fl["dwellings"] else "",
                         fl["blocks"], fl["persons"], p["occupied_dwellings"], t["n_per"]])
     print(OUT, len(totals), "rows")
     print("persons by tipo_operativo:", dict(universe))
 
 
 BOARDINGS = pathlib.Path("data/raw/dtpm/subidas_2026_04.xlsx")
-GTFS = pathlib.Path("data/raw/verify-transport-metro/gtfs_20261114.zip")
+GTFS = pathlib.Path("data/raw/dtpm-gtfs-march/GTFS_20260321_v3.zip")
+GTFS_SHA256 = "f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b"
 SITE_LON, SITE_LAT = -70.600974, -33.417357  # centroid of manzana 13114131009033, the MUT
 RADIUS_M = 1000
 # The three reviewed DTPM-to-GTFS Metro joins (PR #23 and PR #29). The workbook has no
@@ -145,9 +149,10 @@ def metro_share():
         return math.hypot((lon - SITE_LON) * math.cos(math.radians(SITE_LAT)) * 111320,
                           (lat - SITE_LAT) * 110574)
 
-    bus, inside, outside = {}, [], []
+    bus, inside, outside, known = {}, [], [], set()
     g = zipfile.ZipFile(GTFS)
     for r in csv.DictReader(io.TextIOWrapper(g.open("stops.txt"), encoding="utf-8-sig")):
+        known.add(r["stop_id"])
         if not r["stop_lat"]:
             continue
         d = metres(float(r["stop_lon"]), float(r["stop_lat"]))
@@ -164,7 +169,7 @@ def metro_share():
     shared = re.findall(r"<si>(?:<t[^>]*>)?(.*?)(?:</t>)?</si>",
                         z.read("xl/sharedStrings.xml").decode("utf-8"), re.S)
     shared = [re.sub(r"<.*?>", "", s) for s in shared]
-    per_stop, matched = collections.Counter(), set()
+    per_stop, matched, no_point = collections.Counter(), set(), collections.Counter()
     stream = io.TextIOWrapper(z.open("xl/worksheets/sheet3.xml"), encoding="utf-8")
     buffer = ""
     for chunk in iter(lambda: stream.read(1 << 22), ""):
@@ -182,12 +187,23 @@ def metro_share():
                 station = METRO_JOIN.get(cells.get("C", "").upper())
                 if station in stations:
                     per_stop[station] += boardings
-            elif cells.get("B") == "BUS" and cells.get("D") in bus:
-                per_stop[cells["D"]] += boardings
-                matched.add(cells["D"])
+            elif cells.get("B") == "BUS":
+                user = cells.get("D", "")
+                if user in bus:
+                    per_stop[user] += boardings
+                    matched.add(user)
+                elif user not in known:
+                    no_point[(cells.get("E", ""), user)] += boardings
     metro = sum(per_stop[s] for s in stations)
     total = sum(per_stop.values())
     print("bus stops with a weekday record:", len(matched), "of", len(bus))
+    near_comunas = ("LAS CONDES", "PROVIDENCIA")
+    unplaced = sum(v for k, v in no_point.items() if k[0] in near_comunas)
+    print(f"bus boardings with a user code that is not in this GTFS at all: "
+          f"{sum(no_point.values()):,.1f} over the RM, {unplaced:,.1f} in Las Condes and "
+          f"Providencia. They have no point, so they cannot enter or leave the circle.")
+    print("  the Las Condes and Providencia codes:",
+          sorted(((round(v, 1), k[1]) for k, v in no_point.items() if k[0] in near_comunas), reverse=True))
     print("by Metro station:", {s: round(per_stop[s], 1) for s in stations})
     print(f"metro {metro:,.1f} / total {total:,.1f} = Metro share {metro / total:.4f}")
     away = metro - per_stop["LE-LEN"]

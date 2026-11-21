@@ -167,6 +167,7 @@ over the person file and caches the tallies, then the join runs in 2 s).
 | `commuters_rm_per_resident`, `commuters_all_per_resident` | that count / `persons` | observed |
 | `apartment_share_of_dwellings` | `n_tipo_viv_depto / n_vp` | observed |
 | `persons_per_occupied_dwelling_apartment_blocks` | the same ratio, over the blocks of the comuna where 90% or more of the private dwellings are apartments and `n_vp` is 10 or more | observed, subset |
+| `occupied_share_apartment_blocks` | `n_vp_ocupada / n_vp` over that same subset. Use it together with the column above, so the chain stays closed inside the subset | observed, subset |
 | `apartment_blocks`, `apartment_block_persons` | size of that subset | |
 | `dwellings_with_residents_present` | dwellings with at least one person record | observed |
 | `persons_all_dwelling_kinds` | `n_per`: private **plus** collective dwellings and the street operative | observed |
@@ -182,12 +183,18 @@ over the person file and caches the tallies, then the join runs in 2 s).
 - Las Condes `13114` (the MUT site): `occupied_share` **0.9405**,
   `persons_per_occupied_dwelling` **2.4185**, `commuters_rm_per_resident` **0.3577**,
   `commuters_all_per_resident` 0.3670, apartment share 0.7288,
-  `persons_per_occupied_dwelling_apartment_blocks` **2.0847** over 320 blocks and
-  160,457 persons.
+  `persons_per_occupied_dwelling_apartment_blocks` **2.0847** with
+  `occupied_share_apartment_blocks` **0.9251**, over 320 blocks and 160,457 persons.
+- The two pairs do not give the same residents for each dwelling built: the comuna pair
+  gives 0.9405 × 2.4185 = 2.2746 and the apartment-block pair gives
+  0.9251 × 2.0847 = 1.9286, which is 15% lower. Always use a pair, never one column of
+  one pair and one column of the other.
 - **`persons` is not `communes.csv` `population`.** `tipo_operativo` splits the
-  7,400,741 RM persons into 7,345,647 in private dwellings, 46,636 in collective
-  dwellings (`tipo_operativo` 3: homes, hospitals, barracks) and 8,458 in the street
-  operative (`tipo_operativo` 1). A new tower is a private dwelling, so the site model
+  7,400,741 RM persons into 7,345,647 in private dwellings (code 2), 46,636 in
+  collective dwellings (code 3) and 8,458 in the street operative (code 1). The labels
+  are the official ones of the microdata manual, page with Table 4.2
+  (`data/raw/verify-people-work/census-manual.pdf`): "1 = Personas en situación de
+  calle, 2 = Viviendas particulares, 3 = Viviendas colectivas". A new tower is a private dwelling, so the site model
   uses the 7,345,647 universe. `communes.csv` `population` is the 7,400,741 total.
 - **Check, the chain of the contract closes.** `dwellings × occupied_share ×
   persons_per_occupied_dwelling` reproduces `persons` with an error under 15 persons for
@@ -242,9 +249,20 @@ coverage; and the circle holds every rider of three stations, not the residents 
 block. Show the 75.95% as evidence that this place is Metro-first, not as a coefficient.
 
 - Sources: DTPM `Subidas_Paradero_Estacion_2026.04_v3.xlsx`
-  (`data/raw/dtpm/subidas_2026_04.xlsx`, sheet 3, `Tipo_dia=LABORAL`) and GTFS
-  `gtfs_20261114.zip` for the stop points. Bus rows join on `Paradero Usuario`
-  to `stop_id`. Metro rows use only the 3 reviewed joins of PR #23 and PR #29.
+  (`data/raw/dtpm/subidas_2026_04.xlsx`, sheet 3, `Tipo_dia=LABORAL`) and
+  `GTFS_20260321_v3.zip` for the stop points
+  (`data/raw/dtpm-gtfs-march/`, sha256 `f10945e8…b77b`, equal to the hash that
+  `tobalaba_observations.json` publishes; it is the release that `context/mvp.md`
+  names). Bus rows join on `Paradero Usuario` to `stop_id`. Metro rows use only the 3
+  reviewed joins of PR #23 and PR #29.
+- **Unmatched totals, both directions.** All 44 bus stops of the circle have a weekday
+  record. In the other direction, 790.4 of the 2,512,170.4 RM weekday bus boardings
+  (0.03%) carry a user code that this GTFS does not hold at all, so they have no point;
+  none of them is in Las Condes or Providencia. The two largest, `PC275` and `PC727`,
+  do have a point in the March release, at 2,849 m and 4,689 m, far outside the circle.
+  So no unplaced boarding can change the 75.95%. The November 2026 release gives the
+  same 44 stops and the same 0.7595, but it drops `PC275` and `PC727`, which is why the
+  builder uses the March one.
 - The 1 km radius needs no unreviewed join: the next Metro parents are Alcántara at
   1,073 m, Cristóbal Colón at 1,328 m, Pedro de Valdivia at 1,477 m and Escuela Militar
   at 1,678 m, all outside. No Tren stop is in the radius.
