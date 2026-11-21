@@ -25,7 +25,7 @@ out tags geom;
 def fetch():
     body = urllib.parse.urlencode({"data": QUERY}).encode()
     request = urllib.request.Request(API, body, {"User-Agent": "team14-sim/1.0"})
-    return json.load(urllib.request.urlopen(request, timeout=300))["elements"]
+    return json.load(urllib.request.urlopen(request, timeout=300))
 
 
 def point(p):
@@ -54,7 +54,8 @@ def rings(ways):
     return done
 
 
-elements = fetch()
+response = fetch()
+elements = response["elements"]
 geometry = {e["id"]: e["geometry"] for e in elements if e["type"] == "way" and "geometry" in e}
 features = []
 for rel in (e for e in elements if e["type"] == "relation"):
@@ -73,7 +74,9 @@ for way in (e for e in elements if e["type"] == "way" and "bridge" in e.get("tag
                      "geometry": {"type": "LineString", "coordinates": [point(p) for p in way["geometry"]]},
                      "properties": {"kind": "bridge", "name": tags.get("name"), "highway": tags["highway"],
                                     "layer": int(tags.get("layer", 1)), "osm_id": f"w{way['id']}"}})
-OUT.write_text(json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False,
+OUT.write_text(json.dumps({"type": "FeatureCollection", "attribution": "© OpenStreetMap contributors",
+                           "license": "ODbL-1.0", "osm_timestamp": response["osm3s"]["timestamp_osm_base"],
+                           "features": features}, ensure_ascii=False,
                           separators=(",", ":")) + "\n")
 print(f"{OUT}: {sum(f['properties']['kind'] == 'water' for f in features)} water areas, "
       f"{sum(f['properties']['kind'] == 'bridge' for f in features)} bridges, {OUT.stat().st_size} bytes")
