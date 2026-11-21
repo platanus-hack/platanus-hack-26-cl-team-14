@@ -4,7 +4,7 @@ The V1 Metro replay could report who faces a longer trip after service stops. Th
 
 ## Source and unit
 
-Use CASEN 2024 `ymonecorh`, monthly household monetary income in Chilean pesos. It includes autonomous household income and state cash transfers. Select the Metropolitan Region (`region = 13)). The survey covers residents in occupied private dwellings within its survey frame. The household income indicator excludes live-in domestic workers and their family. [CASEN 2024 source and research manual, household monetary income indicator](https://observatorio.ministeriodesarrollosocial.gob.cl/encuesta-casen-2024)
+Use CASEN 2024 `ymonecorh`, monthly household monetary income in Chilean pesos. It includes autonomous household income and state cash transfers. Select the Metropolitan Region (`region = 13`). The survey covers residents in occupied private dwellings within its survey frame. The household income indicator excludes live-in domestic workers and their family. [CASEN 2024 source and research manual, household monetary income indicator](https://observatorio.ministeriodesarrollosocial.gob.cl/encuesta-casen-2024)
 
 Use `expr` as the regional expansion weight. Use one row per eligible household (`pco1 = 1`) to calculate household quantile thresholds. Count eligible person rows to estimate the share of people living in each band. For a commuter distribution, restrict those person rows to a documented survey population that approximates the modeled commuters. Report the sample size and check precision before publishing subdivisions. [CASEN 2024 usage note, §§2–3](https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Nota_uso_bases_de_datos_Casen_2024.pdf)
 
