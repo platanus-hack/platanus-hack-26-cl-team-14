@@ -22,8 +22,6 @@ rows = {r["block_id"]: r for r in csv.DictReader((pack / "jobs.csv").open())}
 covered_stock = sum(int(rows[k]["jobs"]) for k in weights if k in rows)
 total = sum(weights.values())
 for block, weight in weights.items():
-    if block not in rows and weight == 0:
-        continue
     point = rows.setdefault(block, locations[block])
     point["jobs"] = covered_stock * weight / total
 
