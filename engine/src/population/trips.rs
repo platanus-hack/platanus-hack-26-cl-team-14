@@ -12,6 +12,8 @@ pub struct TripGroup {
     pub mode: &'static str,
     pub half_hour: usize,
     pub count: usize,
+    pub origin_cut: String,
+    pub destination_cut: String,
 }
 
 // Interleave the four 1-km coordinates of a home/job pair into one spatial sort key.
@@ -43,7 +45,7 @@ fn group_counts(sizes: [usize; 5], budget: usize) -> [usize; 5] {
     counts
 }
 
-fn representative(points: &[Point], indices: impl Iterator<Item = usize> + Clone, count: usize) -> [f64; 2] {
+fn representative(points: &[Point], indices: impl Iterator<Item = usize> + Clone, count: usize) -> &Point {
     let (mut lon, mut lat) = (0.0, 0.0);
     for i in indices.clone() {
         lon += points[i].longitude;
@@ -52,8 +54,7 @@ fn representative(points: &[Point], indices: impl Iterator<Item = usize> + Clone
     let (lon, lat) = (lon / count as f64, lat / count as f64);
     let distance = |p: &Point| ((p.longitude - lon) * KM_PER_LON).powi(2)
         + ((p.latitude - lat) * KM_PER_LAT).powi(2);
-    let p = indices.map(|i| &points[i]).min_by(|a, b| distance(a).total_cmp(&distance(b))).unwrap();
-    [p.longitude, p.latitude]
+    indices.map(|i| &points[i]).min_by(|a, b| distance(a).total_cmp(&distance(b))).unwrap()
 }
 
 /// Aggregate synthetic workers into at most `n` display groups. Each endpoint is the point
@@ -81,8 +82,13 @@ pub fn sample_trips(pop: &Population, n: usize) -> Vec<TripGroup> {
             let origin = representative(&pop.homes, persons.clone().map(|p| p.home as usize), members.len());
             let destination = representative(&pop.jobs, persons.map(|p| p.dest as usize), members.len());
             let quantile = (rank as f64 + 0.5) / size as f64;
-            out.push(TripGroup { origin, destination, mode: MODES[mode], count: members.len(),
-                half_hour: departure_half_hour(mode, quantile) });
+            out.push(TripGroup {
+                origin: [origin.longitude, origin.latitude],
+                destination: [destination.longitude, destination.latitude],
+                origin_cut: origin.cut.clone(),
+                destination_cut: destination.cut.clone(),
+                mode: MODES[mode], count: members.len(), half_hour: departure_half_hour(mode, quantile),
+            });
         }
     }
     out
