@@ -2,7 +2,9 @@
 
 Weekday EOD 2012 trips with both ends within 800 m of two different piers (`piers.json`). The boat wins a trip if walk to the pier (straight line ×1.3, 4.5 km/h) + half the headway + river ride between the piers + 1 min per intermediate pier + walk out is shorter than the time the person reported (`viajes.TiempoViaje`). Script: `tools/pack/mapocho_boat_trips.py`.
 
-## Piers at least 3 km apart along the river (the corridor filter; Eliseo-21 counted 95 records, 24,493 trips)
+## Piers at least 3 km apart along the pier polyline
+
+Not the same filter as `mapocho_corridor.py` (east–west separation after projection onto the river). Eliseo-21 crossed the survey keys: 92 records in both, 3 only in the corridor filter, 2 only in this one.
 
 ```
 min river km 3.0; pier-to-pier trips: 94 records, 23,941 expanded weekday trips
@@ -38,4 +40,4 @@ speed_kmh,headway_min,faster_trips,share,median_boat_min
 
 - At comuna level the boat attracts nobody (section 7, 0 of 42 pairs): the walk from the comuna point to a pier is too long.
 - At trip level, for people who already live and go within 800 m of a pier, a 17 km/h boat every 10 min beats the reported time for **10,871 of 23,941** weekday trips (45 %). Most of them are trips that today take a long or indirect route.
-- Limits: reported times are self-reported and rounded; no fare, no transfer, no crowding, no capacity; 94 sample records; piers are assumed positions every ~2 km; 2012 trips. Not boat passengers: an upper bound on trips that would save time.
+- Limits: reported times are self-reported and rounded; no fare, no transfer, no crowding, no capacity; 94 sample records; piers are assumed positions every ~2 km; 2012 trips. It compares times under these assumptions; it is not a count of boat passengers or of time saved.

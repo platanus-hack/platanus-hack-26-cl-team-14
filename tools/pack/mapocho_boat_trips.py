@@ -11,7 +11,7 @@ from pathlib import Path
 
 EOD = Path("data/raw/eod2012/x/eod2012/EOD_STGO")
 PIER_KM, WALK_KMH, DETOUR, STOP_MIN = 0.8, 4.5, 1.3, 1.0
-MIN_RIVER_KM = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0  # 3 = the corridor filter of mapocho_corridor.py
+MIN_RIVER_KM = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0  # minimum distance between the two piers along the pier polyline
 SPEEDS, HEADWAYS = (12.0, 17.0, 25.0), (5.0, 10.0, 15.0)
 
 
