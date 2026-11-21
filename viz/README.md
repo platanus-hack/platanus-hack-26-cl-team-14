@@ -1,14 +1,14 @@
 # Santiago miniature
 
-Run this command from the repository root with Rust 1.97.1 or later. The window reads the latest scenario and event stream on port 8787 by default.
+Run `./run.sh` from the repository root to open the city and a terminal beside it. The terminal starts the installed Claude Code or Codex CLI with the Santiago MCP connected to this engine. Sign in to the CLI first. When both are installed, the launcher chooses Claude. Use `SANTIAGO_CHAT_CLI=codex ./run.sh` or `SANTIAGO_CHAT_CLI=claude ./run.sh` to choose one.
+
+To open only the viewer, run this command from the repository root with Rust 1.97.1 or later. The window reads the latest scenario and event stream on port 8787 by default.
 
 ```sh
 CARGO_TARGET_DIR=/tmp/viz-target cargo run --manifest-path viz/Cargo.toml
 ```
 
 Drag to pan. Scroll to zoom. Press M to switch between the surface and the subway at the same camera position. Set `SANTIAGO_ENGINE` to use another engine. Set `SANTIAGO_PIXEL=1` for the pixel-art view. Each art pixel takes the most frequent palette color from four samples. Depth edges use a darker shade. [Pixel rendering reference](https://github.com/cobanov/pixelart-gaussiansplat)
-
-Click the question box on the right and press Enter to ask about Santiago. Sign in to Claude Code or Codex on the same computer first. The panel tries Claude first, then Codex if Claude is missing. Set `SANTIAGO_CHAT_CLI=codex` or `SANTIAGO_CHAT_CLI=claude` to choose one. The chat uses the same `SANTIAGO_ENGINE` as the city window.
 
 The two building packs contain 279,385 mapped footprints and 459,845 shapes generated inside census blocks. Camera distance selects the oriented boxes or the full polygons. Roof forms, window patterns and tree crowns are visual approximations.
 

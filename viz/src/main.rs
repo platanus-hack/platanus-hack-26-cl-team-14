@@ -1,4 +1,3 @@
-mod chat;
 mod city;
 mod movers;
 mod net;
@@ -12,7 +11,7 @@ use bevy::{
     prelude::*,
     render::view::screenshot::{Screenshot, ScreenshotCaptured},
     text::FontSize,
-    window::{PrimaryWindow, WindowResolution},
+    window::{PrimaryWindow, WindowPosition, WindowResolution},
     winit::WinitSettings,
 };
 use std::{env, time::Instant};
@@ -34,11 +33,26 @@ impl Plugin for MiniatureCamera {
 
 /// Use with DefaultPlugins.set(WindowPlugin { primary_window: Some(window()), ..default() }).
 pub fn window() -> Window {
-    Window {
+    let mut window = Window {
         title: "santiaguito.cl".into(),
         resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
         ..default()
+    };
+    if let Ok(bounds) = env::var("SANTIAGO_WINDOW_RECT") {
+        let values: Vec<i32> = bounds
+            .split_whitespace()
+            .map(|v| v.parse().unwrap())
+            .collect();
+        let [x, y, width, height] = values[..] else {
+            panic!("SANTIAGO_WINDOW_RECT requires x y width height")
+        };
+        window.position = WindowPosition::At(IVec2::new(x, y));
+        window.resolution =
+            WindowResolution::new(width as u32, height as u32).with_scale_factor_override(1.);
+        window.name = env::var("SANTIAGO_CITY_WINDOW_CLASS").ok();
+        window.focused = false;
     }
+    window
 }
 
 #[derive(Resource)]
@@ -150,17 +164,9 @@ fn navigate(
     mouse: Res<ButtonInput<MouseButton>>,
     mut motion: MessageReader<MouseMotion>,
     mut wheel: MessageReader<MouseWheel>,
-    panel: Single<&bevy::ui::RelativeCursorPosition, With<chat::ChatPanel>>,
-    mut drag_from_panel: Local<bool>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
-    let over_chat = panel.cursor_over();
-    if mouse.just_pressed(MouseButton::Left) {
-        *drag_from_panel = over_chat;
-    }
-    if rig.fixed || over_chat || (mouse.pressed(MouseButton::Left) && *drag_from_panel) {
-        motion.clear();
-        wheel.clear();
+    if rig.fixed {
         return;
     }
     let scroll: f32 = wheel
@@ -285,7 +291,6 @@ fn main() -> AppExit {
         }))
         .add_plugins((
             MiniatureCamera,
-            chat::ChatPlugin,
             net::NetPlugin,
             movers::MoversPlugin,
             movers::events::EventsPlugin,
@@ -294,13 +299,9 @@ fn main() -> AppExit {
         .init_resource::<city::SubwayView>()
         .add_systems(
             PreUpdate,
-            city::toggle_subway
-                .after(bevy::picking::PickingSystems::Last)
-                .after(bevy::ui::UiSystems::Focus)
-                .run_if(chat::city_keys_enabled)
-                .run_if(bevy::input::common_conditions::input_just_pressed(
-                    KeyCode::KeyM,
-                )),
+            city::toggle_subway.after(bevy::input::InputSystems).run_if(
+                bevy::input::common_conditions::input_just_pressed(KeyCode::KeyM),
+            ),
         )
         .add_systems(Startup, (city::load_buildings, city::setup_ground))
         .add_systems(Update, city::draw_buildings)
