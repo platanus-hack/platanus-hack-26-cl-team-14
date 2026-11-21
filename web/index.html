@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<title>Santiago · Tobalaba</title>
+<script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0f24; color: #fff; overflow: hidden;
+    font: 700 28px/1.1 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  #map { position: absolute; inset: 0; } canvas { background: none !important; }
+  .box { position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; font-variant-numeric: tabular-nums; }
+  small { display: block; font-size: 30px; color: #9fb0d8; }
+  body.s .t, body.t .s { display: none !important; }
+  #switch { top: 28px; right: 28px; padding: 10px; display: flex; gap: 10px; }
+  button { font: inherit; font-size: 46px; padding: 18px 34px; color: #fff; background: #1c2750; border: 0; border-radius: 16px; cursor: pointer; }
+  body.s #vs, body.t #vt, #go, #reset { color: #0a0f24; background: #ff7a1a; }
+  #go.on { background: #fff; }
+  .tl { top: 28px; left: 28px; } .big { font-size: 130px; display: inline-block; margin-right: 50px; } .mid { font-size: 96px; } #zname { font-size: 72px; color: #ff7a1a; }
+  #clock { cursor: pointer; }
+  #engine { top: 170px; right: 28px; text-align: right; font-size: 80px; }
+  .panel { bottom: 28px; left: 28px; width: 560px; }
+  .panel button { width: 100%; }
+  .val { font-size: 64px; margin: 18px 0 4px; } .val small { display: inline; }
+  input[type=range] { width: 100%; height: 44px; accent-color: #ff7a1a; }
+  #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; }
+  .more { color: #ff4d6d; } .less { color: #3ddc97; } .model { color: #ffb47a; }
+  i { display: inline-block; width: 26px; height: 26px; border-radius: 50%; margin: 0 8px 0 18px; }
+</style>
+<body class="t">
+<div id="map"></div>
+<div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button></div>
+
+<div class="box tl t" id="clock">
+  <div class="big" id="hhmm">--:--</div>
+  <div class="big" id="now">—</div>
+  <small>subidas en 30 min · Metro Tobalaba · <span id="nowk">observado</span></small>
+  <small>abril 2026, día laboral promedio</small>
+</div>
+<div class="box panel t">
+  <button id="go">Sacar el MUT</button>
+  <div class="val"><span id="n">298</span> <small>viviendas · supuesto</small></div>
+  <input id="slider" type="range" min="0" max="1500" step="2" value="298">
+  <small>MUT · Las Condes · 4.679 empleos</small>
+  <small>modelo · asistencia y Metro: supuesto</small>
+  <small id="legend"><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#fff"></i>base<i style="background:#ff7a1a"></i>escenario</small>
+</div>
+
+<div class="box tl s">
+  <div class="mid" id="zname">—</div>
+  <div class="mid" id="zjobs">—</div><small>trabajan aquí · <span class="zk">observado, Censo 2024</span></small>
+  <div class="mid" id="zpop">—</div><small>viven aquí · <span class="zk">observado, Censo 2024</span></small>
+</div>
+<div class="box panel s">
+  <div class="val"><small>empleos</small> ×<span id="jv">1,0</span></div>
+  <input id="jobs" type="range" min="0.2" max="2" step="0.1" value="1">
+  <div class="val"><small>viviendas</small> ×<span id="hv">1,0</span></div>
+  <input id="housing" type="range" min="0.2" max="2" step="0.1" value="1">
+  <button id="reset">Volver</button>
+  <small style="margin-top:14px"><i style="background:#ff4d6d;margin-left:0"></i>gana empleos<i style="background:#3ddc97"></i>pierde · modelo</small>
+</div>
+
+<div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
+<div id="delta" class="box t"><span id="dv"></span><small>cambio al día · modelo</small></div>
+<script>
+const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
+const API = 'http://localhost:8787/api/';
+const MUT = [-70.6009, -33.4180];
+const FIRST = 11, LAST = 47;  // 05:30 to 23:30
+const HOMES = 298;            // average dwellings of an RM tower of 15 floors or more
+const KZ = 0.02;              // metres of comuna height for each person who works there
+const VIEWS = {
+  t: {longitude: -70.6040, latitude: -33.4205, zoom: 15.2, pitch: 55, bearing: -28},
+  s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15}};
+const $ = id => document.getElementById(id);
+const fmt = (n, d = 0) => n.toLocaleString('es-CL', {maximumFractionDigits: d, minimumFractionDigits: d});
+const height = v => 15 + 4 * Math.sqrt(v);  // square root with a 15 m floor: a bus stop stays visible
+const at = (a, t) => { const i = Math.floor(t), x = a[i], y = a[Math.min(i + 1, 47)]; return x == null || y == null ? x : x + (y - x) * (t - i); };
+const post = (path, body) => fetch(API + path, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.ok ? r.json() : Promise.reject());
+
+let view = 't', stops, tob, buildings, ground, communes, t = FIRST, playing = true, active = false, homes = HOMES;
+let site = null;                         // last answer of POST /api/site-scenario
+let world = null, sim = null, sel = '13123', seq = 0;  // GET /api/world, last POST /api/simulate, selected comuna
+
+// footprint of the new tower: a 44 m square on the MUT site
+const d = 0.00024, tower = [{polygon: [[MUT[0] - d, MUT[1] - d * .85], [MUT[0] + d, MUT[1] - d * .85], [MUT[0] + d, MUT[1] + d * .85], [MUT[0] - d, MUT[1] + d * .85]]}];
+
+const deckgl = new DeckGL({
+  container: 'map',
+  views: new MapView({orthographic: true}),
+  initialViewState: VIEWS.t,
+  controller: true,
+  effects: [new LightingEffect({
+    ambient: new AmbientLight({intensity: 1.0}),
+    sun: new DirectionalLight({direction: [-2, -4, -3], intensity: 1.4})})],
+});
+
+const ms = {};  // for each view: the measured time of the last engine answer, or "sin motor"
+function engine(v, r) {
+  ms[v] = r ? [fmt(r.elapsed_ms, 2) + ' ms', 'motor Rust · medido'] : ['sin motor', v == 's' ? ':8787 no responde' : site ? 'se ve el último escenario válido' : 'falta /api/site-scenario'];
+  draw();
+}
+
+// ---------- Tobalaba ----------
+function siteScenario() {
+  // every parameter is explicit; the engine has no defaults. P = value, kind, source.
+  const P = (value, source_kind, source) => ({value, source_kind, source});
+  const u = 'user_assumption';
+  post('site-scenario', {
+    station_id: 'TB-TOB', comuna_cut: '13114', longitude: MUT[0], latitude: MUT[1],
+    // values of clever-heron's reviewed manual run of site.rs (PR #30): illustrative, not a measured preset
+    baseline_jobs: P(4679, u, 'modeled MUT jobs from floor area, data/mvp/jobs.csv; not observed site employment'),
+    baseline_dwellings: P(0, u, 'no dwellings at this site; not a verified count'),
+    jobs_removed: P(4679, u, 'the scenario removes all assumed baseline jobs'),
+    dwellings_added: P(homes, u, 'slider on the page'),
+    parameters: {
+      occupied_share: P(0.9251, 'observed_aggregate', 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; its use for the tower is an assumption'),
+      persons_per_occupied_dwelling: P(2.0847, 'observed_aggregate', 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; its use for the tower is an assumption'),
+      known_commuters_per_resident: P(104980 / 296134, 'observed_aggregate', 'Las Condes RM-to-RM commuters / residents, Census 2024; its use for new households is an assumption'),
+      attendance_home: P(0.8, u, 'not measured daily attendance'),
+      attendance_work: P(0.8, u, 'not measured MUT attendance'),
+      filled_job_share: P(0.9, u, 'not measured vacancy'),
+      metro_entry_share_home: P(0.2, u, 'share of departures with a Metro entry; not the Census public-transport share'),
+      metro_entry_share_work: P(0.2, u, 'not measured worker mode choice'),
+      access_share_home: P(0.8, u, 'share of Metro entries at Tobalaba; not an observed catchment'),
+      access_share_work: P(0.8, u, 'share of Metro entries at Tobalaba; not an observed catchment'),
+      maximum_access_distance_m: P(500, u, 'straight line to a Tobalaba entrance; not a walking route'),
+    },
+    time_profile: 'observed_am_06_10_pm_16_21', population_policy: 'local_increment_unbalanced',
+  }).then(r => { site = r; engine('t', r); }, () => engine('t'))  // a failed call keeps the last valid answer
+  .then(() => {
+    const dd = site && site.delta.reduce((a, x) => a + (x || 0), 0);
+    $('dv').textContent = site ? (dd > 0 ? '+' : '') + fmt(dd) : '';
+    $('dv').className = dd > 0 ? 'more' : 'less';
+    $('delta').style.display = site ? 'block' : 'none';
+    draw();
+  });
+}
+
+function tobalaba() {
+  const cols = (id, key, dx, color, r = 18) => new ColumnLayer({id, data: [0].filter(() => at(site[key], t) != null),
+    getPosition: [tob.lon + dx, tob.lat], diskResolution: 20, radius: r, getElevation: () => height(at(site[key], t)),
+    getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
+  return [
+    new GeoJsonLayer({id: 'ground', data: ground, stroked: false,
+      getFillColor: [26, 74, 62], getLineColor: f => /river|canal/.test(f.properties.kind) ? [40, 110, 200] : f.properties.major ? [70, 84, 130] : [38, 48, 86],
+      getLineWidth: f => f.properties.kind == 'river' ? 45 : f.properties.kind == 'canal' ? 10 : f.properties.major ? 16 : 7, lineWidthUnits: 'meters'}),
+    new GeoJsonLayer({id: 'buildings', data: buildings, extruded: true, stroked: false,
+      getElevation: f => f.properties.is_mut && active ? 0 : f.properties.height_m,
+      getFillColor: f => f.properties.is_mut ? [255, 122, 26] : [125, 140, 190],
+      material: {ambient: .45, diffuse: .7, shininess: 8},
+      updateTriggers: {getElevation: active}, transitions: {getElevation: 900}}),
+    new PolygonLayer({id: 'tower', data: tower, extruded: true, getPolygon: o => o.polygon,
+      getElevation: active ? homes * 0.15 : 0, getFillColor: [255, 255, 255],
+      updateTriggers: {getElevation: [active, homes]}, transitions: {getElevation: 900}}),
+    // observed boardings; a half hour with no observation has no column
+    new ColumnLayer({id: 'stops', data: stops.filter(s => at(s.observed, t) != null), getPosition: s => [s.lon, s.lat], diskResolution: 20,
+      radius: 18, getElevation: s => height(at(s.observed, t)), getFillColor: s => s.name ? [0, 229, 255] : [255, 212, 0],
+      material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}}),
+    site && cols('base', 'base', 0.0005, [255, 255, 255]),
+    site && cols('scenario', 'scenario', 0.001, [255, 122, 26], 24),
+    new TextLayer({id: 'names', data: stops.filter(s => s.name), getPosition: s => [s.lon, s.lat, height(at(s.observed, t) || 0)], getPixelOffset: [0, -34],
+      getText: s => s.name, getSize: 36, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255], updateTriggers: {getPosition: t}}),
+    new TextLayer({id: 'label', data: [0], characterSet: 'auto', fontFamily: 'Helvetica, Arial, sans-serif', getPosition: [...MUT, 70], getPixelOffset: [70, -30], getTextAnchor: 'start', getText: () => active ? 'TORRE' : 'MUT',
+      getSize: 44, fontWeight: 800, getColor: [255, 255, 255], background: true, getBackgroundColor: active ? [10, 15, 36] : [255, 122, 26],
+      backgroundPadding: [14, 8], updateTriggers: {getText: active, getBackgroundColor: active}}),
+  ];
+}
+
+// ---------- Santiago ----------
+function simulate() {
+  const n = ++seq, j = +$('jobs').value, h = +$('housing').value;
+  $('jv').textContent = fmt(j, 1); $('hv').textContent = fmt(h, 1);
+  post('simulate', {zone_id: sel, jobs_multiplier: j, housing_multiplier: h})
+    .then(r => { if (n == seq) { sim = r; engine('s', r); } }, () => engine('s'));
+}
+
+function santiago() {
+  const zs = sim ? Object.fromEntries(sim.zones.map(z => [z.id, z])) : {};
+  const base = world ? Object.fromEntries(world.zones.map(z => [z.id, z])) : {};
+  const pos = id => [zs[id].longitude, zs[id].latitude, zs[id].jobs * KZ];
+  const z = zs[sel];
+  if (z) {
+    const model = sim.metadata.state != 'observed_baseline';
+    $('zname').textContent = z.name; $('zjobs').textContent = fmt(z.jobs); $('zpop').textContent = fmt(z.population);
+    $('zjobs').className = $('zpop').className = model ? 'mid model' : 'mid';
+    document.querySelectorAll('.zk').forEach(e => e.textContent = model ? 'modelo' : 'observado, Censo 2024');
+  }
+  return [
+    new GeoJsonLayer({id: 'communes', data: communes, extruded: !!sim, pickable: true,
+      getElevation: f => sim ? zs[f.properties.cut].jobs * KZ : 0, getLineColor: [150, 170, 255],
+      getFillColor: f => {
+        const c = f.properties.cut;
+        if (c == sel || !sim) return [255, 122, 26, c == sel ? 255 : 0];
+        const k = Math.sqrt(zs[c].jobs / 5e5), blue = [14 + 60 * k, 20 + 80 * k, 48 + 150 * k];  // more jobs, more light
+        const dj = zs[c].jobs / base[c].jobs - 1, m = Math.min(1, Math.abs(dj) * 4), to = dj > 0 ? [255, 77, 109] : [61, 220, 151];  // red gains jobs, green loses
+        return blue.map((x, i) => x + (to[i] - x) * m);
+      },
+      material: {ambient: .5, diffuse: .7, shininess: 8},
+      onClick: ({object}) => { sel = String(object.properties.cut); $('jobs').value = $('housing').value = 1; simulate(); },
+      updateTriggers: {getElevation: sim, getFillColor: [sim, sel]}, transitions: {getElevation: 600}}),
+    // modeled work flows: the selected comuna in full, the rest only when large
+    sim && new ArcLayer({id: 'flows', data: sim.flows.filter(f => f.origin != f.destination && (f.origin == sel || f.destination == sel || f.workers > 6000)),
+      getSourcePosition: f => pos(f.origin), getTargetPosition: f => pos(f.destination),
+      getWidth: f => Math.sqrt(f.workers) / 8 * (1 + .3 * Math.sin(t * 6)), getHeight: .25,  // the pulse is motion only, not travel time
+      getSourceColor: f => f.destination == sel ? [255, 255, 255] : f.origin == sel ? [255, 122, 26] : [120, 140, 220, 60],
+      getTargetColor: f => f.destination == sel || f.origin == sel ? [255, 122, 26] : [120, 140, 220, 60],
+      updateTriggers: {getWidth: t, getSourcePosition: sim, getTargetPosition: sim, getSourceColor: sel, getTargetColor: sel},
+      transitions: {getSourcePosition: 600, getTargetPosition: 600}}),
+  ];
+}
+
+// ---------- page ----------
+function draw() {
+  if (view == 't') {
+    const i = Math.floor(t), now = (site ? site.scenario : tob.observed)[i];
+    $('hhmm').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
+    $('now').textContent = now == null ? '—' : fmt(now);
+    $('now').className = site ? 'big model' : 'big';
+    $('nowk').textContent = now == null ? 'sin dato' : site ? 'modelo' : 'observado';
+    const day = Math.max(0, Math.sin((t - 13) / 28 * Math.PI));  // 0 at 06:30 and 20:30, 1 near 13:30
+    document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
+  } else document.body.style.background = '';
+  $('engine').style.display = ms[view] ? 'block' : 'none';
+  if (ms[view]) [$('ms').textContent, $('msk').textContent] = ms[view];
+  deckgl.setProps({layers: view == 't' ? tobalaba() : santiago()});
+}
+
+function tick() {
+  if (playing) { t += 1 / 50; if (t >= LAST) t = FIRST; draw(); }  // about 0.85 s for each half hour
+  requestAnimationFrame(tick);
+}
+
+function show(v) {
+  view = v; document.body.className = v;
+  deckgl.setProps({initialViewState: {...VIEWS[v], transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
+  draw();
+}
+
+$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t');
+$('clock').onclick = () => playing = !playing;
+$('slider').oninput = e => { homes = +e.target.value; $('n').textContent = fmt(homes); if (active) siteScenario(); else draw(); };
+$('go').onclick = () => {
+  active = !active;
+  $('go').textContent = active ? 'Volver al MUT' : 'Sacar el MUT';
+  $('go').className = active ? 'on' : '';
+  if (active) return siteScenario();
+  site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
+};
+$('jobs').oninput = $('housing').oninput = simulate;
+$('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
+
+const get = u => fetch(u).then(r => r.json());
+Promise.all(['stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
+    .map(u => get((u === 'stops.json' || u === 'ground.geojson' ? 'data/' : '../data/mvp/') + u))).then(([bus, ...r]) => {
+  [ground, communes] = r.splice(-2);
+  // the diorama tile: keep the buildings inside the frame of the ground extract
+  buildings = r.pop().features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
+  // Metro: three reviewed station files (PR #29), 48 bins, null where there is no observation
+  stops = [...r.map(o => ({name: o.station.name, lon: o.station.longitude, lat: o.station.latitude, observed: o.half_hour_bins.LABORAL})), ...bus];
+  tob = stops[0];
+  const q = new URLSearchParams(location.search);  // ?v=s, or ?t=36&mut=1, gives a fixed frame for screenshots
+  if (q.has('t')) { t = +q.get('t'); playing = false; }
+  if (q.has('mut')) $('go').onclick();
+  if (q.has('j')) $('jobs').value = q.get('j');
+  show(q.get('v') || 't');
+  tick();
+  get(API + 'world').then(w => { world = sim = w; simulate(); }, () => engine('s'));
+});
+</script>
+</html>
