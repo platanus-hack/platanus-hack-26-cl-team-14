@@ -8,6 +8,21 @@ The saved pair `mapocho-baseline` → `mapocho-ferry` starts at 07:00. The ferry
 
 The chart uses `line_riders.0.riders_to_work` for east and `line_riders.1.riders_to_work` for west. The saved values are **3,470.2 east** and **932.2 west**, in modeled work trips per weekday. The baseline has no ferry. Canelo independently matched the chart values, IDs, and geometry to the saved results. The payload sets an 11-second chart delay. The first visible frame still needs verification. [Independent check](https://discord.com/channels/1573514576400752640/1573809606277337280/1573823306749181964)
 
+## Pier sequence
+
+Use the 33-second Mapocho slot in the pitch. Allow 8 seconds for the question and assumptions and 5 seconds for the visible baseline. Then play the 20-second ferry shot. Both shots start at 07:00. [Pitch schedule](../../pitch.md)
+
+| Time in ferry shot | What to show |
+| --- | --- |
+| 0–4 s | Open the route-wide view with the ferry service. |
+| 4–9 s | Fly to Parque Forestal. Follow the eastbound ferry approaching MAP07 near Pío Nono. Show people walking to the pier. |
+| 9–16.5 s | At the pier, show arriving passengers get off and continue on foot. Show people at the pier board the boat. |
+| 16.5–20 s | Show the ferry leave with the new passengers. Bring in the compact chart at the edge once the departure is visible. |
+
+The draft display timetable assumes service is underway at 07:00, with departures at :00, :10 and each later ten-minute mark. The eastbound 06:10 ferry reaches MAP07 at about 07:01:12 and leaves at about 07:02:12. The saved one-minute dwell gives 7.5 seconds at 8× playback. The 11-second chart delay in the preview is timing evidence. Use 17 seconds as the first rehearsal target for the chart on the extended pier action. The full sequence needs a native run. [Combined request and cache](https://discord.com/channels/1573514576400752640/1573809606277337280/1573831669855813803)
+
+At MAP07, the model gives 312.2 eastbound boardings and 1,059.2 eastbound alightings per weekday. Use the counts to guide the size of the groups. Label the individual people, their paths, and their boat assignment as illustrative. The pier sequence shows arriving and departing groups on the same stop. [Mapocho saved result](https://discord.com/channels/1573514576400752640/1573809606277337280/1573822794423345193)
+
 ## Chart fields
 
 | Screen label | Source and unit |
