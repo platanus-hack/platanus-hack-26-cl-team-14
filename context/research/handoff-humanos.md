@@ -1,10 +1,10 @@
 # Santiago responde
 
-El equipo humano decide el guion en [context/pitch.md](../pitch.md). La [propuesta de tres minutos](pitch-proposal.md) muestra una ciudad y una pregunta:
+El equipo humano decide el guion en [context/pitch.md](../pitch.md). La [propuesta de tres minutos](pitch-proposal.md) muestra una ciudad que responde. Primero el presentador muestra este ejemplo:
 
 > ¿Cómo cambiarían los viajes al trabajo en Santiago si Estación Central tuviera la mitad más de viviendas y Las Condes la mitad más de empleos?
 
-El momento que buscamos es ver un cambio en una comuna que la pregunta no nombró.
+El ejemplo cambia los viajes en una comuna que el presentador no nombró. Luego alguien del público hace una pregunta que el equipo no preparó. El presentador la escribe en el chat. Ambas ejecuciones usan la misma herramienta.
 
 ## Qué funciona en main
 
@@ -28,4 +28,4 @@ En Codex CLI, quien presenta puede autorizar solo esta herramienta con `-c 'mcp_
 
 El ensayo fijó y verificó la revisión [fdd9cff](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/fdd9cfffb1dda57d24f73dfe9f41a4273617a5e8). Tiene Tobalaba, Santiago, Puntaje y Evento. Los casos del MUT, la redistribución por comuna y el evento se calculan por separado en el mismo servicio. En Evento, «patrón» significa el exceso positivo de subidas de Parque O’Higgins por sobre su línea. [Verificación](https://discord.com/channels/1573514576400752640/1573579088684253235/1573677203466494159), [guion de esa revisión](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/fdd9cfffb1dda57d24f73dfe9f41a4273617a5e8/context/research/pitch-proposal.md).
 
-En la revisión anterior `78a85a0`, una llamada directa a la herramienta y el mapa en Chrome mostraron el mismo cambio en la comuna de Santiago. El [guion](pitch-proposal.md#qué-sostiene-la-historia) registra el resultado. El clic para seleccionar otra comuna falló durante la revisión. El guion muestra el mapa completo. Codex CLI contestó la pregunta libre en una prueba aislada con el permiso específico de la herramienta. Falta ensayarla con el cliente de la presentación, el mapa abierto y el cronómetro.
+En la revisión anterior `78a85a0`, una llamada directa a la herramienta y el mapa en Chrome mostraron el mismo cambio en la comuna de Santiago. El [guion](pitch-proposal.md#qué-sostiene-la-historia) registra el resultado. El clic para seleccionar otra comuna falló durante la revisión. El guion pide una vista de ciudad que se actualice por sí sola. Esa vista de toda la ciudad aún falta en la revisión indicada. Codex CLI contestó la pregunta libre en una prueba aislada con el permiso específico de la herramienta. Falta ensayarla con el cliente de la presentación, el mapa abierto y el cronómetro.
