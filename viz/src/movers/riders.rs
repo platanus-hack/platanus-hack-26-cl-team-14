@@ -11,6 +11,8 @@ struct Boarding {
     arrival: f32,
     departure: f32,
     alight: f32,
+    board_distance: f32,
+    exit_distance: f32,
     key: RideKey,
 }
 
@@ -25,6 +27,30 @@ impl Boarding {
         }
         self
     }
+
+    fn door(self, routes: &Routes, distance: f32, copy: usize) -> Vec3 {
+        match self.key {
+            RideKey::Metro { track, .. } => {
+                let (rail, dir) = routes.tracks[track].coach(distance + platform_offset(copy));
+                rail + right(dir) * 1.4 + Vec3::Y * 0.58
+            }
+            RideKey::Surface { template, .. } => {
+                let path = &routes.riders.surface[template].path;
+                let (p, dir, _) = path.at(distance, &path.metres).unwrap();
+                p + right(dir) * 2.9 + Vec3::Y * 0.25
+            }
+        }
+    }
+}
+
+fn platform_offset(copy: usize) -> f32 {
+    (copy % 17) as f32 * 2.2 - 17.6
+}
+
+fn platform_pose(line: &RailLine, distance: f32, copy: usize) -> (Vec3, Vec3) {
+    let (rail, dir) = line.coach(distance);
+    let side = right(dir);
+    (rail + dir * platform_offset(copy) + side * 4.9 + Vec3::Y * 0.58, -side)
 }
 
 struct RideOptions {
@@ -36,7 +62,7 @@ struct RideOptions {
 }
 
 impl RideOptions {
-    fn next(&self, ready: f32) -> Option<Boarding> {
+    fn next(&self, ready: f32, crossing: impl Fn(Boarding) -> f32) -> Option<Boarding> {
         let day = (ready / DAY).floor() as i32;
         let ready = ready.rem_euclid(DAY);
         let i = self
@@ -47,6 +73,14 @@ impl RideOptions {
             // A later departure can arrive first when its platform dwell is longer.
             if best.is_some_and(|b| trip.departure > b.arrival.max(ready) + self.max_dwell) {
                 break;
+            }
+            let walk = crossing(trip);
+            let aboard = match trip.key {
+                RideKey::Metro { .. } => trip.arrival.max(ready) + walk,
+                RideKey::Surface { .. } => trip.arrival.max(ready + walk),
+            };
+            if aboard > trip.departure {
+                continue;
             }
             if best.is_none_or(|b| {
                 (trip.arrival.max(ready), trip.departure) < (b.arrival.max(ready), b.departure)
@@ -160,6 +194,8 @@ impl RiderNetwork {
                                 arrival: b.arrival,
                                 departure: b.departure,
                                 alight: e.arrival,
+                                board_distance: b.distance,
+                                exit_distance: e.distance,
                                 key: RideKey::Metro { track, run },
                             });
                         }
@@ -177,6 +213,8 @@ impl RiderNetwork {
                         arrival: clock + b.arrival,
                         departure: clock + b.departure,
                         alight: clock + e.arrival,
+                        board_distance: b.distance,
+                        exit_distance: e.distance,
                         key: RideKey::Surface { template, start },
                     });
                 }
@@ -235,6 +273,12 @@ impl RiderNetwork {
         Some(self.by_endpoints[&key])
     }
 
+    pub(super) fn interchange(&self, from: Option<usize>, to: Option<usize>) -> bool {
+        let stations = |i: usize| self.options[i].metro_stations.as_ref();
+        matches!((from.and_then(stations), to.and_then(stations)),
+            (Some(a), Some(b)) if a[1] == b[0])
+    }
+
     // The engine changes station access but publishes no replacement itinerary for a group.
     pub(super) fn accessible_legs(&self, path: &Path, closed: &std::collections::HashSet<&str>) -> usize {
         let blocked = path.legs.iter().position(|leg| {
@@ -255,10 +299,11 @@ impl RiderNetwork {
         mut draw: impl FnMut((usize, i32), Vec3, Vec3, Vehicle),
     ) {
         for (template, service) in self.surface.iter().enumerate() {
+            let Some(&latest) = service.starts.last() else { continue };
             let first = service.run.calls.first().unwrap().arrival;
             let last = service.run.calls.last().unwrap().departure;
             // GTFS starts belong to a service day and can extend beyond midnight.
-            let first_day = ((now - last - *service.starts.last().unwrap() as f32) / DAY).ceil() as i32;
+            let first_day = ((now - last - latest as f32) / DAY).ceil() as i32;
             let last_day = ((now - first - service.starts[0] as f32) / DAY).floor() as i32;
             for day in first_day..=last_day {
                 let offset = day * DAY as i32;
@@ -282,10 +327,8 @@ enum RiderAction {
     Walk {
         path_time: f32,
     },
-    Wait {
-        at: Vec3,
-        platform: Option<(usize, f32)>,
-    },
+    StationWalk { from: Vec3, to: Vec3 },
+    Wait { at: Vec3, facing: Vec3 },
     Ride(RideKey),
 }
 
@@ -299,55 +342,85 @@ pub(super) struct RiderPlan {
 
 pub(super) enum RiderState {
     Walking(Vec3, Vec3),
-    Waiting(Vec3, Option<(usize, f32)>),
+    Waiting(Vec3, Vec3),
     Riding(RideKey),
 }
 
 impl RiderPlan {
-    pub(super) fn build(path: &Path, legs: usize, start: f32, network: &RiderNetwork) -> Self {
-        let mut steps = Vec::new();
-        let mut first = 0;
-        let mut now = start;
-        for leg in &path.legs[..legs] {
-            if let Some(index) = leg.scheduled {
-                let at = path.points[first];
-                let platform = network.options[index].platform;
-                let Some(service) = network.options[index].next(now) else {
-                    // No published service joins these stops.
-                    if now < DAY {
-                        steps.push(RiderStep {
-                            end_age: DAY - start,
-                            action: RiderAction::Wait { at, platform },
-                        });
-                    }
-                    break;
-                };
-                let board = now.max(service.arrival);
-                if board > now {
-                    steps.push(RiderStep {
-                        end_age: board - start,
-                        action: RiderAction::Wait { at, platform },
-                    });
-                }
-                now = service.alight;
-                steps.push(RiderStep {
-                    end_age: now - start,
-                    action: RiderAction::Ride(service.key),
-                });
-            } else {
-                let path_time = path.seconds[first];
-                let duration = path.seconds[leg.end] - path_time;
-                if duration > 0. {
-                    now += duration;
-                    steps.push(RiderStep {
-                        end_age: now - start,
-                        action: RiderAction::Walk { path_time },
-                    });
-                }
-            }
-            first = leg.end;
+    fn until(&mut self, end_age: f32, action: RiderAction) {
+        if end_age > self.duration() {
+            self.steps.push(RiderStep { end_age, action });
         }
-        Self { steps }
+    }
+
+    // Interpolate between the mapped gate, platform and service door at display walking speed.
+    fn connect(&mut self, from: Vec3, to: Vec3) {
+        self.until(
+            self.duration() + from.distance(to) / Vehicle::Walk.speed(),
+            RiderAction::StationWalk { from, to },
+        );
+    }
+
+    pub(super) fn build(path: &Path, legs: usize, start: f32, copy: usize, routes: &Routes) -> Self {
+        let mut plan = Self { steps: Vec::new() };
+        let mut transfer = None;
+        let legs = &path.legs[..legs];
+        for (i, leg) in legs.iter().enumerate() {
+            let first = if i == 0 { 0 } else { legs[i - 1].end };
+            let Some(index) = leg.scheduled else {
+                if transfer.is_none() {
+                    let path_time = path.seconds[first];
+                    plan.until(
+                        plan.duration() + (path.seconds[leg.end] - path_time),
+                        RiderAction::Walk { path_time },
+                    );
+                }
+                continue;
+            };
+            let options = &routes.riders.options[index];
+            let gate = path.points[first] + Vec3::Y * 0.25;
+            let (wait, facing) = match options.platform {
+                Some((track, distance)) => platform_pose(&routes.tracks[track], distance, copy),
+                None => {
+                    let along = ((copy % 5) as f32 - 2.) * 1.4;
+                    let across = ((copy / 5 % 3) as f32 - 1.) * 1.2;
+                    (gate + Vec3::new(along, 0., across), Vec3::X)
+                }
+            };
+            plan.connect(transfer.take().unwrap_or(gate), wait);
+            let ready = start + plan.duration();
+            let Some(service) = options.next(ready, |trip| {
+                wait.distance(trip.door(routes, trip.board_distance, copy)) / Vehicle::Walk.speed()
+            }) else {
+                plan.until(DAY - start, RiderAction::Wait { at: wait, facing });
+                break;
+            };
+            let door = service.door(routes, service.board_distance, copy);
+            // Bus arrivals have zero reported dwell. Walk to the stop before the bus arrives.
+            let approach = match service.key {
+                RideKey::Metro { .. } => service.arrival,
+                RideKey::Surface { .. } => service.arrival - wait.distance(door) / Vehicle::Walk.speed(),
+            };
+            plan.until(approach - start, RiderAction::Wait { at: wait, facing });
+            plan.connect(wait, door);
+            plan.until(service.alight - start, RiderAction::Ride(service.key));
+            let exit_door = service.door(routes, service.exit_distance, copy);
+            let exit = if let RideKey::Metro { track, .. } = service.key {
+                let (platform, _) = platform_pose(&routes.tracks[track], service.exit_distance, copy);
+                plan.connect(exit_door, platform);
+                platform
+            } else {
+                exit_door
+            };
+            // A blocked transfer ends on the last reachable platform.
+            let next = path.legs[i + 1..].iter().find_map(|l| l.scheduled);
+            if routes.riders.interchange(Some(index), next) {
+                transfer = Some(exit);
+            } else {
+                plan.connect(exit, path.points[leg.end] + Vec3::Y * 0.25);
+            }
+        }
+        plan
     }
 
     pub(super) fn duration(&self) -> f32 {
@@ -368,9 +441,13 @@ impl RiderPlan {
         Some(match step.action {
             RiderAction::Walk { path_time } => {
                 let (p, dir, _) = path.at(path_time + age - start_age, &path.seconds)?;
-                RiderState::Walking(p, dir)
+                RiderState::Walking(p + Vec3::Y * 0.25, dir)
             }
-            RiderAction::Wait { at, platform } => RiderState::Waiting(at, platform),
+            RiderAction::StationWalk { from, to } => {
+                let t = (age - start_age) / (step.end_age - start_age);
+                RiderState::Walking(from.lerp(to, t), (to - from).normalize())
+            }
+            RiderAction::Wait { at, facing } => RiderState::Waiting(at, facing),
             RiderAction::Ride(key) => RiderState::Riding(key),
         })
     }
