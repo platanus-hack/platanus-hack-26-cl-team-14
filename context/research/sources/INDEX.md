@@ -28,7 +28,7 @@ Entry rules: [README](README.md). Scripts live in the repository's `tools/scrape
 | [Phone and app mobility](telco-app-mobility.md) | Read the file | Reviewed in PR #15. |
 | [Job locations](jobs-location.md) | Read the file | Reviewed in PR #15. |
 | [Portal sweep](portals-sweep.md) | Read the file | Reviewed in PR #15. |
-| [OD flows in administrative data](od-flows-admin.md) | Census 2024 person rows: home comuna to work comuna (7.4 million RM persons). MINEDUC enrolment: student comuna to school | Work and study OD INPUT at comuna level, and a TARGET for the commute distribution. One snapshot (March 2024). The matrix keeps only persons who work in a comuna: 2,748,949 RM residents. It excludes 517,018 who work at home and 313,358 with no fixed place (8.7% of workers, more in low-income comunas). School rows have a person key: aggregates only. |
+| [OD flows in administrative data](od-flows-admin.md) | Census 2024 person rows: home comuna to work comuna (7.4 million RM persons). MINEDUC enrolment: student comuna to school | Work and study OD INPUT at comuna level, and a TARGET for the commute distribution. One cut (field work from March to July 2024). The matrix keeps only persons who work in a known comuna: 2,740,454 RM residents. It excludes 517,018 who work at home and 313,358 with no fixed place (8.7% of workers, more in low-income comunas). School rows have a person key: aggregates only. |
 | [Buildings and activity check](verify-buildings-activity.md) | Overture Buildings as the footprint layer for the 3D scene | 3D INPUT. Microsoft footprints have no heights. Overture and OSM counts for Providencia are not verified. |
 
 ## Integration notes
