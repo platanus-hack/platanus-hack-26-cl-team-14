@@ -13,6 +13,7 @@ import { inboxDirectory, localPage, newMessages, snapshot, startInbox, watched, 
 const CHANNEL_TYPES_WITH_CONTENT = new Set([0, 5, 15]); // text, announcement, forum
 const THREAD_TYPES = new Set([10, 11, 12]);
 const MAX_MESSAGE_LENGTH = 2000;
+const SUPPRESS_NOTIFICATIONS = 1 << 12;
 const MAX_FILES = 10;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // Discord limit for a server without boost
 const SNOWFLAKE = /^\d{1,20}$/;
@@ -80,7 +81,7 @@ const TOOLS = [
   },
   {
     name: "send_message",
-    description: `Send a message to a channel or thread. The message shows your agent name, for example "Clorinda-47 (gpt-6@v4rgas)". To reply in a thread, use the thread ID as channel_id. If the text is longer than ${MAX_MESSAGE_LENGTH} characters, it goes as message.txt. Mentions of people (<@ID>, from find_member) notify them; @everyone and roles do not.`,
+    description: `Send a message to a channel or thread. The message shows your agent name, for example "Clorinda-47 (gpt-6@v4rgas)". To reply in a thread, use the thread ID as channel_id. If the text is longer than ${MAX_MESSAGE_LENGTH} characters, it goes as message.txt. Messages are silent by default.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -94,6 +95,7 @@ const TOOLS = [
           description: `Absolute paths of local files to attach (for example screenshots), up to ${MAX_FILES} and ${MAX_UPLOAD_BYTES / 1024 / 1024} MB in total.`,
         },
         reply_to: { type: "string", description: "ID of the message that this message replies to, in the same channel." },
+        notify_requester: { type: "boolean", default: false, description: "Set true only for a direct answer to a human request. Set reply_to to the human's message ID." },
       },
       required: ["channel_id", "content"],
       additionalProperties: false,
@@ -284,14 +286,19 @@ function readAttachments(paths) {
 }
 
 // Posts through the channel webhook, with the agent identity as the user name.
-// extra: more webhook fields, for example thread_name and applied_tags to open a forum post.
-async function post(channel_id, content, { files = [], reply_to, model, extra = {} } = {}) {
+async function sendMessage({ channel_id, content, files = [], reply_to, model, notify_requester }) {
   checkIds([channel_id, reply_to]);
+  const notifyRequester = notify_requester === true;
+  if (notifyRequester && !reply_to) throw new Error("Set reply_to to the human request you are answering.");
   if (!content?.trim() && files.length === 0) throw new Error("content is missing: the message has no text and no files.");
   const username = sender(model);
   const attachments = readAttachments(files);
   const { channel, webhookPath, threadQuery } = await channelWebhook(channel_id);
-  const header = reply_to ? await replyHeader(channel, reply_to) : "";
+  const original = reply_to ? await discord(`/channels/${channel.id}/messages/${reply_to}`) : undefined;
+  if (notifyRequester && (original.author.bot || original.author.system || original.webhook_id || ![0, 19].includes(original.type))) {
+    throw new Error("Only a direct answer to a human request can notify its author.");
+  }
+  const header = original ? `-# ↪ <@${original.author.id}> https://discord.com/channels/${channel.guild_id}/${channel.id}/${reply_to}` : "";
   const full = [header, content].filter(Boolean).join("\n");
   const isLong = full.length > MAX_MESSAGE_LENGTH;
   if (isLong) {
@@ -299,21 +306,17 @@ async function post(channel_id, content, { files = [], reply_to, model, extra = 
     attachments.push({ name: "message.txt", blob: new Blob([content], { type: "text/plain" }) });
   }
   const form = new FormData();
-  form.set("payload_json", JSON.stringify({ allowed_mentions: { parse: ["users"] }, content: isLong ? header : full, username, avatar_url: AVATAR_URL, ...extra }));
+  form.set("payload_json", JSON.stringify({
+    flags: notifyRequester ? 0 : SUPPRESS_NOTIFICATIONS,
+    allowed_mentions: notifyRequester ? { parse: [], users: [original.author.id] } : { parse: ["users"] },
+    content: isLong ? header : full,
+    username,
+    avatar_url: AVATAR_URL,
+  }));
   attachments.forEach(({ name, blob }, index) => form.set(`files[${index}]`, blob, name));
   const query = new URLSearchParams({ wait: "true", ...threadQuery });
-  return discord(`${webhookPath}?${query}`, { auth: false, method: "POST", body: form });
-}
-
-async function sendMessage({ channel_id, content, files, reply_to, model }) {
-  const message = await post(channel_id, content, { files, reply_to, model });
-  return `Message sent as ${message.author.username}: ${message.id}.`;
-}
-
-// Webhooks cannot reply: the message quotes the author and links the original.
-async function replyHeader(channel, message_id) {
-  const original = await discord(`/channels/${channel.id}/messages/${message_id}`);
-  return `-# ↪ <@${original.author.id}> https://discord.com/channels/${channel.guild_id}/${channel.id}/${message_id}`;
+  const message = await discord(`${webhookPath}?${query}`, { auth: false, method: "POST", body: form });
+  return `Message sent as ${message.author.username}: ${message.id}.\nDiscord message flags: ${message.flags ?? "unavailable"}.`;
 }
 
 // A bot cannot change its name for each message. A channel webhook can.
