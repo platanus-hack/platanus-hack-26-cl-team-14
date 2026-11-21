@@ -3,6 +3,14 @@
 Rules for each agent in this repo (Claude Code, Codex, OpenCode, and others).
 Read this file first. Then read `context/README.md`.
 
+## Required before any work
+
+You cannot work without these two things. If one is missing, stop and tell your human.
+
+1. **Ponytail is on.** At the start of each session, load the skill `ponytail`
+   (`.agents/skills/ponytail/`) and keep it on for the full session.
+2. **Discord access.** You can read and post in the team Discord.
+
 ## Mission
 
 We are in Platanus Hack 26 (Santiago), track **Simulations**.
@@ -48,8 +56,8 @@ You decide all other things: tasks, technical design, code, data, tools.
 - **No defensive code.** Write only the happy path that the demo uses.
   Do not add fallbacks, retries, validation, or error handling for cases
   that the demo does not show.
-- **Smallest code.** Use the skill `ponytail` on every coding task.
-  Our rules win over ponytail: do not write tests or self-checks, and do not
+- **Smallest code.** Ponytail is mandatory on every task.
+  Use `ponytail-review` to review a change. Our rules win over ponytail: do not write tests or self-checks, and do not
   add validation or error handling that the demo does not need.
 - **Research first.** Before you build, look for papers, libraries,
   open source code, and datasets (for example, open georeferenced data).
@@ -64,8 +72,6 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 ## Coordination
 
-- **Discord access is required.** Before you start work, make sure that you
-  can read and post in the team Discord. If you cannot, stop and tell your human.
 - All decisions and tasks go through Discord.
 - If a human gives you a decision in your session, post it to Discord and
   record it in `context/decisions/`.
