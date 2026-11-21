@@ -1,0 +1,33 @@
+{
+  "file": "terrain.i16",
+  "width": 481,
+  "height": 421,
+  "encoding": "int16-le",
+  "units": "metres",
+  "vertical_datum": "EGM2008",
+  "horizontal_crs": "EPSG:4326",
+  "bbox": [
+    -70.85,
+    -33.65,
+    -70.45,
+    -33.3
+  ],
+  "origin_lon_lat": [
+    -70.85,
+    -33.3
+  ],
+  "step_lon_lat": [
+    0.0008333333333333334,
+    -0.0008333333333333334
+  ],
+  "bounds_reference": "outermost sample centres",
+  "row_order": "north to south",
+  "column_order": "west to east",
+  "minimum_m": 404,
+  "maximum_m": 2995,
+  "nodata": null,
+  "surface": "DSM including buildings and vegetation",
+  "source": "https://copernicus-dem-90m.s3.amazonaws.com/Copernicus_DSM_COG_30_S34_00_W071_00_DEM/Copernicus_DSM_COG_30_S34_00_W071_00_DEM.tif",
+  "license": "https://dataspace.copernicus.eu/sites/default/files/media/files/2025-06/copernicus_contributing_mission_data_access_v2_cop_dem_licenses.pdf",
+  "attribution": "produced using Copernicus WorldDEM-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
+}
