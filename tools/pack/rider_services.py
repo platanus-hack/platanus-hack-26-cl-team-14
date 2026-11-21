@@ -22,7 +22,11 @@ with ZipFile(feed_path) as z:
     stops={r['stop_id']:r for r in table('stops')}
     windows=defaultdict(list)
     for r in table('frequencies'):
-        if r['trip_id'] in trips:windows[r['trip_id']].append([time_seconds(r['start_time']),time_seconds(r['end_time']),int(r['headway_secs'])])
+        if r['trip_id'] in trips:
+            windows[r['trip_id']].append((
+                time_seconds(r['start_time']), time_seconds(r['end_time']),
+                int(r['headway_secs']), int(r.get('exact_times') or 0),
+            ))
     calls=defaultdict(list)
     for r in table('stop_times'):
         tid=r['trip_id']
@@ -124,13 +128,9 @@ for k in surface_keys:
                 headways.add((start, end, interval))
     indices=[]
     for off, (fixed, headways) in sorted(timings.items()):
-        # A regular headway phase is for replay only. The operator does not publish these times.
-        starts = fixed.copy()
-        for start, end, interval in headways:
-            starts.update(range(start, end, interval))
+        # Fixed times and frequency windows have distinct meanings in GTFS.
         indices.append(len(templates))
-        templates.append([pi, off, sorted(starts), routes[route]['route_type'],
-                          sorted(fixed), sorted(headways)])
+        templates.append([pi, off, sorted(fixed), routes[route]['route_type'], sorted(headways)])
     ptn_index[k]=indices
 legs=[]
 for (service,first,last),os in sorted(opts.items()):
