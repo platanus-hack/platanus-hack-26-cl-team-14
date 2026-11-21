@@ -797,9 +797,11 @@ python3 -I tools/pack/active_mode_distance.py --survey /path/to/EOD_STGO
 
 Experimental destination weights for each job point, in the order of `jobs.csv`. The `jobs` column contains a relative weight. Keep the census totals for each comuna when allocating workers. The weights reflect transit use as well as job density.
 
-Run `python3 -I tools/pack/jobs_2026.py` with the [April 15 arrival groups](../validation/trip_purpose_2026_04/README.md). The builder assigns each point to its nearest training station within 500 m. For each of the 95 training stations it divides the station's share of expanded work arrivals by its share of assigned job mass. That ratio multiplies the point's original weight. Points outside the radius keep their weights. The builder uses no boardings or held-out arrivals.
+Run `python3 -I tools/pack/jobs_2026.py` with the [April 15 arrival groups](../validation/trip_purpose_2026_04/README.md). The builder assigns each point to its nearest training station within 500 m. For each of the 95 training stations it divides the station's share of expanded work arrivals by its share of assigned job mass. That ratio multiplies the point's original weight. Points outside the radius keep their initial relative weights. Finally the builder rescales every weight in each comuna to preserve its original Census job total. This matters because the destination-choice model reads the sum as job stock. The builder uses no boardings or held-out arrivals.
 
 The frozen L4b run used the candidate file as its jobs input in an isolated directory. Across 31 held-out stations and 1,123 observed half-hours, absolute error fell from 254,347.44 to 252,057.91 boardings. Half-hour WAPE fell from 0.4459345830 to 0.4419204606. Tobalaba, a training station, rose from 41,702.00 to 56,543.75 predicted boardings across the observed bins. The observed sum was 81,612.80.
+
+An integrated run at `98ae956` loaded the same population and station access model twice. Only the jobs input changed. On the frozen 1,123 cells, the integrated L9 baseline had 238,349.70 absolute error boardings (WAPE 0.4178865487). The April weights gave 234,698.53 (0.4114851405), a reduction of 3,651.17. Tobalaba rose from 39,823.55 to 53,717.01 across its observed bins. Both no-change scenarios retained 2,688,814 workers with zero workers moved. The original input remains available in `jobs.csv`.
 
 ## transit_paths.json
 
@@ -891,6 +893,16 @@ The builder traces the winning path of the existing weekday 08:00 router. It inc
 The router assigns one wait to a stop pattern. When several route IDs share one pattern, the display uses the active trip with the shortest headway, or the first scheduled departure in the 08:00 hour. These paths connect population-weighted comuna centres and show modeled travel on a representative weekday. They have no passenger-level endpoints.
 
 Example: Quilicura → Santiago (`13125-13101`) uses bus 425 and Metro L3. The corresponding CSV row gives 37.4 minutes door to door, 25.6 minutes on board, and one transfer.
+
+### Local public routes for the Quilicura fixture
+
+`web/data/local_public_routes.json.gz` supplies routes between the actual aggregate group endpoints when the comuna pair is absent from `public_routes.json`. It uses the same weekday 08:00 network, walking limits, and inclusive segment indexes. It stores no trip counts. The fixture uses two snapshots of 2,000 aggregate groups. Each snapshot contains 252 public groups without a comuna route.
+
+Inflate the JSON. Look up `groups.base[id]` or `groups.scenario[id]` to get an index into `paths`. Index zero is valid. Only use a match for a public group whose origin and destination match the first and last path coordinates after rounding to five decimals. Group IDs alone do not identify the same route in another engine result. The file includes the SHA-256 of the source fixture.
+
+Each snapshot gains 130 public groups (124 same-comuna and 6 inter-comuna). Across both snapshots they share 139 distinct paths. In each snapshot, 88 other public groups have an endpoint with no GTFS stop within 1 km. For another 34 the fastest modeled path consists only of walking. The lookup omits both cases. Together with the comuna routes, 931 of 1,053 public groups per snapshot have a route. The local routes add no traffic and do not describe service at the group's own departure hour.
+
+Rebuild with `python3 tools/pack/local_public_routes.py /path/to/quilicura-20k-rust.json`. Fixture SHA-256: `c9a41d56111e8c79abf4b859e2c1a8e3637e76aec3d72dd8ffe8a28711be4def`.
 
 ## Bicycle routes
 
