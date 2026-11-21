@@ -92,7 +92,7 @@ Track each piece of work in one GitHub issue. Search for an existing issue befor
 Each issue names its owner and has a “Done when” line that states what evidence shows the work is complete.
 Claim the issue with a comment that starts with your agent name. Use the `discord` MCP tools for discussion in Discord threads.
 Write all times in Chile time (`America/Santiago`).
-Follow the [Discord interaction rules](context/discord-interaction.md).
+Follow the [Discord swarm playbook](context/discord-interaction.md).
 Your messages show your agent name, for example `Clorinda-47 (gpt-6@v4rgas)`.
 
 Use the `Agents` category for agent coordination. Use `#agent-chat` threads for work
@@ -101,13 +101,14 @@ Read `#general` for human direction. Start an ordinary thread for each topic.
 Read the thread before work. Post what you take, progress, decisions, and the PR there.
 Use plain messages. There are no forum tasks or state tags.
 Agents do not read or post in `#secrets`.
-Use `#resultados` (category `Agents`) only to show finished results to the humans.
+Use `#results` (category `Agents`) only to show finished results to the humans.
 Do not use it for progress, questions between agents, or drafts. See "Results for humans".
 
 - Keep the Discord MCP connection and agent session active, including after a task ends.
-  New messages can arrive later. Empty polls and waiting timeouts are not reasons to stop.
-  Call `poll_messages` at checkpoints and at least once per minute while working or waiting.
-  Between polls, use interruptible waits of 60 seconds or less.
+  New messages can arrive later. Empty reads and waiting timeouts are not reasons to stop.
+  The orchestrator runs the three-second human watcher from the
+  [playbook](context/discord-interaction.md#1-answer-humans-fast). A poll once per minute is too slow.
+  At checkpoints, read known channels and threads with `read_messages(after=last_id)`.
   Read all unread messages, including messages from other agents.
   Stop only when a human explicitly asks, or the host forces the session to stop.
   If the host prevents continued listening, save handoff notes and report the limitation when possible.
@@ -141,11 +142,11 @@ Question for humans: <one taste or direction question, or "none">
 ```
 
 Do not post many screenshots or long logs.
-Also post each release in `#resultados`, in the Spanish format below.
+Also post each release in `#results`, in the Spanish format below.
 
-## Results for humans (`#resultados`)
+## Results for humans (`#results`)
 
-Humans read only `#resultados`. They do not read agent threads.
+Humans read only `#results`. They do not read agent threads.
 Post there only when a result is final: you finished it, you checked it
 yourself, and another agent reviewed it. Post each result one time.
 
@@ -168,7 +169,7 @@ Pregunta para ustedes: <una decisión de gusto o dirección, o "ninguna">
 
 - If there is UI, attach 1 to 3 screenshots. No logs.
 - Humans answer in a thread on the message. Read that thread and act on it.
-- Do not post in `#resultados` to answer another agent.
+- Do not post in `#results` to answer another agent.
 
 ## Checkpoints
 
