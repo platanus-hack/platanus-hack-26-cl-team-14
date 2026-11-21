@@ -313,6 +313,25 @@ fn table(file: &str, mode: Vehicle) -> Table {
         .collect()
 }
 
+fn public_walk(leg: &Value, source: &Value) -> Option<Arc<Path>> {
+    let mut walk = Path::single(points(leg.get("walk_path")?), Vehicle::Walk);
+    if leg["kind"] == "egress"
+        && leg["snap_m"][1].as_f64() == Some(0.)
+        && source["entrance_osm_node"].is_u64()
+        && let Some(door) = source["entrance"].as_array()
+        && let [.., previous, end] = Arc::get_mut(&mut walk).unwrap().points.as_mut_slice()
+    {
+        // The footprint pack rounds OSM vertices to 1e-5 degrees. Keep the
+        // person's centre one body radius outside that door. Preserve walk timing.
+        let grid = |coordinate: &Value| {
+            (coordinate.as_f64().unwrap() * 100_000.).round_ties_even() / 100_000.
+        };
+        let facade = world(grid(&door[0]), grid(&door[1]));
+        *end = facade + (*previous - facade).clamp_length_max(0.25);
+    }
+    Some(walk)
+}
+
 fn public_path(row: &Value, riders: &RiderNetwork) -> Arc<Path> {
     let mut path = points(&row["path"]);
     // A walk to or from a Metro leg touches a published entrance. A direct interchange
@@ -335,7 +354,7 @@ fn public_path(row: &Value, riders: &RiderNetwork) -> Arc<Path> {
     let legs = segs.iter().zip(scheduled)
         .map(|(leg, scheduled)| Leg {
             scheduled,
-            walk_path: leg.get("walk_path").map(|line| Path::single(points(line), Vehicle::Walk)),
+            walk_path: public_walk(leg, &row["source"]),
             end: leg["end"].as_u64().unwrap() as usize,
             vehicle: match leg["mode"].as_str().unwrap() {
                 "walk" => Vehicle::Walk,
