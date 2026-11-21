@@ -159,10 +159,11 @@ impl StreetPeople {
                     && visible(position, 100.)
                 {
                     // shortcut: the foot graph has a door snap; add that connector when it is measured.
+                    let scale = pedestrian_scale(eye.distance(position), size);
                     place(
                         Model::Person,
                         Paint::Plain,
-                        pose(position, direction, Vec3::splat(size)),
+                        pose(position, direction, Vec3::splat(scale)),
                     );
                 }
             }

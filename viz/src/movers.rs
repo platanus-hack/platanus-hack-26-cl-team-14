@@ -1029,6 +1029,12 @@ fn pose(pos: Vec3, dir: Vec3, scale: Vec3) -> Transform {
         .with_scale(scale)
 }
 
+fn pedestrian_scale(distance: f32, distant_scale: f32) -> f32 {
+    // Keep people at street scale within 500 m. Reach the map scale at the 1 km tier.
+    let blend = ((distance - 500.) / 500.).clamp(0., 1.);
+    1. + (distant_scale - 1.) * blend
+}
+
 fn right(dir: Vec3) -> Vec3 {
     Vec3::new(-dir.z, 0., dir.x)
 }
@@ -1116,7 +1122,8 @@ fn draw(
                     match plan.at(age) {
                         Some(RiderState::Walking(p, dir) | RiderState::Waiting(p, dir)) => {
                             if visible(p, 100.) && (subway.0 || p.y >= terrain_from_xz(p.x, p.z) - 0.6) {
-                                place(Model::Person, paint, pose(p, dir, Vec3::splat(1.2 * presence)));
+                                let scale = pedestrian_scale(eye.distance(p), 1.2) * presence;
+                                place(Model::Person, paint, pose(p, dir, Vec3::splat(scale)));
                             }
                             None
                         }
@@ -1158,6 +1165,8 @@ fn draw(
                 // In the overview keep moving figures legible when each pixel spans many metres.
                 let scale = if tier == 2 {
                     size_at(pos).max(eye.distance(pos) * 0.0012)
+                } else if kind == Vehicle::Walk {
+                    pedestrian_scale(eye.distance(pos), size_at(pos))
                 } else {
                     size_at(pos)
                 } * presence;
