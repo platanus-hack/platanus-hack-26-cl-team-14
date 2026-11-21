@@ -26,12 +26,14 @@ def movement_paths():
 # Report inputs are local snapshots of geometry actually read by the two views.
 with (RAW / "baseline.csv").open("w") as out:
     csv_out = csv.writer(out)
-    csv_out.writerow(("width_m","geometry"))
+    csv_out.writerow(("osm_id","width_m","geometry"))
     for path in (Path("data/mvp/roads.geojson"), Path("web/data/residential_streets.geojson.gz")):
         for f in read_json(path)["features"]:
             kind = f["properties"]["kind"]
             width = {"motorway":13,"trunk":10,"primary":10,"secondary":8}.get(kind,5.6)
-            csv_out.writerow((width,json.dumps(f["geometry"],separators=(",",":"))))
+            props = f["properties"]
+            way_id = props["id"] if "id" in props else props["osm_id"]
+            csv_out.writerow((f"w{way_id}",width,json.dumps(f["geometry"],separators=(",",":"))))
 with (RAW / "routes.csv").open("w") as out:
     csv_out = csv.writer(out)
     csv_out.writerow(("mode","source","route_id","geometry"))

@@ -11,6 +11,7 @@ SELECT count(*) AS decoded_polygons,count(DISTINCT tile) AS tiles,sum(ST_NumInte
        countif(t.tile IS NULL OR tile<>a.row_id*20+a.col) AS bad_tile_ids
 FROM actual a LEFT JOIN tiles t USING(tile);
 -- Compare the two sides of every interior tile boundary at the serialized precision.
+CREATE TEMP TABLE seam_edges AS
 WITH seams AS (
     SELECT a.tile AS left_id,b.tile AS right_id,
            ST_Intersection(ST_Boundary(a.geom),ST_Boundary(b.geom)) AS line
@@ -27,14 +28,15 @@ WITH seams AS (
            coalesce(first(edge) FILTER (WHERE tile=right_id),ST_GeomFromText('LINESTRING EMPTY')) AS rhs
     FROM sides GROUP BY left_id,right_id,structure,road_use,layer
 )
+SELECT * FROM shared;
 SELECT round(coalesce(sum(ST_Length(meters(ST_Difference(lhs,rhs))) + ST_Length(meters(ST_Difference(rhs,lhs)))),0),3) AS unmatched_seam_metres
-FROM shared;
+FROM seam_edges;
 CREATE TEMP TABLE cameras AS
 SELECT camera, ST_Buffer(meters(ST_Point(lon,lat)),radius_m,32) AS g
 FROM read_csv('data/raw/road-surface/cameras.csv',header=true,
               columns={'camera':'VARCHAR','lon':'DOUBLE','lat':'DOUBLE','radius_m':'DOUBLE'});
-CREATE TEMP TABLE original AS SELECT width_m,meters(ST_GeomFromGeoJSON(geometry)) AS g
-FROM read_csv('data/raw/road-surface/baseline.csv',header=true,columns={'width_m':'DOUBLE','geometry':'VARCHAR'});
+CREATE TEMP TABLE original AS SELECT osm_id,width_m,meters(ST_GeomFromGeoJSON(geometry)) AS g
+FROM read_csv('data/raw/road-surface/baseline.csv',header=true,columns={'osm_id':'VARCHAR','width_m':'DOUBLE','geometry':'VARCHAR'});
 CREATE TEMP TABLE route AS SELECT mode,source,route_id,meters(ST_GeomFromGeoJSON(geometry)) AS g
 FROM read_csv('data/raw/road-surface/routes.csv',header=true,
               columns={'mode':'VARCHAR','source':'VARCHAR','route_id':'VARCHAR','geometry':'VARCHAR'});
@@ -52,12 +54,12 @@ WITH fragments AS (
 ), intervals AS (
     SELECT *,ceil(metres/20)::BIGINT AS n FROM lengths WHERE metres>0
 )
-SELECT row_number() OVER () AS id,camera,mode,source,metres/n AS weight_m,
+SELECT row_number() OVER () AS id,camera,mode,source,route_id,metres/n AS weight_m,
        ST_LineInterpolatePoint(g,(i+0.5)/n) AS point
 FROM intervals, LATERAL range(n) members(i);
 -- Baseline is the union of idealized ribbons at current renderer widths. The actual screen also has joins and occlusion.
 CREATE TEMP TABLE baseline_faces AS
-SELECT c.camera, ST_Buffer(o.g,o.width_m/2,6) AS g FROM cameras c JOIN original o ON ST_DWithin(c.g,o.g,10);
+SELECT c.camera, o.osm_id,o.width_m, ST_Buffer(o.g,o.width_m/2,6) AS g FROM cameras c JOIN original o ON ST_DWithin(c.g,o.g,10);
 CREATE TEMP TABLE candidate_faces AS
 SELECT c.camera, a.structure, a.layer, a.road_use, meters(a.geom) AS g
 FROM cameras c JOIN actual a ON ST_Intersects(degrees(c.g),a.geom);
@@ -99,3 +101,86 @@ SELECT s.camera,s.structure,count(*) AS shared_coordinates,
        countif(b.id IS NULL) AS outside_baseline,countif(n.id IS NULL) AS outside_matching_candidate_level
 FROM shared_vertices s LEFT JOIN candidate_hits n USING(id) LEFT JOIN baseline_hits b USING(id)
 GROUP BY s.camera,s.structure ORDER BY ALL;
+
+-- A seam length counts one-dimensional edge disagreement. Sample its width independently.
+CREATE TEMP TABLE seam_samples AS
+WITH sides AS (
+    SELECT left_id AS present_tile,right_id AS opposite_tile,structure,road_use,layer,ST_Difference(lhs,rhs) AS g
+    FROM seam_edges UNION ALL
+    SELECT right_id,left_id,structure,road_use,layer,ST_Difference(rhs,lhs) FROM seam_edges
+), fragments AS (
+    SELECT * EXCLUDE(g),unnest(ST_Dump(ST_CollectionExtract(g,2))) AS part FROM sides
+), counts AS (
+    SELECT * EXCLUDE(part),meters(part.geom) AS geom,
+           ceil(ST_Length(meters(part.geom))/0.5)::BIGINT AS n FROM fragments
+)
+SELECT row_number() OVER () AS id,present_tile,opposite_tile,structure,road_use,layer,
+       ST_LineInterpolatePoint(geom,(i+0.5)/n) AS point, ST_Length(geom)/n AS weight_m
+FROM counts, LATERAL range(n) r(i);
+-- Search the opposite tile only. Separate structure, use and layer must coincide.
+WITH nearby_faces AS (
+    SELECT a.tile,a.structure,a.road_use,a.layer,meters(a.geom) AS g
+    FROM actual a WHERE a.tile IN (SELECT opposite_tile FROM seam_samples)
+), widths AS (
+    SELECT s.id,s.present_tile,s.opposite_tile,s.structure,s.road_use,s.layer,s.weight_m,
+           min(ST_Distance(s.point,a.g)) AS opposite_distance_m
+    FROM seam_samples s LEFT JOIN nearby_faces a
+      ON a.tile=s.opposite_tile AND s.structure=a.structure AND s.road_use=a.road_use AND s.layer=a.layer
+      AND ST_DWithin(s.point,a.g,2)
+    GROUP BY s.id,s.present_tile,s.opposite_tile,s.structure,s.road_use,s.layer,s.weight_m
+)
+SELECT present_tile,opposite_tile,structure,road_use,layer,
+       round(sum(weight_m),3) AS seam_length_m,
+       round(sum(CASE WHEN opposite_distance_m<=0.15 THEN weight_m ELSE 0 END),3) AS within_15cm_m,
+       round(sum(CASE WHEN opposite_distance_m>0.15 AND opposite_distance_m<=2 THEN weight_m ELSE 0 END),3) AS between_15cm_and_2m_m,
+       round(sum(CASE WHEN opposite_distance_m IS NULL THEN weight_m ELSE 0 END),3) AS beyond_2m_m
+FROM widths GROUP BY ALL ORDER BY seam_length_m DESC;
+
+-- Attribute car and bus coverage losses without changing a single road width.
+CREATE TEMP TABLE missed AS
+SELECT s.*,b.id IS NOT NULL AS hit_baseline
+FROM samples s LEFT JOIN hits b ON b.id=s.id AND b.variant='baseline'
+LEFT JOIN hits c ON c.id=s.id AND c.variant='candidate'
+WHERE s.mode IN ('car','bus') AND c.id IS NULL;
+CREATE TEMP TABLE tunnel_hits AS
+SELECT DISTINCT s.id FROM missed s JOIN candidate_faces a ON ST_Intersects(s.point,a.g)
+WHERE s.camera=a.camera AND a.structure='tunnel' AND a.road_use='road';
+CREATE TEMP TABLE nearby_motor_ways AS
+SELECT c.camera,w.* FROM cameras c JOIN ways w ON ST_DWithin(c.g,w.line,60) WHERE w.road_use='road';
+CREATE TEMP TABLE offsets AS
+SELECT s.id,w.osm_id,w.highway,w.structure,w.width_m,w.width_source,ST_Distance(s.point,w.line) AS offset_m
+FROM missed s JOIN nearby_motor_ways w ON s.camera=w.camera AND ST_DWithin(s.point,w.line,60);
+CREATE TEMP TABLE legacy_way_hits AS
+SELECT DISTINCT s.id,b.osm_id,b.width_m AS old_width_m
+FROM missed s JOIN baseline_faces b ON ST_Intersects(s.point,b.g) WHERE s.camera=b.camera;
+CREATE TEMP TABLE missed_detail AS
+WITH conditions AS (
+    SELECT o.id,
+       bool_or(structure<>'tunnel' AND offset_m<=width_m/2) AS inside_raw_width,
+       bool_or(structure<>'tunnel' AND offset_m<=old_width_m/2 AND offset_m>width_m/2) AS inside_old_width,
+       min(offset_m-width_m/2) FILTER (WHERE structure<>'tunnel') AS candidate_clearance_m,
+       min(offset_m) FILTER (WHERE structure<>'tunnel') AS centre_offset_m
+    FROM offsets o LEFT JOIN legacy_way_hits b ON o.id=b.id AND o.osm_id=b.osm_id GROUP BY o.id
+), nearest AS (
+    SELECT * FROM offsets WHERE structure<>'tunnel'
+    QUALIFY row_number() OVER (PARTITION BY id ORDER BY offset_m,osm_id)=1
+)
+SELECT s.camera,s.mode,s.source,s.route_id,s.weight_m,s.hit_baseline,n.osm_id,n.highway,n.width_m,n.width_source,
+       c.centre_offset_m,c.candidate_clearance_m,
+       CASE WHEN t.id IS NOT NULL THEN 'covered_by_hidden_tunnel'
+            WHEN c.inside_raw_width THEN 'inside_raw_width_outside_serialized_face'
+            WHEN c.candidate_clearance_m<=0.15 THEN 'within_15cm_of_modeled_edge'
+            WHEN c.inside_old_width THEN 'legacy_width_covers_same_raw_way'
+            WHEN s.hit_baseline THEN 'legacy_path_only'
+            WHEN c.centre_offset_m IS NULL THEN 'no_visible_motor_way_within_60m'
+            ELSE 'outside_both_displays' END AS evidence
+FROM missed s LEFT JOIN conditions c USING(id) LEFT JOIN nearest n USING(id) LEFT JOIN tunnel_hits t USING(id);
+SELECT camera,mode,source,hit_baseline,evidence,count(*) AS samples,round(sum(weight_m),1) AS missed_metres,
+       round(median(centre_offset_m),2) AS median_offset_to_motor_way_m
+FROM missed_detail GROUP BY ALL ORDER BY camera,mode,missed_metres DESC;
+COPY (
+    SELECT camera,mode,source,route_id,evidence,hit_baseline,osm_id AS nearest_visible_motor_way,
+           highway,width_source,width_m,round(min(centre_offset_m),2) AS min_offset_m,
+           round(max(centre_offset_m),2) AS max_offset_m,round(sum(weight_m),1) AS missed_metres
+    FROM missed_detail GROUP BY ALL ORDER BY camera,mode,missed_metres DESC
+) TO 'data/raw/road-surface/missed_routes.csv' (HEADER);
