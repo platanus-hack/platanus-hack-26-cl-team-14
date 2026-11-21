@@ -14,7 +14,7 @@ use crate::{
     },
     net::Scenario,
 };
-use bevy::prelude::*;
+use bevy::{light::NotShadowCaster, prelude::*};
 use passengers::{DAY, Sailing, Trip};
 use std::collections::{HashMap, HashSet};
 use vessel::Line;
@@ -170,6 +170,7 @@ fn refresh(
             commands.spawn((
                 FerryEntity,
                 Actor::Boat { line: ix, run },
+                NotShadowCaster,
                 Mesh3d(symbols.boat.clone()),
                 MeshMaterial3d(symbols.hull.clone()),
                 Visibility::Hidden,
@@ -286,11 +287,13 @@ fn person_pose(
 }
 
 fn animate(
+    mut commands: Commands,
     clock: Res<CityClock>,
     mode: Res<SubwayView>,
     service: Res<Service>,
     symbols: Res<Symbols>,
     mut actors: Query<(
+        Entity,
         &Actor,
         &mut Transform,
         &mut Visibility,
@@ -308,7 +311,7 @@ fn animate(
             Visibility::Inherited
         });
     }
-    for (actor, mut position, mut visibility, material) in &mut actors {
+    for (entity, actor, mut position, mut visibility, material) in &mut actors {
         let pose = if mode.0 {
             None
         } else {
@@ -329,12 +332,21 @@ fn animate(
                     let sailing = &d.runs[run];
                     let trip = &sailing.trips[trip];
                     let age = age(now, sailing.start);
-                    let coat = if (trip.board_at..trip.leave_at + CROSSING).contains(&age) {
+                    let aboard = (trip.board_at..trip.leave_at + CROSSING).contains(&age);
+                    let coat = if aboard {
                         &symbols.deck_coat
                     } else {
                         &symbols.coat
                     };
-                    material.unwrap().set_if_neq(MeshMaterial3d(coat.clone()));
+                    if material.unwrap().set_if_neq(MeshMaterial3d(coat.clone())) {
+                        // The shadow pass uses physical mesh heights. A symbol below a
+                        // cartographic deck must not cast its silhouette on the pavement.
+                        if aboard {
+                            commands.entity(entity).insert(NotShadowCaster);
+                        } else {
+                            commands.entity(entity).remove::<NotShadowCaster>();
+                        }
+                    }
                     person_pose(&d.line, trip, age, sailing.deck_rows, &symbols.access)
                 }
             }
