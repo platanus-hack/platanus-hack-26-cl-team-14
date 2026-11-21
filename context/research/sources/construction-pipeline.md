@@ -88,16 +88,17 @@ All ArcGIS queries below use the REST query API with no key: append
   `.../query?geometry=<x>,<y>&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&f=json`.
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200. The 2018 Estación Central tower above (lon -70.7018,
   lat -33.4603) falls in manzana MANZENT 13106101001026 (Pila del Ganso): TOTAL_PERSONAS 2,156,
-  TOTAL_VIVIENDAS 1,019, CANTIDAD_HOGARES 878, VIV_TIPO_DEPTO 904, PERSONAS_EMIGRANTES 218. So the
-  block holds ~2.1 persons per dwelling and is mostly apartments and migrants.
-- Limits: a manzana mixes the new tower with older housing, so it is a neighbourhood profile, not
-  the tower's own residents. Census 2017 predates most towers; use it as the "before" and the 2024
-  manzana as the "after". I do NOT re-catalog the Census; clever-heron / quiet-gecko own it
+  TOTAL_VIVIENDAS 1,019, CANTIDAD_HOGARES 878, VIV_TIPO_DEPTO 904, PERSONAS_EMIGRANTES 218. The
+  block has about 2.1 persons per dwelling, mostly apartment dwellings, and 218 migrants
+  among 2,156 people (about 10.1%).
+- Limits: Census 2017 predates this 2018 permit. These counts describe the area before the
+  permit, not residents of the future tower. Harmonize 2017 and 2024 block boundaries before
+  comparing populations; the difference alone does not identify a tower effect. I do NOT re-catalog the Census; clever-heron / quiet-gecko own it
   (quiet-gecko verified Census 2024 Manzanas_CPV24 polygons; 52,593/52,646 RM rows join).
 - Role: INPUT (person-per-dwelling multiplier and demographic profile) and TARGET (the 2017->2024
   change in tower manzanas)
 - Use in the simulation: INPUT. The "who moves in" chain: a dwelling count is not a people count;
-  multiply new dwellings by persons-per-dwelling and the local age/migrant profile. The 2017->2024
+  using the local persons-per-dwelling ratio and age/migrant profile for new dwellings is a model assumption. The 2017->2024
   population change in tower manzanas is a backtest TARGET for the engine.
 
 ### MINVU PRC vector zones — Estación Central and Cerro Navia (ArcGIS Online)

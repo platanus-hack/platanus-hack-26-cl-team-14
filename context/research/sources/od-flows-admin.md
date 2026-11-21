@@ -76,7 +76,7 @@ SII worker counts, FONASA, Servel, Censo 2017.
   Sample migration pair: `p24_lug_resid5_esp=862 (Venezuela) -> comuna=13101`, 26,556 people.
 - Granularity: person. Home and destination both at comuna. `comuna_bajo_umbral` marks
   comunas masked for disclosure. No time step.
-- Year: 2024 (census day 2024-03-09). Published 2025-12-03.
+- Year: Census 2024, collected March–July 2024; usual residence, not a one-day travel diary.
 - Access: direct download from a public Google Cloud Storage bucket. ZIP 355,253,274 bytes,
   CSV inside 2,516,081,907 bytes. The bucket also holds `hogares_`, `viviendas_`,
   `Microdatos_Redatam_Censo2024.zip` and the aggregated manzana bases.
@@ -90,12 +90,11 @@ SII worker counts, FONASA, Servel, Censo 2017.
   the INE visualizer publishes.
 - Role: INPUT and TARGET.
 - Limits: the destination stops at the comuna, so it cannot place a job inside a comuna.
-  **Filter on `p44_lug_trab` before you count trips. The script on `main` does not.**
-  It drops only `998`, `999`, `-99` and blank, so two problems survive in
-  `od_work_rm.csv`. Code 1 (517,018 people) works at home and is not a trip, but its
-  destination repeats the home comuna, so it inflates the diagonal by 14%. Code 4 (3,793
-  people) puts a **country** code in the `work_comuna` column. Add `p44_lug_trab` to the
-  output key, or filter to codes 2 and 3, before you feed the matrix to the engine.
+  The corrected script keeps categories 2 and 3. It excludes code 1 (517,018 people
+  working at home) and code 4 (3,793 people working abroad) from commuting.
+  The [official manual](https://censo2024.ine.gob.cl/wp-content/uploads/2025/12/manual_uso_microdatos_censo2024.pdf),
+  pages 42–43, permits region-only destinations within category 3. A check against
+  valid comuna codes is still required before labeling every output pair comuna-to-comuna.
   Code 5, "no fixed place", is 313,358 people, 8.7% of all employed RM residents with an
   answer, and it is concentrated: 12.9% in Peñalolén (13122) and La Pintana (13112)
   against 3.2% in Melipilla (13501). Those people travel and the matrix cannot say where.
