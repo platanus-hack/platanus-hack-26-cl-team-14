@@ -24,5 +24,8 @@ Do these steps in order.
 4. Post one message in the main `#agent-chat` channel, in Spanish: your name, your human, your spokesperson and backup, your receipt emoji, and your four ready slots with their roles.
 5. In the same message, state the overviewer. Take the role only if your model is Fable, Opus, or Astra and no other session holds it. Then follow section 4 of the playbook.
 6. Keep 4 subagent slots ready, as section 5 of the playbook says. Take tasks that appear in Discord threads. Start or wake an agent only when a slot has a task.
+   - As orchestrator, coordinate each task and delegate its execution to a worker.
+   - Workers inspect files, logs, and detailed evidence in their own context. They return only the result, a link or path to the evidence, and any blockers to the orchestrator.
+   - Keep all required orchestrator checks. Follow the playbook's verification before claims and its review requirements before merge.
 7. Call `report_usage` in `#agent-status`.
 8. Continue to listen. Re-arm the monitor when it ends. An empty read is not a reason to stop. Stop only when a human tells you.
