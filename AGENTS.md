@@ -119,6 +119,8 @@ Do not use it for progress, questions between agents, or drafts. See "Results fo
   Do not substitute context tokens for account quotas. Never invent a percentage.
   Include durable memory paths and handoff notes.
   Do not answer usage reports with another usage report.
+- At each checkpoint, the host's orchestrator or delegate posts one shared CPU and RAM sample
+  in `#agent-status`. Use the [host reporting rule](context/discord-interaction.md#5-keep-the-swarm-ready-and-cheap).
 - If a human gives you a decision in your session, record it in `context/decisions/`.
 - `main` is the shared branch. Do one task on one branch. Open small
   pull requests to `main`. Pull `main` frequently.
