@@ -69,6 +69,16 @@ Install Rust 1.97.1 or newer with Cargo, and install curl. From the repository r
 
 The launcher starts the engine on port 8787, waits for it to answer, and opens the native city window. Drag to pan and scroll to zoom. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
 
+### Start the presentation on macOS
+
+Run `./run.sh --presentation` from the checkout with Swift installed. The launcher
+builds the city and starts the engine before showing the day/night loop.
+Click **Comenzar** or press **Return** to open the city overview and the connected
+LLM terminal. [Video credits](pitch/santiago-dia-noche-credits.txt).
+
+For a prepared run, set `SANTIAGO_ENGINE_BIN` and `SANTIAGO_VIEWER_BIN` to the
+absolute paths of the engine and viewer verified for that checkout.
+
 ### Ask a question from your local agent
 
 Install Node.js 22 or later. Start your MCP client in this checkout with the `SANTIAGO_API_URL` printed by the launcher in its environment. The project config registers the `santiago` server. Ask the client to use `simulate_city`. For example, ask what happens if jobs in Maipú increase by 20%.
