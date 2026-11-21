@@ -172,6 +172,21 @@ With scalar Metro/access shares, destination redistribution alone cannot change 
 Occupancy, attendance, Metro use, and access shares need explicit evidence or visible assumption labels.
 Actual MUT jobs remain unverified. Comuna public-transport share is not a measured Metro share.
 
+## Additional hypothetical event route
+
+`POST /api/event-scenario` calls the cached `event.rs` model and returns its response unchanged.
+The explicit request is `{"site_id":"estadio_nacional","multiplier":1}`.
+The other approved site is `estadio_monumental`; multiplier must be finite and in `[0,3]`.
+Module errors return JSON HTTP 422. Missing or malformed fields use Axum's standard parser response.
+
+The fixed source is Saturday 2026-04-11. The model transfers the positive evening contrast at Parque O'Higgins.
+This is an additional hypothetical event; contrast attribution and transfer are assumptions.
+The source activity stays in the baseline. Multiplier zero preserves each observed value and null.
+The response separates known assigned mass from sums over common known target bins.
+Source hashes, masks, venue coordinates, parent distances, weights, and nullable arrays come from the module.
+The caller does not recompute them. The existing L4b model and its weekday score stay unchanged.
+See the [accepted contract](../context/research/extra-event-contract.md) for the full scope.
+
 ## Model
 
 Let `h` and `j` be the housing and job multipliers for the selected commune.
