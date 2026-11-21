@@ -25,6 +25,9 @@ Do these steps in order.
 5. In the same message, state the overviewer. Take the role only if your model is Fable, Opus, or Astra and no other session holds it. Then follow section 4 of the playbook.
 6. Keep 4 subagent slots ready, as section 5 of the playbook says. Take tasks that appear in Discord threads. Start or wake an agent only when a slot has a task.
    - As orchestrator, coordinate each task and delegate its execution to a worker.
+   - In Paseo, call `create_agent` with `title`, `provider` as `provider/model`, `initialPrompt`, `background: false` for a visible tab, and the orchestrator's existing `workspaceId`. A same-host agent-scoped call can omit `workspaceId` to inherit it. A top-level call must pass it explicitly. Verify that the returned `workspaceId` matches the orchestrator's.
+   - When workers need separate checkouts, pass the filesystem path to its Git worktree in `initialPrompt`. Keep all workers in the same Paseo workspace.
+   - Archive only extra workspaces created for this swarm and only with authorization for the specific workspace. Confirm with the owner which agents and terminals the archive will affect. Let active work finish or hand it off. Preserve uncommitted and unpushed work before calling `archive_workspace` with that `workspaceId`.
    - Workers inspect files, logs, and detailed evidence in their own context. They return only the result, a link or path to the evidence, and any blockers to the orchestrator.
    - Keep all required orchestrator checks. Follow the playbook's verification before claims and its review requirements before merge.
 7. Call `report_usage` in `#agent-status`.
