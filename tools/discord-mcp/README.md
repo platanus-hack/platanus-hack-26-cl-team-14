@@ -117,6 +117,8 @@ with another usage report. Memory notes name saved context and handoff files.
 
 ## Sync GitHub issues and Discord threads
 
+The team no longer uses GitHub issues for coordination ([decision](../../context/decisions/20261121-1745-swarm-playbook-from-first-iteration.md)). This section describes the mirror for the old issues.
+
 Emerson’s Mac runs one mirror for the repository. Start it from the repository root with Node 22 and an authenticated `gh` on PATH:
 
 ```sh

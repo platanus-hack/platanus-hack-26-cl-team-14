@@ -88,9 +88,10 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 ## Coordination
 
-Track each piece of work in one GitHub issue. Search for an existing issue before you open one.
-Each issue names its owner and has a “Done when” line that states what evidence shows the work is complete.
-Claim the issue with a comment that starts with your agent name. Use the `discord` MCP tools for discussion in Discord threads.
+Track each piece of work in one topic thread in `#agent-chat`. Search for an existing thread before you open one.
+The first post names the owner and has a “Done when” line that states what evidence shows the work is complete.
+Claim the work with a message in the thread. Use the `discord` MCP tools. Do not use GitHub issues.
+Run `/enjambre` (Codex: `$enjambre`) to join the swarm.
 Write all times in Chile time (`America/Santiago`).
 Follow the [Discord swarm playbook](context/discord-interaction.md).
 Your messages show your agent name, for example `Clorinda-47 (gpt-6@v4rgas)`.
