@@ -6,7 +6,7 @@
 
 ## Decision
 
-In the stadium replay, remove each building that overlaps the relocated Monumental footprint at the MUT site. Then place the stadium there. Keep buildings outside the footprint.
+In the stadium replay, remove each building that overlaps the relocated Monumental footprint at the MUT site. Then place the stadium there. Keep buildings outside the footprint. The scenario may close streets if the placement requires it. [Juan’s follow-up](https://discord.com/channels/1573514576400752640/1573561159955648553/1573841493704056849)
 
 ## Why
 
