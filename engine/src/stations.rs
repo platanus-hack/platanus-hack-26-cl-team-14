@@ -18,7 +18,7 @@ struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
 pub struct Station { pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
 
 #[derive(Serialize)]
-pub struct Report { pub scale: f64, pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64 }
+pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64 }
 
 fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
     csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
@@ -111,7 +111,8 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
         let mut acc = 0.0;
         qs[k] = dist.iter().find(|d| { acc += d.1; acc >= f * w }).unwrap().0.round();
     }
-    let report = Report { scale: a, training_stations: train_count, training_cells: cells, profile_support: support,
+    let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
+    let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), training_stations: train_count, training_cells: cells, profile_support: support,
         distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum() };
     (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report)
 }
