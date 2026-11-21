@@ -2,6 +2,12 @@
 
 Implement after the first comuna loop. One point replaces jobs with N dwellings; Rust estimates the change in local weekday Metro boardings. First case: MUT-style land-use replacement only. This is a transparent accounting model, not a causal forecast. No implementation or fitted parameters yet.
 
+## Site geography and mode share
+
+The initial [comuna demo](../mvp.md) changes Providencia (`13123`). The proposed MUT replacement site is in **Las Condes (`13114`)**, at Av. Apoquindo 2730. The [Las Condes municipal resolution of 14 February 2026](https://archivos.lascondes.cl/descargas/transparencia/actos_resoluciones/comerciales/2026/febrero/002327.pdf) grants a licence at that address. The [data owner's site report](https://discord.com/channels/1573514576400752640/1573579088684253235/1573584489890709507) identifies manzana `13114131009033`. Use Las Condes for this site's resident OD row and workplace OD column; proximity to Tobalaba does not change the site's comuna.
+
+Manual aggregation of [`mode_share.csv` at data commit `09b99527`](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/09b99527f9b26a06bf0440f9e9317273a6461fc6/data/mvp/mode_share.csv) gives Las Condes 33,834 public-transport commuters / 107,707 known-comuna commuters = **31.4%**. Providencia has 25,512 / 64,203 = **39.7%**. These Census 2024 shares describe residents of each comuna, including commuters to destinations outside the RM. Code 2 combines bus, Metro, train, taxi and colectivo: neither percentage is a Metro share. Applying a comuna share to new site residents is a model assumption; the Metro and station-access shares remain explicit inputs. These resident shares do not describe workers arriving at MUT from other comunas.
+
 ## Evidence and missing parameters
 
 [Verified Tobalaba observations](tobalaba-observations.md): 37 weekday half-hours, 81,612.8 validation-derived boardings per average weekday, April 13–17, 2026. Station TB-TOB is the parent of four L1/L4 platforms. These are boardings, not arrivals, passengers aboard trains, unique people, or MUT visitors.
