@@ -54,13 +54,7 @@ async function dispatch({ method, params }) {
       body: JSON.stringify(params.arguments),
     });
     if (!response.ok) throw new Error(await response.text());
-    const result = await response.json();
-    // The view gets the full result of this same run. The agent gets it without the rows that did not change.
-    const round = (key, value) => typeof value === 'number' ? Math.round(value * 10) / 10 : value;
-    result.stations = result.stations.filter((s) => Math.abs(s.delta_daily) >= 50).map(({ delta, longitude, latitude, ...s }) => s);
-    result.zones = result.zones.filter((z) => Math.abs(z.jobs_scenario - z.jobs_base) >= 50 || Math.abs(z.residents_working_scenario - z.residents_working_base) >= 50).map(({ longitude, latitude, ...z }) => z);
-    result.flows = result.flows.slice(0, 20);
-    return { content: [{ type: 'text', text: JSON.stringify(result, round) }] };
+    return { content: [{ type: 'text', text: await response.text() }] };
   } catch (error) {
     return { isError: true, content: [{ type: 'text', text: error.message }] };
   }
