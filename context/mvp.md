@@ -18,6 +18,7 @@ This permission does not start a native UI rewrite or change the active owners.
 - [Editable conditions](decisions/20261121-0115-editable-initial-conditions.md) and [a moving 3D scene](decisions/20261121-0100-demo-needs-3d-simulation.md) remain required.
 
 `pitch.md` is still empty. The first working slice is an agent proposal: change housing/jobs in Providencia and show comuna-level redistribution in 3D.
+The Providencia (`13123`) comuna demo is separate from the proposed MUT point scenario. MUT is at Av. Apoquindo 2730 in Las Condes (`13114`); use that CUT for the replacement site. See the [site evidence and mode-share limits](research/tobalaba-scenario-contract.md#site-geography-and-mode-share).
 Do not claim observed MUT employment, household relocation, or station-level effects from a comuna OD matrix.
 Keep this assumption explicit for the next human taste/direction checkpoint. Propose the other two use cases after the first shared loop works.
 
