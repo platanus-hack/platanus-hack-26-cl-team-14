@@ -48,8 +48,9 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
     m
 }
 
+/// `classes`: L7, two station classes with their own profile.
 /// `public_share`: L2, weight each OD pair by the share of public-transport commuters (mode 2) of its home comuna.
-pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool) -> (Vec<Vec<f64>>, Report) {
+pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool) -> (Vec<Vec<f64>>, Report) {
     let mut share: HashMap<String, (f64, f64)> = HashMap::new();
     for m in rows::<Mode>(&data.join("mode_share.csv")) {
         let e = share.entry(m.cut).or_default();
@@ -69,20 +70,31 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool) -> 
     let h = mass(st, &home, &blocks, radius, &mut dist);
     let j = mass(st, &work, &jobs, radius, &mut dist);
 
-    // Profile p_t: mean over training stations observed at t, normalized to 1 inside each half.
-    let train: Vec<&Vec<Option<f64>>> = st.iter().filter(|s| !s.holdout).map(|s| s.laboral.as_ref().unwrap()).collect();
-    let mut p = vec![0.0; 48];
+    // L7: class 1 ("work") if J/H inside the radius is above the training median, else class 0 ("home").
+    let ratio: Vec<f64> = (0..st.len()).map(|i| if h[i] == 0.0 { f64::INFINITY } else { j[i] / h[i] }).collect();
+    let mut tr: Vec<f64> = (0..st.len()).filter(|&i| !st[i].holdout).map(|i| ratio[i]).collect();
+    tr.sort_by(f64::total_cmp);
+    let cut = (tr[(tr.len() - 1) / 2] + tr[tr.len() / 2]) / 2.0;
+    let class: Vec<usize> = ratio.iter().map(|&r| (classes && r > cut) as usize).collect();
+
+    // Profile p_t per class: mean over training stations observed at t, normalized to 1 inside each half.
+    let mut p = vec![vec![0.0; 48]; 2];
     let mut support = vec![0; 48];
-    for t in 0..48 {
-        let v: Vec<f64> = train.iter().filter_map(|b| b[t]).collect();
-        support[t] = v.len();
-        if !v.is_empty() { p[t] = v.iter().sum::<f64>() / v.len() as f64; }
+    for c in 0..2 {
+        let train: Vec<&Vec<Option<f64>>> = (0..st.len()).filter(|&i| !st[i].holdout && class[i] == c).map(|i| st[i].laboral.as_ref().unwrap()).collect();
+        if train.is_empty() { continue; }
+        for t in 0..48 {
+            let v: Vec<f64> = train.iter().filter_map(|b| b[t]).collect();
+            support[t] += v.len();
+            if !v.is_empty() { p[c][t] = v.iter().sum::<f64>() / v.len() as f64; }
+        }
+        for half in [0..24, 24..48] {
+            let s: f64 = p[c][half.clone()].iter().sum();
+            for t in half { p[c][t] /= s; }
+        }
     }
-    for half in [0..24, 24..48] {
-        let s: f64 = p[half.clone()].iter().sum();
-        for t in half { p[t] /= s; }
-    }
-    let q: Vec<Vec<f64>> = (0..st.len()).map(|i| (0..48).map(|t| p[t] * if t < 24 { h[i] } else { j[i] }).collect()).collect();
+    let train_count = st.iter().filter(|s| !s.holdout).count();
+    let q: Vec<Vec<f64>> = (0..st.len()).map(|i| (0..48).map(|t| p[class[i]][t] * if t < 24 { h[i] } else { j[i] }).collect()).collect();
 
     // One scale over the observed training cells.
     let (mut obs, mut mod_, mut cells) = (0.0, 0.0, 0);
@@ -99,7 +111,7 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool) -> 
         let mut acc = 0.0;
         qs[k] = dist.iter().find(|d| { acc += d.1; acc >= f * w }).unwrap().0.round();
     }
-    let report = Report { scale: a, training_stations: train.len(), training_cells: cells, profile_support: support,
+    let report = Report { scale: a, training_stations: train_count, training_cells: cells, profile_support: support,
         distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum() };
     (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report)
 }
