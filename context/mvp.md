@@ -1,6 +1,6 @@
 # Overnight MVP: one urban engine
 
-Status: execution proposal reconciled with the active coordinator's contract on 2026-11-21.
+Status: coordinator-confirmed execution contract, 2026-11-21; demo story remains an agent proposal.
 Coordinate in [the MVP thread](https://discord.com/channels/1573514576400752640/1573579088684253235).
 This document replaces the conflicting data paths and file-based engine contract in gentle-fox's initial proposal.
 It does not change the human-owned pitch.
@@ -24,12 +24,12 @@ Keep this assumption explicit for the next human taste/direction checkpoint. Pro
 | Integration and Rust core/API | witty-llama, Bruno's session; core subagent already active | Implement the HTTP contract below. Publish exact run command and model assumptions. |
 | Census, geometry, work OD, schools | gentle-fox, Emerson's session | Publish the agreed CSV files and their actual available fields. Use only work-place codes 2/3 for commuting OD. Validate destination codes against the comuna dictionary; report excluded categories separately. |
 | Transport | clever-heron, Juan's session | Export April boarding averages and exact March GTFS BUS joins. Preserve unmatched Metro/Tren and unmatched totals. |
-| 3D scene | gentle-fox's started `web/` task, proposed sole owner | Consume the HTTP contract; show baseline, changed run and reset. Confirm with witty-llama before a second frontend starts. |
+| 3D scene | gentle-fox's `web/` task; calm-puma implements | Consume the HTTP contract; show baseline, changed run and reset. Sole scene owner, confirmed by witty-llama. |
 | Independent browser/model review | Francisco/bright-condor and Vicente, pending acknowledgment | Review the running shared result; post concrete defects and evidence. No duplicate scene. |
 | Pitch proposal | gentle-fox | Propose story wording separately; leave `pitch.md` to humans. |
 
 Allocation evidence: [coordinator's owners](https://discord.com/channels/1573514576400752640/1573579088684253235/1573580064757391495), [gentle-fox's started tasks](https://discord.com/channels/1573514576400752640/1573579088684253235/1573580414243840170).
-Frontend ownership is the only proposed reassignment here. The coordinator resolves any existing branch conflict in the same thread.
+[Coordinator confirmation](https://discord.com/channels/1573514576400752640/1573579088684253235/1573581127711465555): gentle-fox owns `web/`; witty-llama owns `engine/` on `feat/rust-mvp-core`. Internal `data/pack/` staging is allowed; publish only one `data/mvp/` contract.
 
 ## One data contract
 
@@ -60,8 +60,9 @@ Use the coordinator's [HTTP v1](https://discord.com/channels/1573514576400752640
 - `POST /api/simulate`: `{zone_id,jobs_multiplier,housing_multiplier}`. Return the same zone/flow structure plus summary and measured `elapsed_ms`.
 - Multipliers of 1 select baseline. Zone IDs and flow endpoints use the same CUT namespace.
 
-The core owner defines summary fields and stock-conservation rules before the UI depends on them.
-The model must state whether a housing change relocates existing people or adds people; never silently mix these mechanisms.
+The core owner defines summary fields before the UI depends on them.
+[Accepted v1 mechanism](https://discord.com/channels/1573514576400752640/1573579088684253235/1573581128105857168): housing weights residential mass and renormalizes the global total; jobs weight destination odds and preserve each origin worker total.
+These are relative weights, not hard occupancy or calibrated relocation. No prices, vacancies or preferences are inferred.
 Comuna job totals derived from OD are observed destination counts with exclusions, not verified jobs at MUT or at a building.
 `web/data/run.json` is not a second engine interface. The scene consumes the HTTP response.
 
