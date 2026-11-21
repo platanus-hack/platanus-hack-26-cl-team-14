@@ -1,83 +1,88 @@
-# Extra hypothetical event: proposed accounting contract
+# Extra hypothetical event: boarding-profile contract
 
-**Review proposal only; no build authorization.** The L4b weekday model and
-its development score stay unchanged. This case adds an assumed event to a
-fixed observed weekend day. It does not move or remove an observed event.
+**Conditional review proposal; no build authorization.** L4b and its weekday
+score stay unchanged. Add a scaled observed contrast to a fixed Saturday
+baseline. Do not remove the source event or label this operation “move”.
 
-## Evidence gate and scope
+## Evidence and declared scenario choice
 
 The [primary ticket page](https://www.puntoticket.com/red-bull-batalla-internacional-2026),
 opened on 2026-11-21, lists Red Bull Batalla at Movistar Arena on April 11,
-2026, at 17:00. It provides no end time or measured attendance. The reported
-Parque O'Higgins 20:30 contrast is a same-date evening boarding shape, not
-identified event exits or evidence for any scenario parameter.
+2026, at 17:00. No end time or measured attendance is supplied. Parque
+O'Higgins (PQ) has a same-date evening boarding contrast. Neither fact proves
+that the contrast is event exits, or validates transferring it elsewhere.
 
-Before implementation, retain an auditable record of all six predeclared
-station/day comparisons, source hashes, line membership, peer counts,
-per-bin missingness and the exact normalization rule. Root must review that
-record and this contract. No parameter is fitted to the observed peak.
+Before build, review the data owner's artifact: all six predeclared station/day
+comparisons, exact line membership, source hashes, peer counts, masks and
+original observed-day normalization. A common-mask analysis is a separately
+reported sensitivity, not a replacement gate or a selection of the best result.
 
-Use `metro_observations.json`: SABADO is **2026-04-11**, DOMINGO is
-**2026-04-12**, in America/Santiago. These are individual dates, not a typical
-weekend. Values are validation-derived boardings excluding estimated fare
-evasion, not unique people, alightings or train loads. Null means no source row.
+This contract selects **one** scenario: copy the positive evening contrast,
+with a visible multiplier. Attendance, public share and Metro share are not
+estimated or added as controls. Attributing and transferring the contrast is
+an explicit assumption. Positive clipping and the window below are scenario
+choices made after observing the contrast, not a validated event model.
 
-## Proposed request: all numeric assumptions explicit
+## Fixed template
 
-| Field | Meaning |
-| --- | --- |
-| `site_id` | One coordinator-approved venue point, with reviewed WGS84 coordinates and source. No arbitrary citywide placement in the first implementation. |
-| `day_type` | `SABADO` or `DOMINGO`; response states its actual 2026 date. |
-| `attendance` | Assumed persons attending this **additional** event, not capacity or ticket sales. |
-| `public_transport_share` | Fraction of attendees departing by public transport. |
-| `metro_entry_share_given_public` | Fraction of those public-transport departures producing a local, validation-covered Metro entry. Public transport is not synonymous with Metro. |
-| `local_station_share` | Fraction of those Metro entries using the modeled nearby parents. The remainder is explicitly outside this local result. |
-| `exit_start_bin`, `exit_end_bin_exclusive` | Half-hour indices within this same date, with a nonempty window in 0–48. No midnight wrap. |
-| `assumption_sources` | Value provenance for attendance, each share and exit window: user assumption or cited source, with description. |
-
-No hidden numeric defaults. Attendance is nonnegative; shares are in [0,1].
-The declared first timing model is **uniform departures within the supplied
-window**. This is an assumption, not a profile learned from the observed peak.
-The proposal's 40,000 attendees and two hours are illustrative, not measured
-defaults. One departure entry per selected attendee; do not double round trips.
-
-## Calculation and response
-
-Use the unchanged L4b flat-distance function and verified Metro parent points.
-Eligible parents lie within 1,000 m; weights are normalized
-`1 / max(distance_m, 50)`. This is a geometric access proxy, not walking paths,
-capacity, service availability or station choice learned from data.
+Use `metro_observations.json`, `SABADO` = **2026-04-11**, America/Santiago.
+Units are validation-derived boardings excluding estimated fare evasion;
+not unique persons, alightings or train loads. Each index is local k×30 minutes.
 
 ```text
-entries = attendance * public_transport_share
-          * metro_entry_share_given_public * local_station_share
-event_delta[s,t] = entries * station_weight[s] / window_bin_count  (inside window)
-event_delta[s,t] = 0                                               (outside window)
-scenario[s,t] = observed[s,t] + event_delta[s,t]                    (observed bin)
-scenario[s,t] = null                                              (missing bin)
+D_s = sum of all non-null Saturday bins for station s
+m_t = median(peer_t / D_peer) over the original 25 L2 peers observed at t
+E_t = max(0, PQ_t - D_PQ * m_t)       for t = 38..47, when both terms exist
+E_t = null                           within that window when either is missing
+E_t = 0                              outside the window, by scenario assumption
 ```
 
-Preserve all eligible parents and their weights. Do not renormalize onto
-stations or bins with observations. If no parent is eligible, report the
-entries as spatially unassigned; do not guess a nearest station outside 1 km.
-An assumed departure during missing coverage remains a modeled contribution,
-not an observed zero or proof that the station is open.
+PQ is excluded from its peers. Preserve the original day totals even when
+coverage differs; do not normalize again across the window or available peers.
+The window is **19:00–23:30 on April 11**, not a wrap to that morning.
+PQ has 9 observed bins in this ten-bin window; 23:30 is null. The known
+contrast mass is `sum(non-null E_t)`, not a complete event attendance or total.
 
-Return parent IDs/coordinates/distances/weights, source date/hash, `observed[48]`,
-`event_delta[48]`, and nullable `scenario[48]`. Report modeled entries over all
-bins separately from observed-mask baseline/scenario/delta totals. Zero
-attendance preserves the observed series and its null mask exactly.
+## Exact proposed interface and geography
 
-Label: **extra hypothetical event on the observed day; accounting sensitivity,
-not causal forecast or validation**. Existing events remain in that baseline;
-never subtract their presumed contribution. The weekday L4b score must not be
-attached to this result. No new routing, commuter OD, capacity or crowd model.
+Add `POST /api/event-scenario` with request `{"site_id":"<approved id>",
+"multiplier":1}`. Saturday and the template revision are fixed, not request
+parameters. Multiplier is explicit, finite and nonnegative: 1 copies the known
+contrast; 0 means no extra contribution. No hidden parameter defaults.
 
-## Internal decisions required before build
+A versioned site table must contain **two or three coordinator-approved venue
+points**, each with stable ID, name, reviewed WGS84 coordinates and source.
+The API accepts only those IDs, not arbitrary coordinates. Exact points are
+an internal data task and a **required pre-implementation gate**, not a choice
+left to the implementer. The comparison stations are not venue coordinates.
 
-Coordinator supplies the bounded venue-point list and reviewed coordinate
-sources for the third pitch case; the comparison venues are not automatically
-scenario sites. Confirm which weekend date the UI shows and display all
-assumptions. Review the evidence artifact, additive API shape and demonstration
-scope before assigning implementation. Work not reviewed by 12:15 UTC stays
-out of the presentation freeze; human story choice remains separate.
+Use L4b's unchanged flat distance and parent points. Parents within 1,000 m
+receive weights proportional to `1/max(distance_m,50)`. This is geometric
+access, not walking routes, service/capacity or measured station choice. Do not
+renormalize based on observation coverage. With no eligible parent, report the
+known contrast mass as unassigned; do not choose a more distant station.
+
+## Output, missingness and accounting
+
+For each eligible parent, `event_delta[t] = multiplier * weight * E_t`.
+For a positive multiplier, a null E remains null. `scenario[t]` is
+`observed[t] + event_delta[t]` only when both exist; otherwise null. An observed
+null remains null even when the modeled contribution is known. Outside the
+window the added contribution is zero by assumption, not evidence of no trips.
+**At multiplier 0**, every delta is zero and scenario equals observed exactly,
+including its null mask; missing template bins cannot change a no-op baseline.
+
+Return the actual source date/hash/template revision; site and parent IDs,
+coordinates, distances and weights; `observed[48]`, nullable `event_delta[48]`,
+nullable `scenario[48]`, and source/target coverage masks. Report separately:
+(1) known template mass × multiplier, (2) known assigned and unassigned mass,
+and (3) baseline/scenario/delta sums over their common known target bins with
+that bin count. Do not compare totals with different masks. Always retain the
+full observed-day total as a separate value, not the scenario comparator.
+
+Label **“additional hypothetical event; contrast attribution and transfer are
+assumptions”**. The source-day activity stays in every baseline, including PQ.
+No causal forecast, event validation, attendance inference, weekday score,
+refit, commuter OD or capacity model. Root must review the evidence artifact,
+site table and this contract before implementation. Everything needs review by
+12:15 UTC for freeze eligibility; human story choice remains separate.
