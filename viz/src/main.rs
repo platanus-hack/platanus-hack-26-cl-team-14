@@ -1,7 +1,8 @@
 mod city;
-mod net;
 mod movers;
-use std::{env, time::Instant};
+mod net;
+mod pixels;
+use crate::city::world;
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
@@ -13,7 +14,7 @@ use bevy::{
     window::{PrimaryWindow, WindowResolution},
     winit::WinitSettings,
 };
-use crate::city::world;
+use std::{env, time::Instant};
 
 pub struct MiniatureCamera;
 
@@ -41,6 +42,7 @@ pub fn window() -> Window {
 pub struct Rig {
     pub target: Vec3,
     pub distance: f32,
+    fixed: bool,
 }
 
 impl Default for Rig {
@@ -48,6 +50,8 @@ impl Default for Rig {
         let focus = env::var("SANTIAGO_FOCUS").unwrap_or_else(|_| "-70.6505,-33.443".into());
         let (lon, lat) = focus.split_once(',').unwrap();
         Self {
+            fixed: env::var_os("SANTIAGO_CAPTURE").is_some()
+                || env::var_os("SANTIAGO_LOCK_CAMERA").is_some(),
             target: world(lon.trim().parse().unwrap(), lat.trim().parse().unwrap()),
             distance: env::var("SANTIAGO_DISTANCE").map_or(1650.0, |s| s.parse().unwrap()),
         }
@@ -80,14 +84,18 @@ fn shadows(distance: f32) -> CascadeShadowConfig {
         first_cascade_far_bound: distance * 0.95,
         maximum_distance: distance * 2.0,
         ..default()
-    }.build()
+    }
+    .build()
 }
 
 fn setup(mut commands: Commands, rig: Res<Rig>) {
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
-            fov: FOV, near: 0.5, far: 160_000.0, ..default()
+            fov: FOV,
+            near: 0.5,
+            far: 160_000.0,
+            ..default()
         }),
         pose(&rig),
         lens(rig.distance),
@@ -110,10 +118,18 @@ fn setup(mut commands: Commands, rig: Res<Rig>) {
     ));
     commands.spawn((
         Text::new("© OpenStreetMap contributors"),
-        TextFont { font_size: FontSize::Px(14.0), ..default() },
+        TextFont {
+            font_size: FontSize::Px(14.0),
+            ..default()
+        },
         TextColor(Color::WHITE),
         TextShadow::default(),
-        Node { position_type: PositionType::Absolute, bottom: px(8), right: px(12), ..default() },
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(8),
+            right: px(12),
+            ..default()
+        },
     ));
 }
 
@@ -124,10 +140,19 @@ fn navigate(
     mut wheel: MessageReader<MouseWheel>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
-    let scroll: f32 = wheel.read().map(|event| event.y * match event.unit {
-        MouseScrollUnit::Line => 0.15,
-        MouseScrollUnit::Pixel => 0.002,
-    }).sum();
+    if rig.fixed {
+        return;
+    }
+    let scroll: f32 = wheel
+        .read()
+        .map(|event| {
+            event.y
+                * match event.unit {
+                    MouseScrollUnit::Line => 0.15,
+                    MouseScrollUnit::Pixel => 0.002,
+                }
+        })
+        .sum();
     if scroll != 0.0 {
         rig.distance = (rig.distance * (-scroll).exp()).clamp(55.0, 95_000.0);
     }
@@ -137,20 +162,23 @@ fn navigate(
         let right = *camera.right();
         let forward = Vec3::new(-0.32, 0., -0.51).normalize();
         let meters_per_pixel = 2.0 * rig.distance * (FOV * 0.5).tan() / window.height();
-        rig.target += (-right * delta.x + forward * delta.y / camera.forward().y.abs()) * meters_per_pixel;
-        rig.target.y=city::terrain_from_xz(rig.target.x,rig.target.z);
+        rig.target +=
+            (-right * delta.x + forward * delta.y / camera.forward().y.abs()) * meters_per_pixel;
+        rig.target.y = city::terrain_from_xz(rig.target.x, rig.target.z);
     }
 }
 
 fn aim(
     rig: Res<Rig>,
-    mut camera: Single<(&mut Transform, &mut DepthOfField), With<Camera3d>>,
+    mut camera: Single<(&mut Transform, Option<&mut DepthOfField>), With<Camera3d>>,
     mut shadow: Single<&mut CascadeShadowConfig, With<DirectionalLight>>,
 ) {
     if rig.is_changed() {
         let (pose_component, dof) = &mut *camera;
         **pose_component = pose(&rig);
-        **dof = lens(rig.distance);
+        if let Some(dof) = dof {
+            **dof = lens(rig.distance);
+        }
         **shadow = shadows(rig.distance);
     }
 }
@@ -166,9 +194,11 @@ struct Sample {
 fn measure(
     mut commands: Commands,
     mut sample: Local<Sample>,
+    buildings: Res<city::Buildings>,
+    rig: Res<Rig>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
-    if sample.finished {
+    if !buildings.ready || sample.finished {
         return;
     }
     let now = Instant::now();
@@ -186,17 +216,35 @@ fn measure(
     if elapsed < 6.0 {
         return;
     }
+    info!(
+        "Camera target {:?}, distance {} m",
+        rig.target, rig.distance
+    );
     let fps = sample.frames as f64 / elapsed;
-    info!("{}x{}: {} frames / {:.3} s = {:.2} FPS ({:.2} ms/frame), vsync {:?}",
-        window.physical_width(), window.physical_height(), sample.frames, elapsed, fps, 1000.0 / fps, window.present_mode);
+    info!(
+        "{}x{}: {} frames / {:.3} s = {:.2} FPS ({:.2} ms/frame), vsync {:?}",
+        window.physical_width(),
+        window.physical_height(),
+        sample.frames,
+        elapsed,
+        fps,
+        1000.0 / fps,
+        window.present_mode
+    );
     sample.finished = true;
     if let Ok(path) = env::var("SANTIAGO_CAPTURE") {
         commands.spawn(Screenshot::primary_window()).observe(
             move |event: On<ScreenshotCaptured>, mut exit: MessageWriter<AppExit>| {
                 let image = event.image.clone().try_into_dynamic().unwrap().into_rgb8();
                 match image.save(&path) {
-                    Ok(()) => { info!("Wrote {}x{} to {path}", image.width(), image.height()); exit.write(AppExit::Success); }
-                    Err(error) => { error!("Could not write {path}: {error}"); exit.write(AppExit::error()); }
+                    Ok(()) => {
+                        info!("Wrote {}x{} to {path}", image.width(), image.height());
+                        exit.write(AppExit::Success);
+                    }
+                    Err(error) => {
+                        error!("Could not write {path}: {error}");
+                        exit.write(AppExit::error());
+                    }
                 }
             },
         );
@@ -205,9 +253,17 @@ fn measure(
 
 fn main() -> AppExit {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {primary_window: Some(window()), ..default()}))
-        .add_plugins((MiniatureCamera,net::NetPlugin,movers::MoversPlugin))
-        .add_systems(Startup,(city::load_buildings,city::setup_ground))
-        .add_systems(Update,city::draw_buildings)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(window()),
+            ..default()
+        }))
+        .add_plugins((
+            MiniatureCamera,
+            net::NetPlugin,
+            movers::MoversPlugin,
+            pixels::PixelMode,
+        ))
+        .add_systems(Startup, (city::load_buildings, city::setup_ground))
+        .add_systems(Update, city::draw_buildings)
         .run()
 }
