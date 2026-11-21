@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toma 1 · Tierra a MUT</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "Inter", system-ui, sans-serif; }
+  /* Stars behind the globe; the map canvas is transparent outside the planet. */
+  body { background: radial-gradient(ellipse at 50% 60%, #0b1630 0%, #000 70%); }
+  #stars { position: fixed; inset: 0; }
+  #map { position: fixed; inset: 0; }
+  .label { position: fixed; left: 0; right: 0; text-align: center; color: #fff; pointer-events: none;
+           opacity: 0; transition: opacity 1.2s ease, transform 1.2s ease; transform: translateY(20px);
+           text-shadow: 0 4px 40px rgba(0,0,0,.9); letter-spacing: .25em; font-weight: 800; }
+  .label.on { opacity: 1; transform: none; }
+  #city { top: 12vh; font-size: 9vw; }
+  #place { bottom: 10vh; font-size: 5vw; letter-spacing: .12em; }
+  #place small { display: block; font-size: 2.2vw; font-weight: 500; letter-spacing: .3em; opacity: .8; margin-top: .5em; }
+  .ring { width: 220px; height: 220px; border-radius: 50%; border: 6px solid #ffb020; box-shadow: 0 0 40px #ffb020;
+          animation: pulse 1.8s ease-out infinite; opacity: 0; transition: opacity 1s; }
+  .ring.on { opacity: 1; }
+  @keyframes pulse { 0% { transform: scale(.4); } 100% { transform: scale(1.6); opacity: 0; } }
+  .maplibregl-ctrl-attrib { opacity: .5; }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div id="map"></div>
+<div id="city" class="label">SANTIAGO</div>
+<div id="place" class="label">MUT<small>LAS CONDES</small></div>
+<script>
+// shortcut: imagery and buildings load from public tile servers, so the shot needs internet; pre-record a video for the pitch.
+const MUT = [-70.600974, -33.417357];
+
+const stars = document.getElementById('stars'), sc = stars.getContext('2d');
+stars.width = innerWidth * devicePixelRatio; stars.height = innerHeight * devicePixelRatio;
+for (let i = 0; i < 900; i++) {
+  sc.fillStyle = `rgba(255,255,255,${Math.random() ** 3})`;
+  sc.fillRect(Math.random() * stars.width, Math.random() * stars.height, devicePixelRatio * 1.5, devicePixelRatio * 1.5);
+}
+
+const map = new maplibregl.Map({
+  container: 'map',
+  center: [-40, -15], zoom: 1.2, pitch: 0, bearing: 0,
+  interactive: false, attributionControl: { compact: true },
+  canvasContextAttributes: { antialias: true },
+  style: {
+    version: 8,
+    projection: { type: 'globe' },
+    sky: { 'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 6, 0.6, 12, 0] },
+    sources: {
+      sat: { type: 'raster', tileSize: 256, maxzoom: 19,
+             tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+             attribution: 'Esri World Imagery' },
+      omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '© OpenStreetMap · OpenFreeMap' },
+    },
+    layers: [
+      { id: 'sat', type: 'raster', source: 'sat', paint: { 'raster-saturation': -0.15, 'raster-contrast': 0.1 } },
+      { id: 'b3d', type: 'fill-extrusion', source: 'omt', 'source-layer': 'building', minzoom: 13,
+        paint: { 'fill-extrusion-color': '#e8e4dc',
+                 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
+                 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                 'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 14.5, 0.92] } },
+    ],
+  },
+});
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
+// Listen after flyTo starts: flyTo stops the previous move, and that stop fires moveend at once.
+const fly = o => new Promise(r => { map.flyTo({ ...o, essential: true }); map.once('moveend', r); });
+const on = (id, v) => document.getElementById(id).classList.toggle('on', v);
+
+let ring;
+function markMut() {
+  // Paint the MUT building amber: take its rendered footprint from the building layer.
+  const f = map.queryRenderedFeatures(map.project(MUT), { layers: ['b3d'] })[0];
+  if (f) {
+    map.addSource('mut', { type: 'geojson', data: { type: 'Feature', geometry: f.geometry, properties: f.properties } });
+    map.addLayer({ id: 'mut', type: 'fill-extrusion', source: 'mut',
+      paint: { 'fill-extrusion-color': '#ffb020', 'fill-extrusion-opacity': 0.95,
+               'fill-extrusion-height': (f.properties.render_height || 60) + 1, 'fill-extrusion-base': 0 } });
+  }
+  // The marker owns the outer element's transform; the pulse animates an inner element.
+  const box = document.createElement('div'), el = document.createElement('div');
+  el.className = 'ring'; box.appendChild(el);
+  ring = new maplibregl.Marker({ element: box, pitchAlignment: 'map' }).setLngLat(MUT).addTo(map);
+  requestAnimationFrame(() => el.classList.add('on'));
+}
+
+async function play() {
+  // 1. Earth turns in space.
+  map.easeTo({ center: [-62, -25], duration: 2500, easing: t => t });
+  await wait(2600);
+  // 2. Fall to Santiago.
+  await fly({ center: [-70.64, -33.45], zoom: 10.2, pitch: 30, bearing: -10, duration: 4500, curve: 1.6 });
+  on('city', true);
+  await wait(1400);
+  on('city', false);
+  // 3. Dive to the MUT.
+  await fly({ center: MUT, zoom: 17.2, pitch: 64, bearing: -35, duration: 4200, curve: 1.2 });
+  map.once('idle', markMut);
+  on('place', true);
+  // 4. Slow orbit around the MUT.
+  const t0 = performance.now();
+  (function orbit(t) { map.setBearing(-35 + (t - t0) / 220); requestAnimationFrame(orbit); })(t0);
+}
+
+map.on('load', () => setTimeout(play, 600));
+addEventListener('keydown', e => { if (e.key === 'r' || e.key === ' ') location.reload(); if (e.key === 'f') document.documentElement.requestFullscreen(); });
+</script>
+</body>
+</html>
