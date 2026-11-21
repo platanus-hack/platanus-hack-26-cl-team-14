@@ -1,6 +1,6 @@
 # Para los humanos: qué hay, cómo verlo, qué deciden
 
-Propuesta de los agentes (keen-koala, 10:05 UTC); `context/pitch.md` sigue siendo de ustedes. Fuentes de cada número: `context/research/pitch-proposal.md`.
+Propuesta de los agentes; `context/pitch.md` sigue siendo de ustedes. Fuentes: `context/research/pitch-proposal.md`.
 
 ## Qué funciona hoy (en `main`)
 
@@ -36,21 +36,21 @@ A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada**
 | 45% | error agregado del modelo en 31 estaciones reservadas | puntaje de desarrollo |
 | 0,1 ms | tiempo del cálculo por comuna, medido en el portátil de Emerson (no es el tiempo del navegador ni del modelo de estaciones) | medido |
 
-Cada número hablado lleva la capa de la versión elegida; nada cambia después de las 12:30 hasta que ustedes lo digan.
+Nada cambia después de las 12:30 hasta que ustedes lo digan.
 
 ## Lo que no sabemos (una línea cada uno)
 
 - Cuántos trabajadores del MUT entran al Metro: el 0,2 es un supuesto; el modelo de estaciones usa otra vía. −513 y −2.781 son dos estimaciones, no un rango.
-- El Censo no separa Metro de bus: para cifras del Censo digan "transporte público", nunca "Metro".
+- El Censo no separa Metro de bus: digan "transporte público", nunca "Metro".
 - Los 4.679 empleos del MUT son modelados (superficie publicada de oficinas y locales, 88% y 75% arrendada, 10 y 46 m² por puesto); el operador declara 4.000 en oficinas.
 - Datos de 2023 (PR #77 a #79): entre abril y agosto, Tobalaba en Línea 4 subió 20,4% y la mediana de las otras 18 estaciones bajó 1,5%. Dos semanas, por línea, conteo no documentado. Descriptivo: no mide el efecto del MUT ni se compara con 2026 ni con los modelos.
 - Los dos modelos mueven residentes y trabajadores; no incorporamos una fuente verificada de visitantes al modelo.
-- Tobalaba no es una de las 31 estaciones reservadas: el 45% nunca la midió.
+- Tobalaba no está entre las 31 estaciones reservadas: el 45% nunca la midió.
 
 ## Las 5 preguntas para ustedes (con nuestra recomendación)
 
-1. **Comuna y palabras**: "Las Condes, al lado de Tobalaba"; "transporte público" para el Censo, "Metro" solo para subidas DTPM.
-2. **La sorpresa del MUT**: ¿las dos estimaciones con sus etiquetas, el cambio pequeño en la estación y los residentes que salen en auto? Recomendación: todo visible, incluida la brecha de la base; un límite visible vale más que un resultado escondido.
+1. **Comuna y palabras**: "Las Condes, al lado de Tobalaba"; "transporte público" para el Censo, "Metro" solo para DTPM.
+2. **La sorpresa del MUT**: ¿las dos estimaciones etiquetadas, el cambio pequeño en la estación y los residentes que salen en auto? Recomendación: todo visible, incluida la brecha de la base.
 3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre hoy en la vista Santiago) como caso 2. El caso evento está construido y revisado (vista Evento). Recomendación: tercera pregunta, con sus dos supuestos dichos en voz alta: "qué pasaría si ese patrón se repite".
 4. **Los datos de 2023**: ¿dos frases de contexto ("no sabemos cuánto es del MUT; nuestros modelos no cuentan visitantes") o se dejan para las preguntas del jurado? Recomendación: para las preguntas.
 5. **Tiempo y cierre**: 256 palabras (~2 minutos a 130 por minuto, antes de clics y del jurado). Con el evento construido, el cierre puede decir "tres preguntas"; si el ensayo pasa de 3 minutos, el evento se corta primero y el cierre vuelve a "dos preguntas, y la tercera la hacen ustedes". Si hay que cortar: primero el contexto 2023, después la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
