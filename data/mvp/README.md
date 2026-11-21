@@ -1251,3 +1251,7 @@ python3 -B tools/pack/car_colour_proxy.py data/raw/car-reference/offer-sample.cs
 ```
 
 A national industry study by acuanto.cl found 17,241 white (32.3%) and 14,257 grey (26.7%) among 53,445 active used-car ads with reported colour. Colour was available for 85% of all ads. The study observed Chilean listings from 8 July 2026 and published its results on 19 August. Its national figures give context for the regional sample. They do not establish colour shares by comuna. [Study and methodology](https://acuanto.cl/estudios/colores)
+
+### Planned Metro network
+
+The planned network contains station locations, neighboring stations, existing connections and route geometry for L7, L8, L9 and the two L6 extensions. Dates are projections. Each feature identifies its source. [Data and limits](metro_planned.md)
