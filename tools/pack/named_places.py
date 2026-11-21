@@ -68,8 +68,8 @@ def inside(x, y, ring):
     return c
 
 
-def metres(lon, lat, row):  # same formula as #154
-    return math.hypot((float(row["longitude"]) - lon) * 111320 * math.cos(math.radians(-33.45)), (float(row["latitude"]) - lat) * 110540)
+def metres(lon, lat, row):  # the metric of the #154 rule in engine/src/scenario.rs: longitude x 0.835, 111,320 m per degree
+    return math.hypot((float(row["longitude"]) - lon) * 0.835, float(row["latitude"]) - lat) * 111320
 
 
 out = csv.writer(sys.stdout, lineterminator="\n")

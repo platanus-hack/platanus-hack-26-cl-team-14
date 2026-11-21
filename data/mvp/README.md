@@ -1086,9 +1086,11 @@ python3 -I tools/pack/saturday_public_metro.py --survey /path/to/EOD_STGO
 
 - **Source of the block.** Each place point is the Nominatim centre of its OSM object (malls, Casa Central) or the vertex mean of its ring in `web/data/santiago_landmarks.geojson`. The block is the one of the mapped OSM building that contains that point, from `web/data/city_building_block_ids.bin.gz` (the census spatial join of the city mesh). Generated buildings are not used.
 - **Independent check.** MUT and Costanera Center give the same blocks that `tools/pack/jobs.py` sets by name from floor area: `13114131009033` and `13123081002004`.
-- **Distance is not enough.** `nearest_jobs_row` is the row that the 500 m nearest-point rule of PR #154 picks from the same point. It is wrong for Gran Torre Costanera: it picks `13114131009028` in Las Condes, 95 m away. The tower is in `13123081002004`, Providencia.
+- **Distance is not enough.** `nearest_jobs_row` is the row that the 500 m nearest-point rule of PR #154 picks from the same point, with the same metric (longitude × 0.835, 111,320 m per degree) over the `jobs.csv` points that the engine loads. It is wrong for Gran Torre Costanera: it picks `13114131009028` in Las Condes, 95 m away. The tower is in `13123081002004`, Providencia.
 - **`multi_block`.** Mapped buildings of other blocks have their centre in the OSM bounding box. For Costanera Center the extra blocks are neighbours in the box, not mall parts. For Parque Arauco and Mall Plaza Vespucio the mall can cover more than one block. A caller must report which block it changed.
-- **Low job counts.** Parque Arauco (374) and Mall Plaza Vespucio (354) come from the 2012 EOD signal, not from floor area. "Close the mall" removes only these jobs. The real number of jobs is higher.
+- **Job counts of the malls.** `jobs.py` sets floor-area jobs only for MUT and Costanera Center. Parque Arauco (374) and Mall Plaza Vespucio (354) use only the 2012 EOD signal of their block. "Close the mall" removes only these jobs.
+- **"Universidad de Chile" is ambiguous.** The row is Casa Central only. The name also means other campuses and the Metro station CH-UCH of the prepared pitch question. A caller must not match the bare name to this row.
+- Plaza de Armas is not in the table: it is a public square with no jobs block.
 - Estadio Nacional and Movistar Arena are event venues. Their block jobs are few. An event question uses `event_venues.json`, not this table.
 - Map data © OpenStreetMap contributors, ODbL 1.0.
 
