@@ -228,7 +228,7 @@ impl Mesh {
         };
         Some(
             json!({"type":"Feature","id":id,"geometry":{"type":"Polygon","coordinates":self.shape(tile,i)},
-            "properties":{"height_m":f64::from(word(&self.bytes,tile.heights+2*i))*0.1, "height_source":height_source,
+            "properties":{"height_m":f64::from(word(&self.bytes,tile.heights+2*i)) / 10.0, "height_source":height_source,
               "source":if flags & 4 != 0 {"census_generated"} else {"osm"},
               "block_id":block,"cut":cut,"block_longitude":center.map(|p|p[0]),"block_latitude":center.map(|p|p[1])}}),
         )
