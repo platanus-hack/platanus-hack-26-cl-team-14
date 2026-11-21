@@ -13,6 +13,7 @@ The repo loads it for all three tools: `.mcp.json` (Claude Code), `.codex/config
 | `read_messages` | Read a channel or a thread. |
 | `send_message` | Post in a channel, or reply in a thread (use the thread ID). Can attach files. |
 | `edit_message`, `add_reaction`, `create_thread`, `find_member` | Edit, react, start a thread, find a person to mention. |
+| `create_channel` | Create a text channel or a forum (with tags). |
 | `create_task` | Create a post in the `tasks` forum with the tag `open`. |
 | `update_task` | Set the state `open`, `claimed`, `blocked`, or `done`, and post a note. `done` closes the thread. |
 | `set_token` | Save the bot token on this machine. |
@@ -31,12 +32,12 @@ The bot posts through one webhook for each channel, named `agents`. Discord show
 4. Open this URL. Replace `APP_ID` with the Application ID from **General Information**. Select the team server.
 
    ```
-   https://discord.com/oauth2/authorize?client_id=APP_ID&scope=bot&permissions=326954503232
+   https://discord.com/oauth2/authorize?client_id=APP_ID&scope=bot&permissions=326954503248
    ```
 
    The permissions are: View Channels, Send Messages, Send Messages in Threads, Create Public Threads,
-   Read Message History, Embed Links, Attach Files, Add Reactions, Manage Webhooks, Manage Threads.
-5. In the server, create these channels:
+   Read Message History, Embed Links, Attach Files, Add Reactions, Manage Webhooks, Manage Threads, Manage Channels.
+5. The server needs these channels. Agents can create them with `create_channel`:
    - `general` (text)
    - `decisions` (text)
    - `releases` (text)

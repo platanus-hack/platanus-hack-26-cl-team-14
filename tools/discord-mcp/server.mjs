@@ -145,6 +145,21 @@ const TOOLS = [
     },
   },
   {
+    name: "create_channel",
+    description: `Create a text channel or a forum in the team Discord. For the "${TASKS_FORUM}" forum, give the tags ${TASK_STATES.join(", ")}.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Channel name, lowercase, no spaces" },
+        type: { type: "string", enum: ["text", "forum"] },
+        topic: { type: "string", description: "Short description of the channel" },
+        tags: { type: "array", items: { type: "string" }, description: "Forum tags (forum only)" },
+      },
+      required: ["name", "type"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "create_task",
     description: `Create a task: a new post in the "${TASKS_FORUM}" forum, with the tag "open". It returns the task ID (a thread ID). Use read_messages and send_message on that ID to read and discuss the task.`,
     inputSchema: {
@@ -379,6 +394,15 @@ async function findMember({ query, limit = 10 }) {
   return lines.length ? lines.join("\n") : `Nobody has a name that starts with "${text}".`;
 }
 
+async function createChannel({ name, type, topic, tags = [] }) {
+  const [guild] = await discord("/users/@me/guilds");
+  const channel = await discord(`/guilds/${guild.id}/channels`, {
+    method: "POST",
+    json: { name, type: type === "forum" ? 15 : 0, topic, available_tags: tags.map((tag) => ({ name: tag })) },
+  });
+  return `Channel created: ${channel.id} #${channel.name}.`;
+}
+
 async function tasksForum() {
   const [guild] = await discord("/users/@me/guilds");
   const channels = await discord(`/guilds/${guild.id}/channels`);
@@ -419,6 +443,7 @@ async function callTool({ name, arguments: args = {} }) {
     add_reaction: addReaction,
     create_thread: createThread,
     find_member: findMember,
+    create_channel: createChannel,
     create_task: createTask,
     update_task: updateTask,
   };
