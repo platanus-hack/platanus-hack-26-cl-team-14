@@ -1,4 +1,4 @@
-# team-14 Platanus Hack 26: Santiago ft. Buk Project
+# santiaguito.cl · team-14 Platanus Hack 26: Santiago ft. Buk
 
 **Current project logo:** project-logo.png
 

@@ -1,4 +1,4 @@
-# ¿Y si Santiago…?
+# santiaguito.cl
 
 Propuesta para el equipo que presenta. El equipo humano decide el guion en [context/pitch.md](../pitch.md).
 

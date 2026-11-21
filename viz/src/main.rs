@@ -34,7 +34,7 @@ impl Plugin for MiniatureCamera {
 /// Use with DefaultPlugins.set(WindowPlugin { primary_window: Some(window()), ..default() }).
 pub fn window() -> Window {
     Window {
-        title: "Santiago".into(),
+        title: "santiaguito.cl".into(),
         resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
         ..default()
     }
