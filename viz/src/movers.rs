@@ -1,4 +1,5 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
+mod levels;
 mod stations;
 use stations::Station;
 
@@ -26,6 +27,7 @@ pub struct MoversPlugin;
 impl Plugin for MoversPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
+            .add_systems(Update, levels::toggle_tracks)
             .init_resource::<Replay>()
             .add_systems(Update, (read_result, draw).chain());
     }
@@ -177,6 +179,7 @@ struct StopCalls {
 }
 
 struct RailLine {
+    levels: levels::Levels,
     path: Arc<Path>,
     service: String,
     runs: Vec<RailRun>,
@@ -186,7 +189,7 @@ struct RailLine {
 }
 
 impl RailLine {
-    fn load(row: &Value, timetable: &Value) -> Self {
+    fn load(row: &Value, timetable: &Value, track_levels: &Value) -> Self {
         let path = Path::single(points(&row["path"]), Vehicle::Rail);
         let table = timetable["lines"]
             .as_array()
@@ -233,6 +236,7 @@ impl RailLine {
         }
         for stop in &mut stops { stop.departures.sort_unstable_by(f32::total_cmp); }
         Self {
+            levels: levels::Levels::load(row, track_levels, &path),
             service: row["route"].as_str().unwrap().to_owned(),
             path,
             runs,
@@ -270,7 +274,7 @@ impl RailLine {
         let rear = self.centre(distance - 5.);
         let dir = (front - rear).normalize_or_zero();
         let p = (front + rear) * 0.5 + right(dir) * 2.5;
-        (Vec3::new(p.x, terrain_from_xz(p.x, p.z) + 0.45, p.z), dir)
+        (Vec3::new(p.x, terrain_from_xz(p.x, p.z) + self.levels.at(distance) + 0.45, p.z), dir)
     }
 }
 
@@ -403,13 +407,14 @@ fn local_routes(tracks: &[RailLine]) -> HashMap<LocalKey, Arc<Path>> {
 
 impl Routes {
     fn load() -> Self {
+        let track_levels = gzip_json("web/data/metro_tracks.geojson.gz");
         let timetable = gzip_json("web/data/metro_schedule.json.gz");
         let tracks: Vec<_> = json("web/data/transit_paths.json")
             .as_array()
             .unwrap()
             .iter()
             .filter(|row| row["mode"] == "metro")
-            .map(|row| RailLine::load(row, &timetable))
+            .map(|row| RailLine::load(row, &timetable, &track_levels))
             .collect();
         let public = json("web/data/public_routes.json")
             .as_object()
@@ -640,6 +645,7 @@ enum Model {
     Coach,
     Window,
     Platform,
+    Entrance,
 }
 
 #[derive(Resource)]
@@ -760,6 +766,12 @@ fn setup(
             ),
             None,
         ),
+        (Model::Entrance, shape([
+            block([4.4,0.25,3.2], [0.,0.13,0.], [52,56,60]),
+            block([4.4,0.95,0.38], [0.,0.48,1.55], [179,69,61]),
+            block([4.4,0.95,0.38], [0.,0.48,-1.55], [179,69,61]),
+            block([0.32,0.95,3.2], [2.06,0.48,0.], [179,69,61]),
+        ]), None),
         (
             Model::Platform,
             block([1., 0.55, 1.], [0., 0.28, 0.], [132, 137, 142]),
@@ -806,50 +818,13 @@ fn setup(
         ..default()
     });
     for line in &routes.tracks {
-        commands.spawn((
-            Mesh3d(meshes.add(track_mesh(&line.path))),
-            MeshMaterial3d(track_material.clone()),
-        ));
-    }
-    commands.insert_resource(routes);
-}
-
-// A surface cutaway exposes the published Metro alignment, including underground sections.
-fn track_mesh(path: &Path) -> Mesh {
-    let mut surface = Surface::default();
-    let bed = Color::srgb_u8(93, 91, 84).to_linear().to_f32_array();
-    let steel = Color::srgb_u8(159, 162, 155).to_linear().to_f32_array();
-    for edge in path.points.windows(2) {
-        let delta = edge[1] - edge[0];
-        let side = right(delta).normalize_or_zero();
-        let steps = (delta.length() / 50.).ceil() as usize;
-        for i in 0..steps {
-            let a = edge[0] + delta * (i as f32 / steps as f32);
-            let b = edge[0] + delta * ((i + 1) as f32 / steps as f32);
-            for (left, right, lift, color) in [
-                (1.0, 4.0, 0.32, bed),
-                (1.59, 1.8, 0.38, steel),
-                (3.2, 3.41, 0.38, steel),
-            ] {
-                let start = surface.positions.len() as u32;
-                for mut p in [
-                    a + side * left,
-                    a + side * right,
-                    b + side * right,
-                    b + side * left,
-                ] {
-                    p.y = terrain_from_xz(p.x, p.z) + lift;
-                    surface.positions.push(p.to_array());
-                    surface.normals.push([0., 1., 0.]);
-                    surface.colors.push(color);
-                }
-                surface
-                    .indices
-                    .extend([start, start + 1, start + 2, start, start + 2, start + 3]);
-            }
+        for (underground, mesh) in levels::track_meshes(line).into_iter().enumerate() {
+            if mesh.positions.is_empty() {continue;}
+            let mut entity=commands.spawn((Mesh3d(meshes.add(mesh.finish())), MeshMaterial3d(track_material.clone())));
+            if underground == 1 { entity.insert((levels::Underground, Visibility::Hidden)); }
         }
     }
-    surface.finish()
+    commands.insert_resource(routes);
 }
 
 struct Train<'a> {
@@ -941,6 +916,7 @@ fn draw(
     time: Res<Time>,
     replay: Res<Replay>,
     clock: Res<FixedClock>,
+    subway: Res<crate::city::SubwayView>,
     routes: Res<Routes>,
     models: Res<Models>,
     camera: Query<(&GlobalTransform, &Frustum), With<Camera3d>>,
@@ -1059,7 +1035,9 @@ fn draw(
         // Keep each three-car set centred at the station, with room for the opposite track.
         let scale = 1.35;
         for offset in [14.3, 0., -14.3] {
-            let (p, dir) = train.line.coach(train.distance + offset * scale);
+            let distance = train.distance + offset * scale;
+            if !subway.0 && train.line.levels.at(distance) < -0.6 { continue; }
+            let (p, dir) = train.line.coach(distance);
             place(Model::Coach, train.paint, pose(p, dir, Vec3::splat(scale)));
             // The illuminated roof strip shows the workers riding this service in this frame.
             if train.riders > 0 {
@@ -1072,7 +1050,7 @@ fn draw(
             }
         }
     }
-    for station in &replay.platforms { station.draw(now, &visible, &mut place); }
+    for station in &replay.platforms { station.draw(now, subway.0, &visible, &mut place); }
     for batch in pool.0.values() {
         for &id in &batch.entities[batch.used..] {
             let (_, mut vis) = query.get_mut(id).unwrap();

@@ -113,13 +113,23 @@ impl Station {
     pub(super) fn draw(
         &self,
         now: f32,
+        subway: bool,
         visible: &impl Fn(Vec3, f32) -> bool,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
         if !visible(self.entrance, 180.) {
             return;
         }
+        let dir = self.sides.first().map_or(Vec3::X, |s| s.dir);
+        place(
+            Model::Entrance,
+            Paint::Plain,
+            pose(self.entrance, dir, Vec3::ONE),
+        );
         for side in &self.sides {
+            if !subway && side.base.y < terrain_from_xz(side.base.x, side.base.z) - 0.6 {
+                continue;
+            }
             place(
                 Model::Platform,
                 Paint::Plain,
@@ -148,6 +158,9 @@ impl Station {
                     ((now - e.departure + boarding_time) / boarding_time.max(0.001)).clamp(0., 1.);
                 (e.wait_at + inward * 2.2 * progress, inward)
             };
+            if !subway && p.y < terrain_from_xz(p.x, p.z) - 0.6 {
+                continue;
+            }
             place(Model::Person, e.paint, pose(p, dir, Vec3::splat(1.2)));
         }
     }
