@@ -18,20 +18,22 @@ cargo build --locked --release --manifest-path engine/Cargo.toml \
 set -m
 engine_pid=
 window_pid=
+engine_log=$(mktemp "${TMPDIR:-/tmp}/santiago-engine.XXXXXX")
 cleanup() {
     trap - EXIT INT TERM
     for pid in $window_pid $engine_pid; do
         kill -TERM -- "-$pid" 2>/dev/null || true
     done
     wait 2>/dev/null || true
+    rm -f "$engine_log"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-"$target/release/santiago-scenario-core" data/mvp "$port" &
+"$target/release/santiago-scenario-core" data/mvp "$port" 2> >(tee "$engine_log" >&2) &
 engine_pid=$!
-until curl --fail --silent --max-time 1 --output /dev/null "$api/api/scenario-latest"; do
+until grep -Fxq "Scenario core listening on $api" "$engine_log"; do
     kill -0 "$engine_pid" 2>/dev/null || { wait "$engine_pid"; exit 1; }
     sleep 0.2
 done
