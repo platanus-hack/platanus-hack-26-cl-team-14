@@ -35,10 +35,11 @@ The optional April station weighting is a different configuration and has a diff
 | GET | `/api/scenario-events` | Keep an SSE connection open for published results. |
 
 The POST response, latest cache and SSE event carry the same full result and `revision`.
-The MCP omits `trips_base` and `trips_scenario` and adds `trips_omitted: true`.
+The MCP omits `trips_base`, `trips_scenario`, `trips_delta` and the station half-hour arrays, and adds `trips_omitted: true`.
 Read `applied`, `not_modeled`, and `assumptions` before explaining a result.
-The checked head supports jobs, residents, travel minutes and existing station closures or reopenings.
-New stations, new lines and events remain unsupported on this head.
+The engine supports jobs, residents, travel minutes, existing station closures or reopenings, and events (point target, op `set`, attendance 0 or more, end half hour 0 to 47).
+The event estimate in `events` is demand for the whole return period. The station deltas and the trip deltas do not include it.
+New stations and new lines remain unsupported.
 The output describes a model scenario, not a measured intervention.
 
 The native city view has a separate acceptance run in progress.
