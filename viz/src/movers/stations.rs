@@ -188,7 +188,7 @@ impl Station {
         // samples those same boardings. The engine does not identify individual transfers.
         let distance = eye.distance(self.centre);
         let scale = if distance <= 2_000. { 1. } else { PERSONS_PER_MOVER };
-        let person_size = (distance * 0.003).clamp(1.2, 3.6);
+        let person_size = (distance * 0.003).clamp(1.8, 3.6);
         let speed = Vehicle::Walk.speed();
         let approach = 18. / speed;
         let bin = (now / BIN) as usize;
@@ -208,7 +208,8 @@ impl Station {
                 let remaining = (start + fraction as f32 * BIN - now) * speed;
                 // DTPM measures the station total. Alternate between its mapped gates.
                 let gate = &self.entrances[j % self.entrances.len()];
-                let lane = ((j / self.entrances.len() % 3) as f32 - 1.) * 0.65;
+                // Leave one shoulder width between lanes at the 3.2 m entrance.
+                let lane = ((j / self.entrances.len() % 3) as f32 - 1.) * 1.35;
                 let p = gate.sign + gate.outward * remaining + right(gate.outward) * lane;
                 place(Model::Person, Paint::Plain, pose(p, -gate.outward, Vec3::splat(person_size)));
             }
