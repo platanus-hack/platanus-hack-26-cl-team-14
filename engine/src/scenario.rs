@@ -223,7 +223,7 @@ impl Scenario {
                     let (ids, cut) = points(&mut pop.jobs);
                     let (before, after) = scale(&mut pop.jobs, &ids);
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "jobs_before": r1(before), "jobs_after": r1(after) });
-                    if let Target::Point { longitude, latitude } = &ch.target { let id = &pop.jobs[ids[0]].id; note["understood"]["block"] = if id.starts_with("new") { json!(null) } else { json!(id) }; note["understood"]["block_distance_m"] = json!(r1(dist_m(&pop.jobs[ids[0]], *longitude, *latitude))); }
+                    if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.jobs[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
                 Kind::Residents => {
                     let (ids, cut) = points(&mut pop.homes);
@@ -250,7 +250,7 @@ impl Scenario {
                         -(gone as f64)
                     };
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "residents_before": r1(before), "residents_after": r1(after), "workers_added": workers });
-                    if let Target::Point { longitude, latitude } = &ch.target { let id = &pop.homes[ids[0]].id; note["understood"]["block"] = if id.starts_with("new") { json!(null) } else { json!(id) }; note["understood"]["block_distance_m"] = json!(r1(dist_m(&pop.homes[ids[0]], *longitude, *latitude))); }
+                    if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.homes[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
                 Kind::Minutes => {
                     let cells: Vec<usize> = match &ch.target {
