@@ -1294,3 +1294,65 @@ The planned network contains station locations, neighboring stations, existing c
 ## Building permits
 
 The annual table covers housing permits for the 52 comunas in 2023–2025. MINVU marks 2025 preliminary. INE's mapped floor area for all uses covers 131 of the 156 comuna-year pairs. [Sources, coverage and units](building_permits.md)
+
+## Fresh walking signatures for the Quilicura result
+
+A second export keeps all 775 published group records and paths at their original
+indices. It adds five complete walking paths for changed scenario endpoints:
+1695, 1697, 1808, 1809 and 1811. Car and bicycle records and paths are unchanged.
+The pack now has 780 records, 780 paths and 35,882 points (895,734 raw bytes;
+172,179 gzip bytes). Its SHA-256 is
+`29a1ccac4c6aaa16e71a1974a67a9cb93ea9af92fcc33babb2c955388f3bff96`.
+
+The fresh result uses engine source `9a91afc3d10b07c5d51b0fdecac18c24ef3216f3`
+and release binary SHA-256
+`806ea1662591ea4cb0e668344c92ef6259cd38d2843dab177ec129eb4f40718e`.
+The unchanged `data/mvp` file SHA-256 manifest has SHA-256
+`880986f212a49d72da72a5571204a9200bc10b69ba1646346513b49805e2e552`.
+An isolated engine receives this exact request at `/api/scenario`:
+
+```json
+{"changes":[{"kind":"jobs","target":{"type":"point","longitude":-70.735771,"latitude":-33.362463},"op":"add","value":20000}]}
+```
+
+The response revision is 1. Its SHA-256 is
+`b36fca8b2179a3bff29670ad2da8d71bb09e806a40e9628927bc67eca83c4df9`.
+`source_sha256` keeps the original pack source. `walk_extension_sources` records
+this fresh response hash. The old source JSON is no longer available; its existing
+paths are preserved, not independently rebuilt.
+
+Both scenes in the fresh response have 181 walking groups and 169 complete
+mapped routes. Each still has five `NoSegment`, four `NoRoute`, one stationary
+and two reviewed long-detour groups. The detour exclusions match the reviewed
+ID, mode and both endpoint pairs. They do not exclude changed endpoints by ID.
+Trying up to ten nearby OSRM candidates per endpoint did not connect any of the
+four disconnected groups within 250 m. No access segment was invented.
+
+The new graph uses OSRM 26.11.0's installed `foot.lua` (SHA-256
+`74e231f81301d89a10e2bd0e67b787147c761b3ee06f665426e21a9b736372f4`).
+Its regional PBF SHA-256 is
+`43596705fc3af495df63c47ed66b10ac19e699a02d54867a7b1786a6049de529`.
+It comes from the same Chile snapshot and regional bounds above. The profile
+uses mapped connected ways, foot/access permissions, foot direction and node
+barriers. It does not create links across unconnected crossings or plaza areas.
+OSM completeness, access tags and all real pedestrian conditions are not verified.
+Each new endpoint snap is at most 30.1 m; route lengths are 583–5,958 m.
+
+Run the fresh export with the published pack as the baseline. Only the walking
+router is used. No car or bicycle router is needed:
+
+```sh
+python3 -B tools/pack/local_mover_routes.py /path/to/fresh-quilicura.json 19441 0 0 /path/to/published-baseline.json.gz --walk-only
+```
+
+For a focused manual view, use group 1808 near camera longitude `-70.7364`,
+latitude `-33.3649`, departure bin 13 (06:30). Its modeled count changes from
+1,337 to 1,474 people; its origin changes between scenes. The scenario route is
+583 m, with endpoint gaps of 18.6 and 19.7 m. These are model values. The renderer
+still uses 96 people per low-poly figure and stable rounding. This pack adds no
+people or meshes. A native before/after view used the same scenario, 240 m camera
+height, time `24164.806640625`, and `b70ce57` renderer code. The visible green
+figure moved from about `(670,885)` to `(967,662)`, matching the predicted route
+positions within 7 screen pixels. This confirms the bounded path and pose change.
+The view had no group-ID label. A base-versus-scenario view and visual-density
+approval remain pending.
