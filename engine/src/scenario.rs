@@ -22,6 +22,8 @@ mod building_permits;
 mod attendance;
 #[path = "fans.rs"]
 mod fans;
+#[path = "line_riders.rs"]
+mod line_riders;
 #[path = "scenario_stations.rs"]
 mod station_changes;
 use station_changes::Network;
@@ -589,7 +591,13 @@ impl Scenario {
             if let Some(f) = f { e["fan_base"] = f; }
             e
         }).collect();
+        let added_lines = line_edits.as_ref().map(|edits| edits.added()).unwrap_or_default();
+        let line_riders: Vec<Value> = added_lines.iter()
+            .map(|line| line_riders::project(line, &pop, car_choice.as_ref().unwrap_or(c), &minutes, &self.data_dir)).collect();
         let mut assumptions = ASSUMPTIONS.map(Value::from).to_vec();
+        if !line_riders.is_empty() {
+            assumptions.push(json!("line_riders: trips to work of workers only (no students, no return trips). A worker can use an added line when a stop with boarding is within 1 km of home and a later stop with alighting is within 1 km of the job (straight line, 80 m per minute). Door-to-door minutes = walk + half the headway + scheduled ride + walk. The added line is a fourth mode alternative with the fitted public-transport minute coefficient and the public residual of the comuna pair, and no mode constant of its own. It competes with the comuna-pair public minutes, not with a person-level public trip. Riders per half hour are capped at vehicles × vehicle_capacity; stop counts are scaled by the same daily served share. Riders do not feed back into station boardings or job choice."));
+        }
         if resident_stock_edits > 1 {
             assumptions.push(json!("Worker changes use final resident stocks per home block and the Census worker ratio for its comuna. Summary workers_new gives the net change across the request."));
         }
@@ -684,6 +692,7 @@ impl Scenario {
             "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         });
+        if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
         if !car_shares.is_empty() {
             let cars = self.car_ownership.as_ref().unwrap();
             let counts = |[public, car, other]: [u32; 3]| json!({
