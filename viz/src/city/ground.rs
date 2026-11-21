@@ -132,8 +132,9 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     }
 }
 
-fn mapocho(tiles: &mut GroundTiles, path: &Path) {
-    let fc = read_geojson(path);
+fn mapocho(tiles: &mut GroundTiles, root: &Path) {
+    let fc = read_geojson(&root.join("web/data/mapocho_detail.geojson"));
+    let mut extent = Vec2::new(f32::INFINITY, f32::NEG_INFINITY);
     for feature in fc["features"].as_array().unwrap() {
         let props = &feature["properties"];
         let shape = &feature["geometry"]["coordinates"];
@@ -141,6 +142,10 @@ fn mapocho(tiles: &mut GroundTiles, path: &Path) {
         if kind == "water" {
             for polygon in shape.as_array().unwrap() {
                 let rings = open_rings(polygon);
+                for p in &rings[0] {
+                    extent.x = extent.x.min(p.x);
+                    extent.y = extent.y.max(p.x);
+                }
                 super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, 0.08, WATER);
             }
         } else if kind == "bridge" {
@@ -158,9 +163,36 @@ fn mapocho(tiles: &mut GroundTiles, path: &Path) {
                 tile_for(tiles, points[points.len() / 2]),
                 &points,
                 half_width,
-                0.34,
+                crate::city::road_surface_lift(props["layer"].as_i64().unwrap() as i32) + 0.08,
                 [0.38, 0.38, 0.36, 1.0],
             );
+        }
+    }
+    // Keep the mapped river symbol beyond the detailed pack's west and east bounds.
+    // The committed centerline crosses each bound once; each exterior reach is contiguous.
+    let landmarks = read_geojson(&root.join("web/data/santiago_landmarks.geojson"));
+    for feature in landmarks["features"].as_array().unwrap() {
+        if feature["properties"]["kind"] != "river" {
+            continue;
+        }
+        let points = coordinates(&feature["geometry"]["coordinates"]);
+        for (bound, sign) in [(extent.x, -1.0), (extent.y, 1.0)] {
+            let outside = |p: Vec3| (p.x - bound) * sign > 0.0;
+            let mut reach = Vec::new();
+            for pair in points.windows(2) {
+                let (a, b) = (pair[0], pair[1]);
+                if outside(a) {
+                    reach.push(a);
+                }
+                if outside(a) != outside(b) {
+                    reach.push(a.lerp(b, (bound - a.x) / (b.x - a.x)));
+                }
+            }
+            let last = *points.last().unwrap();
+            if outside(last) {
+                reach.push(last);
+            }
+            ribbon(tile_for(tiles, reach[0]), &reach, 15.0, 0.08, WATER);
         }
     }
 }
@@ -178,10 +210,7 @@ pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mes
         &mut terrain,
         &root.join("web/data/open_surfaces.geojson.gz"),
     );
-    mapocho(
-        &mut tiles,
-        &root.join("web/data/mapocho_detail.geojson"),
-    );
+    mapocho(&mut tiles, root);
     mapped_trees(&mut tiles, &root.join("web/data/city_trees.bin.gz"));
     let scenery = tiles
         .into_iter()
