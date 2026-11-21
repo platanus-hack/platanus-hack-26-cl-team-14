@@ -956,3 +956,35 @@ osmium export -u type_id --geometry-types=polygon -f geojsonseq buildings.osm.pb
 cd ../../..
 python3 -I tools/pack/city_footprints.py
 ```
+
+## Citywide building polygons and boxes
+
+The two files in `web/data/` describe the same **654,666 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Census blocks with no mapped footprint supply 375,281 generated shapes. The binaries retain each shape's source.
+
+| File | Use | Gzip bytes | Inflated bytes |
+| --- | --- | ---: | ---: |
+| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 4,555,215 | 8,513,964 |
+| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 11,161,265 | 19,401,272 |
+
+The polygon file has 655,715 rings and 3,046,816 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 326 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 27,915,236 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
+
+The build keeps complete OSM building polygons inside the box and retains multipolygon components and holes. Of 279,387 complete raw components, two collapse when rounded to five decimals. It excludes 63 boundary-crossing components and standalone `building:part` objects. The mesh keeps the quantized source rings for 125 components whose geometry needed repair during the census spatial join. Their detailed rendering depends on the triangulator. Height priority and record counts:
+
+| Flags | Geometry and height source | Count |
+| ---: | --- | ---: |
+| 0 | Real OSM footprint, tagged height | 1,997 |
+| 1 | Real OSM footprint, tagged levels × 3.5 m | 21,361 |
+| 2 | Real OSM footprint, estimated from census block density | 255,985 |
+| 3 | Real OSM footprint outside a matched census block, neutral 3 m styling | 42 |
+| 6 | Generated footprint, estimated from census block data | 375,281 |
+
+Tagged dimensions are map attributes. The remaining heights and all generated shapes are visual assumptions. [Coverage by comuna, estimates, and exclusions](../validation/city_buildings/README.md).
+
+**Read in the browser.** Import `loadBuildingTiles` from `web/data/building_tiles.mjs`. Pass the URL to either gzip file. The decoder supports servers that deliver the gzip archive directly and servers that set `Content-Encoding: gzip`. Call `mesh.tile(column, row)` for zero-copy typed arrays, or `null` for an empty tile.
+
+- Each tile measures 0.02° per side except the top row. Columns increase east, rows north. For a quantized pair `x,y`, convert to degrees with `lon = (mesh.west + x)/100000` and `lat = (mesh.south + y)/100000`.
+- Polygon tile: `polygonOffsets[i..i+1]` gives the half-open range of rings. `ringOffsets[j..j+1]` gives the half-open vertex range in interleaved `positions`. Rings are implicitly closed. The first is the exterior. Other rings are holes. `heights[i]` is decimetres.
+- Box tile: `boxes.subarray(6*i,6*i+6)` gives center X, center Y, width in decimetres, depth in decimetres, rotation in hundredths of a degree, and height in decimetres. Rotation follows the width axis counterclockwise from east, in [0°, 180°).
+- In either file, `flags[i] & 4` marks a generated shape and `flags[i] & 3` gives the height source in the table above.
+
+**Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Preparing the rounded OSM geometry took 3.19 s. Packing both binaries from the completed spatial join took 8.20 s on an Apple Silicon Mac. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
