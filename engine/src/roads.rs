@@ -195,11 +195,32 @@ impl RoadEdits<'_> {
             &data.anchors,
         );
         let n = data.cuts.len();
-        let pairs: Vec<_> = previous.iter().zip(&minutes).enumerate().filter(|(_, (a,b))| a!=b)
-            .map(|(i,(a,b))| json!({"origin_cut":data.cuts[i/n],"destination_cut":data.cuts[i%n],
-                                     "before_minutes":a.is_finite().then_some(a),"after_minutes":b.is_finite().then_some(b)})).collect();
-        let edit = json!({"kind":"road","op":change["op"],"id":id,"before":before.map(|r| &r.feature),
-                    "after":next.as_ref().map(|r| &r.feature),"effects":{"pairs":pairs},"assumptions":assumptions});
+        let pairs: Vec<_> = previous
+            .iter()
+            .copied()
+            .zip(minutes.iter().copied())
+            .enumerate()
+            .filter_map(|(i, (a, b))| {
+                // Splitting the same distance over more edges changes the addition order.
+                let rounding = 32.0 * f64::EPSILON * a.max(b).max(1.0);
+                if a == b || (a.is_finite() && b.is_finite() && (a - b).abs() <= rounding) {
+                    return None;
+                }
+                Some(json!({
+                    "origin_cut": data.cuts[i / n],
+                    "destination_cut": data.cuts[i % n],
+                    "before_minutes": a.is_finite().then_some(a),
+                    "after_minutes": b.is_finite().then_some(b),
+                }))
+            })
+            .collect();
+        let edit = json!({
+            "kind": "road", "op": change["op"], "id": id,
+            "before": before.map(|r| &r.feature),
+            "after": next.as_ref().map(|r| &r.feature),
+            "effects": { "pairs": pairs },
+            "assumptions": assumptions,
+        });
         self.extra_nodes.extend(new_nodes);
         self.changed.insert(id.into(), next);
         self.minutes = Some(minutes);
