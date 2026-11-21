@@ -86,7 +86,7 @@ In Santiago comuna 13101, Tarapacá–Curicó has ID 131010001, length 2.25 km, 
 
 At **Alameda con Portugal**, site 300062559 (−33.439979, −70.640171), the [daily series](https://www.eco-visio.net/api/aladdin/1.0.0/pbl/publicwebpageplus/data/300062559?idOrganisme=5737&idPdc=300062559&debut=11%2F04%2F2026&fin=18%2F04%2F2026&interval=4&flowIds=353658456%3B353658457%3B353658458%3B353658459) returned HTTP 200 (155 bytes). These date/count pairs use all four published flows. The request uses day/month/year and excludes the end date. The response uses month/day/year.
 
-All 12 central Santiago sites with “Alameda” in the inventory name returned seven dated totals (HTTP 200, 155 bytes per site). The links include the flow IDs for each counter.
+The inventory has 14 central Santiago sites with “Alameda” in the name. All returned seven daily bicycle totals (98 site-days, HTTP 200, 155 bytes per site). Twelve sites list only bicycles. At the two TÓTEM sites, the queries selected mode 2 (bicycle) and excluded mode 13 (scooter). The [portal legend](http://www.eco-public.com/ParcPublic/styles/eco-font.css) defines these codes.
 
 | Site (daily bicycle passages, April 2026) | 11 Sat | 12 Sun | 13 Mon | 14 Tue | 15 Wed | 16 Thu | 17 Fri |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -102,6 +102,8 @@ All 12 central Santiago sites with “Alameda” in the inventory name returned 
 | [Alameda Sur-República](https://www.eco-visio.net/api/aladdin/1.0.0/pbl/publicwebpageplus/data/300062568?idOrganisme=5737&idPdc=300062568&debut=11%2F04%2F2026&fin=18%2F04%2F2026&interval=4&flowIds=353658499%3B353658500) | 1,146 | 1,304 | 1,509 | 1,562 | 1,694 | 1,600 | 1,564 |
 | [Alameda-Tucapel](https://www.eco-visio.net/api/aladdin/1.0.0/pbl/publicwebpageplus/data/300062569?idOrganisme=5737&idPdc=300062569&debut=11%2F04%2F2026&fin=18%2F04%2F2026&interval=4&flowIds=353658503%3B353658504) | 1,357 | 2,107 | 2,691 | 2,600 | 2,967 | 2,701 | 2,648 |
 | [Alameda-Vicuña Mackenna](https://www.eco-visio.net/api/aladdin/1.0.0/pbl/publicwebpageplus/data/300062570?idOrganisme=5737&idPdc=300062570&debut=11%2F04%2F2026&fin=18%2F04%2F2026&interval=4&flowIds=353658507%3B353658508%3B353658509%3B353658510) | 2,574 | 3,854 | 3,336 | 3,569 | 3,954 | 3,483 | 3,435 |
+| [TÓTEM ALAMEDA SUR](https://www.eco-visio.net/api/aladdin/1.0.0/pbl/publicwebpageplus/data/300062720?idOrganisme=5737&idPdc=300062720&debut=11%2F04%2F2026&fin=18%2F04%2F2026&interval=4&flowIds=353660023%3B353660024) | 1,092 | 2,070 | 2,325 | 2,398 | 2,657 | 2,337 | 2,397 |
+| [TÓTEM ALAMEDA NORTE](https://www.eco-visio.net/api/aladdin/1.0.0/pbl/publicwebpageplus/data/300062721?idOrganisme=5737&idPdc=300062721&debut=11%2F04%2F2026&fin=18%2F04%2F2026&interval=4&flowIds=353660037%3B353660038) | 1,641 | 2,051 | 2,316 | 2,375 | 2,664 | 2,385 | 2,314 |
 
 Compare simulated passages at each counter with its daily total. One rider can pass more than one counter along Alameda. Coverage elsewhere in Santiago and counter accuracy during outages remain unverified.
 

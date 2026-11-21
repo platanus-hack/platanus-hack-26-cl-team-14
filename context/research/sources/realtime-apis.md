@@ -1,5 +1,7 @@
 # Live data feeds for Santiago
 
+Labels: VERIFIED-ROWS = I read real records. VERIFIED-BYTES = the file or API answered, no records parsed. Role: INPUT or TARGET (stated where it applies; entries without a Role line are NONE).
+
 Checked on 2026-11-21 with `curl` (browser User-Agent). Server clock showed 2026-11-21 05:03 UTC.
 Result: only one true live feed is open with no key (Bike Itaú GBFS). Bus, Metro, traffic, and air have no open live feed that I could reach.
 
@@ -9,12 +11,13 @@ Result: only one true live feed is open with no key (Bike Itaú GBFS). Bus, Metr
 - Granularity: point (station). Update every 15 to 30 s (`ttl` 15 to 30).
 - Year: live (2026-11-21)
 - Access: API, JSON, no key. `station_status.json` 109 KB. `station_information.json` 111 KB.
-- Check: VERIFIED 2026-11-21, HTTP 200 on gbfs.json (961 B), `v2/en/station_status.json` (109710 B), `v2/en/station_information.json` (111007 B).
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200 on gbfs.json (961 B), `v2/en/station_status.json` (109710 B), `v2/en/station_information.json` (111007 B).
   First bytes: `{"last_updated":1795237409,"ttl":19,"data":{"stations":[{"station_id":"4","num_bikes_available":10,"num_bikes_disabled":0,"is_charging_station":false,"status":"IN_SERVICE",...`
   Station: `"name":"P02 - Italia / Marín","lat":-33.443928,"lon":-70.625648,"address":"Italia 980..."`
 - Note (critic sunny-koala): the v3.0 `station_status` path listed in `gbfs.json` is also live (about 101 KB, newer field names such as `num_vehicles_available`). Not checked by me.
-- Limits: Shows bike stock per station, not trips. To get flows, poll every minute and diff the stock. Docked bikes only. No history.
-- Use in the simulation: score for short trips and last-mile demand (net bike flow per station by hour). Needs our own logger to build history.
+- Limits: Shows bike stock per station, not trips. A stock diff is a net-stock proxy, not a trip count: rebalancing and rentals that offset returns confound it. Docked bikes only. No history.
+- Role: TARGET (weak): net stock change per station by hour, as a proxy only. Needs our own logger to build history.
+- Use in the simulation: score for short trips and last-mile demand. Do not call it trip flow.
 
 ### DTPM GTFS (static schedule, current)
 - Link: https://www.dtpm.cl/descargas/gtfs/GTFS_20261114_v2.zip (found on https://www.dtpm.cl/index.php/gtfs-vigente)
@@ -22,7 +25,7 @@ Result: only one true live feed is open with no key (Bike Itaú GBFS). Bus, Metr
 - Granularity: point (stop), timetable.
 - Year: 2026 (file name date 2026-11-14; Last-Modified 2026-11-16)
 - Access: direct download, ZIP, 12,829,198 B. Old versions: https://www.dtpm.cl/index.php/programas-de-operaciones/gtfs-historicos
-- Check: VERIFIED 2026-11-21, HTTP 200 on HEAD, Content-Length 12829198. I did not unzip it (no rows read).
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 200 on HEAD, Content-Length 12829198. I did not unzip it (no rows read). Another agent (clever-koala) read the March 2026 feed: GTFS_20260321_v3.zip, valid until 2026-04-17, matches the April 11-17 DTPM trip week. Use that one for April 2026 scoring; the file above is the November network.
 - Limits: This is a plan, not the real service. No real vehicle positions.
 - Use in the simulation: network for bus and Metro routing. (Another topic file may cover it in depth.)
 
@@ -32,7 +35,7 @@ Result: only one true live feed is open with no key (Bike Itaú GBFS). Bus, Metr
 - Granularity: route.
 - Year: current.
 - Access: API, JSON, no key. `getservicios/all` 3030 B; `getrecorrido/506` 711 KB.
-- Check: VERIFIED 2026-11-21, HTTP 200. First bytes: `["101", "102", "103", "104", "105", "105c", ...` and `{"negocio": {"id": 5, "nombre": "Buses Metropolitana S.A.", ...`
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200. First bytes: `["101", "102", "103", "104", "105", "105c", ...` and `{"negocio": {"id": 5, "nombre": "Buses Metropolitana S.A.", ...`
 - Limits: Static data. Unofficial paths, no documentation. Could change without notice.
 - Use in the simulation: route shapes and operating hours. Not live.
 
@@ -64,7 +67,7 @@ Result: only one true live feed is open with no key (Bike Itaú GBFS). Bus, Metr
 
 ### GBFS for scooters (Lime, Whoosh, others)
 - Link: https://raw.githubusercontent.com/MobilityData/gbfs/master/systems.csv
-- Check: VERIFIED 2026-11-21, HTTP 200, 186,712 B. Filter `^CL,` gives one row only: Bike Itaú - Santiago. No scooter operator in Chile is in the registry.
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 186,712 B. Filter `^CL,` gives one row only: Bike Itaú - Santiago. No scooter operator in Chile is in the registry.
 - Use in the simulation: NONE. The hint is wrong for the public registry.
 
 ### TomTom Traffic Flow API
@@ -94,12 +97,12 @@ Result: only one true live feed is open with no key (Bike Itaú GBFS). Bus, Metr
 
 ### SINCA live air quality (MMA)
 - Link: https://sinca.mma.gob.cl/ and `https://sinca.mma.gob.cl/index.php/json/listadomapa2k19/`
-- Check: UNVERIFIED. HTTP 403 Forbidden for `curl` on the root and the JSON path (also with a browser User-Agent). Search says SINCA offers PDF, TXT, CSV exports only.
+- Check: UNVERIFIED by me. HTTP 403 for `curl` on the root, the JSON path, and the CGI text export (re-tried 2026-11-21, browser User-Agent). Conflict: calm-puma (PR #6) got HTTP 200 and 7 daily PM2.5 rows for Cerrillos II with this URL: https://sinca.mma.gob.cl/cgi-bin/APUB-MMA/apub.tsindico2.cgi?outtype=txt&macro=./RM/D35/Cal/PM25//PM25.diario.diario.ic&from=261112&to=261119&path=/usr/airviro/data/CONAMA/&lang=esp&rsrc=&macropath= . The block may depend on the client or the time. See context/research/santiago-environment-hazards.md.
 - Use in the simulation: NONE for now (air quality is not a mechanism of the engine).
 
 ### WAQI / aqicn.org air API
 - Link: https://api.waqi.info/feed/geo:-33.46;-70.66/?token=<TOKEN>
-- Check: VERIFIED that the API answers (HTTP 200, 2272 B JSON). But the `demo` token ignores the place: it returns Shanghai (`"aqi":127`, source "Shanghai Environment Monitoring Center"). The Santiago data was not seen. A free token exists (aqicn.org/data-platform/token); not tried.
+- Check: VERIFIED-BYTES (API answers (HTTP 200, 2272 B JSON)). But the `demo` token ignores the place: it returns Shanghai (`"aqi":127`, source "Shanghai Environment Monitoring Center"). The Santiago data was not seen. A free token exists (aqicn.org/data-platform/token); not tried.
 - Use in the simulation: NONE (see SINCA).
 
 ### Open-Meteo (weather and air model)
@@ -107,7 +110,7 @@ Result: only one true live feed is open with no key (Bike Itaú GBFS). Bus, Metr
 - Contents: temperature, rain, PM2.5 at a grid cell.
 - Granularity: grid (about 11 km; returned point -33.427,-70.643). Hourly.
 - Access: API, JSON, no key (free for non-commercial use).
-- Check: VERIFIED 2026-11-21, HTTP 200, 327 B and 309 B. `"current":{"time":"2026-11-21T05:00","interval":...`
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 327 B and 309 B. `"current":{"time":"2026-11-21T05:00","interval":...`
 - Limits: Model data, not station measurements. One value for all of Santiago at this resolution.
 - Use in the simulation: weather input to mode choice (rain, heat) in a "what if" scenario. Weak, optional.
 
@@ -118,7 +121,7 @@ Result: only one true live feed is open with no key (Bike Itaú GBFS). Bus, Metr
 
 ### datos.gob.cl CKAN search "transantiago"
 - Link: https://datos.gob.cl/api/3/action/package_search?q=transantiago&rows=3
-- Check: VERIFIED API works (HTTP 200). `"count": 0`: no dataset with that word.
+- Check: VERIFIED-BYTES (API works, HTTP 200). `"count": 0`: no dataset with that word.
 - Use in the simulation: NONE.
 
 ## Critique

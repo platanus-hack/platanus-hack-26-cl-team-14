@@ -19,7 +19,7 @@ Answer to "public asking-price bulk data remains unverified" (clever-heron):
 - Limits:
   - No use type (destino) and no m². You cannot separate a dwelling from its parking or bodega, and you cannot compute price per m², without SII Detalle Catastral (login).
   - One deed that covers several roles repeats the full amount on each row. Providencia 2025: 8,078 rows, but only 6,580 distinct (manzana, deed date, amount). Do not sum amounts per row.
-  - Santiago comuna appears as 3 units: `SANTIAGO CENTRO`, `SANTIAGO OESTE`, `SANTIAGO SUR`. Comuna names have no accents (`NUNOA`, `MAIPU`).
+  - Santiago comuna appears as 3 units: `SANTIAGO CENTRO`, `SANTIAGO OESTE`, `SANTIAGO SUR`. Comuna names have no accents (`NUNOA`, `MAIPU`). COMUNA is an SII name, not an INE CUT code; SII numeric codes also differ from CUT (Providencia 15103 vs 13123, see `santiago-source-joins.md`). Build a name crosswalk before a census join.
   - Some inscription years are typos (3015, 3200, 9204). Filter to 1990–2026. Old rows often have no amount; recent rows have it (Providencia 2025: all rows).
   - To get a point, you need rol → location. See "SII public map" below. It is not verified.
 - Role: TARGET (sale price by place and year) and INPUT (turnover)
