@@ -8,7 +8,7 @@ import { basename, dirname, isAbsolute, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
-import { inboxDirectory, localPage, newMessages, snapshot, startInbox, watched } from "./inbox.mjs";
+import { inboxDirectory, localPage, newMessages, snapshot, startInbox, watched, watchedRoots } from "./inbox.mjs";
 
 const API_URL = "https://discord.com/api/v10";
 const CHANNEL_TYPES_WITH_CONTENT = new Set([0, 5, 15]); // text, announcement, forum
@@ -476,22 +476,24 @@ async function pollDiscord() {
   const guilds = await discord("/users/@me/guilds");
   for (const guild of guilds) {
     const channels = await discord(`/guilds/${guild.id}/channels`);
-    const category = channels.find((c) => c.name === "Agents" && c.type === 4);
-    const roots = channels.filter((c) => c.type === 0 && c.name !== "secrets" && (c.name === "general" || (category && c.parent_id === category.id)));
     const { threads } = await discord(`/guilds/${guild.id}/threads/active`);
-    for (const general of roots) {
-      const watched = new Map([[general.id, general], ...threads.filter((t) => t.type !== 12 && t.name !== "secrets" && t.parent_id === general.id).map((t) => [t.id, t])]);
+    for (const root of watchedRoots(channels)) {
+      const targets = new Map(threads
+        .filter(t => t.type !== 12 && t.name !== "secrets" && t.parent_id === root.id)
+        .map(t => [t.id, t]));
+      // Forum posts are threads. The forum parent has no message history.
+      if (root.type !== 15) targets.set(root.id, root);
       // Include threads closed between polls, so their last messages still arrive.
       let before;
       while (true) {
         const query = new URLSearchParams({ limit: "100", ...(before && { before }) });
-        const page = await discord(`/channels/${general.id}/threads/archived/public?${query}`);
-        for (const thread of page.threads) if (thread.name !== "secrets") watched.set(thread.id, thread);
+        const page = await discord(`/channels/${root.id}/threads/archived/public?${query}`);
+        for (const thread of page.threads) if (thread.name !== "secrets") targets.set(thread.id, thread);
         const last = page.threads.at(-1)?.thread_metadata.archive_timestamp;
         if (!page.has_more || !last || Date.parse(last) < connectedAt) break;
         before = last;
       }
-      for (const channel of watched.values()) {
+      for (const channel of targets.values()) {
         const cursor = cursors.get(channel.id) ?? initialCursor;
         const fresh = [];
         let before;
