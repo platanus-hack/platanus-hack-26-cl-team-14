@@ -137,11 +137,11 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
     let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
         distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), mass_share_with_2_or_more_parents: [multi_h, multi_j] };
-    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share })
+    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share, split })
 }
 
 /// The frozen parts of a fit that a scenario reuses: baseline classes, profiles, scale, radius, mode shares.
-pub struct Fit { class: Vec<usize>, p: Vec<Vec<f64>>, a: f64, radius: f64, share: HashMap<String, (f64, f64)>, public_share: bool }
+pub struct Fit { class: Vec<usize>, p: Vec<Vec<f64>>, a: f64, radius: f64, share: HashMap<String, (f64, f64)>, public_share: bool, split: bool }
 
 const MUT_BLOCK: &str = "13114131009033";
 const MUT_CUT: &str = "13114";
@@ -240,11 +240,17 @@ impl StationModel {
         if !(r.persons_per_occupied_dwelling >= 0.0 && r.persons_per_occupied_dwelling.is_finite()) { return Err("persons_per_occupied_dwelling must be finite and >= 0".into()); }
         let dh = r.dwellings_added * r.occupied_share * r.persons_per_occupied_dwelling * self.commuters_per_resident * self.home_public_share;
         let dj = -r.jobs_removed * self.job_public_factor;
+        // Same assignment rule as the fit: nearest parent, or (L4) an equal split among all parents within the radius.
         let (i, d) = nearest(&self.st, self.mut_point.0, self.mut_point.1);
+        let kx = 111_320.0 * (-33.45f64).to_radians().cos();
+        let near: Vec<usize> = if self.fit.split {
+            (0..self.st.len()).filter(|&k| ((self.st[k].longitude - self.mut_point.0) * kx).hypot((self.st[k].latitude - self.mut_point.1) * 110_540.0) <= self.fit.radius).collect()
+        } else if d <= self.fit.radius { vec![i] } else { vec![] };
         let mut stations = Vec::new();
-        if d <= self.fit.radius {
+        for &i in &near {
             let p = &self.fit.p[self.fit.class[i]];
-            let scen = (0..48).map(|t| self.base[i][t] + self.fit.a * p[t] * if t < 24 { dh } else { dj }).collect();
+            let w = 1.0 / near.len() as f64;
+            let scen = (0..48).map(|t| self.base[i][t] + self.fit.a * p[t] * w * if t < 24 { dh } else { dj }).collect();
             stations.push(StationChange { id: self.st[i].id.clone(), name: self.st[i].name.clone(), predicted_base: self.base[i].clone(), predicted_scenario: scen });
         }
         Ok(MutResponse {
