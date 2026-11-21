@@ -113,6 +113,15 @@ impl Station {
             .enumerate()
         {
             let people = volume.as_f64().unwrap();
+            let delta = row["delta"][bin].as_f64()
+                .unwrap_or_else(|| people - row["base_half_hour"][bin].as_f64().unwrap());
+            let paint = if delta > 0. {
+                Paint::Gain
+            } else if delta < 0. {
+                Paint::Loss
+            } else {
+                Paint::Plain
+            };
             let end = cumulative + people;
             while next <= end {
                 let start = (bin as f32 + ((next - cumulative) / people) as f32) * BIN;
@@ -137,14 +146,6 @@ impl Station {
                     })
                     .min_by(|a, b| a.2.total_cmp(&b.2));
                 if let Some((side, ready, departure, wait_at)) = board {
-                    let delta = row["delta"][bin].as_f64().unwrap_or(0.);
-                    let paint = if delta > 0. {
-                        Paint::Gain
-                    } else if delta < 0. {
-                        Paint::Loss
-                    } else {
-                        Paint::Plain
-                    };
                     longest_visit = longest_visit.max(departure - start);
                     entries.push(Entry {
                         entrance: entry_index,

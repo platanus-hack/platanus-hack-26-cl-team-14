@@ -30,6 +30,7 @@ impl Boarding {
 struct RideOptions {
     platform: Option<(usize, f32)>,
     gates: Option<[Vec<Vec3>; 2]>,
+    metro_stations: Option<[String; 2]>,
     departures: Vec<Boarding>,
     max_dwell: f32,
 }
@@ -137,10 +138,12 @@ impl RiderNetwork {
             let mut departures = Vec::new();
             let mut platform = None;
             let mut gates = None;
+            let mut metro_stations = None;
             for candidate in row[3].as_array().unwrap() {
                 let track = row_index(&candidate[0]);
                 let from = row_index(&candidate[1]);
                 let to = row_index(&candidate[2]);
+                metro_stations = Some([from, to].map(|s| tracks[track].stations[s].clone()));
                 gates = Some([from, to].map(|s| {
                     entrances[&tracks[track].stations[s]]
                         .iter()
@@ -198,6 +201,7 @@ impl RiderNetwork {
             );
             options.push(RideOptions {
                 gates,
+                metro_stations,
                 platform,
                 departures,
                 max_dwell,
@@ -231,16 +235,46 @@ impl RiderNetwork {
         Some(self.by_endpoints[&key])
     }
 
-    pub(super) fn surface_pose(
+    // The engine changes station access but publishes no replacement itinerary for a group.
+    pub(super) fn accessible_legs(&self, path: &Path, closed: &std::collections::HashSet<&str>) -> usize {
+        let blocked = path.legs.iter().position(|leg| {
+            leg.scheduled
+                .and_then(|i| self.options[i].metro_stations.as_ref())
+                .is_some_and(|ids| ids.iter().any(|id| closed.contains(id.as_str())))
+        });
+        let Some(mut end) = blocked else { return path.legs.len() };
+        while end > 0 && path.legs[end - 1].vehicle == Vehicle::Walk {
+            end -= 1;
+        }
+        end
+    }
+
+    pub(super) fn for_each_surface(
         &self,
-        template: usize,
-        start: i32,
         now: f32,
-    ) -> Option<(Vec3, Vec3, Vehicle)> {
-        let service = &self.surface[template];
-        let d = service.run.distance(now - start as f32)?;
-        let (p, dir, _) = service.path.at(d, &service.path.metres)?;
-        Some((p, dir, service.vehicle))
+        mut draw: impl FnMut((usize, i32), Vec3, Vec3, Vehicle),
+    ) {
+        for (template, service) in self.surface.iter().enumerate() {
+            let first = service.run.calls.first().unwrap().arrival;
+            let last = service.run.calls.last().unwrap().departure;
+            // GTFS starts belong to a service day and can extend beyond midnight.
+            let first_day = ((now - last - *service.starts.last().unwrap() as f32) / DAY).ceil() as i32;
+            let last_day = ((now - first - service.starts[0] as f32) / DAY).floor() as i32;
+            for day in first_day..=last_day {
+                let offset = day * DAY as i32;
+                let time = now - offset as f32;
+                let from = service.starts.partition_point(|&s| (s as f32) < time - last);
+                let to = service.starts.partition_point(|&s| (s as f32) <= time - first);
+                for &start in &service.starts[from..to] {
+                    let start = start + offset;
+                    if let Some(d) = service.run.distance(now - start as f32)
+                        && let Some((p, dir, _)) = service.path.at(d, &service.path.metres)
+                    {
+                        draw((template, start), p, dir, service.vehicle);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -270,11 +304,11 @@ pub(super) enum RiderState {
 }
 
 impl RiderPlan {
-    pub(super) fn build(path: &Path, start: f32, network: &RiderNetwork) -> Self {
+    pub(super) fn build(path: &Path, legs: usize, start: f32, network: &RiderNetwork) -> Self {
         let mut steps = Vec::new();
         let mut first = 0;
         let mut now = start;
-        for leg in &path.legs {
+        for leg in &path.legs[..legs] {
             if let Some(index) = leg.scheduled {
                 let at = path.points[first];
                 let platform = network.options[index].platform;

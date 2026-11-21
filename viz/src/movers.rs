@@ -123,10 +123,15 @@ impl Path {
     }
 
     fn at(&self, value: f32, axis: &[f32]) -> Option<(Vec3, Vec3, Vehicle)> {
-        if value < 0. || value >= *axis.last()? {
+        let last = *axis.last()?;
+        if value < 0. || value > last || last == 0. {
             return None;
         }
-        let end = axis.partition_point(|&v| v <= value);
+        let end = if value == last {
+            axis.partition_point(|&v| v < last)
+        } else {
+            axis.partition_point(|&v| v <= value)
+        };
         let from = self.points[end - 1];
         let to = self.points[end];
         let t = (value - axis[end - 1]) / (axis[end] - axis[end - 1]);
@@ -584,6 +589,18 @@ fn read_result(
         return;
     }
     let r = &result.0;
+    let stations = r["stations"].as_array().unwrap();
+    let mut closed = std::collections::HashSet::new();
+    for change in r["applied"].as_array().into_iter().flatten().filter(|c| c["kind"] == "station") {
+        let state = &change["understood"];
+        let station = stations.iter().find(|s| s["name"] == state["station"]).unwrap();
+        let id = station["id"].as_str().unwrap();
+        if state["state"] == "closed" {
+            closed.insert(id);
+        } else {
+            closed.remove(id);
+        }
+    }
     let mut deltas = HashMap::new();
     for d in r["trips_delta"].as_array().into_iter().flatten() {
         deltas.insert(
@@ -625,10 +642,11 @@ fn read_result(
         };
         let bin = row["half_hour"].as_u64().unwrap() as usize;
         let itineraries: Vec<_> = if row["mode"] == "public" {
+            let legs = routes.riders.accessible_legs(&path, &closed);
             (0..copies)
                 .map(|j| {
                     let start = bin as f32 * BIN + departure_offset(seed as f32, j);
-                    RiderPlan::build(&path, start, &routes.riders)
+                    RiderPlan::build(&path, legs, start, &routes.riders)
                 })
                 .collect()
         } else {
@@ -661,9 +679,7 @@ fn read_result(
             },
         });
     }
-    replay.platforms = r["stations"]
-        .as_array()
-        .unwrap()
+    replay.platforms = stations
         .iter()
         .map(|station| Station::new(station, &routes))
         .collect();
@@ -994,7 +1010,7 @@ fn draw(
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
-    let mut surface_load = std::collections::BTreeMap::new();
+    let mut surface_paint = HashMap::new();
     for batch in pool.0.values_mut() {
         batch.used = 0;
     }
@@ -1056,9 +1072,8 @@ fn draw(
                         }
                         Some(RiderState::Riding(RideKey::Surface { template, start })) => {
                             let key = (template, start + bin.div_euclid(48) * DAY as i32);
-                            let applied = surface_load.entry(key).or_insert(Paint::Plain);
                             if paint != Paint::Plain {
-                                *applied = paint;
+                                surface_paint.insert(key, paint);
                             }
                             None
                         }
@@ -1098,26 +1113,24 @@ fn draw(
             }
         }
     }
-    for ((template, start), paint) in surface_load {
-        if let Some((p, dir, kind)) = routes.riders.surface_pose(template, start, now) {
-            if visible(p, 100.) {
-                let model = if kind == Vehicle::Rail {
-                    Model::Coach
-                } else {
-                    Model::Bus
-                };
-                place(
-                    model,
-                    paint,
-                    pose(
-                        p + right(dir) * 1.6 + Vec3::Y * 0.25,
-                        dir,
-                        Vec3::splat(size_at(p)),
-                    ),
-                );
-            }
+    routes.riders.for_each_surface(now, |key, p, dir, kind| {
+        if visible(p, 100.) {
+            let model = if kind == Vehicle::Rail {
+                Model::Coach
+            } else {
+                Model::Bus
+            };
+            place(
+                model,
+                surface_paint.get(&key).copied().unwrap_or_default(),
+                pose(
+                    p + right(dir) * 1.6 + Vec3::Y * 0.25,
+                    dir,
+                    Vec3::splat(size_at(p)),
+                ),
+            );
         }
-    }
+    });
     for train in trains.into_iter().flatten() {
         if !visible(train.pos, 125.) {
             continue;
