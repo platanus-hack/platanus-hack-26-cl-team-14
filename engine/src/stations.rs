@@ -291,6 +291,28 @@ impl StationModel {
         }).collect()
     }
 
+    /// Station boardings from home and job masses already placed on points `(longitude, latitude, mass)`, e.g.
+    /// aggregated from a person-level state, through the same 1/d shares and the frozen scale, classes and profiles.
+    pub fn project_points(&self, homes: &[(f64, f64, f64)], jobs: &[(f64, f64, f64)]) -> Vec<(String, String, Vec<f64>)> {
+        let place = |pts: &[(f64, f64, f64)]| {
+            let mut m = vec![0.0; self.st.len()];
+            for &(x, y, v) in pts {
+                if v == 0.0 { continue; }
+                let (near, tot) = parents_in_reach(&self.st, x, y, self.fit.radius, self.fit.inverse);
+                for (k, w) in near { m[k] += v * w / tot; }
+            }
+            m
+        };
+        let (h, j) = (place(homes), place(jobs));
+        self.st.iter().enumerate().map(|(i, s)| {
+            let p = &self.fit.p[self.fit.class[i]];
+            (s.id.clone(), s.name.clone(), (0..48).map(|t| p[t] * if t < 24 { h[i] } else { j[i] } * self.fit.a).collect())
+        }).collect()
+    }
+
+    /// The mode-2 share of a home comuna in the fit (L2), for weighting persons the way the fit weighted flows.
+    pub fn public_share(&self, cut: &str) -> f64 { if self.fit.public_share { let (p, t) = self.fit.share[cut]; p / t } else { 1.0 } }
+
     /// MUT only: new dwellings become home mass, removed jobs leave job mass, both at the MUT jobs row,
     /// through the frozen fit. The MUT parent is always returned; at zero change both arrays are equal.
     pub fn mut_scenario(&self, r: MutRequest) -> Result<MutResponse, String> {
