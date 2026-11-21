@@ -1,4 +1,4 @@
-"""Weekday EOD 2012 trips along the Mapocho: both ends within 800 m of the river, 3 km or more apart along it.
+"""Weekday EOD 2012 trips along the Mapocho: both ends within 800 m of the river, 3 km or more apart east-west after projection onto it.
 
 Usage: python3 -I tools/pack/mapocho_corridor.py <EOD_STGO dir> <nominatim json of "Río Mapocho">
 EOD: https://users.dcc.uchile.cl/~egraells/gds-data/eod2012.tgz
@@ -37,7 +37,7 @@ segs = []
 for line in rel:
     pts = [xy(*p) for p in line if LON0 <= p[0] <= LON1]
     segs += [(a, b) for a, b in zip(pts, pts[1:]) if math.dist(a, b) < 500]
-# Chainage: project each segment midpoint onto lon (river runs mostly east-west); good enough for along-river distance.
+# Distance between trip ends is east-west after projection onto the river, not true river length.
 def near(p):
     best = (1e18, 0)
     for a, b in segs:
@@ -73,7 +73,7 @@ for R in (800,):
         pairs[tuple(sorted((names[r['ComunaOrigen']], names[r['ComunaDestino']])))] += f
         if r['TiempoViaje']: minutes.append((int(r['TiempoViaje']), f))
 print('weekday trips total (expanded):', round(tot))
-print('both ends <=800 m from river, >=3 km apart along river:', round(along['trips']))
+print('both ends <=800 m from river, >=3 km apart east-west after projection:', round(along['trips']))
 print('share of all weekday trips: %.2f%%' % (100*along['trips']/tot))
 for m, v in by_mode.most_common(): print(' mode', m, round(v), '%.1f%%' % (100*v/along['trips']))
 minutes.sort(); acc=0; half=sum(f for _,f in minutes)/2

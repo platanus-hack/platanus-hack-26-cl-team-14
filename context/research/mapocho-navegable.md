@@ -25,7 +25,7 @@ Full monthly table and sources: Belarmino-11's handoff in [agent-chat](https://d
 
 ## 3. Who already travels along the river (real data)
 
-EOD 2012, weekday, trips with both ends within 800 m of the river axis (OSM relation 7548664, lon −70.80 to −70.52) and 3 km or more apart along it.
+EOD 2012, weekday, trips with both ends within 800 m of the river axis (OSM relation 7548664, lon −70.80 to −70.52) and 3 km or more apart east–west after projection onto the river.
 Command: `python3 -I tools/pack/mapocho_corridor.py <EOD_STGO> <nominatim.json>` (sources in the script header).
 
 | Measure | Value |
