@@ -8,7 +8,12 @@ Filters: COD_REG_RBD = 13, ESTADO_ESTAB = 1 (operating), a coordinate pair that
 is present and inside the RM box. The directory writes the decimal mark as a comma
 and pads the coordinate fields with spaces.
 
-Output: data/mvp/schools.csv  rbd,name,cut,longitude,latitude,enrollment
+`enrollment` is MAT_TOTAL, the exact sum of MAT_ENS_1 to MAT_ENS_8, so it counts
+pre-school. `enrollment_no_preschool` is MAT_TOTAL minus MAT_ENS_1 (parvularia): school enrolment
+excluding pre-school. It is not trips and it is no evidence of independent travel. Both
+columns come from the same row; neither is derived from the other file.
+
+Output: data/mvp/schools.csv  rbd,name,cut,longitude,latitude,enrollment,enrollment_no_preschool
 """
 import csv, io, pathlib, subprocess, urllib.request
 
@@ -43,13 +48,16 @@ for row in rows:
         outside += 1
         continue
     schools.append([row["RBD"], row["NOM_RBD"].strip(), f'{int(row["COD_COM_RBD"]):05d}',
-                    f"{lon:.6f}", f"{lat:.6f}", int(row["MAT_TOTAL"])])
+                    f"{lon:.6f}", f"{lat:.6f}", int(row["MAT_TOTAL"]),
+                    int(row["MAT_TOTAL"]) - int(row["MAT_ENS_1"] or 0)])
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 with OUT.open("w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
-    w.writerow(["rbd", "name", "cut", "longitude", "latitude", "enrollment"])
+    w.writerow(["rbd", "name", "cut", "longitude", "latitude", "enrollment",
+                "enrollment_no_preschool"])
     w.writerows(sorted(schools, key=lambda r: int(r[0])))
 
-print(OUT, len(schools), "schools", sum(r[5] for r in schools), "enrolment")
+print(OUT, len(schools), "schools", sum(r[5] for r in schools), "enrolment,",
+      sum(r[6] for r in schools), "without pre-school")
 print("dropped:", no_point, "with no coordinate,", outside, "outside the RM box")
