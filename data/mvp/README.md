@@ -689,3 +689,17 @@ Four causes of the gap, and they do not all point the same way:
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
+
+## transit_paths.json
+
+The city view loads `web/data/transit_paths.json`. The pack links to the same file.
+Run `python3 -I tools/pack/transit_paths.py` from the repo root to rebuild it.
+Source: [March 2026 Santiago GTFS](https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip).
+
+Each Metro record gives the line, GTFS color, direction (0 or 1), ordered parent station IDs, and a path of longitude/latitude points.
+The 48 values in `trips` count departures by half hour from 00:00 Santiago time on a regular Monday (service IDs L and LJ).
+A train contributes once, at the first stop of its scheduled trip. Short-turn and express trips contribute to their direction's total.
+The path shows the full line. It does not describe the stops of each train.
+
+The 14 paths cover 7 lines. One direction per line gives 143 station entries, which matches the [Ministry of Transport network count](https://mtt.gob.cl/extension-de-linea-2-comenzo-su-operacion-y-beneficiara-a-618-mil-personas/).
+Interchange lines can share a parent station. The feed has 126 distinct parent IDs across these paths.
