@@ -797,9 +797,11 @@ python3 -I tools/pack/active_mode_distance.py --survey /path/to/EOD_STGO
 
 Experimental destination weights for each job point, in the order of `jobs.csv`. The `jobs` column contains a relative weight. Keep the census totals for each comuna when allocating workers. The weights reflect transit use as well as job density.
 
-Run `python3 -I tools/pack/jobs_2026.py` with the [April 15 arrival groups](../validation/trip_purpose_2026_04/README.md). The builder assigns each point to its nearest training station within 500 m. For each of the 95 training stations it divides the station's share of expanded work arrivals by its share of assigned job mass. That ratio multiplies the point's original weight. Points outside the radius keep their weights. The builder uses no boardings or held-out arrivals.
+Run `python3 -I tools/pack/jobs_2026.py` with the [April 15 arrival groups](../validation/trip_purpose_2026_04/README.md). The builder assigns each point to its nearest training station within 500 m. For each of the 95 training stations it divides the station's share of expanded work arrivals by its share of assigned job mass. That ratio multiplies the point's original weight. Points outside the radius keep their initial relative weights. Finally the builder rescales every weight in each comuna to preserve its original Census job total. This matters because the destination-choice model reads the sum as job stock. The builder uses no boardings or held-out arrivals.
 
 The frozen L4b run used the candidate file as its jobs input in an isolated directory. Across 31 held-out stations and 1,123 observed half-hours, absolute error fell from 254,347.44 to 252,057.91 boardings. Half-hour WAPE fell from 0.4459345830 to 0.4419204606. Tobalaba, a training station, rose from 41,702.00 to 56,543.75 predicted boardings across the observed bins. The observed sum was 81,612.80.
+
+An integrated run at `98ae956` loaded the same population and station access model twice. Only the jobs input changed. On the frozen 1,123 cells, the integrated L9 baseline had 238,349.70 absolute error boardings (WAPE 0.4178865487). The April weights gave 234,698.53 (0.4114851405), a reduction of 3,651.17. Tobalaba rose from 39,823.55 to 53,717.01 across its observed bins. Both no-change scenarios retained 2,688,814 workers with zero workers moved. The original input remains available in `jobs.csv`.
 
 ## transit_paths.json
 
