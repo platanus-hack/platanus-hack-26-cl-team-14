@@ -150,6 +150,39 @@ How the commuters of `work_od.csv` travel to work, by comuna of residence. Built
 - **Limit that matters for the station layer: code 2 puts metro, bus, train, taxi and colectivo in one answer.** The census does not separate them, so this file cannot give a metro share. Any split of code 2 between metro and bus is an assumption, and the page must label it.
 - The universe is a person who works away from the dwelling, so "works at home" is `NA` and is not in this file. It is the main mode, not every leg of the trip, and it is the usual mode, not a trip on a given day.
 
+### work_departures.csv
+
+This file gives 48 local half-hour departure shares for each of five travel modes in
+the 2012 Santiago origin-destination survey. Bin 0 starts at midnight. Each row contains
+`mode,half_hour,expanded_trips,share`. The 48 shares for each mode sum to one.
+Use the shares to assign times to trips. The expanded totals describe Santiago in 2012.
+
+The builder selects trips to work (`Proposito=1`) on normal weekdays, with a recorded
+`HoraIni`. This includes all trips to work during the day. The survey can count a worker
+again after a lunch break. Three eligible records lacked the departure clock.
+The 13,437 remaining trips expand to 2,989,363 weekday trips. Each trip weight equals
+`viajes.FactorLaboralNormal × personas.Factor_LaboralNormal` for the same respondent.
+[Survey and files](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) · [INE expansion method](https://www.ine.gob.cl/docs/default-source/sistema-de-indicadores-y-estandares-de-desarrollo-urbano/manuales/actualizaci%C3%B3n-2019/manual-procedimientos-siedu-act2019.pdf)
+
+| Group | EOD `ModoAgregado` | Sample trips | Expanded trips | Peak start and share |
+|---|---|---:|---:|---:|
+| car | 1 | 3,387 | 924,788 | 07:00 · 19.33% |
+| public | 2–7, 9–12 | 6,798 | 1,244,381 | 07:00 · 17.07% |
+| walk | 17 | 1,580 | 482,964 | 14:00 · 16.90% |
+| bicycle | 18 | 717 | 151,907 | 07:30 · 18.12% |
+| other | 8, 13–16 | 955 | 185,324 | 07:00 · 16.70% |
+
+The public group covers bus, Metro, taxi, colectivo and their combinations.
+The other group includes car with Metro and trips that the EOD labels as other.
+Applying those timing profiles to 2024 Census mode groups is a modeling assumption.
+The EOD table has no separate profiles for scooters, motorcycles or an unknown mode.
+
+After extracting the survey with its original filenames, run:
+
+```sh
+python3 -I tools/pack/work_departures.py --survey /path/to/EOD_STGO
+```
+
 ### mode_share_by_workplace.csv
 
 `cut,work_place,mode,commuters`. The same counts split by `p44_lug_trab`: **2** works in
@@ -705,6 +738,60 @@ Four causes of the gap, and they do not all point the same way:
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
+## Direct bus access to Metro stations
+
+`bus_station_access.csv` gives the shortest scheduled access time from a bus stop to each
+Metro parent that riders can reach on one bus. The file has 71,857 stop-parent pairs,
+9,476 origin stops and 126 Metro parents. Each row gives the origin stop ID, longitude,
+latitude, Metro parent ID and seconds. The scenario adds the walk to the origin stop.
+
+The builder uses the March 2026 DTPM feed and the existing `bus_metro_300m.csv` transfer
+links. It uses the same Wednesday and 08:00 service window as `travel_times.csv`.
+All 666 active bus trips specify headways. For each downstream stop, the cost includes
+half the headway, the time from departure at the origin to arrival at that stop, and a
+straight walk to the parent at 4.8 km/h. Each pair keeps its lowest cost, in seconds
+rounded to three decimal places. [DTPM feed](https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip) · [GTFS frequencies](https://gtfs.org/documentation/schedule/reference/#frequenciestxt)
+
+For example, PA1 to AN-NA via PA298 takes 878.090 seconds on trip pattern 505-I-L-B04.
+The wait is 207.5 seconds, the ride takes 534 seconds, and the transfer walk is 182.12 metres.
+
+To model a station closure, exclude its parent ID before selecting a path. Of 247
+origin stops whose fastest path ends at FER, LCR or PQU, 144 switch to LIB when those
+three close, 34 switch to other stations and 69 lose all direct access by bus.
+These counts describe scheduled access in the 2026 bus network. The table has no
+passenger counts, Metro ride times or historical bus routes.
+
+```sh
+python3 -I tools/pack/bus_station_access.py --gtfs /path/to/GTFS_20260321_v3.zip
+
+
+### Walking and cycling by distance
+
+`active_mode_distance.json` estimates the probability that a 2012 Santiago trip to work
+used a bicycle, conditional on the traveler walking or cycling. For straight-line distance
+`d` in km, the estimated log odds of cycling are `intercept + slope_log1p_km × ln(1 + d)`.
+Use this distribution to assign walking and cycling within an existing active-mode total.
+The fit describes mode choices at different distances in 2012. A forecast of a cycleway's
+effect needs evidence from a change in the network.
+
+The builder uses the EOD fields `Proposito=1` and `ModoAgregado=17,18`. It keeps positive
+normal-weekday expansion weights and positive, non-imputed `DistEuclidiana` in metres.
+It multiplies the trip and person normal-weekday weights. It excludes 845 imputed distances
+and 113 nonpositive distances. The fit covers 780 walking and 560 cycling observations from
+1,118 households, equivalent to 210,874.42 walking and 122,876.47 cycling trips.
+[Survey](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) · [INE expansion method](https://www.ine.gob.cl/docs/default-source/sistema-de-indicadores-y-estandares-de-desarrollo-urbano/manuales/actualizaci%C3%B3n-2019/manual-procedimientos-siedu-act2019.pdf)
+
+Five folds keep households together. Each household's group is the first eight bytes of
+its SHA-256 digest as a big-endian integer, modulo five, using the UTF-8 source ID.
+Each fit uses four folds. Its reference uses the weighted bicycle share of those same
+four folds. Pooled weighted log loss in the held-out folds fell from 0.660953 to 0.536681.
+One fold had higher loss with distance, 0.663965 versus 0.645002. The full-sample model
+uses all five folds after the pooled comparison met its acceptance rule.
+[Preregistration](https://discord.com/channels/1573514576400752640/1573579088684253235/1573676569355092079)
+
+```sh
+python3 -I tools/pack/active_mode_distance.py --survey /path/to/EOD_STGO
+```
 
 ## jobs_2026.csv
 

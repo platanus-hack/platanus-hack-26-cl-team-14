@@ -89,3 +89,13 @@ impl Population {
         Population { homes, jobs, schools, persons }
     }
 }
+
+#[path = "population/trips.rs"]
+mod trips;
+#[allow(unused_imports)] // Each binary imports only the population outputs it needs.
+pub use trips::{TripGroup, TripPlan, sample_trips};
+
+#[path = "population/fine_modes.rs"]
+mod fine_modes;
+#[allow(unused_imports)]
+pub use fine_modes::{FineModes, NEW_OTHER_MODE};
