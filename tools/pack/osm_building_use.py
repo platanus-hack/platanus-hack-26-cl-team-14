@@ -121,7 +121,7 @@ def main():
 
     to_utm = Transformer.from_crs(4326, 32719, always_xy=True).transform
     to_wgs = Transformer.from_crs(32719, 4326, always_xy=True).transform
-    circles = {name: transform(to_wgs, Point(*to_utm(*xy)).buffer(500)) for name, xy in CAMERAS.items()}
+    circles = {name: transform(to_wgs, Point(*to_utm(*xy)).buffer(500, quad_segs=64)) for name, xy in CAMERAS.items()}
     with Path("data/mvp/communes.csv").open() as source:
         rows = {("comuna", r["cut"]): Counter() for r in csv.DictReader(source)}
     rows["all", "view"] = Counter()
