@@ -1,4 +1,5 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
+mod fleet;
 mod levels;
 mod riders;
 mod stations;
@@ -537,6 +538,7 @@ impl StreetIndex {
 }
 
 struct Group {
+    cars: Vec<u16>,
     itineraries: Vec<RiderPlan>,
     duration: f32,
     path: Arc<Path>,
@@ -571,7 +573,13 @@ struct Replay {
     revision_started: f32,
 }
 
-fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut replay: ResMut<Replay>) {
+fn read_result(
+    time: Res<Time>,
+    result: Res<Scenario>,
+    routes: Res<Routes>,
+    fleet: Res<fleet::Fleet>,
+    mut replay: ResMut<Replay>,
+) {
     if !result.is_changed() || result.0.is_null() {
         return;
     }
@@ -632,6 +640,11 @@ fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut 
             .fold(*path.seconds.last().unwrap(), f32::max);
         replay.longest = replay.longest.max(duration);
         replay.departures[bin].push(Group {
+            cars: if row["mode"] == "car" {
+                fleet.cars(row["origin_cut"].as_str().unwrap(), id, copies)
+            } else {
+                Vec::new()
+            },
             itineraries,
             duration,
             path,
@@ -658,7 +671,8 @@ fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut 
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Model {
-    Car,
+    Car(u16),
+    CarChange,
     Bus,
     Bike,
     Person,
@@ -715,7 +729,7 @@ fn shape(parts: impl IntoIterator<Item = Mesh>) -> Mesh {
 // Every art pixel is 12 cm in all three axes. One horizontal quad samples one PNG tile.
 const ART_PIXEL: f32 = 0.12;
 
-fn sprite_stack(bytes: &[u8], slices: u32) -> (Mesh, Image) {
+fn sprite_stack(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2]) -> (Mesh, Image) {
     let image = Image::from_buffer(
         bytes,
         ImageType::Extension("png"),
@@ -725,8 +739,8 @@ fn sprite_stack(bytes: &[u8], slices: u32) -> (Mesh, Image) {
         RenderAssetUsages::default(),
     )
     .unwrap();
-    let x = (image.width() / slices) as f32 * ART_PIXEL / 2.;
-    let z = image.height() as f32 * ART_PIXEL / 2.;
+    let x = (image.width() / columns / slices) as f32 * ART_PIXEL / 2.;
+    let z = (image.height() / rows) as f32 * ART_PIXEL / 2.;
     let mut positions = Vec::new();
     let mut uv = Vec::new();
     let mut indices = Vec::new();
@@ -769,14 +783,17 @@ fn setup(
         coat([0., 1.12, 0.], [36, 134, 171]),
         head([0., 1.97, 0.]),
     ]);
-    let sprites: [(Model, &[u8], u32); 4] = [
-        (Model::Car, include_bytes!("../assets/car.png"), 15),
+    let sprites: [(Model, &[u8], u32); 3] = [
         (Model::Bus, include_bytes!("../assets/bus.png"), 27),
         (Model::Coach, include_bytes!("../assets/metro.png"), 28),
         (Model::Bike, include_bytes!("../assets/bicycle.png"), 16),
     ];
     let models = [
         (Model::Person, person, None),
+        // A pair of road marks carries the scenario colour beside the car's actual paint.
+        (Model::CarChange, shape([-1.5, 1.5].map(|z| {
+            painted(Plane3d::default().mesh().size(3.6, 0.28).build(), [0., 0.04, z], [255; 3])
+        })), None),
         (
             Model::Window,
             painted(
@@ -800,7 +817,7 @@ fn setup(
     ]
     .into_iter()
     .chain(sprites.into_iter().map(|(model, bytes, layers)| {
-        let (mesh, image) = sprite_stack(bytes, layers);
+        let (mesh, image) = sprite_stack(bytes, layers, [1, 1]);
         (model, mesh, Some(images.add(image)))
     }));
     let mut mesh = HashMap::new();
@@ -819,7 +836,7 @@ fn setup(
                 mats.add(StandardMaterial {
                     base_color: Color::srgb_u8(r, g, b),
                     base_color_texture: texture.clone(),
-                    unlit: sprite,
+                    unlit: sprite || model == Model::CarChange,
                     alpha_mode: if sprite {
                         AlphaMode::Mask(0.5)
                     } else {
@@ -831,7 +848,10 @@ fn setup(
             );
         }
     }
-    commands.insert_resource(Models { mesh, paint });
+    let mut models = Models { mesh, paint };
+    let fleet = fleet::Fleet::load(&mut models, &mut meshes, &mut mats, &mut images);
+    commands.insert_resource(fleet);
+    commands.insert_resource(models);
     let routes = Routes::load();
     let track_material = mats.add(StandardMaterial {
         perceptual_roughness: 0.85,
@@ -1054,7 +1074,7 @@ fn draw(
                     continue;
                 }
                 let model = match kind {
-                    Vehicle::Car => Model::Car,
+                    Vehicle::Car => Model::Car(g.cars[j]),
                     Vehicle::Bus => Model::Bus,
                     Vehicle::Bicycle => Model::Bike,
                     Vehicle::Walk => Model::Person,
@@ -1062,15 +1082,19 @@ fn draw(
                 };
                 let scale = size_at(pos) * presence;
                 let lane = if kind == Vehicle::Walk { 3.4 } else { 1.6 };
-                place(
-                    model,
-                    paint,
-                    pose(
-                        pos + right(dir) * lane + Vec3::Y * 0.25,
-                        dir,
-                        Vec3::splat(scale),
-                    ),
+                let transform = pose(
+                    pos + right(dir) * lane + Vec3::Y * 0.25,
+                    dir,
+                    Vec3::splat(scale),
                 );
+                if kind == Vehicle::Car {
+                    place(model, Paint::Plain, transform);
+                    if paint != Paint::Plain {
+                        place(Model::CarChange, paint, transform);
+                    }
+                } else {
+                    place(model, paint, transform);
+                }
             }
         }
     }
