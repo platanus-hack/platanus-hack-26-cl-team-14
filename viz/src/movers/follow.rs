@@ -2,7 +2,7 @@
 //! At the end of the trip, or on F again, the camera pulls back to the whole city.
 //! `SANTIAGO_FOLLOW=1` starts following at the first result, for captures.
 use super::{
-    BIN, DAY, FixedClock, PlaybackRate, Replay, Routes, departure_offset,
+    BIN, DAY, FixedClock, Life, PlaybackRate, Replay, Routes, departure_offset,
     riders::{RideKey, RiderState},
     trains,
 };
@@ -16,15 +16,23 @@ pub(crate) struct FollowPlugin;
 impl Plugin for FollowPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Follow {
+            seen_result: false,
             person: None,
             armed: std::env::var("SANTIAGO_FOLLOW").as_deref() == Ok("1"),
         })
-        .add_systems(Update, follow.before(crate::aim));
+        .add_systems(
+            Update,
+            follow
+                .after(super::read_result)
+                .after(crate::focus::advance)
+                .before(crate::aim),
+        );
     }
 }
 
 #[derive(Resource)]
 struct Follow {
+    seen_result: bool,
     person: Option<(i32, usize, usize)>, // departure bin, group, copy
     armed: bool,
 }
@@ -40,6 +48,15 @@ fn follow(
     mut rig: ResMut<Rig>,
 ) {
     let Some(offset) = replay.clock_offset else { return };
+    if replay.is_changed() {
+        if state.seen_result {
+            // Rebuilt departures invalidate the old selection. Let the new scene take the camera.
+            state.person = None;
+            state.armed = false;
+            return;
+        }
+        state.seen_result = true;
+    }
     let now = fixed.0.unwrap_or(offset + time.elapsed_secs() * rate.0).rem_euclid(DAY);
     if keys.just_pressed(KeyCode::KeyF) {
         if state.person.is_some() {
@@ -47,11 +64,6 @@ fn follow(
             rig.fly_to(crate::city::world(-70.6505, -33.443), CITY);
             return;
         }
-        state.armed = true;
-    }
-    // A new result rebuilds the departures, so pick again near the camera.
-    if replay.is_changed() && state.person.is_some() {
-        state.person = None;
         state.armed = true;
     }
     if state.armed {
@@ -91,6 +103,9 @@ fn nearest_walker(replay: &Replay, now: f32, target: Vec3) -> Option<(i32, usize
     for bin in slot - (replay.longest / BIN).ceil() as i32..=slot {
         let since_bin = now - bin as f32 * BIN;
         for (index, g) in replay.departures[bin.rem_euclid(48) as usize].iter().enumerate() {
+            if matches!(g.lifecycle, Life::Leave) {
+                continue;
+            }
             for (copy, plan) in g.itineraries.iter().enumerate() {
                 let age = since_bin - departure_offset(g.phase, copy);
                 // The hook needs a routed trip with at least 10 more city minutes.
