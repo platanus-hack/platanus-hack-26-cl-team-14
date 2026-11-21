@@ -23,6 +23,7 @@ MIN_SAMPLE = 50  # a comuna with fewer placed sampled workers uses resident pers
 OFFICE_M2 = 10   # usable m2 for one office worker: OGUC art. 4.2.4 occupant load; the MUT claim (4,000 people, 40,000 m2) gives the same
 MALL_M2 = 46     # leasable m2 for one mall job: 4.61 million m2 GLA (CCC index, Q3 2024) / about 100,000 jobs (CNC study, 2021)
 # Two sites of the demo get jobs from published floor area, not from the 2012 signal. Sources: data/mvp/README.md.
+AIRPORT = "13124_airport"  # block_id of the airport row: not a manzana
 SITE = {  # manzana -> (jobs, quality)
     # Costanera Center: 29,500 m2 of offices occupied in March 2023 + 134,000 m2 of mall. Office occupancy grew later: low.
     "13123081002004": (round(29500 / OFFICE_M2 + 134000 / MALL_M2), "known_low"),
@@ -139,6 +140,13 @@ for (x, y), ws in points.items():
             landmarks.append((lon, lat, mz, sum(ws)))
         else:
             eod[mz] += sum(ws)
+    elif len(ws) > 100:
+        # The airport terminal (126 sampled workers on one point) is rural land with no manzana. It gets its own row.
+        # shortcut: it is the only point of the RM this large with no manzana; a second one needs the comuna polygons.
+        zones[AIRPORT] = {"comuna_cut": "13124", "persons": 0, "lon": "%.6f" % lon, "lat": "%.6f" % lat}
+        eod[AIRPORT] += sum(ws)
+        sample["13124"] += len(ws)
+        stats["eod_placed"] += sum(ws)
 
 # shortcut: a project with many permits (changes of the same project) counts one time,
 # as the largest permit of one use text in one manzana; two real buildings with the same use lose the smaller.
