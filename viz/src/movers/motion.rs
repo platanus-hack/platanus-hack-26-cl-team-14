@@ -187,9 +187,10 @@ pub(super) fn walk_pose(frame: u8, left: bool) -> WalkPose {
 
 // The cached meshes use the same body dimensions as the standing passenger.
 // Bend the knee between the hip and ankle while the shoe follows its contact arc.
-pub(super) fn pedestrian(frame: Option<u8>) -> Mesh {
-    let coat = [36, 134, 171];
-    let skin = [248, 189, 137];
+pub(super) fn pedestrian(frame: Option<u8>, ink: bool) -> Mesh {
+    let coat = if ink { [255; 3] } else { [36, 134, 171] };
+    let skin = if ink { [255; 3] } else { [248, 189, 137] };
+    let trousers = if ink { [255; 3] } else { GLASS };
     let side_pose = |left| {
         frame.map(|f| walk_pose(f, left)).unwrap_or(WalkPose {
             foot_x: 0.0,
@@ -223,12 +224,12 @@ pub(super) fn pedestrian(frame: Option<u8>) -> Mesh {
         let shoulder = Vec3::new(0., 1.42 + lift, 0.22 * side);
         let wrist = shoulder + Vec3::new(step.shoulder.sin(), -step.shoulder.cos(), 0.) * 0.59;
         parts.push(limb(shoulder, wrist, 0.065, coat));
-        parts.push(limb(hip, knee, 0.09, GLASS));
-        parts.push(limb(knee, ankle, 0.078, GLASS));
+        parts.push(limb(hip, knee, 0.09, trousers));
+        parts.push(limb(knee, ankle, 0.078, trousers));
         parts.push(block(
             [0.23, 0.10, 0.13],
             [ankle.x + 0.045, ankle.y - 0.045, ankle.z],
-            GLASS,
+            trousers,
         ));
     }
     shape(parts)
