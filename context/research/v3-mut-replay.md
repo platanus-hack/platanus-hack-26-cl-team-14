@@ -1,15 +1,20 @@
 # Replay MUT → Monumental
 
-Borrador para el primer caso de V3. Propongo un máximo de 55 segundos para el caso y la comparación final. El pitch completo dura hasta tres minutos. [Dirección de V3](../verticals.md)
+Borrador para el primer caso de V3. La propuesta reserva 50 segundos dentro del pitch de tres minutos. Faltan la aprobación humana y el tiempo medido en el visor. [Dirección de V3](../verticals.md) · [Propuesta de pitch #354](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/354)
 
 > ¿Qué cambia si Colo-Colo juega donde está el MUT y movemos los empleos modelados de esa manzana a Macul?
 
 | Tiempo | Qué se ve | Qué se dice |
 | --- | --- | --- |
-| 0:00–0:10 | El presentador escribe la pregunta en la terminal del mapa. Aparecen los supuestos. | «Comparamos el mismo partido en dos lugares, con 39.222 asistentes». |
-| 0:10–0:22 | La terminal se oculta. La cámara muestra el estadio actual en Macul y luego el MUT junto a Tobalaba. | «Este es el partido en el Monumental. Ahora lo llevamos a Tobalaba». |
-| 0:22–0:40 | La cámara muestra la escena B con el mismo encuadre de Tobalaba. Vuelve a Macul con el mismo encuadre de la escena A. | «Intercambiamos los empleos modelados de estas dos manzanas. La hinchada conserva sus comunas de origen». |
-| 0:40–0:55 | Dos barras apiladas comparan transporte público, auto y otros modos. La terminal vuelve al terminar el replay. | Lee una diferencia del gráfico. Di «asistentes estimados por el modelo». |
+| 0:00–0:08 | El presentador escribe la pregunta en la terminal del mapa. Aparecen los supuestos. | «Comparamos el mismo partido en dos lugares, con 39.222 asistentes». |
+| 0:08–0:20 | La terminal se oculta. La escena A muestra el estadio actual en Macul y luego el MUT junto a Tobalaba. | «Este es el partido en el Monumental. Ahora lo llevamos a Tobalaba». |
+| 0:20–0:38 | Cuando A ya muestra el MUT, el presentador pasa a B. La cámara repite los encuadres de Tobalaba y Macul. | «Intercambiamos los empleos modelados de estas dos manzanas. La hinchada conserva sus comunas de origen». |
+| 0:38–0:44 | Dos barras apiladas comparan los modos de viaje de la hinchada: transporte público, auto y otros. | «En el MUT, el modelo estima unos 4.102 asistentes más en transporte público». |
+| 0:44–0:50 | Un gráfico aparte muestra el cambio de entradas al Metro en un día laboral en Tobalaba, Pedrero y Mirador. Al terminar, vuelve la terminal. | «En un día laboral, el modelo estima menos entradas en Tobalaba y más en Pedrero y Mirador». |
+
+[Solicitud provisional de planos y tiempos](https://discord.com/channels/1573514576400752640/1573809606277337280/1573817049661309078)
+
+El JSON actual de los planos solo cubre el gráfico de la hinchada. Falta añadir un paso en el visor nativo para mostrar el gráfico del Metro con los mismos resultados A y B de la caché. Este paso no requiere otro cálculo de simulación.
 
 ## Preparar las dos escenas
 
@@ -27,11 +32,12 @@ Borrador para el primer caso de V3. Propongo un máximo de 55 segundos para el c
 
 ## Qué puede mostrar el gráfico
 
-- Usa `events[0].fan_base.by_mode` para comparar el **viaje al partido**. La prueba de #323 comparó el evento en ambos recintos y estimó 23.688 → 27.790 asistentes en transporte público. B en esa prueba cambió solo el recinto. Vuelve a calcular el gráfico con el intercambio completo antes de fijar las cifras. [Prueba de chat de Teodoro](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/323#issuecomment-7068321956) · [Cálculo por origen](../../engine/src/fans.rs)
-- Si se necesita una cifra de día laboral, solicita `TOBALABA`, `PEDRERO` y `MIRADOR` en `stations` en ambas llamadas. Lee `asked_stations[].scenario_daily` como entradas al Metro en un día laboral. Muestra cada estación por separado. El motor no identifica un trasvase entre estaciones ni incluye los regresos del partido en esas cifras. [Contrato MCP](../../tools/santiago-mcp/server.mjs)
+- Usa `events[0].fan_base.by_mode` para el **viaje al partido**. La repetición aislada del intercambio completo en `eee8cf8b60c35bba7810771d25c12cae9ce84370` mantuvo 39.222 asistentes y las mismas proporciones de origen en 52 comunas. A → B estimó transporte público 23.687,5 → 27.789,9, auto 12.758,9 → 9.397,8 y otros modos 2.775,6 → 2.034,3. [Corrida A/B](https://discord.com/channels/1573514576400752640/1573809606277337280/1573818751726387290) · [Cálculo por origen](../../engine/src/fans.rs)
+- Para una comparación de **entradas al Metro en un día laboral**, usa la diferencia B menos A. Lee `asked_stations[].scenario_daily` en la respuesta del chat o `result.stations[].scenario_daily` en la caché. La misma corrida estimó Tobalaba −2.584,3 (`TB-TOB`), Pedrero +2.278,2 (`PE`) y Mirador +1.843,5 (`MA`). Estas cifras corresponden al día laboral. El motor no identifica un trasvase entre estaciones ni incluye los regresos del partido. [Corrida A/B](https://discord.com/channels/1573514576400752640/1573809606277337280/1573818751726387290) · [Contrato MCP](../../tools/santiago-mcp/server.mjs)
 
 ## Evidencia antes de grabar
 
+- Los nuevos archivos de caché coincidieron con el paquete inicial salvo en `created_at` y `elapsed_ms`. La publicación de A y B registró dos llamadas al relay y cero al cálculo de simulación. Quedan pendientes la integración de los planos y los gráficos, la comprobación en proyector y la prueba de tiempo real. [Corrida A/B](https://discord.com/channels/1573514576400752640/1573809606277337280/1573818751726387290) · [#370](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/370) · [#377](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/377)
 - Eugenio comprobó los cambios de altura en ambas manzanas en el visor real. Ese ensayo usó el perfil anterior. Confirma que la nueva toma muestre las dos revisiones del cálculo con hinchada fija. Confirma también qué puede mostrar el visor del cambio de recinto y del público. [Ensayo de Eugenio](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/265#issuecomment-7068380726)
-- Guarda los dos resultados, los supuestos, la revisión del motor y los planos con sus tiempos. Mantén activo el servicio elegido para entregar la caché al visor. Abre la toma desde la caché y comprueba que el registro muestre cero llamadas al cálculo de simulación durante la reproducción. Confirma que el visor y el gráfico coincidan con las escenas y cifras de la corrida guardada. Mide el tiempo de la toma y revisa un fotograma de cada plano a tamaño de proyector.
+- Guarda los dos resultados, los supuestos, la revisión del motor y los planos con sus tiempos. Mantén activo el servicio elegido para entregar la caché al visor. Abre la toma desde la caché y comprueba que el registro muestre cero llamadas al cálculo de simulación durante la reproducción. Confirma que las escenas del visor y las cifras de ambos gráficos coincidan con la corrida guardada. Mide el tiempo de la toma y revisa un fotograma de cada plano a tamaño de proyector.
 - La separación entre cálculo y reproducción ya se usa en simulación de transporte. SUMO genera gráficos desde la salida de trayectorias, y el lector OTFVis de MATSim abre una secuencia de estados guardados por tiempo. Para este caso basta que la caché entregue las escenas y cifras que usa el guion. [SUMO](https://sumo.dlr.de/docs/Tools/Visualization.html) · [Salida FCD](https://eclipse.dev/sumo/docs/Simulation/Output/FCDOutput.html) · [Escritor OTFVis](https://github.com/matsim-org/matsim-libs/blob/main/contribs/otfvis/src/main/java/org/matsim/vis/otfvis/OTFFileWriter.java) · [Lector OTFVis](https://github.com/matsim-org/matsim-libs/blob/main/contribs/otfvis/src/main/java/org/matsim/vis/otfvis/data/fileio/OTFFileReader.java)

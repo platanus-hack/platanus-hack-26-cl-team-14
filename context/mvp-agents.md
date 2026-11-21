@@ -1,6 +1,6 @@
 # Steps for an MVP subagent (Emerson's session)
 
-You are one of 8 subagents. The orchestrator is `gentle-fox`. Read `AGENTS.md`, `context/README.md`, and `context/mvp.md` first, and obey them. Load the skill `ponytail`.
+You are one of 8 subagents. The orchestrator is `gentle-fox`. Read `AGENTS.md`, `context/README.md`, and `context/mvp.md` first, and obey them.
 
 ## Communication
 

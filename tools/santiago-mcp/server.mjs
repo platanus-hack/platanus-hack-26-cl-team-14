@@ -76,7 +76,7 @@ const featureChanges = [
   },
   {
     kind: 'line',
-    description: 'Edit one directed bus, Metro or boat service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. A two-way service is two adds. Stops outside the catalog go in new_stops. Each added line returns line_riders: workers near both ends, trips to work by stop and half hour, and the mode they leave. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing.',
+    description: 'Edit one directed bus, Metro or boat service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. A two-way service is two adds. Stops outside the catalog go in new_stops. Each added line returns line_riders: workers near both ends, trips to work by stop and half hour, and the mode they leave. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing. Target {type:"mode",id:"metro"} with op remove removes every Metro pattern. Also close the stations with kind station. Set temporary true to change mode choice for one day.',
     target: idTarget, geometries: ['LineString'],
     properties: lineProperties,
   },
@@ -86,6 +86,7 @@ const featureChanges = [
   then: { required: ['properties'], properties: { properties: { minProperties: 1 } } },
   properties: {
     kind: { enum: [kind] }, target, op: { enum: ['add', 'set', 'move', 'remove'] },
+    ...(kind === 'line' && { temporary: { type: 'boolean', description: 'True: the change lasts one day, so it moves mode choice only.' } }),
     properties: { type: 'object', properties, additionalProperties: false },
     geometry: { oneOf: geometries.map(type => ({
       type: 'object', required: ['type', 'coordinates'],
@@ -163,9 +164,42 @@ const createReplayTool = {
       stations: tool.inputSchema.properties.stations,
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
       analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
+      cues: {
+        type: 'array', description: 'Camera moves during the replay, after the first scene. Example: whole city, then zoom to a station.',
+        items: { type: 'object', required: ['after_seconds', 'longitude', 'latitude', 'distance'], properties: {
+          after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts.' },
+          longitude: { type: 'number' }, latitude: { type: 'number' },
+          distance: { type: 'number', exclusiveMinimum: 0, description: 'Camera distance in meters: 360 street, 4000 comuna, 18000 whole city.' },
+        } },
+      },
+      chart: {
+        type: 'object', required: ['title', 'unit', 'bars'],
+        description: 'The final chart of the replay, drawn in the city view as stacked bars. Each bar reads one field of a saved result: a number, or an object of numbers (one stack segment per key). Example: {"title":"Entradas al Metro","unit":"entradas por día hábil","bars":[{"label":"Antes","field":"summary.boardings_base"},{"label":"Después","field":"summary.boardings_scenario"}]}.',
+        properties: {
+          title: { type: 'string' }, unit: { type: 'string' },
+          keys: { type: 'object', additionalProperties: { type: 'string' }, description: 'Screen label of each value key, for example {"public":"Transporte público","car":"Auto","other":"Otro"}.' },
+          show_after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts before the chart appears, so the map plays first. Default 0.' },
+          bars: { type: 'array', minItems: 1, items: { type: 'object', required: ['label', 'field'], properties: {
+            label: { type: 'string' },
+            field: { type: 'string', description: 'Dot path in the saved result, for example events.0.fan_base.by_mode.' },
+            replay: { type: 'string', description: 'Read the field from this other cached replay, for example the baseline of an A/B. Default: this replay.' },
+          } } },
+        },
+      },
     },
   },
 };
+
+// The chart reads saved results only, so the numbers on screen are the cached engine values.
+function chartValues({ id, chart: { title, unit, bars, keys = {}, show_after_seconds = 0 } }) {
+  return { title, unit, show_after_seconds, bars: bars.map(({ label, field, replay = id }) => {
+    const value = field.split('.').reduce((v, key) => v[key], readReplay(replay).result);
+    const values = typeof value === 'number' ? { total: value } : value;
+    // The viewer draws only numbers: stop here, before publishing, if the field is wrong.
+    if (!values || !Object.values(values).length || Object.values(values).some(v => typeof v !== 'number')) throw new Error(`Chart field ${field} in replay ${replay} is not a number or an object of numbers.`);
+    return { label, values: Object.fromEntries(Object.entries(values).map(([k, v]) => [keys[k] ?? k, v])) };
+  }) };
+}
 
 function catalogEntry(rows, query) {
   const matches = rows.filter(row => plain(row.name) === plain(query));
@@ -294,6 +328,8 @@ async function dispatch({ method, params }) {
     else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
+      if (meta.cues) result.scene.cues = meta.cues;
+      if (meta.chart) result.chart = chartValues(meta);
       await engineJSON('/api/replay', result);
       text = { replay: meta, result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
     } else if (params.name === createReplayTool.name) {

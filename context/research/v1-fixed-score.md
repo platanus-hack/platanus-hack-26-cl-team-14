@@ -1,6 +1,6 @@
-# V1 fixed score
+# V1 Metro baseline check
 
-Use the frozen Metro score to compare model layers that predict April 2026 station boardings. It measures baseline agreement for the three replay stories. Each intervention needs evidence for its own effect.
+Use the frozen April 2026 Metro score to check baseline station predictions. The project uses the [V4 real-event evaluation](../verticals.md#v4--evals) as its fixed score for new layers. Run that evaluation when V4 publishes its command and data. The April Metro score can identify baseline changes while V4 develops the evaluation.
 
 ## Observed target
 
