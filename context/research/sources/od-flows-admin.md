@@ -19,7 +19,7 @@ Checks were made on 2026-11-21.
 | SIES 2026, joined to PAES on `mrun` | `CODIGO_COMUNA_DOMICILIO` | `comuna_sede` | comuna | comuna |
 | CASEN 2024 | `comuna` (second base) | `e9com_esc`, `e9com_sup`, `e9rbd_esc` | comuna | comuna, or point by RBD join |
 | INE Conmutación CPV2024 | `o` | `d` | comuna | comuna |
-| Censo 2002 (Redatam; employed filter `SLABORAL`, export unverified) | habitual residence `LUGVIV`/`VIVEHAB` | `COMTRAES` | comuna | comuna |
+| Censo 2002 (Redatam; employed `SLABORAL` 1/2/4, raw export verified; not harmonized) | habitual residence `VIVEHAB` | raw `COMTRAES` | comuna | raw destination code |
 
 No pair: DEIS hospital discharges, DEIS emergency visits, DEIS births, DEIS deaths,
 SII worker counts, FONASA, Servel, Censo 2017.
@@ -248,26 +248,30 @@ SII worker counts, FONASA, Servel, Censo 2017.
 
 ### Censo 2002, person dictionary and online cross-tab (Redatam)
 - Link: https://redatam-ine.ine.cl/redbin/RpWebStats.exe/Dictionary?BASE=CENSO_2002&ITEM=DICPOB&lang=esp
+  and [public CmdSet](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CmdSet?BASE=CENSO_2002&ITEM=PROGRED&lang=ESP).
 - Contents: the person dictionary lists `LUGTRAES` "Cual es la comuna de estudio o
   trabajo" (`P33A`) and `COMTRAES` "Código de comuna de estudio o trabajo" (`P33B`),
   with `LUGVIV`/`VIVEHAB` for habitual residence and `SLABORAL` for employment.
   Use habitual residence and an employed-person filter to construct a commuting
   cross-tab. Enumeration geography is not necessarily home: 2002 counted people
-  where they slept the previous night. A full cross-tab export remains unverified.
-- Granularity: person inside the tool; output at comuna pair. One snapshot.
+  where they slept the previous night. The full raw specified-cohort cross-tab is now retrieved.
+- Granularity: habitual-home comuna × raw workplace code; aggregate output only. One snapshot.
 - Year: 2002.
-- Access: online cross-tab only. No microdata download found at INE.
-- Check: UNVERIFIED for counts. 2026-11-21, HTTP 200, the person dictionary was read and
-  it lists `COMTRAES`; no cross-tab was run in this session. The 2002 numbers that we
-  already hold come from the INE visualizer above.
+- Access: public aggregate query; no person records downloaded. [Raw counts, query and manifest](../../../data/validation/census_2002/README.md).
+- Check: VERIFIED-RAW 2026-11-21, HTTP 200. 52 habitual RM origins × 403 raw destination
+  codes, 20,956 dense cells and 2,242,438 employed people. Independent raw review matched
+  every CSV cell, row/column totals and all 144 published 2002 viewer flows.
 - Role: TARGET.
 - Limits: 24 years old, before Metro Lines 4, 4A, 3 and 6. INE's employed-person filter
   assumes working students prioritized work. Workplace nonresponse differs: 8.4% in
   2002 versus 0.06% in 2024; the latter's multiple-workplace category is excluded from
   matrix-derived measures. Harmonize these definitions before comparison. See the
   [INE methodology, §§3.3–3.6](https://storage.googleapis.com/bktdescargascenso2024/Conmutacion_Laboral_cpv2024.pdf).
-- Use in the simulation: a candidate earlier state after full cross-tab retrieval and
-  universe harmonization; the selected viewer rows alone do not validate a full matrix.
+  Raw code `99999` contains 202,489 workers; its exact semantics remain unverified.
+  Foreign/unusual-code classification and 2024 harmonization remain pending; domestic
+  external destinations are retained. Raw review is not benchmark approval.
+- Use in the simulation: a candidate earlier state after destination classification and
+  universe harmonization; the current artifact is not an approved evaluation target.
 
 ---
 
