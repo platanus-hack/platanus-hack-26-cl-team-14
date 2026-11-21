@@ -9,10 +9,11 @@ type Color4 = [f32; 4];
 type GroundTiles = BTreeMap<(i32, i32), Surface>;
 
 // Half-widths are cartographic line widths in metres.
-const GRASS: Color4 = [0.23, 0.38, 0.18, 1.0];
-const WATER: Color4 = [0.16, 0.41, 0.44, 1.0];
-const STONE: Color4 = [0.62, 0.59, 0.48, 1.0];
-const ROOF: Color4 = [0.33, 0.40, 0.37, 1.0];
+// Ink on paper: blue-violet ink, light paper, strong blue water (Emerson, V2 thread).
+const GRASS: Color4 = [0.485, 0.651, 0.624, 1.];
+const WATER: Color4 = [0.047, 0.159, 0.672, 1.];
+const STONE: Color4 = [0.584, 0.558, 0.791, 1.];
+const ROOF: Color4 = [0.270, 0.238, 0.584, 1.];
 
 fn coordinates(line: &Value) -> Vec<Vec3> {
     line.as_array()
@@ -102,15 +103,15 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     for feature in data["features"].as_array().unwrap() {
         let kind = feature["properties"]["kind"].as_str().unwrap();
         let color = match kind {
-            "track" => [0.38, 0.13, 0.08, 1.0],
-            "pitch" => [0.18, 0.38, 0.21, 1.0],
-            "surface_parking" => [0.27, 0.28, 0.28, 1.0],
-            "parking_unspecified" => [0.32, 0.32, 0.31, 1.0],
-            "brownfield" => [0.32, 0.25, 0.17, 1.0],
-            "greenfield" => [0.35, 0.37, 0.21, 1.0],
-            "wood" => [0.12, 0.22, 0.105, 1.0],
-            "scrub" | "heath" | "nature_reserve" => [0.37, 0.40, 0.20, 1.0],
-            "grass" | "meadow" | "grassland" => [0.34, 0.43, 0.22, 1.0],
+            "track" => [0.474, 0.323, 0.275, 1.],
+            "pitch" => [0.376, 0.610, 0.462, 1.],
+            "surface_parking" => [0.434, 0.423, 0.631, 1.],
+            "parking_unspecified" => [0.497, 0.485, 0.687, 1.],
+            "brownfield" => [0.651, 0.624, 0.768, 1.],
+            "greenfield" => [0.558, 0.687, 0.644, 1.],
+            "wood" => [0.275, 0.434, 0.402, 1.],
+            "scrub" | "heath" | "nature_reserve" => [0.392, 0.539, 0.515, 1.],
+            "grass" | "meadow" | "grassland" => [0.445, 0.617, 0.578, 1.],
             _ => GRASS,
         };
         let rings = open_rings(&feature["geometry"]["coordinates"]);
@@ -166,7 +167,7 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
                 &points,
                 half_width,
                 crate::city::road_surface_lift(props["layer"].as_i64().unwrap() as i32) + 0.08,
-                [0.38, 0.38, 0.36, 1.0],
+                [0.235, 0.223, 0.462, 1.],
             );
         }
     }
@@ -243,12 +244,12 @@ fn mapped_trees(tiles: &mut GroundTiles, path: &Path) {
         .read_to_end(&mut bytes)
         .unwrap();
     const LEAVES: [Color4; 4] = [
-        [0.16, 0.31, 0.10, 1.],
-        [0.10, 0.24, 0.085, 1.],
-        [0.24, 0.36, 0.12, 1.],
-        [0.13, 0.28, 0.15, 1.],
+        [0.144, 0.122, 0.456, 1.],
+        [0.091, 0.076, 0.342, 1.],
+        [0.205, 0.184, 0.552, 1.],
+        [0.068, 0.078, 0.323, 1.],
     ];
-    let bark = [0.19, 0.13, 0.08, 1.];
+    let bark = [0.045, 0.037, 0.162, 1.];
     for pair in bytes.chunks_exact(4) {
         let x = u16::from_le_bytes([pair[0], pair[1]]) as u32;
         let y = u16::from_le_bytes([pair[2], pair[3]]) as u32;
