@@ -5,7 +5,8 @@ use crate::choice::Choice;
 use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripGroup, TripPlan, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::{StationAccess, planned::PlannedStations};
-use santiago_scenario_core::buildings::Buildings;
+use santiago_scenario_core::{buildings::Buildings, editable_transit::LineCatalog, roads::RoadGraph};
+use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap};
@@ -52,6 +53,8 @@ pub struct Scenario {
     choice: Choice,
     car_ownership: Option<CarOwnership>,
     buildings: Option<Buildings>,
+    roads: RoadGraph,
+    lines: OnceLock<Option<LineCatalog>>,
     pop: Population,
     /// Public-transport share of the commuters of each home comuna (mode 2 of mode_share.csv), as the station fit (L2).
     share: Vec<f64>,
@@ -118,7 +121,7 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
+        let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
         sc.base = sc.state(&sc.pop, &Network::new(&sc.access));
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -191,6 +194,13 @@ impl Scenario {
         let (mut applied, mut not_modeled) = (vec![], vec![]);
         let mut network = Network::new(&self.access);
         let mut building_edits = self.buildings.as_ref().map(Buildings::edits);
+        let mut road_edits = self.roads.edits();
+        let mut line_edits = if changes.iter().any(|v| v["kind"] == "line") {
+            self.lines.get_or_init(|| self.data_dir.join("editable_transit.json").is_file()
+                .then(|| LineCatalog::load(&self.data_dir))).as_ref().map(LineCatalog::edits)
+        } else { None };
+        // For an outage keep the last finite graph time. None means this pair had no graph baseline.
+        let mut transit_reference: HashMap<usize, Option<f64>> = HashMap::new();
         let mut city_edits = Vec::new();
         let mut car_shares = BTreeMap::new();
         let mut requests = vec![];
@@ -199,6 +209,47 @@ impl Scenario {
         let mut pending: Vec<_> = changes.iter().rev().cloned().map(|change| (change, false)).collect();
         while let Some((change, stock_child)) = pending.pop() {
             let raw = &change;
+            if raw["kind"] == "road" || raw["kind"] == "line" {
+                let is_line = raw["kind"] == "line";
+                let edit = if is_line {
+                    line_edits.as_mut().ok_or_else(|| "Line edits need editable_transit.json.".to_owned())
+                        .and_then(|edits| edits.apply(raw))
+                } else { road_edits.apply(raw) };
+                let mut note = raw.clone();
+                match edit {
+                    Ok(mut edit) => {
+                        if is_line {
+                            for pair in edit["effects"]["pairs"].as_array_mut().unwrap() {
+                                let index = self.ix(pair["origin_cut"].as_str().unwrap()) * n
+                                    + self.ix(pair["destination_cut"].as_str().unwrap());
+                                let reference = transit_reference.entry(index).or_insert(pair["before_minutes"].as_f64());
+                                match (*reference, pair["after_minutes"].as_f64()) {
+                                    (Some(last), Some(next)) => {
+                                        let before = minutes[index].max(1.0);
+                                        minutes[index] += next - last;
+                                        pair["choice_minutes_delta"] = json!(minutes[index].max(1.0) - before);
+                                        *reference = Some(next);
+                                    }
+                                    _ => {
+                                        pair["choice_minutes_delta"] = Value::Null;
+                                        pair["choice_effect_unavailable"] = json!(if reference.is_none() {
+                                            "No finite baseline transit path for this comuna pair."
+                                        } else { "The edited transit graph has no path for this comuna pair." });
+                                    }
+                                }
+                            }
+                        }
+                        note["understood"] = json!({"id":edit["id"],"city_edit_index":city_edits.len()});
+                        applied.push(note);
+                        city_edits.push(edit);
+                    }
+                    Err(reason) => {
+                        note["reason"] = json!(reason);
+                        not_modeled.push(note);
+                    }
+                }
+                continue;
+            }
             if raw["kind"] == "building" {
                 let mut note = raw.clone();
                 let edit = building_edits.as_mut()
@@ -415,8 +466,8 @@ impl Scenario {
                         Target::Comuna { id } => { let q = self.ix(id); (0..n).filter(|&o| o != q).flat_map(|o| [o * n + q, q * n + o]).collect() }
                         _ => unreachable!(),
                     };
-                    let before: f64 = cells.iter().map(|&i| minutes[i]).sum();
-                    for &i in &cells { minutes[i] = op(minutes[i]).max(1.0); } // a trip is 1 minute or more
+                    let before: f64 = cells.iter().map(|&i| if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).sum();
+                    for &i in &cells { minutes[i] = op(if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).max(1.0); } // a trip is 1 minute or more
                     let after: f64 = cells.iter().map(|&i| minutes[i]).sum();
                     note["understood"] = json!({ "pairs": cells.len(), "mean_minutes_before": r1(before / cells.len() as f64), "mean_minutes_after": r1(after / cells.len() as f64) });
                 }
@@ -424,6 +475,9 @@ impl Scenario {
             if !stock_child { applied.push(note); }
         }
 
+        for index in transit_reference.keys() {
+            minutes[*index] = minutes[*index].max(1.0);
+        }
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
         let mut car_choice = None;
         if let Some(cars) = &self.car_ownership {
