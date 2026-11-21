@@ -2,23 +2,21 @@
 
 El equipo humano decide el guion en [context/pitch.md](../pitch.md). La [propuesta de tres minutos](pitch-proposal.md) muestra una ciudad que responde. Primero el presentador muestra este ejemplo:
 
-> ¿Cómo cambiarían los viajes al trabajo en Santiago si Estación Central tuviera la mitad más de viviendas y Las Condes la mitad más de empleos?
+> ¿Cómo cambiarían los viajes al trabajo en Santiago si Estación Central tuviera la mitad más de residentes y Las Condes la mitad más de empleos?
 
 El ejemplo cambia los viajes en una comuna que el presentador no nombró. Luego alguien del público hace una pregunta que el equipo no preparó. El presentador la escribe en el chat. Ambas ejecuciones usan la misma herramienta.
 
 ## Qué funciona en main
 
-En [74b9fa9](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/74b9fa9a04dc390590a053109f0de295464a2583), el motor en Rust aplica cambios de viviendas y empleos por comuna en una sola ejecución. Usa los flujos habituales de casa al trabajo del [Censo](../../data/mvp/work_od.csv).
+En [98ae956](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/98ae956d5d4e047c0ceaa5c40b6263d2d49bd037), el motor en Rust simula cambios de residentes, empleos y tiempos de viaje. También puede cerrar o reabrir estaciones existentes. Emplea una población sintética que conserva los totales por comuna del Censo. Los trabajadores vuelven a elegir destino y modo ante un cambio. [Motor](../../engine/src/scenario.rs), [datos](../../data/mvp/README.md).
 
-La herramienta local `simulate_city` recibe los cambios, devuelve los totales y los cambios por comuna al agente y publica el resultado para la vista de ciudad. El mapa de comunas recibe también los cambios de flujos. La vista detallada que abre por defecto usa un fragmento de Tobalaba. [Herramienta](../../tools/santiago-mcp/server.mjs), [modelo](../../engine/src/city.rs), [vista](../../web/index.html).
+Comprobamos que `simulate_city` aplica los dos cambios del ejemplo. El agente y la vista reciben el mismo identificador y las mismas cifras del resumen. La vista recibe además los grupos de viajes para dibujarlos. En esta versión, la vista de main sigue siendo la anterior. Falta probar juntos el chat y la vista de Santiago sin controles. [Cambio del motor](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/126).
 
-El servidor ya puede enviar el resultado por una conexión continua. El navegador de esta revisión todavía consulta por cada actualización. La proyección de subidas al Metro ya corre como cálculo aparte desde la terminal. El equipo también incorporó datos de llegadas al Metro por propósito de viaje. [Resultados en vivo](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/108), [proyección](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/114), [datos](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/115).
+En esa revisión, el motor declara las preguntas que requieren una estación nueva, una línea nueva o un evento. Tampoco estima capacidad ni congestión. Conserva una dependencia del conjunto de datos original: si cambia el identificador de la manzana del MUT, el servidor no parte.
 
-El repositorio ya contiene una población sintética que conserva los totales por comuna del Censo. También contiene reglas para elegir destino y modo. El equipo también incorporó calles, rutas y edificios para la nueva vista. La consulta del demo aún usa el motor de comunas. Falta conectar esas piezas, incorporar decisiones de horario y comprobar el efecto de cambios reales. [Población](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/109), [reglas de elección](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/112), [datos de la ciudad](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/128).
+## Cómo probar el motor
 
-## Cómo verlo
-
-En un clon del repositorio, usa la revisión indicada y ejecuta `./run.sh`. Requiere Rust y Python. Abre `http://127.0.0.1:5173/web/?v=s`. Abre Codex o Claude desde ese clon con Node instalado y usa la pregunta de arriba. La [guía del repositorio](../../README.md) explica cómo cargar la herramienta local.
+En un clon del repositorio, usa la revisión indicada y ejecuta `./run.sh`. Requiere Rust y Python. Abre Codex o Claude desde ese clon con Node instalado y haz la pregunta de arriba. La [guía del repositorio](../../README.md) explica cómo cargar la herramienta local.
 
 ### Antes de presentar
 
@@ -28,4 +26,4 @@ En Codex CLI, quien presenta puede autorizar solo esta herramienta con `-c 'mcp_
 
 El ensayo fijó y verificó la revisión [fdd9cff](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/fdd9cfffb1dda57d24f73dfe9f41a4273617a5e8). Tiene Tobalaba, Santiago, Puntaje y Evento. Los casos del MUT, la redistribución por comuna y el evento se calculan por separado en el mismo servicio. En Evento, «patrón» significa el exceso positivo de subidas de Parque O’Higgins por sobre su línea. [Verificación](https://discord.com/channels/1573514576400752640/1573579088684253235/1573677203466494159), [guion de esa revisión](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/fdd9cfffb1dda57d24f73dfe9f41a4273617a5e8/context/research/pitch-proposal.md).
 
-En la revisión anterior `78a85a0`, una llamada directa a la herramienta y el mapa en Chrome mostraron el mismo cambio en la comuna de Santiago. El [guion](pitch-proposal.md#qué-sostiene-la-historia) registra el resultado. El clic para seleccionar otra comuna falló durante la revisión. El guion pide una vista de ciudad que se actualice por sí sola. Esa vista de toda la ciudad aún falta en la revisión indicada. Codex CLI contestó la pregunta libre en una prueba aislada con el permiso específico de la herramienta. Falta ensayarla con el cliente de la presentación, el mapa abierto y el cronómetro.
+Codex CLI contestó una pregunta libre sobre el motor anterior en una prueba aislada con el permiso específico de la herramienta. Falta ensayar una pregunta inédita con el motor actual, la vista sin controles y el cronómetro. La ficha de votación apunta al repositorio. Falta la URL pública del proyecto funcionando.
