@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use passengers::{DAY, Sailing, Trip};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use vessel::Line;
 
 const WALK_SPEED: f32 = 1.33;
@@ -41,11 +41,18 @@ struct Direction {
 }
 
 #[derive(Resource, Default)]
-struct Service(Vec<Direction>);
+struct Service {
+    directions: Vec<Direction>,
+    docks: HashMap<[i32; 4], access::AccessPath>,
+}
+
+fn dock_key(stop: &vessel::Stop) -> [i32; 4] {
+    [stop.location.x, stop.location.y, stop.pier.x, stop.pier.z].map(|x| x.round() as i32)
+}
 
 #[derive(Resource)]
 struct Symbols {
-    access: HashMap<String, access::AccessPath>,
+    access: access::AccessMap,
     boat: Handle<Mesh>,
     person: Handle<Mesh>,
     plank: Handle<Mesh>,
@@ -72,7 +79,7 @@ fn setup(
         ..default()
     };
     commands.insert_resource(Symbols {
-        access: access::load(),
+        access: access::AccessMap::load(),
         font: fonts.add(Font::from_bytes(
             include_bytes!("../../assets/barlow/Barlow-Regular.ttf").to_vec(),
         )),
@@ -115,10 +122,10 @@ fn refresh(
     for entity in &old {
         commands.entity(entity).despawn();
     }
-    service.0.clear();
-    let mut docks = HashSet::new();
+    service.directions.clear();
+    service.docks.clear();
     for line in Line::from_result(&scenario.0) {
-        let ix = service.0.len();
+        let ix = service.directions.len();
         let demand = scenario.0["line_riders"]
             .as_array()
             .into_iter()
@@ -126,12 +133,13 @@ fn refresh(
             .find(|r| r["id"].as_str() == Some(&line.id));
         let runs = passengers::schedule(&line, demand);
         for stop in &line.stops {
-            let Some(path) = symbols.access.get(&stop.id) else {
+            let std::collections::hash_map::Entry::Vacant(slot) =
+                service.docks.entry(dock_key(stop))
+            else {
                 continue;
             };
-            if !docks.insert(stop.id.clone()) {
-                continue;
-            }
+            let (_, heading) = line.sail(stop.arrival);
+            let path = slot.insert(symbols.access.path(stop.location, stop.pier, heading));
             let a = path.gangway_start() + Vec3::Y * 0.85;
             let b = path.at(1.) + Vec3::Y * 0.85;
             let span = b - a;
@@ -168,10 +176,10 @@ fn refresh(
                 ));
             }
         }
-        service.0.push(Direction { line, runs });
+        service.directions.push(Direction { line, runs });
     }
     if service
-        .0
+        .directions
         .iter()
         .any(|d| d.runs.iter().any(|s| !s.trips.is_empty()))
     {
@@ -224,10 +232,10 @@ fn person_pose(
     t: &Trip,
     age: f32,
     deck_rows: usize,
-    paths: &HashMap<String, access::AccessPath>,
+    paths: &HashMap<[i32; 4], access::AccessPath>,
 ) -> Option<Transform> {
-    let from = paths.get(&line.stops[t.on].id);
-    let to = paths.get(&line.stops[t.off].id);
+    let from = paths.get(&dock_key(&line.stops[t.on]));
+    let to = paths.get(&dock_key(&line.stops[t.off]));
     let seat = Vec3::new(
         -1.95 + (t.seat % 4) as f32 * 1.3,
         1.30,
@@ -269,7 +277,6 @@ fn animate(
     clock: Res<CityClock>,
     mode: Res<SubwayView>,
     service: Res<Service>,
-    symbols: Res<Symbols>,
     mut actors: Query<(&Actor, &mut Transform, &mut Visibility)>,
     mut legends: Query<&mut Visibility, (With<FerryLegend>, Without<Actor>)>,
 ) {
@@ -293,21 +300,21 @@ fn animate(
                     continue;
                 }
                 Actor::Boat { line, run } => {
-                    let d = &service.0[line];
+                    let d = &service.directions[line];
                     let age = age(now, d.runs[run].start);
                     (-15. ..d.line.duration + CROSSING)
                         .contains(&age)
                         .then(|| boat_pose(&d.line, age))
                 }
                 Actor::Person { line, run, trip } => {
-                    let d = &service.0[line];
+                    let d = &service.directions[line];
                     let sailing = &d.runs[run];
                     person_pose(
                         &d.line,
                         &sailing.trips[trip],
                         age(now, sailing.start),
                         sailing.deck_rows,
-                        &symbols.access,
+                        &service.docks,
                     )
                 }
             }

@@ -1,10 +1,18 @@
 use crate::city::{Surface, terrain_from_xz, world};
 use bevy::prelude::*;
+use serde::Deserialize;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fs::File,
+    io::BufReader,
+    sync::OnceLock,
+};
 
 pub(super) struct Stop {
     pub id: String,
+    pub location: Vec2,
+    pub pier: Vec3,
     pub arrival: f32,
     pub departure: f32,
     distance: f32,
@@ -28,6 +36,43 @@ fn flat(coord: &Value) -> Option<Vec2> {
     Some(Vec2::new(p.x, p.z))
 }
 
+// Older snapshots may not have resolved line_riders.stops. Read just the stop
+// table of the same GTFS catalog used by the engine in that case.
+fn catalog_stops() -> &'static HashMap<String, CatalogStop> {
+    static STOPS: OnceLock<HashMap<String, CatalogStop>> = OnceLock::new();
+    #[derive(Deserialize)]
+    struct Catalog {
+        stops: HashMap<String, CatalogStop>,
+    }
+    STOPS.get_or_init(|| {
+        let file = File::open("data/mvp/editable_transit.json").unwrap();
+        serde_json::from_reader::<_, Catalog>(BufReader::new(file))
+            .unwrap()
+            .stops
+    })
+}
+
+#[derive(Deserialize)]
+struct CatalogStop {
+    coordinates: [f64; 2],
+}
+
+fn stop_position(id: &str, resolved: &Value, new_stops: &Value) -> Option<Vec2> {
+    if let Some(stop) = resolved
+        .as_array()
+        .and_then(|rows| rows.iter().find(|s| s["id"] == id))
+    {
+        let p = world(stop["longitude"].as_f64()?, stop["latitude"].as_f64()?);
+        return Some(Vec2::new(p.x, p.z));
+    }
+    if let Some(stop) = catalog_stops().get(id) {
+        let [lon, lat] = stop.coordinates;
+        let p = world(lon, lat);
+        return Some(Vec2::new(p.x, p.z));
+    }
+    flat(&new_stops[id])
+}
+
 impl Line {
     pub fn from_result(result: &Value) -> Vec<Self> {
         // A result contains the edits in order. Its final "after" can also remove a line.
@@ -42,11 +87,22 @@ impl Line {
         final_lines
             .into_iter()
             .filter(|(_, feature)| feature["properties"]["mode"] == "boat")
-            .filter_map(|(id, feature)| Self::parse(id, feature))
+            .filter_map(|(id, feature)| {
+                let demand = result["line_riders"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find(|r| r["id"] == id);
+                Self::parse(
+                    id,
+                    feature,
+                    demand.map(|r| &r["stops"]).unwrap_or(&Value::Null),
+                )
+            })
             .collect()
     }
 
-    fn parse(id: &str, feature: &Value) -> Option<Self> {
+    fn parse(id: &str, feature: &Value, resolved: &Value) -> Option<Self> {
         let props = &feature["properties"];
         let headway = props["headway_minutes"].as_f64()? as f32 * 60.;
         let mut points: Vec<_> = feature["geometry"]["coordinates"]
@@ -64,16 +120,26 @@ impl Line {
         }
         let mut stops = Vec::new();
         let mut departure = 0.;
-        let mut first = 0;
+        let mut travelled = 0.0;
         for (i, stop_id) in props["stop_ids"].as_array()?.iter().enumerate() {
             let stop_id = stop_id.as_str()?;
-            let pier = flat(&props["new_stops"][stop_id])?;
-            // The saved centerline includes a vertex at each proposed pier.
-            let closest = (first..points.len()).min_by(|&a, &b| {
-                points[a]
-                    .distance_squared(pier)
-                    .total_cmp(&points[b].distance_squared(pier))
-            })?;
+            let call = stop_position(stop_id, resolved, &props["new_stops"])?;
+            // Ordered stops can share one route segment. Project each onto the
+            // remaining polyline, including the tail of the preceding segment.
+            let (distance, pier, _) = points
+                .windows(2)
+                .enumerate()
+                .filter(|(j, _)| distances[j + 1] >= travelled)
+                .map(|(j, pair)| {
+                    let delta = pair[1] - pair[0];
+                    let len = distances[j + 1] - distances[j];
+                    let start = ((travelled - distances[j]) / len).clamp(0., 1.);
+                    let t = ((call - pair[0]).dot(delta) / delta.length_squared()).clamp(start, 1.);
+                    let pier = pair[0] + delta * t;
+                    (distances[j] + t * len, pier, pier.distance_squared(call))
+                })
+                .min_by(|a, b| a.2.total_cmp(&b.2))?;
+            travelled = distance;
             let mut arrival = departure;
             if i > 0 {
                 arrival += props["segment_minutes"][i - 1].as_f64()? as f32 * 60.;
@@ -83,9 +149,10 @@ impl Line {
                 id: stop_id.to_string(),
                 arrival,
                 departure,
-                distance: distances[closest],
+                distance,
+                location: call,
+                pier: water_point(pier),
             });
-            first = closest + 1;
         }
         let duration = stops.last()?.departure;
         if stops.len() < 2 || duration <= 0. {
