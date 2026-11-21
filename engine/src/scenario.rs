@@ -53,7 +53,6 @@ struct State { od: Vec<f64>, modes: Vec<[u32; 3]>, day: Vec<Vec<f64>> }
 pub struct Scenario {
     data_dir: PathBuf,
     choice: Choice,
-    fans: fans::Fans,
     car_ownership: Option<CarOwnership>,
     buildings: Option<Buildings>,
     roads: RoadGraph,
@@ -124,7 +123,7 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), fans: fans::Fans::load(dir), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
+        let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
         sc.base = sc.state(&sc.pop, &Network::new(&sc.access), &mut []);
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -443,6 +442,12 @@ impl Scenario {
                 }
                 continue;
             }
+            if kind == "event" && raw["audience"] == "colo_colo" && !self.data_dir.join("fan_base.csv").exists() {
+                let mut v = raw.clone();
+                v["reason"] = json!("This data pack has no fan_base.csv, so the Colo-Colo fan base is not available.");
+                not_modeled.push(v);
+                continue;
+            }
             if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event" && raw["target"]["type"] == "point" && raw["op"] == "set",
                 raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| v >= 0.0),
                 raw["assumed_end_half_hour"].as_u64().filter(|&e| e < 48)) {
@@ -450,7 +455,7 @@ impl Scenario {
                 let mut v = raw.clone();
                 v["understood"] = json!({ "comuna": c.names[self.ix(&venue_cut)], "attendance": attendance });
                 applied.push(v);
-                // "audience":"colo_colo" adds the fixed fan base (fans.rs): the same fans at any venue.
+                // "audience":"colo_colo" adds the fixed fan base (fans.rs): the same fans at any venue. fan_base.csv loads only for such an event.
                 requests.push((raw["audience"] == "colo_colo", attendance::AttendanceRequest { longitude, latitude, venue_cut, attendance: attendance as u32, assumed_end_half_hour: end as u8 }));
                 continue;
             }
@@ -579,7 +584,7 @@ impl Scenario {
         let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &minutes, &self.placed);
         self.fine_modes.apply(&mut pop);
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
-            let f = fan_base.then(|| self.fans.project(car_choice.as_ref().unwrap_or(c), &r.venue_cut, f64::from(r.attendance)));
+            let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
             let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
             if let Some(f) = f { e["fan_base"] = f; }
             e
