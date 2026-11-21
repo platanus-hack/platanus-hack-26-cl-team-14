@@ -735,3 +735,11 @@ All bus intervals use `exact_times=0`. Fractional values are expected departures
 These counts describe scheduled service. They do not measure passenger demand or vehicle positions. [GTFS frequencies reference](https://gtfs.org/documentation/schedule/reference/#frequenciestxt)
 
 The file contains 878 Metro path points and 68,715 bus path points across 416 bus routes. Size: 1,635,778 bytes.
+
+## travel_times_blocks.csv
+
+Run `python3 -I tools/pack/travel_times_blocks.py` with the March 2026 GTFS feed and Census 2024 blocks. The table gives modeled public transport minutes at 08:00 on a weekday. It contains 1,602 directed pairs across 41 of the 52 comunas. The builder samples up to six blocks per comuna from blocks with employed residents and a GTFS stop within 1 km. Trips within a comuna use different residential blocks at each end. Worker counts affect both the sample selection and the averaging weights. At 08:00 the other 39 origins reach both Buin and Paine. Buin reaches itself and Paine. Paine reaches only itself.
+
+`origin_access_share` and `destination_access_share` give the fraction of resident workers within 1 km of a stop at each end. The minutes describe travel between the sampled blocks with access. `worker_pairs` counts routed block pairs.
+
+Eleven comunas have no worker block within 1 km of a stop in this feed. These are San José de Maipo, Tiltil, Melipilla, Alhué, Curacaví, María Pinto, San Pedro, Talagante, El Monte, Isla de Maipo, and Peñaflor. They account for 211,532 workers. A time for these comunas requires a separate assumption. The table contains no car times. The reported median ratio to EOD 2012 survey times is about 0.65 and serves only as a descriptive comparison.
