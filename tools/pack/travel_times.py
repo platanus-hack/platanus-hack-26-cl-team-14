@@ -73,11 +73,16 @@ patterns = collections.defaultdict(list)
 for trip, rows in sequence.items():
     rows.sort()
     patterns[tuple(s for _, s, _, _ in rows)].append(trip)
-# Ride seconds on each edge, from the first trip of the pattern.
-pattern_edges = {}
+# Ride and dwell seconds, from the trip of the pattern whose first departure is nearest
+# 08:00. A frequency trip carries offsets, so every trip of the pattern gives the same
+# numbers; a Metro trip has absolute times, so the trip near 08:00 is the right sample.
+pattern_times = {}
 for key, trip_list in patterns.items():
-    rows = sequence[trip_list[0]]
-    pattern_edges[key] = [rows[i + 1][2] - rows[i][3] for i in range(len(rows) - 1)]
+    rows = sequence[min(trip_list, key=lambda trip: abs(sequence[trip][0][3] - DEPART))]
+    pattern_times[key] = (
+        [rows[i + 1][2] - rows[i][3] for i in range(len(rows) - 1)],   # ride, dep -> arr
+        [max(d - a, 0) for _, _, a, d in rows],                        # dwell at the stop
+    )
 
 # One boarding wait for each pattern: headway / 2 at 08:00.
 pattern_wait = {}
@@ -96,15 +101,19 @@ print(f"{len(patterns)} patterns, {len(pattern_wait)} run at 08:00")
 # cost, in-vehicle seconds, boardings, access metres travel with each edge.
 graph = collections.defaultdict(list)
 for index, (key, wait) in enumerate(pattern_wait.items()):
+    ride_times, dwells = pattern_times[key]
     for position, stop in enumerate(key):
         if stop not in coords:
             continue
-        ride = ("r", index, position)
-        graph[("s", stop)].append((ride, wait, 0, 1))
-        graph[ride].append((("s", stop), 0.0, 0, 0))
+        ready, arrived = ("r", index, position), ("a", index, position)
+        # Reach the stop, wait, and be ready to depart.
+        graph[("s", stop)].append((ready, wait, 0, 1))
+        # Arrived on board: leave the vehicle, or stay on and pay this stop's dwell.
+        graph[arrived].append((("s", stop), 0.0, 0, 0))
+        graph[arrived].append((ready, dwells[position], dwells[position], 0))
         if position + 1 < len(key):
-            on_board = max(pattern_edges[key][position], 0)
-            graph[ride].append((("r", index, position + 1), on_board, on_board, 0))
+            on_board = max(ride_times[position], 0)
+            graph[ready].append((("a", index, position + 1), on_board, on_board, 0))
 
 # Walk transfers: a grid keeps this to the near stops only.
 CELL = TRANSFER_M / 111320 * 2
@@ -135,20 +144,25 @@ print(f"{len(graph)} nodes, {sum(len(v) for v in graph.values())} edges "
 communes = list(csv.DictReader(COMMUNES.open(encoding="utf-8")))
 points = {r["cut"]: (float(r["longitude"]), float(r["latitude"])) for r in communes}
 # Stops within ACCESS_M of each comuna point.
-reachable, covered = {}, {}
+reachable, covered, nearest = {}, {}, {}
 for cut, (lon, lat) in points.items():
     near = sorted(((stop, metres(lon, lat, *coords[stop])) for stop in coords),
                   key=lambda x: x[1])
-    inside = [(s, d) for s, d in near if d <= ACCESS_M]
-    reachable[cut] = inside or near[:1]
-    covered[cut] = bool(inside)
+    reachable[cut] = [(s, d) for s, d in near if d <= ACCESS_M]
+    covered[cut] = bool(reachable[cut])
+    nearest[cut] = near[0][1]
 outside = sorted(c for c in covered if not covered[c])
+served = [c for c in covered if covered[c]]
 print("stops within 1 km of a comuna point:",
-      min(len(v) for v in reachable.values()), "to", max(len(v) for v in reachable.values()))
-print(f"{len(outside)} comuna points have NO stop within {ACCESS_M:.0f} m: {outside}")
+      min(len(reachable[c]) for c in served), "to", max(len(reachable[c]) for c in served))
+print(f"{len(outside)} comuna points have NO stop within {ACCESS_M:.0f} m, so they get no "
+      f"row: {[(c, round(nearest[c] / 1000, 1)) for c in outside]}")
+print(f"pairs left out for that reason: {52 * 51 - len(served) * (len(served) - 1)}")
 
 rows = []
 for origin in sorted(points):
+    if not covered[origin]:
+        continue
     best = {}
     queue = []
     order = 0
@@ -166,7 +180,7 @@ for origin in sorted(points):
                 heapq.heappush(queue, (cost + edge, order, on_board + vehicle,
                                        boardings + board, access, target))
     for destination in sorted(points):
-        if destination == origin:
+        if destination == origin or not covered[destination]:
             continue
         answer = None
         for stop, distance in reachable[destination]:
@@ -178,18 +192,13 @@ for origin in sorted(points):
         if answer:
             rows.append([origin, destination, round(answer[0] / 60, 1),
                          round(answer[1] / 60, 1), max(answer[2] - 1, 0),
-                         round(answer[3]), round(answer[4]),
-                         "in_feed" if covered[origin] and covered[destination]
-                         else "outside_feed"])
+                         round(answer[3]), round(answer[4])])
     print(f"  {origin} {len(best)} nodes", end=" ", flush=True)
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 with OUT.open("w", newline="", encoding="utf-8") as fh:
     writer = csv.writer(fh)
     writer.writerow(["origin_cut", "destination_cut", "minutes_door_to_door",
-                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress",
-                     "coverage"])
+                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress"])
     writer.writerows(rows)
-in_feed = sum(1 for r in rows if r[7] == "in_feed")
-print(OUT, len(rows), "directed pairs of the 2,652 possible;",
-      in_feed, "with coverage in_feed")
+print(OUT, len(rows), "directed pairs over", len(served), "comunas")
