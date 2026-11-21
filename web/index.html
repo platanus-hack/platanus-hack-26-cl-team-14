@@ -70,15 +70,13 @@
 </div>
 
 <div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
-<div id="delta" class="box t"><span id="dv"></span><small>Cambio de subidas al día</small><small>contabilidad del sitio, supuestos visibles</small>
-  <div style="display:flex;justify-content:flex-end;gap:32px;margin-top:14px;font-size:64px">
-    <div><span id="car"></span><small>en auto</small>
-  <div id="st" style="display:none"><div class="model" id="stv" style="font-size:64px;margin-top:14px"></div>
-  <small>sensibilidad del modelo de estaciones <span id="stl"></span>, sin validar</small>
-  <small>su base en Tobalaba: <span id="stb"></span> al día · observado: <span id="sto"></span></small></div></div>
-    <div><span id="public"></span><small>en transporte público</small></div>
-  </div>
-  <small>Nuevos residentes: personas que salen al día<br>Supuesto: reparto modal de Las Condes</small></div>
+<div id="delta" class="box t" style="width:760px;font-size:76px"><span id="dv"></span>
+  <small>Cambio de subidas al día en Tobalaba</small><small>contabilidad del sitio, supuestos visibles</small>
+  <div id="st" style="display:none;margin-top:10px"><span class="model" id="stv"></span>
+    <small>sensibilidad del modelo de estaciones <span id="stl"></span>, sin validar</small>
+    <small>base del modelo <span id="stb"></span> al día · observado <span id="sto"></span></small></div>
+  <div style="font-size:44px;margin-top:10px"><span id="car"></span> <small style="display:inline">en auto ·</small> <span id="public"></span> <small style="display:inline">en transp. público</small></div>
+  <small>nuevos residentes que salen al día</small><small>supuesto: reparto modal de Las Condes</small></div>
 <script>
 const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
 const API = 'http://localhost:8787/api/';
