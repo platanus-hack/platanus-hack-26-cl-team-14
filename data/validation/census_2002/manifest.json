@@ -1,0 +1,95 @@
+{
+  "source": {
+    "method": "POST",
+    "endpoint": "https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CmdSet?",
+    "base": "CENSO_2002",
+    "retrieved_at_utc": null,
+    "retrieval_time_note": "Exact retrieval UTC was not recorded; filesystem timestamps are not substituted.",
+    "checked_date": "2026-11-21"
+  },
+  "cohort": {
+    "enumeration_selection": "ALL",
+    "habitual_home_field": "PERSONA.VIVEHAB",
+    "habitual_home_filter": "PERSONA.VIVEHAB >= 13101 AND PERSONA.VIVEHAB <= 13605",
+    "employed_filter": "PERSONA.SLABORAL <= 4 AND PERSONA.SLABORAL <> 3",
+    "employed_codes": [
+      1,
+      2,
+      4
+    ],
+    "destination_field": "PERSONA.COMTRAES",
+    "home_recode": "query.spc explicitly maps 52 habitual RM CUT values one-to-one to categories 1-52 labelled with their original CUT. No aggregation or normalization."
+  },
+  "sha256": {
+    "raw_od.csv": "7071f2714a6df7f1a022776abcff791fba564a5915799f50ac2135815205aac1",
+    "query.spc": "dfb21546465b56902b8ec53087c9f493441d9a488946b3714112c7135274169c",
+    "source_html": "5a1c049c97b0bf03a2dd02b39c8392fb9f0003c2cfedbe4a9e3f4d3bb0c2ff25",
+    "source_request": "754016706e4392060b0072bbbb0e7659cb3f29490fa08b2a90728bc5cf97a22c",
+    "reference_viewer_html": "661730b55cea003c37bba35f5a307c6546bd05e45442083ffc1e91ac837b02ec",
+    "destination-classification.csv": "fca09b94cc4fdf18bce2b028b6b9de472890778054a2e42f4c84df61f67ab2cd",
+    "old_current_cut_crosswalk.csv": "0ce2666c2beba8b777417a21622fce9acb3c4135f4b74de3108368dd31ad15bf"
+  },
+  "dimensions": {
+    "habitual_rm_origins": 52,
+    "raw_destination_codes": 403,
+    "dense_cells": 20956,
+    "workers": 2242438
+  },
+  "independent_review": {
+    "status": "passed_raw_artifact_only",
+    "all_csv_cells_match_source_table": true,
+    "all_row_totals_match": true,
+    "all_column_totals_match": true,
+    "viewer_reference_flows": 144,
+    "viewer_exact_matches": 144,
+    "scope_limit": "Artifact fidelity only; destination-code semantics, cross-year harmonization and benchmark approval are not established."
+  },
+  "classification": {
+    "status": "qualified_pass",
+    "checked_date": "2026-11-21",
+    "retrieved_at_utc": null,
+    "source_method": "Official COMTRAES by LUGTRAES aggregate for the same habitual-RM-home/employed cohort; not numeric prefix inference.",
+    "source_html_sha256": "771380f1a9186ba2e590640b6d1e7220fa5549dbebc35b2ce83718aeb819d263",
+    "workers_by_destination_class": {
+      "known_external_domestic": 30301,
+      "foreign_reported": 462,
+      "internal_rm52": 2009186,
+      "unknown_destination": 202489
+    },
+    "codes_by_destination_class": {
+      "known_external_domestic": 288,
+      "foreign_reported": 62,
+      "internal_rm52": 52,
+      "unknown_destination": 1
+    },
+    "raw_code_99999": {
+      "workers": 202489,
+      "reported_other_commune_without_code": 16569,
+      "reported_ignored": 185920
+    },
+    "rm52_codes_identical_in_primary_lists": true,
+    "crosswalk_kind": "Derived join of primary lists, not an official published concordance.",
+    "external_historical_parent_groups": 4,
+    "external_parent_limit": "Current child units must aggregate to the historical parent; historical counts cannot be allocated to children.",
+    "country_names": "unmapped",
+    "cadastral_boundary_equivalence": "not established",
+    "primary_lists": [
+      {
+        "url": "https://redatam-ine.ine.cl/redbin/RpWebUtilities.exe/Down_Dictionary.dic?LFN=RpBases%5CCenso2002%5CBaseR%5CCENSO2002.dic",
+        "sha256": "c15ae03f8195cb29cc42fda488251aced82daa9e17e22bf4718d2a2705b5b3e8"
+      },
+      {
+        "url": "https://www.bcn.cl/leychile/navegar?idNorma=168185&tipoVersion=original",
+        "sha256": "eef5c609bad4bd5d5206301584e91c7fd2edb167e046b376c5c764ddca0cf4fb"
+      },
+      {
+        "url": "https://www.ine.gob.cl/docs/default-source/ocupacion-y-desocupacion/bbdd/libro-de-codigos/codigos-ene-2020.pdf",
+        "sha256": "adaf5f141c0720c23e3200e74da3c4e77c3ec5abb9c7208286dcaafcc0a24aa6"
+      }
+    ],
+    "zero_padding_or_current_cut_conversion_of_raw_file": false,
+    "scope_limit": "Destination response classes and RM code identity only; full-matrix cohort equivalence and benchmark approval are not established."
+  },
+  "harmonized_2002_2024_benchmark": false,
+  "approved_evaluation_target": false
+}

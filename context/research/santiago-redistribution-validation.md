@@ -4,13 +4,18 @@ Date: 2026-11-21. Status: source synthesis and proposed experiments; no evaluati
 
 There is no Census 2017 commuting target in the audited person dictionary.
 The verified INE viewer exposes only 144 top-three flows from 48 Santiago origins per year, for 2002 and 2024.
-It does not supply a complete historical matrix. A full 2002 cross-tab remains unverified.
+The viewer does not supply a complete historical matrix, but the public database has now returned a full raw 2002 cross-tab for the specified cohort.
+A harmonized, comparable historical benchmark remains unverified.
 Do not invent a predictive Santiago score from the current engine's baseline identity.
 
-Retrieval update, 2026-11-21: [official Redatam CrossTab](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CrossTab?BASE=CENSO_2002&ITEM=CRUCPOB&lang=ESP) returned aggregates beyond the viewer's top three; the [official questionnaire, PDF page 3](https://redatam-ine.ine.cl/cuestionarios/C2002.pdf) verifies employed codes `SLABORAL` 1, 2, and 4.
-Santiago→Providencia is 8,025 paid workers + 278 temporarily absent workers + 47 unpaid family workers = 8,350, matching INE exactly.
-The earlier provisional `SLABORAL <= 3` filter omitted the 47 unpaid family workers; the discrepancy is resolved by the corrected cohort, not normalization.
-Only this control pair is verified. A complete, correctly filtered 2002 OD matrix remains unverified and is not an approved evaluation target.
+Retrieval update, 2026-11-21: [official Redatam CmdSet](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CmdSet?BASE=CENSO_2002&ITEM=PROGRED&lang=ESP) returned 52 habitual RM origins × 403 raw destination codes: 20,956 dense cells and 2,242,438 employed people.
+The query selects all enumeration geography and employed codes `SLABORAL` 1, 2, and 4, verified against the [official questionnaire, PDF page 3](https://redatam-ine.ine.cl/cuestionarios/C2002.pdf).
+All destination row sums reconcile; all 144 published 2002 viewer reference flows match exactly, including Santiago→Providencia = 8,350.
+The earlier provisional `SLABORAL <= 3` filter omitted 47 unpaid family workers on that pair; the corrected cohort resolves the discrepancy without normalization.
+Qualified classification review now separates 2,009,186 internal RM workers, 30,301 domestic external workers, 462 foreign workers and 202,489 unknown destinations.
+Code `99999` splits into 16,569 other-commune/no-code and 185,920 ignored answers; foreign classification uses official response categories, not prefixes. Country names remain unmapped.
+Independent raw-artifact review passed: all CSV cells, row/column totals, and 144 reference flows match. This does not approve destination semantics or temporal comparability.
+The [packaged raw aggregate, query and prepared off-diagonal inputs](../../data/validation/census_2002/README.md) are not an approved benchmark; full-matrix cohort equivalence is not established.
 Endpoint trap: a leading-parenthesis `TEXT_FILTER` submission silently lost its filter. Inspect the generated `FOR` clause before trusting an aggregate.
 
 ## Observed target coverage
@@ -19,7 +24,7 @@ Endpoint trap: a leading-parenthesis `TEXT_FILTER` submission silently lost its 
 | --- | --- | --- |
 | [Census 2017 dictionary](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/Dictionary?BASE=CENSO_2017&ITEM=DICPOB&lang=esp) | 33 person variables; no workplace/study destination | Residence and migration fields are not commuting flows. |
 | [INE 2002/2024 viewer](https://conmutacion-laboral.ine.gob.cl/) | 144 ranked cross-comuna pairs and 48 origins per year | Top three only; unlisted pairs are missing, not observed zeros. |
-| [Census 2002 dictionary](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/Dictionary?BASE=CENSO_2002&ITEM=DICPOB&lang=esp) | Work/study destination, employment, habitual-residence fields | Dictionary access does not verify a full cross-tab export. |
+| [Census 2002 Redatam CmdSet](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CmdSet?BASE=CENSO_2002&ITEM=PROGRED&lang=ESP) | Raw 52×403 cohort; all cells/totals and 144 references matched; destination response classification received a qualified pass | Derived crosswalk is not an official concordance; country names, boundary equivalence and full-matrix cohort equivalence are not established. |
 | [EOD 2012 description](https://www.subtrans.gob.cl/mtt-presenta-resultados-de-la-encuesta-origen-destino-de-santiago/) | 45 communes; collected July 2012–November 2013, expanded to 2012 | Official archive contents were not verified in the source audit. |
 
 The engine covers 52 RM communes; the INE viewer covers 48 and the EOD covers 45.
@@ -35,6 +40,14 @@ Workplace nonresponse is 8.4% in 2002 versus 0.06% in 2024.
 The 2024 multiple-workplace category has no unique destination and is excluded from matrix-derived measures.
 These differences require harmonization; they do not make a comparison inherently impossible.
 INE holds metropolitan boundaries fixed and reconciles later commune splits and regional boundaries.
+The primary-list crosswalk and [INE ENE Annex 1](https://www.ine.gob.cl/docs/default-source/ocupacion-y-desocupacion/bbdd/libro-de-codigos/codigos-ene-2020.pdf) establish RM code identity, not cadastral boundary equivalence.
+Four external historical parents require child aggregation, not allocation. This crosswalk is derived, not an official published concordance.
+The classification source HTML hash is `771380f1a9186ba2e590640b6d1e7220fa5549dbebc35b2ce83718aeb819d263`.
+
+Prepared inputs use explicit habitual-home/work CUT inequality over 52×51 pairs: 2,652 cells per year.
+Included workers: 1,362,526 (2002) and 1,853,330 (2024); removed diagonals: 646,660 and 835,484.
+2002 cannot distinguish home workers within the diagonal; 2024 excludes `p44=1`. Full-matrix cohort equivalence must not be claimed.
+Absent 2024 pairs are zero only under the canonical full known-workplace aggregation assumption. No mass is normalized or allocated externally.
 
 ## Current engine: accounting, not predictive accuracy
 
@@ -48,7 +61,7 @@ Conservation and baseline reproduction establish accounting consistency, not acc
 
 ## Minimal honest next step: choose an experiment
 
-1. **Historical conditional allocation:** retrieve and verify a full earlier matrix, harmonize its universe with the later matrix,
+1. **Historical conditional allocation:** review the prepared off-diagonal domain and remaining cohort limits,
    and freeze an earlier→later experiment before fitting. Retain an unchanged-share comparator.
    Observed target-year origin/destination totals may be supplied only as an explicit conditional allocation experiment,
    with the same information and constraints for every model. This does not validate prediction of those totals.
