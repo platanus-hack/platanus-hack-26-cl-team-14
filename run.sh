@@ -3,6 +3,13 @@ set -eu
 cd "$(dirname "$0")"
 export PATH="$HOME/.cargo/bin:$PATH"
 
+repo=$PWD
+case $(uname -s) in
+    Darwin) source "$repo/tools/city-terminal-mac.sh" ;;
+    Linux)  source "$repo/tools/city-terminal-linux.sh" ;;
+    *) echo "The city launcher supports macOS and Linux." >&2; exit 1 ;;
+esac
+
 port=${PORT:-8787}
 api="http://127.0.0.1:$port"
 if curl --silent --max-time 1 --output /dev/null "$api/api/scenario-latest"; then
@@ -18,26 +25,38 @@ cargo build --locked --release --manifest-path engine/Cargo.toml \
 set -m
 engine_pid=
 window_pid=
+terminal_pid=
+terminal_layout_pid=
+engine_log=$(mktemp "${TMPDIR:-/tmp}/santiago-engine.XXXXXX")
 cleanup() {
     trap - EXIT INT TERM
-    for pid in $window_pid $engine_pid; do
+    for pid in $terminal_layout_pid $terminal_pid $window_pid $engine_pid; do
         kill -TERM -- "-$pid" 2>/dev/null || true
     done
+    if declare -F cleanup_city_terminal_mac >/dev/null; then cleanup_city_terminal_mac || true; fi
     wait 2>/dev/null || true
+    rm -f "$engine_log"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-"$target/release/santiago-scenario-core" data/mvp "$port" &
+"$target/release/santiago-scenario-core" data/mvp "$port" 2> >(tee "$engine_log" >&2) &
 engine_pid=$!
-until curl --fail --silent --max-time 1 --output /dev/null "$api/api/scenario-latest"; do
+until grep -Fxq "Scenario core listening on $api" "$engine_log"; do
     kill -0 "$engine_pid" 2>/dev/null || { wait "$engine_pid"; exit 1; }
     sleep 0.2
 done
 curl --fail --silent --show-error --output /dev/null \
     --header 'Content-Type: application/json' --data '{"changes":[]}' "$api/api/scenario"
 echo "SANTIAGO_API_URL=$api"
-SANTIAGO_ENGINE="$api" cargo run --locked --release --manifest-path viz/Cargo.toml &
+export SANTIAGO_ENGINE="$api"
+if declare -F open_city_terminal_mac >/dev/null; then
+    open_city_terminal_mac
+else
+    open_city_terminal_linux
+fi
+export SANTIAGO_WINDOW_RECT="$city_x $city_y $city_width $city_height"
+cargo run --locked --release --manifest-path viz/Cargo.toml &
 window_pid=$!
 wait "$window_pid"
