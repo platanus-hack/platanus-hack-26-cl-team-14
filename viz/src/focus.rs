@@ -110,6 +110,31 @@ fn frame(mut points: impl Iterator<Item = Vec3>, minimum: f32, aspect: f32) -> O
     Some((center, minimum.max(1.15 * radius / half_angle.sin())))
 }
 
+// Camera cues of a cached replay: fly to each place at its time after the scene starts.
+pub(super) fn cue(
+    time: Res<Time>,
+    scenario: Res<Scenario>,
+    mut rig: ResMut<Rig>,
+    mut scene_revision: Local<Option<u64>>,
+    mut start: Local<f32>,
+    mut next: Local<usize>,
+) {
+    let scene = &scenario.0["scene"];
+    if scene["revision"].as_u64() != *scene_revision {
+        *scene_revision = scene["revision"].as_u64();
+        *start = time.elapsed_secs();
+        *next = 0;
+    }
+    let Some(cue) = scene["cues"].get(*next) else { return };
+    if rig.fixed || time.elapsed_secs() - *start < cue["after_seconds"].as_f64().unwrap() as f32 {
+        return;
+    }
+    let (target, distance) = (shot_position(cue).unwrap(), cue["distance"].as_f64().unwrap() as f32);
+    rig.fly_to(target, distance);
+    info!("Camera cue {} at {target:?}, distance {distance} m", *next);
+    *next += 1;
+}
+
 fn shot_position(row: &Value) -> Option<Vec3> {
     Some(crate::city::world(
         row["longitude"].as_f64()?,

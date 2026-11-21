@@ -163,6 +163,14 @@ const createReplayTool = {
       stations: tool.inputSchema.properties.stations,
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
       analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
+      cues: {
+        type: 'array', description: 'Camera moves during the replay, after the first scene. Example: whole city, then zoom to a station.',
+        items: { type: 'object', required: ['after_seconds', 'longitude', 'latitude', 'distance'], properties: {
+          after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts.' },
+          longitude: { type: 'number' }, latitude: { type: 'number' },
+          distance: { type: 'number', exclusiveMinimum: 0, description: 'Camera distance in meters: 360 street, 4000 comuna, 18000 whole city.' },
+        } },
+      },
     },
   },
 };
@@ -294,6 +302,7 @@ async function dispatch({ method, params }) {
     else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
+      if (meta.cues) result.scene.cues = meta.cues;
       await engineJSON('/api/replay', result);
       text = { replay: meta, result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
     } else if (params.name === createReplayTool.name) {

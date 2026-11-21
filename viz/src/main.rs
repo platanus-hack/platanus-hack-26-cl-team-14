@@ -31,6 +31,7 @@ impl Plugin for MiniatureCamera {
                 Update,
                 (
                     focus::select.run_if(resource_changed::<net::Scenario>),
+                    focus::cue,
                     navigate,
                     focus::advance,
                     aim,
