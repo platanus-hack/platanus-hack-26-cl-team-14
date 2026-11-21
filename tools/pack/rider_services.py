@@ -110,18 +110,27 @@ for k in surface_keys:
     route,direction,shape,sids=k
     axis=project_stops(shapes[shape],sids)
     pi=len(patterns); patterns.append([shape_idx[shape],axis])
-    ids=defaultdict(set)
+    timings = defaultdict(lambda: (set(), set()))
     for tid in groups[k]:
         cs=calls[tid];first=cs[0][3]
         off=tuple((a-first,d-first) for _,s,a,d in cs)
-        if tid in windows:
-            for a,b,h in windows[tid]:
-                ids[off].update(range(a,b,h))
-        else:ids[off].add(first)
+        fixed, headways = timings[off]
+        if tid not in windows:
+            fixed.add(first)
+        for start, end, interval, exact in windows[tid]:
+            if exact:
+                fixed.update(range(start, end, interval))
+            else:
+                headways.add((start, end, interval))
     indices=[]
-    for off,starts in sorted(ids.items()):
+    for off, (fixed, headways) in sorted(timings.items()):
+        # A regular headway phase is for replay only. The operator does not publish these times.
+        starts = fixed.copy()
+        for start, end, interval in headways:
+            starts.update(range(start, end, interval))
         indices.append(len(templates))
-        templates.append([pi,off,sorted(starts),routes[route]['route_type']])
+        templates.append([pi, off, sorted(starts), routes[route]['route_type'],
+                          sorted(fixed), sorted(headways)])
     ptn_index[k]=indices
 legs=[]
 for (service,first,last),os in sorted(opts.items()):
