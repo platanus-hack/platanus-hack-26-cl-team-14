@@ -88,7 +88,7 @@ fn shadows(distance: f32) -> CascadeShadowConfig {
     .build()
 }
 
-fn setup(mut commands: Commands, rig: Res<Rig>) {
+fn setup(mut commands: Commands, rig: Res<Rig>, mut fonts: ResMut<Assets<Font>>) {
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
@@ -116,10 +116,20 @@ fn setup(mut commands: Commands, rig: Res<Rig>) {
         Transform::from_xyz(-0.65, 0.95, 0.48).looking_at(Vec3::ZERO, Vec3::Y),
         shadows(rig.distance),
     ));
+    let terrain: serde_json::Value =
+        serde_json::from_slice(include_bytes!("../../web/data/terrain.json")).unwrap();
+    let credit = format!(
+        "© OpenStreetMap contributors · {}",
+        terrain["attribution"].as_str().unwrap()
+    );
+    let font = fonts.add(Font::from_bytes(
+        include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec(),
+    ));
     commands.spawn((
-        Text::new("© OpenStreetMap contributors"),
+        Text::new(credit),
         TextFont {
-            font_size: FontSize::Px(14.0),
+            font: font.into(),
+            font_size: FontSize::Px(13.0),
             ..default()
         },
         TextColor(Color::WHITE),
