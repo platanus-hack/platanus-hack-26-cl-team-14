@@ -458,6 +458,8 @@ fn animate(
         return;
     }
     *next = time.elapsed_secs() + 1. / 30.;
+    let eye = crate::pose(&rig).translation;
+    let map_scale = (rig.distance * 0.004).clamp(1.8, 11.);
     for mut visible in &mut venues {
         visible.set_if_neq(if subway.0 {
             Visibility::Hidden
@@ -507,7 +509,11 @@ fn animate(
                     Vec3::ZERO
                 },
             direction,
-            Vec3::splat((rig.distance * 0.004).clamp(1.8, 11.)),
+            Vec3::splat(if mode == Vehicle::Car {
+                map_scale
+            } else {
+                pedestrian_scale(eye.distance(point), map_scale)
+            }),
         ));
         visible.set_if_neq(Visibility::Inherited);
     }
