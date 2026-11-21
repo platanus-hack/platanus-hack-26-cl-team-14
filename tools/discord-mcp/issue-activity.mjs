@@ -23,14 +23,56 @@ const issuesQuery = `query($since: DateTime!, $cursor: String, $timelineCursor: 
 const timelineQuery = `query($number: Int!, $since: DateTime!, $timelineCursor: String!) {
   ${repository} { issue(number: $number) { ${timeline} } }
 }`;
+const issuesUrl = "https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/";
+const idsQuery = `query($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    __typename
+    ... on Issue { id number title createdAt author { login } body url }
+    ... on IssueComment { id createdAt author { login } body url parent: issue { number title url } }
+    ... on ClosedEvent { id createdAt actor { login } url parent: closable { ... on Issue { number title url } } }
+  }
+}`;
 
 async function queryGitHub(query, variables) {
   const args = ["api", "graphql", "-f", `query=${query}`];
   for (const [key, value] of Object.entries(variables)) {
-    if (value != null) args.push(typeof value === "number" ? "-F" : "-f", `${key}=${value}`);
+    if (Array.isArray(value)) {
+      for (const id of value) args.push("-f", `${key}[]=${id}`);
+    } else if (value != null) args.push(typeof value === "number" ? "-F" : "-f", `${key}=${value}`);
   }
-  const { stdout } = await run("gh", args, { maxBuffer: 128 * 1024 * 1024 });
-  return JSON.parse(stdout).data.repository;
+  try {
+    const { stdout } = await run("gh", args, { maxBuffer: 128 * 1024 * 1024 });
+    return JSON.parse(stdout).data;
+  } catch (error) {
+    // GitHub can return the surviving nodes alongside a NOT_FOUND error for deleted IDs.
+    if (query !== idsQuery || !error.stdout) throw error;
+    const { data, errors } = JSON.parse(error.stdout);
+    if (data?.nodes && errors?.length && errors.every(e => e.type === "NOT_FOUND" && e.path?.[0] === "nodes")) return data;
+    throw error;
+  }
+}
+
+function eventFromNode(issue, node, kind) {
+  return {
+    key: node.id, at: new Date(node.createdAt).toISOString(), number: issue.number, title: issue.title,
+    kind, author: (node.author ?? node.actor)?.login ?? "ghost", body: node.body ?? "", url: node.url,
+  };
+}
+
+export async function issueActivityById(keys) {
+  const ids = [...new Set(keys)];
+  const events = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const { nodes } = await queryGitHub(idsQuery, { ids: ids.slice(i, i + 50) });
+    for (const node of nodes) {
+      if (!node) continue;
+      const issue = node.__typename === "Issue" ? node : node.parent;
+      if (!issue?.url?.startsWith(issuesUrl)) continue;
+      const kind = { Issue: "opened", IssueComment: "commented", ClosedEvent: "closed" }[node.__typename];
+      events.push(eventFromNode(issue, node, kind));
+    }
+  }
+  return events.sort((a, b) => a.at.localeCompare(b.at));
 }
 
 // The caller saves the time window and deduplicates overlapping windows by node ID.
@@ -41,15 +83,12 @@ export async function issueActivity(since, until) {
   function collect(issue, node, kind) {
     const time = Date.parse(node.createdAt);
     if (time < start || time > end) return;
-    events.push({
-      key: node.id, at: new Date(time).toISOString(), number: issue.number, title: issue.title,
-      kind, author: (node.author ?? node.actor)?.login ?? "ghost", body: node.body ?? "", url: node.url,
-    });
+    events.push(eventFromNode(issue, node, kind));
   }
 
   let cursor;
   do {
-    const { issues } = await queryGitHub(issuesQuery, { since, cursor });
+    const { repository: { issues } } = await queryGitHub(issuesQuery, { since, cursor });
     for (const issue of issues.nodes) {
       collect(issue, issue, "opened");
       let page = issue.timelineItems;
@@ -61,7 +100,7 @@ export async function issueActivity(since, until) {
         const next = await queryGitHub(timelineQuery, {
           since, number: issue.number, timelineCursor: page.pageInfo.endCursor,
         });
-        page = next.issue.timelineItems;
+        page = next.repository.issue.timelineItems;
       }
     }
     cursor = issues.pageInfo.hasNextPage ? issues.pageInfo.endCursor : null;

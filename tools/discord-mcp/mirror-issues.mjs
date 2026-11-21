@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { discordMessageId, ensureIssueComment, githubLogin } from "./discord-issue-comments.mjs";
 import { issueThreadReader } from "./issue-thread-page.mjs";
-import { issueActivity } from "./issue-activity.mjs";
+import { issueActivity, issueActivityById } from "./issue-activity.mjs";
 import { discord } from "./rest.mjs";
 
 const parent = "1573760053905723443"; // #github
@@ -29,12 +29,7 @@ function save() {
 // Older state files belong to #agent-chat. Resolve queued events again from GitHub
 // so pending excerpts are replaced by full text in the new destination.
 if (state.parent !== parent) {
-  for (const batch of state.batches) {
-    for (const key of batch.keys) {
-      state.cursor = Math.min(state.cursor, state.seen[key] ?? state.start);
-      delete state.seen[key];
-    }
-  }
+  state.reload = [...new Set(state.batches.flatMap(batch => batch.keys.map(key => key.replace(/:\d+$/, ""))))];
   state.parent = parent;
   state.threads = {};
   state.batches = [];
@@ -98,7 +93,7 @@ function makeBatches(events) {
 
 // After an uncertain send, check Discord history before repeating the saved batch.
 async function send(batch, channel, content, key) {
-  const nonce = createHash("sha256").update(key).digest("hex").slice(0, 24);
+  const nonce = createHash("sha256").update(`${channel}:${key}`).digest("hex").slice(0, 24);
   if (batch.sending) {
     let after = batch.sending;
     for (;;) {
@@ -185,6 +180,12 @@ for (;;) {
     const until = Date.now();
     const events = await issueActivity(new Date(since).toISOString(), new Date(until).toISOString());
     state.seen = Object.fromEntries(Object.entries(state.seen).filter(([, at]) => at >= since));
+    if (state.reload?.length) {
+      const pending = await issueActivityById(state.reload);
+      for (const event of pending) delete state.seen[event.key];
+      state.batches.push(...makeBatches(pending));
+      delete state.reload;
+    }
     state.batches.push(...makeBatches(events));
     state.cursor = until;
     save();
