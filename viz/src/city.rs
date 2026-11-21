@@ -467,7 +467,7 @@ pub(crate) fn draw_buildings(
     mut commands: Commands,
     mut buildings: ResMut<Buildings>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut rig: ResMut<crate::Rig>,
+    rig: Res<crate::Rig>,
     scenario: Res<crate::net::Scenario>,
     layers: Res<SurfaceLayers>,
     time: Res<Time>,
@@ -475,17 +475,12 @@ pub(crate) fn draw_buildings(
     mut named: Query<(&NamedBuilding, &mut Transform)>,
 ) {
     if scenario.is_changed()
-        && let Some(focus) = buildings.heights.update(&scenario.0, time.elapsed_secs())
+        && buildings.heights.update(&scenario.0, time.elapsed_secs())
     {
         for tile in 0..buildings.tiles.len() {
             if buildings.tiles[tile].is_some() && buildings.heights.tile_changed(tile) {
                 buildings.dirty[tile] = true;
             }
-        }
-        if !rig.fixed
-            && let Some([lon, lat]) = focus
-        {
-            rig.target = world(lon, lat);
         }
     }
     let progress = buildings.heights.progress(time.elapsed_secs());
