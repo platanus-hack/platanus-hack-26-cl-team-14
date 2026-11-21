@@ -29,6 +29,7 @@ impl Boarding {
 
 struct RideOptions {
     platform: Option<(usize, f32)>,
+    gates: Option<[Vec<Vec3>; 2]>,
     departures: Vec<Boarding>,
     max_dwell: f32,
 }
@@ -80,7 +81,7 @@ fn row_index(v: &Value) -> usize {
 }
 
 impl RiderNetwork {
-    pub(super) fn load(tracks: &[RailLine]) -> Self {
+    pub(super) fn load(tracks: &[RailLine], entrances: &stations::Entrances) -> Self {
         let data = gzip_json("web/data/rider_services.json.gz");
         let shapes: Vec<_> = data["shapes"]
             .as_array()
@@ -135,10 +136,17 @@ impl RiderNetwork {
         for row in data["legs"].as_array().unwrap() {
             let mut departures = Vec::new();
             let mut platform = None;
+            let mut gates = None;
             for candidate in row[3].as_array().unwrap() {
                 let track = row_index(&candidate[0]);
                 let from = row_index(&candidate[1]);
                 let to = row_index(&candidate[2]);
+                gates = Some([from, to].map(|s| {
+                    entrances[&tracks[track].stations[s]]
+                        .iter()
+                        .map(|e| e.position)
+                        .collect()
+                }));
                 for (run, service) in tracks[track].runs.iter().enumerate() {
                     let board = service.calls.iter().find(|s| s.station == from);
                     let exit = service.calls.iter().find(|s| s.station == to);
@@ -189,6 +197,7 @@ impl RiderNetwork {
                 options.len(),
             );
             options.push(RideOptions {
+                gates,
                 platform,
                 departures,
                 max_dwell,
@@ -199,6 +208,16 @@ impl RiderNetwork {
             options,
             surface,
         }
+    }
+
+    pub(super) fn gate(&self, leg: usize, exit: bool, towards: Vec3) -> Vec3 {
+        *self.options[leg].gates.as_ref().unwrap()[usize::from(exit)]
+            .iter()
+            .min_by(|a, b| {
+                a.distance_squared(towards)
+                    .total_cmp(&b.distance_squared(towards))
+            })
+            .unwrap()
     }
 
     pub(super) fn leg(&self, row: &Value, segment: &Value) -> Option<usize> {

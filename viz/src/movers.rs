@@ -295,6 +295,7 @@ struct Routes {
     local: HashMap<LocalKey, Arc<Path>>,
     tracks: Vec<RailLine>,
     riders: RiderNetwork,
+    entrances: stations::Entrances,
     streets: StreetIndex,
     cycleways: StreetIndex,
 }
@@ -313,7 +314,21 @@ fn table(file: &str, mode: Vehicle) -> Table {
 }
 
 fn public_path(row: &Value, riders: &RiderNetwork) -> Arc<Path> {
-    let path = points(&row["path"]);
+    let mut path = points(&row["path"]);
+    // A walk to or from a Metro leg touches a published entrance. A direct interchange
+    // between Metro lines stays inside the station.
+    let segs = row["segments"].as_array().unwrap();
+    for (i, seg) in segs.iter().enumerate().filter(|(_,s)| s["mode"]=="metro") {
+        let id = riders.leg(row,seg).unwrap();
+        let board = seg["start"].as_u64().unwrap() as usize;
+        let exit = seg["end"].as_u64().unwrap() as usize;
+        if board > 0 && i > 0 && segs[i-1]["mode"]=="walk" && (i<2 || segs[i-2]["mode"]!="metro") {
+            path[board] = riders.gate(id,false,path[board-1]);
+        }
+        if exit+1<path.len() && i+1<segs.len() && segs[i+1]["mode"]=="walk" && (i+2>=segs.len() || segs[i+2]["mode"]!="metro") {
+            path[exit] = riders.gate(id,true,path[exit+1]);
+        }
+    }
     let legs = row["segments"]
         .as_array()
         .unwrap()
@@ -398,7 +413,8 @@ impl Routes {
             .filter(|row| row["mode"] == "metro")
             .map(|row| RailLine::load(row, &timetable, &track_levels))
             .collect();
-        let riders = RiderNetwork::load(&tracks);
+        let entrances = stations::entrances();
+        let riders = RiderNetwork::load(&tracks, &entrances);
         let public = json("web/data/public_routes.json")
             .as_object()
             .unwrap()
@@ -411,6 +427,7 @@ impl Routes {
             local,
             tracks,
             riders,
+            entrances,
             cars: table("web/data/car_routes.json", Vehicle::Car),
             bikes: table("web/data/bicycle_routes.json", Vehicle::Bicycle),
             streets: StreetIndex::load("data/mvp/roads.geojson", true),
@@ -635,7 +652,7 @@ fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut 
         .as_array()
         .unwrap()
         .iter()
-        .map(|station| Station::new(station, &routes.tracks))
+        .map(|station| Station::new(station, &routes))
         .collect();
 }
 

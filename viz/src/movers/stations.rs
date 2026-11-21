@@ -1,7 +1,55 @@
 use super::*;
 
+#[derive(Clone, Copy)]
+pub(super) struct Entrance {
+    pub(super) position: Vec3,
+    sign: Vec3,
+    outward: Vec3,
+}
+
+pub(super) type Entrances = HashMap<String, Vec<Entrance>>;
+
+pub(super) fn entrances() -> Entrances {
+    gzip_json("web/data/metro_entrances.json.gz")["stations"]
+        .as_object()
+        .unwrap()
+        .iter()
+        .map(|(id, rows)| {
+            let gates = rows
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|r| {
+                    let position = point(&r["position"]);
+                    // Keep the surveyed access point for routes. A short cartographic porch
+                    // puts the ground-level marker outside the mapped facade.
+                    let (sign, outward) = r.get("porch").map_or((position, Vec3::X), |porch| {
+                        let dir = &porch["outward"];
+                        (
+                            point(&porch["position"]),
+                            Vec3::new(
+                                dir[0].as_f64().unwrap() as f32,
+                                0.,
+                                -dir[1].as_f64().unwrap() as f32,
+                            ),
+                        )
+                    });
+                    Entrance {
+                        position,
+                        sign,
+                        outward,
+                    }
+                })
+                .collect();
+            (id.clone(), gates)
+        })
+        .collect()
+}
+
 pub(super) struct Station {
-    entrance: Vec3,
+    centre: Vec3,
+    entrances: Vec<Entrance>,
+    radius: f32,
     sides: Vec<Side>,
     entries: Vec<Entry>,
     longest_visit: f32,
@@ -14,6 +62,7 @@ struct Side {
 
 struct Entry {
     start: f32,
+    entrance: usize,
     ready: f32,
     departure: f32,
     side: usize,
@@ -22,15 +71,20 @@ struct Entry {
 }
 
 impl Station {
-    pub(super) fn new(row: &Value, tracks: &[RailLine]) -> Self {
+    pub(super) fn new(row: &Value, routes: &Routes) -> Self {
         let id = row["id"].as_str().unwrap();
-        let entrance = world(
+        let centre = world(
             row["longitude"].as_f64().unwrap(),
             row["latitude"].as_f64().unwrap(),
         );
+        let entrances = routes.entrances[id].clone();
+        let radius = entrances
+            .iter()
+            .map(|e| e.sign.distance(centre) + 55.)
+            .fold(180., f32::max);
         let mut sides = Vec::new();
         let mut timetables = Vec::new();
-        for line in tracks {
+        for line in &routes.tracks {
             let Some(i) = line.stations.iter().position(|s| s == id) else {
                 continue;
             };
@@ -63,6 +117,9 @@ impl Station {
             while next <= end {
                 let start = (bin as f32 + ((next - cumulative) / people) as f32) * BIN;
                 let n = (next / PERSONS_PER_MOVER) as usize;
+                // DTPM reports station entries, without an entrance split.
+                let entry_index = n % entrances.len();
+                let entrance = entrances[entry_index].sign;
                 let along = ((n * 17) % 21) as f32 * 2.2 - 22.;
                 let across = ((n * 5) % 3) as f32 * 0.8 - 0.8;
                 let board = sides
@@ -90,6 +147,7 @@ impl Station {
                     };
                     longest_visit = longest_visit.max(departure - start);
                     entries.push(Entry {
+                        entrance: entry_index,
                         start,
                         ready,
                         departure,
@@ -103,7 +161,9 @@ impl Station {
             cumulative = end;
         }
         Self {
-            entrance,
+            centre,
+            entrances,
+            radius,
             sides,
             entries,
             longest_visit,
@@ -117,15 +177,16 @@ impl Station {
         visible: &impl Fn(Vec3, f32) -> bool,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
-        if !visible(self.entrance, 180.) {
+        if !visible(self.centre, self.radius) {
             return;
         }
-        let dir = self.sides.first().map_or(Vec3::X, |s| s.dir);
-        place(
-            Model::Entrance,
-            Paint::Plain,
-            pose(self.entrance, dir, Vec3::ONE),
-        );
+        for entrance in &self.entrances {
+            place(
+                Model::Entrance,
+                Paint::Plain,
+                pose(entrance.sign, -entrance.outward, Vec3::ONE),
+            );
+        }
         for side in &self.sides {
             if !subway && side.base.y < terrain_from_xz(side.base.x, side.base.z) - 0.6 {
                 continue;
@@ -148,8 +209,8 @@ impl Station {
             let (p, dir) = if now < e.ready {
                 let progress = (now - e.start) / (e.ready - e.start);
                 (
-                    self.entrance.lerp(e.wait_at, progress),
-                    e.wait_at - self.entrance,
+                    self.entrances[e.entrance].sign.lerp(e.wait_at, progress),
+                    e.wait_at - self.entrances[e.entrance].sign,
                 )
             } else {
                 let inward = -right(side.dir);
