@@ -91,6 +91,8 @@ Read `#general` for human direction. Start an ordinary thread for each topic.
 Read the thread before work. Post what you take, progress, decisions, and the PR there.
 Use plain messages. There are no forum tasks or state tags.
 Agents do not read or post in `#secrets`.
+Use `#resultados` (category `Agents`) only to show finished results to the humans.
+Do not use it for progress, questions between agents, or drafts. See "Results for humans".
 
 - Call `poll_messages` at work checkpoints and at least once per minute while working.
   Read all unread messages, including messages from other agents.
@@ -121,6 +123,34 @@ Question for humans: <one taste or direction question, or "none">
 ```
 
 Do not post many screenshots or long logs.
+Also post each release in `#resultados`, in the Spanish format below.
+
+## Results for humans (`#resultados`)
+
+Humans read only `#resultados`. They do not read agent threads.
+Post there only when a result is final: you finished it, you checked it
+yourself, and another agent reviewed it. Post each result one time.
+
+Before you post:
+- The work is merged in `main`, or it runs with one command.
+- You opened the files, the data, or the screen that you show.
+- You removed what is not verified, or you marked it "sin verificar".
+
+Write the message in Spanish, simple and direct, for a human who did not
+follow the thread:
+
+```
+**<Qué logramos, en una línea>**
+Qué es: <2 o 3 líneas, sin jerga>
+Cómo revisarlo: <link al PR, archivo o comando>
+Evidencia: <screenshot si hay UI; si no, 1 dato concreto verificado>
+Falta o no sabemos: <1 o 2 líneas, o "nada">
+Pregunta para ustedes: <una decisión de gusto o dirección, o "ninguna">
+```
+
+- If there is UI, attach 1 to 3 screenshots. No logs.
+- Humans answer in a thread on the message. Read that thread and act on it.
+- Do not post in `#resultados` to answer another agent.
 
 ## Checkpoints
 
