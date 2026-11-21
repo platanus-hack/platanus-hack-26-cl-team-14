@@ -54,6 +54,56 @@ impl Pattern {
         calls
     }
 
+    fn retime(&self, previous: &Self) -> Vec<Schedule> {
+        let mut unchanged = 0;
+        if self.stop_ids[0] == previous.stop_ids[0] {
+            unchanged = 2;
+            for i in 1..self.stop_ids.len().min(previous.stop_ids.len()) {
+                if self.stop_ids[i] != previous.stop_ids[i]
+                    || self.segment_minutes[i - 1] != previous.segment_minutes[i - 1]
+                {
+                    break;
+                }
+                unchanged += 1;
+                if self.dwell_minutes[i] != previous.dwell_minutes[i] {
+                    break;
+                }
+                unchanged += 1;
+            }
+        }
+
+        let calls = self.call_times();
+        if unchanged <= 2 {
+            return vec![Schedule {
+                calls,
+                starts: Starts::combine(&previous.schedules),
+            }];
+        }
+
+        previous
+            .schedules
+            .iter()
+            .map(|schedule| {
+                let mut calls = calls.clone();
+                let times = calls.as_flattened_mut();
+                let old_times = schedule.calls.as_flattened();
+                // Anchor the edited suffix to this trip's last unchanged event.
+                let shift = old_times[unchanged - 1] - times[unchanged - 1];
+                times[..unchanged].copy_from_slice(&old_times[..unchanged]);
+                if self.dwell_minutes[0] != previous.dwell_minutes[0] {
+                    times[0] = -self.dwell_minutes[0];
+                }
+                for time in &mut times[unchanged..] {
+                    *time += shift;
+                }
+                Schedule {
+                    calls,
+                    starts: schedule.starts.clone(),
+                }
+            })
+            .collect()
+    }
+
     fn feature(&self, id: &str, catalog: &LineCatalog) -> Value {
         let geometry = self.geometry.clone().unwrap_or_else(|| {
             let stops: Vec<_> = self
@@ -363,10 +413,7 @@ impl LineEdits<'_> {
                 {
                     previous.schedules.clone()
                 } else {
-                    Arc::new(vec![Schedule {
-                        calls: pattern.call_times(),
-                        starts: Starts::combine(&previous.schedules),
-                    }])
+                    Arc::new(pattern.retime(previous))
                 }
             }
             _ => Arc::new(

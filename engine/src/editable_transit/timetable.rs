@@ -5,6 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 const DAY: &str = "20260413";
 pub(super) const DEPARTURE_MINUTE: f64 = 8.0 * 60.0;
 pub(super) const ARRIVAL_LIMIT: f64 = 11.0 * 60.0;
+// Account for rounding when adding trip offsets and walking or ride times.
+const TIME_EPSILON: f64 = 1e-9;
 
 #[derive(Deserialize)]
 pub(super) struct Calendar {
@@ -151,17 +153,20 @@ impl Starts {
 
     pub(super) fn next(&self, time: f64, offset: f64) -> f64 {
         let time_at_origin = time - offset;
-        let i = self.fixed.partition_point(|&first| first < time_at_origin);
+        let i = self
+            .fixed
+            .partition_point(|&first| first < time_at_origin - TIME_EPSILON);
         let mut next = self.fixed.get(i).copied().unwrap_or(f64::INFINITY);
         for window in &self.frequencies {
             let observed = time_at_origin.max(window.start);
             let departure = if window.exact {
                 window.start
-                    + ((observed - window.start) / window.interval).ceil() * window.interval
+                    + ((observed - window.start - TIME_EPSILON) / window.interval).ceil()
+                        * window.interval
             } else {
                 observed + window.interval * 0.5
             };
-            if departure < window.end {
+            if departure < window.end - TIME_EPSILON {
                 next = next.min(departure);
             }
         }
