@@ -23,7 +23,8 @@ fn draw(mut commands: Commands, scenario: Res<Scenario>, mut fonts: ResMut<Asset
             Label,
             Node {
                 position_type: PositionType::Absolute,
-                top: px(24),
+                // Leave the top row for the clock on narrow tiles.
+                top: px(104),
                 width: percent(100),
                 justify_content: JustifyContent::Center,
                 ..default()

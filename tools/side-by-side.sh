@@ -37,7 +37,7 @@ for id in "$@"; do
     if curl --silent --output /dev/null "http://127.0.0.1:$port/"; then
         echo "Port $port is in use. Stop that server first." >&2; exit 1
     fi
-    node tools/replay-relay.mjs "$port" "$id" &
+    bun tools/replay-relay.mjs "$port" "$id" &
     relay=$!
     relays="$relays $relay"
     until curl --silent --fail --output /dev/null "http://127.0.0.1:$port/api/scenario-latest"; do

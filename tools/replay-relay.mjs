@@ -1,4 +1,4 @@
-// Serve one cached replay to one viewer, with no Rust engine: node tools/replay-relay.mjs <port> <replay-id>
+// Serve one cached replay to one viewer, with no Rust engine: bun tools/replay-relay.mjs <port> <replay-id>
 // The viewer reads only these two routes (viz/src/net.rs).
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
