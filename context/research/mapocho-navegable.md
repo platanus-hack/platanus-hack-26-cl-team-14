@@ -48,6 +48,19 @@ This is the market a river line could take from, not a forecast of boat riders. 
 - Limit: the projection treats a new point like a Metro station. It has no boat speed, capacity, headway, lock time or season. A boat line needs those as explicit assumptions, or the result overstates riders.
 - Season switch: the flow rule in section 2 turns the line on or off by month.
 
+## 6. First engine run: piers as Metro-like points
+
+Input: [10 piers](mapocho/piers.json), one about every 2 km on the river axis from Cerro Navia (MAP01) to Vitacura (MAP10). The positions are an assumption, not proposed piers.
+Command: `target/release/scenario data/mvp - < context/research/mapocho/piers.json` on main `af6fb31` (includes #191).
+
+| Measure | Value |
+| --- | --- |
+| Modeled entries at the 10 piers | 143,391 per weekday |
+| Change at existing Metro stations | −59,771 (Pedro de Valdivia −7,206, Los Leones −6,478, Cal y Canto −5,887) |
+| Busiest piers | MAP02 20,051 · MAP05 19,951 · MAP06 19,686 · MAP08 18,924 |
+
+**Do not quote this as boat passengers.** The pier entries are larger than the whole corridor market (88,962 trips). The model treats each pier like a Metro station on the full network, with no boat speed, capacity, headway or season. It shows where river access would compete with Metro, not how many people would take a boat.
+
 ## Open questions and confidence
 
 - No boat speed, pier spacing or lock time from a Mapocho source. Use stated assumptions.
