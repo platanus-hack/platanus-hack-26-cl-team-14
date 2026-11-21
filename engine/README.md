@@ -33,7 +33,10 @@ origin_cut,destination_cut,workers
 ```
 
 CUT values are five-character strings. Coordinates use WGS84 longitude and latitude.
-Both endpoints of every positive OD row must occur in `communes.csv`.
+`communes.csv` contains the 52 RM communes. All origins must occur in this file.
+The source OD file can retain valid destinations outside RM. The core counts and excludes those rows without modifying the CSV.
+For valid CUT codes, the first two digits identify the region: `13` is RM.
+Every destination that starts with `13` must occur in `communes.csv`; a missing internal commune fails at startup.
 Work OD must include work-location codes 2/3 only. Exclude home, foreign, unknown, and no-fixed destinations.
 No personal records enter the core.
 
@@ -49,6 +52,10 @@ Data files have not arrived yet. The response marks their vintages as unconfirme
     model: string,
     state: "observed_baseline" | "modeled_scenario",
     data_vintages: { communes: string, work_od: string },
+    coverage: {
+      source_total_workers: number, included_workers: number,
+      external_destination_workers: number, external_destination_pairs: integer
+    },
     observed_fields: string[], modeled_fields: string[], assumptions: string[]
   },
   zones: [{ id: string, name: string, longitude: number, latitude: number,
@@ -76,6 +83,12 @@ elapsed_ms: number
 
 Counts use floating-point numbers. `elapsed_ms` measures the scenario computation and response-data allocation.
 It excludes CSV loading, JSON serialization, and network time. It is not a seven-million-agent benchmark.
+
+`metadata.coverage` reports the actual source count, included internal count, and excluded external destinations.
+The source must have one row per OD pair; `external_destination_pairs` counts those source rows.
+Coverage stays fixed across scenarios because it describes the observed source, not scenario allocation.
+`workers`, `jobs`, and `summary.total_workers` count included RM-to-RM commuters only.
+They do not count all employed residents. The first model omits external commuting; it does not assert that external commuting is zero.
 
 ## Model
 
@@ -108,6 +121,6 @@ It does not claim to implement or validate UrbanSim.
 
 ## Manual check status
 
-Release compilation passed with Rust 1.100.0 on 2026-11-21. The final offline rebuild took 2.01 seconds with two build jobs.
+Release compilation passed with Rust 1.100.0 on 2026-11-21. The boundary-coverage rebuild took 1.99 seconds with two build jobs.
 Real-data API execution is pending delivery of the input CSV files. No runtime result is claimed yet.
 No fixture data or automated tests are included, as required by the repository rules.

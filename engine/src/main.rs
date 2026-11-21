@@ -46,10 +46,19 @@ struct Flow {
 }
 
 #[derive(Clone, Serialize)]
+struct Coverage {
+    source_total_workers: f64,
+    included_workers: f64,
+    external_destination_workers: f64,
+    external_destination_pairs: usize,
+}
+
+#[derive(Clone, Serialize)]
 struct Metadata {
     model: &'static str,
     state: &'static str,
     data_vintages: HashMap<&'static str, String>,
+    coverage: Coverage,
     observed_fields: Vec<&'static str>,
     modeled_fields: Vec<&'static str>,
     assumptions: Vec<&'static str>,
@@ -123,10 +132,24 @@ impl Core {
         let mut od = csv::Reader::from_path(directory.join("work_od.csv")).unwrap();
         let mut flows = Vec::new();
         let mut pairs = Vec::new();
+        let mut coverage = Coverage {
+            source_total_workers: 0.0,
+            included_workers: 0.0,
+            external_destination_workers: 0.0,
+            external_destination_pairs: 0,
+        };
         for row in od.deserialize::<WorkOd>() {
             let f = row.unwrap();
             let origin = ids[&f.origin_cut];
+            coverage.source_total_workers += f.workers;
+            // Valid CUT codes use the first two digits for region; RM is region 13.
+            if !f.destination_cut.starts_with("13") {
+                coverage.external_destination_workers += f.workers;
+                coverage.external_destination_pairs += 1;
+                continue;
+            }
             let destination = ids[&f.destination_cut];
+            coverage.included_workers += f.workers;
             zones[origin].workers += f.workers;
             zones[destination].jobs += f.workers;
             pairs.push((origin, destination));
@@ -151,6 +174,7 @@ impl Core {
                             "Unconfirmed: awaiting extract provenance".to_owned(),
                         ),
                     ]),
+                    coverage,
                     observed_fields: vec![
                         "baseline commune population, households and dwellings",
                         "baseline work OD counts",
@@ -163,7 +187,8 @@ impl Core {
                     assumptions: vec![
                         "The baseline reconstructs input aggregates. It is not independent predictive validation.",
                         "Work OD includes work-location codes 2/3 only. Work-at-home, foreign, unknown and no-fixed destinations are excluded.",
-                        "Only included origins and destinations define the modeled area. There is no external inflow or outflow.",
+                        "Only RM-to-RM pairs enter the model. Source CSV rows to destinations outside RM remain unchanged but are omitted from model flows; metadata.coverage reports them.",
+                        "Workers and jobs count included internal commuters only, not all employed residents. External commuting is not modeled.",
                         "Housing scales selected-zone dwelling stock and its relative residential weight. It is not a hard occupancy cap.",
                         "Population, households and outbound workers are separately renormalized to preserve their area totals.",
                         "Jobs scale the selected destination's observed odds within each origin. Each origin's scenario worker total is preserved.",
