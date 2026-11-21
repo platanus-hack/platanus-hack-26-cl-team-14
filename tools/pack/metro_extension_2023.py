@@ -12,8 +12,8 @@ in 48 half hours, from https://www.dtpm.cl/index.php/documentos/matrices-de-viaj
   2023.08  weekdays 7 to 11 August      before both openings
   2023.11  weekdays 6 to 10 November    after Line 3, before Line 2
 
-The November cut sits between the two openings, so it reads Line 3 six weeks after
-its opening while it is still a clean "before" for Line 2, in one file and one method.
+The November cut follows the Line 3 opening and the start of Line 2 trial runs.
+For Line 2, compare August 2023 with the April 2024 weekday cut (15 to 19 April).
 
 The April workbook carries an extra `segunda_parada` column, so every column index
 comes from the header row and none is hardcoded. A station on two lines has one row
@@ -27,6 +27,7 @@ Output: data/validation/metro_extension_2023/boardings.csv
 Usage:  python3 -I tools/pack/metro_extension_2023.py
 """
 import csv, pathlib, struct, zipfile
+from collections import defaultdict
 
 RAW = pathlib.Path("data/raw/dtpm-2023")
 OUT = pathlib.Path("data/validation/metro_extension_2023")
@@ -111,3 +112,38 @@ with (OUT / "boardings.csv").open("w", newline="", encoding="utf-8") as f:
     w.writerow(["cut", "days", "line", "station", "comuna", "total"] + [f"b{b:02d}" for b in range(48)])
     w.writerows(out)
 print(OUT / "boardings.csv", len(out), "rows")
+
+# The April 2024 workbook gives one record per station and half hour.
+before = defaultdict(float)
+lines = defaultdict(set)
+for cut, _, line, station, _, total, *_ in out:
+    if cut == "2023.08":
+        before[station] += total
+        lines[station].add(line)
+after = defaultdict(float)
+april = RAW / "Subida_Paradero_Estacion_2024.04.xlsb"
+entries = rows(april)
+columns = {name: index for index, name in next(entries).items()}
+for entry in entries:
+    if entry[columns["Tipo_dia"]] == "LABORAL" and entry[columns["Modo"]] == "Metro":
+        after[entry[columns["Paradero"]].strip().upper()] += entry[columns["Subidas_Promedio"]]
+
+# Some interchanges have only one line record in August. Include their other line
+# from the station topology (March 2026 GTFS, ordered stops joined to parent IDs).
+for station, serving_lines in {
+    "FRANKLIN": {"L2", "L6"}, "LOS HEROES": {"L1", "L2"}, "LOS LEONES": {"L1", "L6"},
+    "NUBLE": {"L5", "L6"}, "NUNOA": {"L3", "L6"}, "VICENTE VALDES": {"L4", "L5"},
+    "VICUNA MACKENNA": {"L4", "L4A"},
+}.items():
+    lines[station].update(serving_lines)
+controls = sorted(s for s in before.keys() & after.keys() if lines[s].isdisjoint({"L2", "L3"}))
+new_stations = ["EL BOSQUE", "OBSERVATORIO", "COPA LO MARTINEZ", "HOSPITAL EL PINO"]
+with (OUT / "line2.csv").open("w", newline="", encoding="utf-8") as f:
+    writer = csv.writer(f)
+    writer.writerow(["group", "station", "metro_lines", "august_2023_weekday", "april_2024_weekday"])
+    for group, stations in [("old_terminal", ["LA CISTERNA"]), ("extension", new_stations),
+                            ("control", controls)]:
+        for station in stations:
+            served_by = {"L2"} if group == "extension" else lines[station]
+            writer.writerow([group, station, "+".join(sorted(served_by)),
+                             round(before.get(station, 0), 1), round(after[station], 1)])
