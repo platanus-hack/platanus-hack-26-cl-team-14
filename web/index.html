@@ -25,6 +25,7 @@
   #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; }
   .more { color: #ff4d6d; } .less { color: #3ddc97; } .model { color: #ffb47a; }
   i { display: inline-block; width: 26px; height: 26px; border-radius: 50%; margin: 0 8px 0 18px; }
+  html.city-only body { background: #17202c; }
   html.city-only .box { display: none !important; }
   html:not(.city-only) .city-hud { display: none; }
   .city-hud { position: absolute; z-index: 1; pointer-events: none; }
@@ -117,6 +118,7 @@
 const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
 const API = 'http://localhost:8787/api/';
 const q = new URLSearchParams(location.search);
+const cityCamera = {longitude: -70.601, latitude: -33.418, zoom: 14.8, pitch: 52, bearing: -30};
 const demo = ['demo', 'v', 't', 'mut', 'j', 'h', 'site', 'm'].some(key => q.has(key));
 document.documentElement.classList.toggle('city-only', !demo);
 const MUT = [-70.6009, -33.4180];
@@ -237,6 +239,28 @@ function tobalaba() {
   ];
 }
 
+// The detailed city tile uses the mapped Tobalaba street and building geometry.
+function cityDiorama() {
+  const zone = sim?.zones.find(z => z.id === sel);
+  if (zone) updateCityCard(zone);
+  const changed = new Set(cityResult?.summary.changes.map(change => change.zone_id));
+  return [
+    new GeoJsonLayer({id: 'city-ground', data: ground, stroked: true,
+      getFillColor: [53, 77, 68],
+      getLineColor: f => /river|canal/.test(f.properties.kind)
+        ? [62, 115, 150] : f.properties.major ? [106, 104, 94] : [76, 80, 78],
+      getLineWidth: f => f.properties.kind === 'river' ? 45 : f.properties.major ? 15 : 7,
+      lineWidthUnits: 'meters'}),
+    new GeoJsonLayer({id: 'city-buildings', data: buildings, extruded: true, stroked: false,
+      getElevation: f => f.properties.height_m,
+      getFillColor: f => f.properties.height_m > 45 ? [207, 204, 195] : [164, 174, 178],
+      material: {ambient: .6, diffuse: .6, shininess: 8}}),
+    changed.size && new GeoJsonLayer({id: 'city-scenario-areas',
+      data: communes.features.filter(f => changed.has(String(f.properties.cut))),
+      filled: false, getLineColor: [255, 173, 101], getLineWidth: 2, lineWidthUnits: 'pixels'}),
+  ].filter(Boolean);
+}
+
 // ---------- Santiago ----------
 let changes = new Map(), revision = 0, submitting = false, cityResult = null;
 function syncControls() {
@@ -260,6 +284,10 @@ function applyCityResult(result, external) {
   engine('s', result);
   if (view !== 's') show('s');
   else draw();
+  if (!demo && external && result.summary.changes.length) {
+    deckgl.setProps({initialViewState: {...cityCamera, transitionDuration: 750,
+      transitionInterpolator: new FlyToInterpolator()}});
+  }
 }
 
 async function runCityScenario() {
@@ -401,7 +429,7 @@ function draw() {
   if (view == 'p') { const i = Math.floor(t); $('hh2').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00'); }
   $('engine').style.display = ms[view] ? 'block' : 'none';
   if (ms[view]) [$('ms').textContent, $('msk').textContent] = ms[view];
-  deckgl.setProps({layers: view == 't' ? tobalaba() : view == 's' ? santiago() : view == 'p' ? puntaje() : evento()});
+  deckgl.setProps({layers: !demo ? cityDiorama() : view == 't' ? tobalaba() : view == 's' ? santiago() : view == 'p' ? puntaje() : evento()});
 }
 
 function tick() {
@@ -412,7 +440,7 @@ function tick() {
 function show(v) {
   view = v; document.body.className = v;
   if (v != 'e') egen++;  // an event answer that arrives after the user left the tab is dropped
-  deckgl.setProps({initialViewState: {...(v == 'e' && ev ? ecam(ev) : VIEWS[v]), transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
+  deckgl.setProps({initialViewState: {...(!demo ? cityCamera : v == 'e' && ev ? ecam(ev) : VIEWS[v]), transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
   draw();
 }
 
@@ -447,7 +475,7 @@ Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json
   if (q.has('site')) document.querySelector(`.site[data-id=${q.get('site')}]`).onclick();
   if (q.has('m')) $('mult').value = q.get('m');
   if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || (demo ? 't' : 's'));
-  tick();
+  if (demo) tick();
   get(API + 'world').then(w => { world ??= w; sim ??= w; syncControls(); draw(); }, () => engine('s'));
   watchCity();
 });
