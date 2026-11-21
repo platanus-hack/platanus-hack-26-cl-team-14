@@ -19,7 +19,7 @@ struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
 pub struct Station { pub id: String, pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
 
 #[derive(Serialize)]
-pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64, pub mass_share_with_2_or_more_parents: [f64; 2] }
+pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64, pub mass_share_with_2_or_more_parents: [f64; 2], pub bus_beta: f64, pub bus_linked_stops: usize, pub bus_mass: f64, pub bus_empty_share: f64 }
 
 fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
     csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
@@ -60,7 +60,8 @@ fn mass(st: &[Station], total: &HashMap<String, f64>, pts: &[(String, f64, f64, 
 /// `classes`: L7, two station classes with their own profile.
 /// `public_share`: L2, weight each OD pair by the share of public-transport commuters (mode 2) of its home comuna.
 /// `split`: L4, equal split of each point among all parents within the radius.
-pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool) -> (Vec<Vec<f64>>, Report, Fit) {
+/// `bus_daily`: L3b, add beta x daily bus activity near the station x its class's whole-day profile.
+pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, classes: bool, split: bool, bus_daily: bool) -> (Vec<Vec<f64>>, Report, Fit) {
     let mut share: HashMap<String, (f64, f64)> = HashMap::new();
     for m in rows::<Mode>(&data.join("mode_share.csv")) {
         let e = share.entry(m.cut).or_default();
@@ -89,6 +90,7 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
 
     // Profile p_t per class: mean over training stations observed at t, normalized to 1 inside each half.
     let mut p = vec![vec![0.0; 48]; 2];
+    let mut pday = vec![vec![0.0; 48]; 2];
     let mut support = vec![0; 48];
     let mut support_by_class = vec![vec![0; 48]; 2];
     for c in 0..2 {
@@ -100,6 +102,9 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
             support_by_class[c][t] = v.len();
             if !v.is_empty() { p[c][t] = v.iter().sum::<f64>() / v.len() as f64; }
         }
+        // Whole-day profile (sums to 1 over 48 bins) for L3b, before the per-half normalization.
+        let day: f64 = p[c].iter().sum();
+        pday[c] = p[c].iter().map(|v| v / day).collect();
         for half in [0..24, 24..48] {
             let s: f64 = p[c][half.clone()].iter().sum();
             for t in half { p[c][t] /= s; }
@@ -135,9 +140,50 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
         qs[k] = dist.iter().find(|d| { acc += d.1; acc >= f * w }).unwrap().0.round();
     }
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
-    let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
-        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), mass_share_with_2_or_more_parents: [multi_h, multi_j] };
-    (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report, Fit { class, p, a, radius, share, public_share, split })
+    let mut report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
+        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), mass_share_with_2_or_more_parents: [multi_h, multi_j], bus_beta: 0.0, bus_linked_stops: 0, bus_mass: 0.0, bus_empty_share: 0.0 };
+    let mut pred: Vec<Vec<f64>> = q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect();
+    if bus_daily {
+        // L3b: the station's daily bus activity, spread over the day with its class's whole-day profile.
+        let (b, linked, empty) = bus_activity(data, st);
+        let x: Vec<Vec<f64>> = (0..st.len()).map(|i| { let d: f64 = b[i].iter().sum(); (0..48).map(|t| d * pday[class[i]][t]).collect() }).collect();
+        let (mut num, mut den) = (0.0, 0.0);
+        for (i, s) in st.iter().enumerate().filter(|(_, s)| !s.holdout) {
+            for (t, o) in s.laboral.as_ref().unwrap().iter().enumerate() {
+                if let Some(o) = o { num += (o - pred[i][t]) * x[i][t]; den += x[i][t] * x[i][t]; }
+            }
+        }
+        let beta = (num / den).max(0.0);
+        for i in 0..st.len() { for t in 0..48 { pred[i][t] += beta * x[i][t]; } }
+        report.bus_beta = beta; report.bus_linked_stops = linked; report.bus_empty_share = empty; report.bus_mass = b.iter().flatten().sum();
+    }
+    (pred, report, Fit { class, p, a, radius, share, public_share, split })
+}
+
+#[derive(Deserialize)]
+struct BusLink { stop_id: String, parent_id: String }
+
+/// B[station][bin]: REPORTED bus boardings of the stops within 300 m (bus_metro_300m.csv); a stop shared by
+/// n parents gives 1/n to each. Empty bins add nothing, which is not proof of zero demand.
+/// Returns (B, number of linked stops, share of linked stop-bins that are empty).
+fn bus_activity(data: &Path, st: &[Station]) -> (Vec<Vec<f64>>, usize, f64) {
+    let links: Vec<BusLink> = rows(&data.join("bus_metro_300m.csv"));
+    let mut parents: HashMap<&str, Vec<usize>> = HashMap::new();
+    for l in &links { parents.entry(&l.stop_id).or_default().push(st.iter().position(|s| s.id == l.parent_id).unwrap()); }
+    let mut b = vec![vec![0.0; 48]; st.len()];
+    let mut r = csv::Reader::from_path(data.join("bus_activity.csv")).unwrap();
+    let h = r.headers().unwrap().clone();
+    let (id, b0) = (h.iter().position(|x| x == "gtfs_stop_id").unwrap(), h.iter().position(|x| x == "b00").unwrap());
+    let (mut empty, mut cells) = (0, 0);
+    for row in r.records() {
+        let row = row.unwrap();
+        let Some(ps) = parents.get(&row[id]) else { continue };
+        for t in 0..48 {
+            cells += 1;
+            match row[b0 + t].parse::<f64>() { Ok(v) => for &i in ps { b[i][t] += v / ps.len() as f64; }, Err(_) => empty += 1 }
+        }
+    }
+    (b, parents.len(), empty as f64 / cells as f64)
 }
 
 /// The frozen parts of a fit that a scenario reuses: baseline classes, profiles, scale, radius, mode shares.
@@ -158,7 +204,7 @@ const TARGET_SHA256: &str = "ecd8131fac2bfcf401bb5700dda7a7a0a31534990b8b962134d
 const SCORER_SHA256: &str = "ea807561049a3e62a847455b98863594744ae1768201a498f3d720af2991dcaa";
 
 /// Files the fit reads; their hashes must equal the artifact's before its score is shown.
-const FIT_INPUTS: [&str; 5] = ["work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json"];
+const FIT_INPUTS: [&str; 7] = ["work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json", "bus_activity.csv", "bus_metro_300m.csv"];
 
 fn sha256(bytes: &[u8]) -> String {
     use sha2::Digest;
@@ -167,7 +213,7 @@ fn sha256(bytes: &[u8]) -> String {
 
 fn layer_of(args: &[String]) -> Option<&'static str> {
     match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
-        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), ["1000", "public", "classes", "split"] => Some("L4"), _ => None,
+        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), ["1000", "public", "classes", "split"] => Some("L4"), ["1000", "public", "classes", "split", "bus_daily"] => Some("L3b"), _ => None,
     }
 }
 #[derive(Deserialize)]
@@ -202,7 +248,7 @@ impl StationModel {
         let st: Vec<Station> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
         let has = |k: &str| art.stations_args.iter().any(|x| x == k);
         let radius = art.stations_args.first().and_then(|r| r.parse().ok()).unwrap_or(f64::INFINITY);
-        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"), has("split"));
+        let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"), has("split"), has("bus_daily"));
         // The stored score belongs to this fit only if: same model source, frozen target bytes and scorer, 1,123 cells, same input bytes, the label of these
         // arguments, all 31 frozen held-out stations present, and exactly the same held-out predictions.
         let held: std::collections::BTreeSet<&str> = st.iter().filter(|s| s.holdout).map(|s| s.id.as_str()).collect();
