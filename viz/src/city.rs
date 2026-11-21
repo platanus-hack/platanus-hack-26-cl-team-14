@@ -4,6 +4,7 @@ mod facade;
 mod ground;
 mod streets;
 mod terrain;
+mod trees;
 use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
@@ -392,6 +393,8 @@ pub fn load_buildings(
         ..default()
     });
     let edit_material = materials.add(StandardMaterial {
+        unlit: true,
+        alpha_mode: AlphaMode::Blend,
         cull_mode: None,
         perceptual_roughness: 0.9,
         ..default()
@@ -452,12 +455,13 @@ pub(crate) fn toggle_subway(
         material
             .base_color
             .set_alpha(if mode.0 { alpha } else { 1. });
-        material.alpha_mode = if mode.0 {
+        let edit = handle == &buildings.edit_material;
+        material.alpha_mode = if mode.0 || edit {
             AlphaMode::Blend
         } else {
             AlphaMode::Opaque
         };
-        material.unlit = mode.0;
+        material.unlit = mode.0 || edit;
     }
 }
 
@@ -483,17 +487,17 @@ pub(crate) fn paper_light(
     };
     let dark = night.0 && !mode.0;
     sun.illuminance = if dark { 1700. } else { 12_000. };
-    sun.color = if dark { Color::srgb_u8(157, 181, 255) } else { Color::srgb_u8(255, 245, 231) };
+    sun.color = if dark { Color::srgb_u8(184, 184, 190) } else { Color::srgb_u8(255, 245, 231) };
     ambient.brightness = if dark { 300. } else { 950. };
-    ambient.color = if dark { Color::srgb_u8(147, 161, 223) } else { Color::srgb_u8(226, 228, 255) };
+    ambient.color = if dark { Color::srgb_u8(164, 164, 173) } else { Color::srgb_u8(226, 228, 255) };
     let (street, _) = &layers.materials[2];
     materials.get_mut(street).unwrap().emissive = if dark {
-        LinearRgba::rgb(0.07, 0.09, 0.15)
+        LinearRgba::rgb(0.13, 0.14, 0.15)
     } else {
         LinearRgba::BLACK
     };
     materials.get_mut(&buildings.facade_material).unwrap().emissive = if dark {
-        LinearRgba::rgb(2.6, 1.65, 0.55)
+        LinearRgba::rgb(1.4, 1.15, 0.84)
     } else {
         LinearRgba::BLACK
     };
@@ -613,6 +617,7 @@ pub(crate) struct NamedBuilding(usize, usize);
 pub(crate) fn setup_ground(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let surface = StandardMaterial {
@@ -626,6 +631,16 @@ pub(crate) fn setup_ground(
     let root = commands
         .spawn((Transform::default(), Visibility::Inherited))
         .id();
+    let foliage = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(trees::canopies())),
+        alpha_mode: AlphaMode::Mask(0.45),
+        cull_mode: None,
+        perceptual_roughness: 1.,
+        ..default()
+    });
+    for mesh in ground::mapped_trees(Path::new("web/data/city_trees.bin.gz")) {
+        commands.spawn((ChildOf(root), Mesh3d(meshes.add(mesh)), MeshMaterial3d(foliage.clone())));
+    }
     for ((tile, i), base, mesh) in ground::named_buildings(Path::new(".")) {
         commands.spawn((
             NamedBuilding(tile, i),

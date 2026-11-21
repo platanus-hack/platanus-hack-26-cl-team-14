@@ -1,3 +1,4 @@
+mod chart;
 mod city;
 mod focus;
 mod movers;
@@ -337,6 +338,7 @@ fn main() -> AppExit {
         .add_plugins((
             MiniatureCamera,
             net::NetPlugin,
+            chart::ChartPlugin,
             movers::MoversPlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,
@@ -354,6 +356,12 @@ fn main() -> AppExit {
             city::edits::refresh
                 .run_if(resource_changed::<net::Scenario>)
                 .before(city::draw_buildings),
+        )
+        .add_systems(
+            PostUpdate,
+            city::edits::place_closure_ends
+                .after(TransformSystems::Propagate)
+                .before(bevy::ui::UiSystems::Layout),
         )
         .add_systems(Update, city::draw_buildings)
         .run()

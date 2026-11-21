@@ -8,9 +8,11 @@ html, body { margin: 0; height: 100%; background: #151c25; color: #fff; font-fam
 main { height: 100%; display: grid; place-items: center; }
 canvas { width: min(100vw, 177.78vh); height: auto; }
 h1 { position: absolute; top: 5vh; left: 5vw; margin: 0; font-size: clamp(1.5rem, 4vw, 4rem); text-shadow: 0 2px 6px #151c25; }
+output { position: absolute; top: 16vh; left: 5vw; font-size: clamp(1rem, 2.2vw, 2rem); }
 </style>
 <main>
   <h1>Mapocho navegable</h1>
+  <output hidden></output>
   <canvas width="1920" height="1080" role="img" aria-label="Maqueta de un barco en el río Mapocho, entre Purísima y Pío Nono, junto al Parque Forestal"></canvas>
 </main>
 <script type="module">
@@ -85,46 +87,126 @@ for (const {geometry, properties} of mapocho) {
   }
 }
 const bridges = mapocho.filter(({properties}) => properties.kind === 'bridge').map(({geometry}) => geometry.coordinates);
-stroke(bridges, '#151c25', 27);
-stroke(bridges, '#9199a3', 16);
+const background = new OffscreenCanvas(width, height);
+background.getContext('2d').drawImage(canvas, 0, 0);
 
-// Widen the ferry symbol at this camera scale so the cabin and wake read from the back of the room.
-const ferry = [-70.63765, -33.435435];
-const [boatX, boatY] = project(ferry);
-const [bowX, bowY] = project([-70.637, -33.43559]);
-ctx.save();
-ctx.translate(boatX, boatY);
-ctx.rotate(Math.atan2(bowY - boatY, bowX - boatX));
-ctx.strokeStyle = '#b4eff3';
-ctx.lineWidth = 5;
-ctx.beginPath();
-ctx.moveTo(-40, -10);
-ctx.lineTo(-76, -20);
-ctx.moveTo(-40, 10);
-ctx.lineTo(-76, 20);
-ctx.stroke();
-ctx.fillStyle = '#fff2c5';
-ctx.strokeStyle = '#102534';
-ctx.lineWidth = 5;
-ctx.beginPath();
-ctx.moveTo(-44, -20);
-ctx.lineTo(24, -20);
-ctx.quadraticCurveTo(43, -17, 51, 0);
-ctx.quadraticCurveTo(43, 17, 24, 20);
-ctx.lineTo(-44, 20);
-ctx.closePath();
-ctx.fill();
-ctx.stroke();
-ctx.fillStyle = '#183c4d';
-ctx.beginPath();
-ctx.roundRect(-23, -13, 50, 26, 7);
-ctx.fill();
-ctx.fillStyle = '#80d5dc';
-ctx.fillRect(8, -10, 13, 20);
-ctx.restore();
+function drawFerry([x, y], heading, moving) {
+  // Enlarge the silhouette so the cabin and wake read from the back of the room.
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(heading);
+  if (moving) {
+    ctx.strokeStyle = '#b4eff3';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(-40, -10);
+    ctx.lineTo(-76, -20);
+    ctx.moveTo(-40, 10);
+    ctx.lineTo(-76, 20);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#fff2c5';
+  ctx.strokeStyle = '#102534';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-44, -20);
+  ctx.lineTo(24, -20);
+  ctx.quadraticCurveTo(43, -17, 51, 0);
+  ctx.quadraticCurveTo(43, 17, 24, 20);
+  ctx.lineTo(-44, 20);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#183c4d';
+  ctx.beginPath();
+  ctx.roundRect(-23, -13, 50, 26, 7);
+  ctx.fill();
+  ctx.fillStyle = '#80d5dc';
+  ctx.fillRect(8, -10, 13, 20);
+  ctx.restore();
 
-label('Río Mapocho', [-70.6394, -33.43501]);
-label('Puente Pío Nono', [-70.6354, -33.43554]);
-label('Parque Forestal', [-70.63865, -33.43586]);
+}
+
+function drawMap() {
+  stroke(bridges, '#151c25', 27);
+  stroke(bridges, '#9199a3', 16);
+  label('Río Mapocho', [-70.6394, -33.43501]);
+  label('Puente Pío Nono', [-70.6354, -33.43554]);
+  label('Parque Forestal', [-70.63865, -33.43586]);
+}
+
+function prepareLine({geometry, properties}) {
+  const points = geometry.coordinates.map(project);
+  const distances = [0];
+  for (let i = 1; i < points.length; i++) {
+    distances.push(distances[i - 1] + Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]));
+  }
+  const stops = properties.stop_ids.map(id => {
+    const [x, y] = project(properties.new_stops[id]);
+    return points.reduce((closest, point, i) =>
+      Math.hypot(point[0] - x, point[1] - y) < Math.hypot(points[closest][0] - x, points[closest][1] - y)
+        ? i : closest, 0);
+  });
+
+  let elapsed = 0;
+  const steps = [];
+  for (let i = 1; i < stops.length; i++) {
+    const from = distances[stops[i - 1]];
+    const to = distances[stops[i]];
+    const arrival = elapsed + properties.segment_minutes[i - 1] * 60;
+    steps.push({start: elapsed, end: arrival, from, to});
+    elapsed = arrival + properties.dwell_minutes[i] * 60;
+    if (elapsed > arrival) steps.push({start: arrival, end: elapsed, from: to, to});
+  }
+  return {points, distances, steps, duration: elapsed, headway: properties.headway_minutes * 60};
+}
+
+function drawLine({points, distances, steps, duration, headway}, now) {
+  // The draft assumes boats are already running when the scene begins.
+  for (let age = now % headway; age < duration; age += headway) {
+    const {start, end, from, to} = steps.find(step => age < step.end);
+    const distance = from + (to - from) * (age - start) / (end - start);
+    const next = distances.findIndex(value => value > distance);
+    const i = next === -1 ? points.length - 1 : next;
+    const [x, y] = points[i - 1];
+    const dx = points[i][0] - x;
+    const dy = points[i][1] - y;
+    const fraction = (distance - distances[i - 1]) / (distances[i] - distances[i - 1]);
+    drawFerry([x + dx * fraction, y + dy * fraction], Math.atan2(dy, dx), from !== to);
+  }
+}
+
+const query = new URLSearchParams(location.search);
+if (query.has('replay')) {
+  const url = new URL(query.get('replay'), location.href);
+  if (url.origin !== location.origin) throw new Error('Serve the replay from the same origin as the mock.');
+  const {meta, result} = await (await fetch(url)).json();
+  const lines = result.applied.filter(edit => edit.kind === 'line' && edit.op === 'add'
+    && edit.properties?.mode === 'boat').map(prepareLine);
+  document.querySelector('h1').textContent = meta.title;
+  const clock = document.querySelector('output');
+  clock.hidden = false;
+  const start = result.scene.half_hour * 1800;
+  const duration = meta.duration_half_hours * 1800;
+  const offset = Number(query.get('at') ?? 0);
+  const play = !query.has('at') || query.get('play') === '1';
+  const began = performance.now();
+  function frame(now) {
+    const elapsed = Math.min(duration, offset + (play ? (now - began) * 0.008 : 0));
+    const minute = Math.floor((start + elapsed) / 60);
+    const time = [Math.floor(minute / 60), minute % 60].map(n => String(n).padStart(2, '0')).join(':');
+    clock.textContent = 'Maqueta · ' + time;
+    ctx.drawImage(background, 0, 0);
+    for (const line of lines) drawLine(line, start + elapsed);
+    drawMap();
+    if (play && elapsed < duration) requestAnimationFrame(frame);
+  }
+  frame(began);
+} else {
+  const [x, y] = project([-70.63765, -33.435435]);
+  const [bowX, bowY] = project([-70.637, -33.43559]);
+  drawFerry([x, y], Math.atan2(bowY - y, bowX - x), true);
+  drawMap();
+}
 </script>
 </html>

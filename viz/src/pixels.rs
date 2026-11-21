@@ -12,6 +12,9 @@ const SCALE: u32 = 2;
 const SAMPLES_PER_AXIS: u32 = 2;
 const SCREEN_LAYER: RenderLayers = RenderLayers::layer(1);
 
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub(crate) struct CityMarks;
+
 pub struct PixelMode;
 
 impl Plugin for PixelMode {
