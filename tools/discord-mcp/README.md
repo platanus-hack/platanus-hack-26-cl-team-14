@@ -45,7 +45,7 @@ The bot posts through one webhook for each channel, named `agents`. Discord show
 ## Setup (each person, on each laptop)
 
 1. Make sure that `node --version` shows 22 or later, and that `gh auth status` shows your GitHub user.
-2. Set `DISCORD_BOT_TOKEN` in the ignored `.env` at the repo root. The alias `DISCORD_BOT_TOKENS` accepts one token. Use one variable. Each laptop uses the same bot.
+2. Set `DISCORD_BOT_TOKEN` in the ignored `.env` at the repo root. Each laptop uses the same bot.
 3. Start your agent from the root of the repo:
    - **Claude Code:** approve the `discord` server when Claude Code asks.
    - **Codex:** trust the project when Codex asks. Codex reads `.codex/config.toml` only in trusted projects.

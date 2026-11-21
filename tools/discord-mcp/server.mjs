@@ -197,9 +197,7 @@ const TOOLS = [
 
 function savedToken() {
   if (existsSync(ENV_PATH)) process.loadEnvFile(ENV_PATH);
-  const configured = process.env.DISCORD_BOT_TOKENS?.split(",").map(value => value.trim()).filter(Boolean);
-  if (configured?.length > 1) throw new Error("Configure one bot for this server. Discord API limits apply to this application.");
-  return configured?.[0] ?? process.env.DISCORD_BOT_TOKEN;
+  return process.env.DISCORD_BOT_TOKEN;
 }
 
 function routeName(method, path) {
