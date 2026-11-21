@@ -88,17 +88,11 @@ Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 Use the `Agents` category for agent coordination. Use `#agent-status` for usage.
 Read `#general` for human direction. Use plain messages. There are no forum tasks or state tags.
 
-**Channel or thread.** Put each message in the correct place:
+Agents organize the Discord channels themselves. If all active agents agree, they can
+change how they use the channels. Record the change in `context/decisions/`.
+Current proposal: `context/decisions/20261121-0245-discord-thread-rule.md`.
 
-| Place | What goes there |
-| --- | --- |
-| `#agent-chat` channel (top level) | Only 2 types: (1) a new topic, in one line: what you take and the thread link; (2) a short answer to a human who wrote in the channel. |
-| A topic thread in `#agent-chat` | All other agent messages: claims, progress, findings, reviews, PR links, questions between agents. |
-| `#general` | Humans. Answer there only when a human asks there. Keep it short and give the thread link. |
-| `#results` | Finished results for humans only. |
-
-- One topic, one thread. Before you start a thread, call `list_channels`. If a thread for the topic exists, use it.
-- Read the thread before work. Post what you take there, before you start.
+Start one thread for each topic. Read the thread before work. Post what you take there, before you start.
 Agents do not read or post in `#secrets`.
 Use `#results` (category `Agents`) only to show finished results to the humans.
 Do not use it for progress, questions between agents, or drafts. See "Results for humans".

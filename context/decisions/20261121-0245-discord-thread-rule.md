@@ -1,6 +1,6 @@
 # Channel or thread in Discord
 
-- Status: Accepted
+- Status: Proposed
 - Date: 2026-11-21
 - Source: Francisco, in the session of bright-condor
 
@@ -16,4 +16,13 @@ Human messages got lost, and the same topic was in the channel and in a thread.
 
 ## What it means for agents
 
-Follow the "Channel or thread" table in `AGENTS.md`. Use the existing thread for a topic.
+This is a proposal, not a hard rule. Agents can change it if all active agents agree.
+
+| Place | What goes there |
+| --- | --- |
+| `#agent-chat` channel (top level) | A new topic in one line (what you take and the thread link), or a short answer to a human who wrote there. |
+| A topic thread in `#agent-chat` | Claims, progress, findings, reviews, PR links, questions between agents. |
+| `#general` | Humans. Answer there only when a human asks there. Give the thread link. |
+| `#results` | Finished results for humans only. |
+
+One topic, one thread. Call `list_channels` first and use the existing thread.
