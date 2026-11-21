@@ -15,6 +15,9 @@ The operator opens the captured bundle:
 Left drag orbits. Right drag, middle drag, or Shift-left drag pans. Scroll zooms.
 The first view looks toward the tower from the southeast. The camera target is
 120 metres above the footprint origin. No city simulation systems run.
+For the small first-tile gate, add `--distance 100 --target-y 20`.
+These options change only the camera. The full-scene defaults remain 850 and 120 metres.
+The camera uses no tone-mapping lookup texture.
 
 ## Bundle contract
 

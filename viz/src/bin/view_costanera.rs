@@ -1,6 +1,7 @@
 //! Open a captured local bundle. No city or simulation systems are installed.
 use bevy::{
     asset::AssetPlugin,
+    core_pipeline::tonemapping::Tonemapping,
     gltf::{GltfPlugin, convert_coordinates::GltfConvertCoordinates},
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
     math::DMat4,
@@ -40,6 +41,13 @@ fn pose(orbit: &Orbit) -> Transform {
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let camera_value = |flag: &str, default: f32| {
+        args.iter()
+            .position(|arg| arg == flag)
+            .map(|index| args[index + 1].parse::<f32>().unwrap())
+            .unwrap_or(default)
+    };
     let directory = PathBuf::from(
         std::env::args()
             .nth(1)
@@ -58,10 +66,10 @@ fn main() {
         .insert_resource(bundle)
         .insert_resource(ClearColor(Color::srgb(0.70, 0.78, 0.85)))
         .insert_resource(Orbit {
-            target: Vec3::new(0., 120., 0.),
+            target: Vec3::new(0., camera_value("--target-y", 120.), 0.),
             yaw: FRAC_PI_4,
             pitch: 0.48,
-            distance: 850.,
+            distance: camera_value("--distance", 850.),
         })
         .add_plugins(
             DefaultPlugins
@@ -111,6 +119,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, bundle: Res<Bundle>, 
             brightness: 600.,
             ..default()
         },
+        Tonemapping::None,
         pose(&orbit),
     ));
     commands.spawn((
