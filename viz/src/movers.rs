@@ -558,6 +558,7 @@ struct Replay {
     departures: Vec<Vec<Group>>,
     platforms: Vec<Station>,
     longest: f32,
+    clock_offset: Option<f32>,
     revision_started: f32,
 }
 
@@ -573,6 +574,22 @@ fn read_result(
     }
     let r = &result.0;
     let stations = r["stations"].as_array().unwrap();
+    replay.clock_offset.get_or_insert_with(|| {
+        let mut boardings = [0.; 48];
+        for station in stations {
+            for (total, count) in boardings
+                .iter_mut()
+                .zip(station["base_half_hour"].as_array().unwrap())
+            {
+                *total += count.as_f64().unwrap();
+            }
+        }
+        let peak = (0..boardings.len())
+            .rev()
+            .max_by(|&a, &b| boardings[a].total_cmp(&boardings[b]))
+            .unwrap();
+        peak as f32 * BIN - time.elapsed_secs()
+    });
     let mut closed = std::collections::HashSet::new();
     for change in r["applied"].as_array().into_iter().flatten().filter(|c| c["kind"] == "station") {
         let state = &change["understood"];
@@ -995,7 +1012,7 @@ fn draw(
     // The city clock runs in real time from the morning peak and survives scenario revisions.
     let now = clock
         .0
-        .unwrap_or(8. * 3600. + 10. * 60. + time.elapsed_secs())
+        .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs())
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);

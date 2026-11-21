@@ -1,6 +1,6 @@
 //! Temporary event attendance. The changed city's inbound workers provide return comunas and mode shares.
 use crate::population::Population;
-use crate::stations::access::StationAccess;
+use crate::stations::access::{AddedStation, StationAccess};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
@@ -30,6 +30,14 @@ pub struct AttendanceProjection {
 
 /// Call once per event after rechoose and fine-mode assignment, with the scenario's active Metro parent set.
 pub fn project(pop: &Population, access: &StationAccess, active: &HashSet<String>, request: AttendanceRequest) -> AttendanceProjection {
+    project_with_additions(pop, access, active, request, &[])
+}
+
+/// Use the same open stations and new access points as the commuter projection.
+pub fn project_with_additions(
+    pop: &Population, access: &StationAccess, active: &HashSet<String>,
+    request: AttendanceRequest, additions: &[AddedStation],
+) -> AttendanceProjection {
     let jobs_in_venue_cut: Vec<_> = pop.jobs.iter().map(|point| point.cut == request.venue_cut).collect();
     let mut by_mode = BTreeMap::<i8, usize>::new();
     let mut by_home = BTreeMap::<&str, usize>::new();
@@ -48,7 +56,7 @@ pub fn project(pop: &Population, access: &StationAccess, active: &HashSet<String
         (source_workers > 0).then(|| expected(*by_mode.get(&2).unwrap_or(&0)) * metro_given_public)
     };
     let metro_users_with_network_access = potential_metro_users.map(|mass| {
-        mass * access.event_access_share(request.longitude, request.latitude, active)
+        mass * access.event_access_share_with_additions(request.longitude, request.latitude, active, additions)
     });
     AttendanceProjection {
         source_workers,
