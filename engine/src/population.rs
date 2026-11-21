@@ -84,12 +84,18 @@ impl Population {
         let workers: Vec<WorkerTraits> = rows::<WorkerTraits>(&data.join("person_traits_workers.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
         let students: Vec<SchoolOd> = rows::<SchoolOd>(&data.join("school_od.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
         let mut persons = Vec::with_capacity(4_100_000);
-        for r in &workers {
-            let Some(home) = hw.get_mut(r.origin_cut.as_str()) else { continue };
-            let Some(dest) = js.get_mut(r.destination_cut.as_str()) else { continue };
-            for _ in 0..r.commuters as u32 {
-                persons.push(Person { home: home.take(home_step), dest: dest.take(destination_step), student: false, mode: r.mode,
-                    age_band: r.age_band, household_size: r.household_size });
+        let trait_order = 5_f64.sqrt() - 2.0;
+        for cell in workers.chunk_by(|a, b| (&a.origin_cut, &a.destination_cut, a.mode) == (&b.origin_cut, &b.destination_cut, b.mode)) {
+            let Some(home) = hw.get_mut(cell[0].origin_cut.as_str()) else { continue };
+            let Some(dest) = js.get_mut(cell[0].destination_cut.as_str()) else { continue };
+            // The file lists a cell by age, then household. Interleave them, so person order inside a cell
+            // (which rechoose.rs uses to pick who moves) does not follow age or household.
+            let mut traits: Vec<(f64, u8, u8)> = cell.iter().flat_map(|r| (0..r.commuters as u32).map(|_| (r.age_band, r.household_size)))
+                .enumerate().map(|(i, (a, h))| (((i as f64 + 0.5) * trait_order).fract(), a, h)).collect();
+            traits.sort_by(|x, y| x.0.total_cmp(&y.0));
+            for (_, age_band, household_size) in traits {
+                persons.push(Person { home: home.take(home_step), dest: dest.take(destination_step), student: false, mode: cell[0].mode,
+                    age_band, household_size });
             }
         }
         let traits: Vec<StudentTraits> = rows(&data.join("person_traits_students.csv"));
