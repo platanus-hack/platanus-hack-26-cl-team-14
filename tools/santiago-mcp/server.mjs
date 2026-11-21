@@ -34,7 +34,7 @@ const tool = {
           type: 'object',
           required: ['kind', 'target', 'op', 'value'],
           properties: {
-            kind: { enum: ['jobs', 'residents', 'minutes', 'station', 'event'], description: 'jobs: work places. residents: persons who live there (workers follow at the comuna rate). minutes: door-to-door travel minutes between comunas. station: close or reopen an existing Metro station, open a planned line, or open a new station at a point.' },
+            kind: { enum: ['jobs', 'residents', 'minutes', 'station', 'event', 'cars'], description: 'cars: household access to a car. Use target {type:"comuna",id:<home CUT>}. Use set with an absolute share (0 to 1) or multiply with a factor. Report car_mode_changes workers_base and workers_scenario by mode. Label the result exploratory and state the EOD 2012 household-access assumption and the source level returned by the engine. jobs: work places. residents: persons who live there (workers follow at the comuna rate). minutes: door-to-door travel minutes between comunas. station: close or reopen an existing Metro station, open a planned line, or open a new station at a point.' },
             target: {
               type: 'object',
               required: ['type'],
