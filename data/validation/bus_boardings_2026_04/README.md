@@ -23,7 +23,7 @@ DTPM groups unknown stops under `SIN_SIMIT` (internal code `SIN_PARADERO`). We r
 
 ## Comuna target
 
-`by_comuna.csv` sums the observed stops in each half hour for each of the 39 named comunas in the workbook and the blank-CUT bucket. `observed_codes` counts source codes with an observation in the interval. `total_codes` counts all source codes for the comuna across the week. If only some stops reported, the sum covers those stops. If none reported, the sum is blank. The named comunas account for 2,511,380.0 boardings.
+`by_comuna.csv` sums the observed stops in each half hour for each of the 39 named comunas in the workbook and the blank-CUT bucket. `observed_codes` counts source codes with an observation in the interval. `total_codes` counts all source codes for the comuna across the week. If only some stops reported, the sum covers those stops. If none reported, the sum is blank. Only 45 of the 1,920 rows have an observation for every code. When scoring a partial sum, include predictions only for codes with an observed value in that half hour in `bus_stops.csv`. The named comunas account for 2,511,380.0 boardings.
 
 ## Rebuild
 
