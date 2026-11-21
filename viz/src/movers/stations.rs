@@ -106,8 +106,6 @@ pub(super) struct Station {
     entrances: Vec<Entrance>,
     radius: f32,
     sides: Vec<Side>,
-    // Cumulative engine boardings at the start of each half hour, plus the daily total.
-    entries: Vec<f64>,
 }
 
 struct Side {
@@ -140,17 +138,12 @@ impl Station {
             });
         }
 
-        let mut entries = vec![0.];
-        for people in row["scenario_half_hour"].as_array().unwrap() {
-            entries.push(entries.last().unwrap() + people.as_f64().unwrap());
-        }
         Self {
             street_people: street_people::StreetPeople::new(row, routes),
             centre,
             entrances,
             radius,
             sides,
-            entries,
         }
     }
 
@@ -182,39 +175,6 @@ impl Station {
                 Paint::Plain,
                 pose(side.base, side.dir, Vec3::new(58., 1., 4.2)),
             );
-        }
-        // Close to an entrance, show one person per modeled boarding. The overview
-        // samples those same boardings. The engine does not identify individual transfers.
-        let distance = eye.distance(self.centre);
-        let scale = if distance <= 2_000. { 1. } else { PERSONS_PER_MOVER };
-        let person_size = (distance * 0.003).clamp(1.8, 3.6);
-        let speed = Vehicle::Walk.speed();
-        let approach = 18. / speed;
-        let bin = (now / BIN) as usize;
-        for slot in bin..=((now + approach) / BIN) as usize {
-            let i = slot % 48;
-            let total = self.entries[i + 1] - self.entries[i];
-            if total <= 0. {
-                continue;
-            }
-            let start = slot as f32 * BIN;
-            let first_index = |time: f32| {
-                let fraction = ((time - start) / BIN).clamp(0., 1.) as f64;
-                ((self.entries[i] + total * fraction) / scale - 0.5).ceil() as usize
-            };
-            for j in first_index(now)..first_index(now + approach) {
-                let fraction = ((j as f64 + 0.5) * scale - self.entries[i]) / total;
-                let remaining = (start + fraction as f32 * BIN - now) * speed;
-                // A sampled walker stays on its mapped path through the boarding time.
-                if scale == 1. && self.street_people.gate_index(i, j).is_some() {
-                    continue;
-                }
-                let gate = &self.entrances[j % self.entrances.len()];
-                // Leave one shoulder width between lanes at the 3.2 m entrance.
-                let lane = ((j / self.entrances.len() % 3) as f32 - 1.) * 1.35;
-                let p = gate.sign + gate.outward * remaining + right(gate.outward) * lane;
-                place(Model::Person, Paint::Plain, pose(p, -gate.outward, Vec3::splat(person_size)));
-            }
         }
     }
 }
