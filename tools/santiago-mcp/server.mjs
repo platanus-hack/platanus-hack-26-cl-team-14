@@ -54,7 +54,9 @@ const path = { type: 'array', items: point, minItems: 2 };
 const numbers = { type: 'array', items: { type: 'number' } };
 const stopRules = { type: 'array', items: { type: 'integer', minimum: 0, maximum: 3 } };
 const lineProperties = {
-  mode: { enum: ['bus', 'metro'] }, stop_ids: { type: 'array', items: { type: 'string' } },
+  mode: { enum: ['bus', 'metro', 'boat'] }, stop_ids: { type: 'array', items: { type: 'string' } },
+  new_stops: { type: 'object', additionalProperties: point, description: 'Stops that are not in the catalog (for example river piers): ID → [longitude, latitude]. List them in stop_ids too.' },
+  vehicle_capacity: { type: 'number', exclusiveMinimum: 0, description: 'Passengers per vehicle. Caps line_riders per half hour.' },
   segment_minutes: numbers, dwell_minutes: numbers, headway_minutes: { type: ['number', 'null'], exclusiveMinimum: 0, description: 'Use a positive headway for new service. Use null to restore a null catalog headway.' },
   pickup_type: stopRules, drop_off_type: stopRules,
 };
@@ -74,7 +76,7 @@ const featureChanges = [
   },
   {
     kind: 'line',
-    description: 'Edit one directed bus or Metro service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing.',
+    description: 'Edit one directed bus, Metro or boat service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. A two-way service is two adds. Stops outside the catalog go in new_stops. Each added line returns line_riders: workers near both ends, trips to work by stop and half hour, and the mode they leave. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing.',
     target: idTarget, geometries: ['LineString'],
     properties: lineProperties,
   },
