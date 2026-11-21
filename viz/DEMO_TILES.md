@@ -72,7 +72,8 @@ The operator observed a native frame with textured geometry from the full
 995-tile bundle and visible credits after the 16 MiB stack launch. This frame
 does not establish venue recognition, correct orientation, level overlap,
 working controls, offline reopening, or frame rate. Those checks remain open.
-Monumental capture and native checks remain open. No automated tests ran.
+This is historical evidence from the original selection. Corrected captures and
+renderer observations are recorded below. No automated tests ran.
 
 ## Selection correction and saved-data replay
 
@@ -108,6 +109,77 @@ Whole edge tiles can extend beyond the requested square. Retained geometry
 has no Earth-scale coordinates in this audit. The replay evaluates the new
 predicate against saved data; it is not execution of the corrected Rust binary.
 Sphere arithmetic was checked manually for far-side, crossing, near-side and
-sheared examples. No real sphere volume was present. The correction has not
-yet been built or captured. New native and denied-network observations remain
-pending. The original bundles and capture statistics were preserved.
+sheared examples. No real sphere volume was present. The corrected capture
+binary at `0bb1ae3fa4671bef78f91fe900c65fae60a4675e` subsequently produced
+595 MUT tiles and 268 Monumental tiles. All actual corrected GLBs passed the
+implemented structural and coordinate checks. Their complete SHA256 multisets
+exactly match the replay predictions, allowing tile renumbering. There are no
+Earth-scale coordinate outliers in either corrected bundle. The original
+bundles and capture statistics were preserved.
+
+| Corrected bundle | Vertices | Triangles | Prepared GLB bytes | Capture seconds |
+| --- | --- | --- | --- | --- |
+| MUT: 595 tiles | 983,863 | 852,458 | 41,080,104 | 225.628 |
+| Monumental: 268 tiles | 500,722 | 405,002 | 19,017,804 | 100.463 |
+
+Capture includes network download and preparation. It is separate from the
+local renderer measurements below. The actual bundle audit checks file
+structure, references, coordinate finiteness and bounds. It does not prove
+visual coverage or appearance.
+
+## Optional renderer PNG
+
+Use a new PNG path. The command refuses an existing output file. No Google key
+is needed for the saved bundle:
+
+```sh
+RUST_MIN_STACK=16777216 /path/to/view_demo_tiles /path/to/corrected-mut-bundle --capture /tmp/mut-render.png --exit-after-capture
+```
+
+Use the same command with the corrected Monumental bundle and a different PNG
+path. Existing `--distance` and `--target-y` options set the export camera.
+Without `--exit-after-capture`, the viewer stays open after a successful save.
+Camera input is paused while the export is pending, so the CLI camera stays fixed.
+
+Export waits for every tile and recursive dependency, every spawned world
+instance, and the Google logo. It also requires mesh entities. After readiness,
+it waits at least four seconds and 120 main-app updates before requesting the
+primary-window renderer screenshot. This captures the rendered scene and UI
+credits together; it does not use a desktop screenshot tool. Dependency failure,
+a 180-second export timeout, or PNG conversion/save failure ends with an error.
+The output parent directory must already exist.
+
+Logs give startup-to-assets-and-instances-ready and startup-to-PNG-save seconds.
+The second duration includes deliberate warm-up, GPU readback and PNG encoding.
+Neither duration is a measured first complete presented frame or frame rate.
+Warm-up is a render-preparation allowance, not an independent GPU-completeness
+proof. Open each saved image and check geometry, framing and credits.
+
+## Observed corrected renderer PNGs
+
+The optional PNG export built with Rust1.97.1, locked dependencies and one job
+in 5.65 seconds. The coordinating operator then inspected both renderer images:
+
+| Site | Tile instances | Mesh entities | Assets/instances ready | PNG saved |
+| --- | --- | --- | --- | --- |
+| MUT | 595 | 805 | 4.738 s | 10.126 s |
+| Monumental | 268 | 339 | 1.724 s | 6.804 s |
+
+Times start at application startup. PNG-save time includes the deliberate
+warm-up, GPU readback and encoding. These are two observed runs, not a load-time
+guarantee, a first complete presented-frame measurement, or an FPS measurement.
+Mesh entity counts differ from tile counts because a tile can contain multiple
+primitives. Both first images were 3420×1898 pixels on the operator's display.
+
+The MUT image showed textured geometry and visible credits. The Monumental
+image showed the field, stands, parking and visible credits. Both runs had the
+Google key environment variables unset. Viewer network access was not denied,
+so these observations do not establish isolated offline operation. They also
+do not establish complete site coverage, geographic orientation, absence of
+refinement overlap, camera-control behavior or frame rate.
+
+The coordinating operator owns native launches and the one viewer left open
+for the human. The implementation worker must not start a competing window.
+Saved images and their logs remain local; no scene bundle, key or screenshot
+is committed by this documentation change. Keep PR409 in draft. The human
+explicitly said not to merge; a rendered image does not release that hold.

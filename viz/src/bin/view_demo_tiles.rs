@@ -1,15 +1,17 @@
 //! Open a captured local bundle. No city or simulation systems are installed.
 use bevy::{
-    asset::AssetPlugin,
+    asset::{AssetPlugin, UntypedAssetId},
     core_pipeline::tonemapping::Tonemapping,
     gltf::{GltfPlugin, convert_coordinates::GltfConvertCoordinates},
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
     math::DMat4,
     prelude::*,
+    render::view::screenshot::{Screenshot, ScreenshotCaptured},
     window::PrimaryWindow,
+    world_serialization::{WorldInstance, WorldInstanceSpawner},
 };
 use serde::Deserialize;
-use std::{f32::consts::FRAC_PI_4, path::PathBuf};
+use std::{f32::consts::FRAC_PI_4, path::PathBuf, time::Instant};
 
 #[derive(Deserialize, Resource)]
 struct Bundle {
@@ -40,7 +42,25 @@ fn pose(orbit: &Orbit) -> Transform {
         .looking_at(orbit.target, Vec3::Y)
 }
 
-fn main() {
+#[derive(Component)]
+struct TileScene;
+
+#[derive(Resource)]
+struct LogoAsset(Handle<Image>);
+
+#[derive(Resource)]
+struct Capture {
+    path: Option<PathBuf>,
+    exit_after: bool,
+    started: Instant,
+    ready_at: Option<Instant>,
+    warm_updates: u32,
+    requested: bool,
+    finished: bool,
+}
+
+fn main() -> AppExit {
+    let started = Instant::now();
     let args: Vec<String> = std::env::args().collect();
     let camera_value = |flag: &str, default: f32| {
         args.iter()
@@ -48,6 +68,20 @@ fn main() {
             .map(|index| args[index + 1].parse::<f32>().unwrap())
             .unwrap_or(default)
     };
+    let capture_path = args.iter().position(|arg| arg == "--capture").map(|i| {
+        let path = PathBuf::from(args.get(i + 1).expect("--capture needs a PNG path"));
+        assert!(
+            path.extension().is_some_and(|e| e == "png"),
+            "--capture needs a .png path"
+        );
+        assert!(!path.exists(), "capture output already exists");
+        path
+    });
+    let exit_after = args.iter().any(|arg| arg == "--exit-after-capture");
+    assert!(
+        !exit_after || capture_path.is_some(),
+        "--exit-after-capture requires --capture"
+    );
     let directory = PathBuf::from(
         std::env::args()
             .nth(1)
@@ -63,6 +97,15 @@ fn main() {
         directory.display()
     );
     App::new()
+        .insert_resource(Capture {
+            path: capture_path,
+            exit_after,
+            started,
+            ready_at: None,
+            warm_updates: 0,
+            requested: false,
+            finished: false,
+        })
         .insert_resource(bundle)
         .insert_resource(ClearColor(Color::srgb(0.70, 0.78, 0.85)))
         .insert_resource(Orbit {
@@ -94,16 +137,19 @@ fn main() {
                 }),
         )
         .add_systems(Startup, setup)
-        .add_systems(Update, navigate)
-        .run();
+        .add_systems(Update, (navigate, capture_when_ready))
+        .run()
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>, bundle: Res<Bundle>, orbit: Res<Orbit>) {
+    let logo: Handle<Image> = assets.load(bundle.google_logo.clone());
+    commands.insert_resource(LogoAsset(logo.clone()));
     for tile in &bundle.tiles {
         // Earth-scale subtraction was completed in f64 by capture. Only local
         // metres become f32 here; preserve each GLB's own node hierarchy.
         let local = DMat4::from_cols_array(&tile.transform).as_mat4();
         commands.spawn((
+            TileScene,
             WorldAssetRoot(assets.load(GltfAssetLabel::Scene(0).from_asset(tile.path.clone()))),
             Transform::from_matrix(local),
         ));
@@ -145,7 +191,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, bundle: Res<Bundle>, 
         ))
         .with_children(|bar| {
             bar.spawn((
-                ImageNode::new(assets.load(bundle.google_logo.clone())),
+                ImageNode::new(logo.clone()),
                 Node {
                     width: px(110),
                     flex_shrink: 0.,
@@ -168,6 +214,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, bundle: Res<Bundle>, 
 }
 
 fn navigate(
+    capture: Res<Capture>,
     mut orbit: ResMut<Orbit>,
     mouse: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -176,6 +223,12 @@ fn navigate(
     window: Single<&Window, With<PrimaryWindow>>,
     mut camera: Single<&mut Transform, With<Camera3d>>,
 ) {
+    // Keep the CLI camera fixed while producing the optional artifact.
+    if capture.path.is_some() && !capture.finished {
+        motion.clear();
+        wheel.clear();
+        return;
+    }
     let delta: Vec2 = motion.read().map(|event| event.delta).sum();
     if mouse.pressed(MouseButton::Left) && !keys.pressed(KeyCode::ShiftLeft) {
         orbit.yaw -= delta.x * 0.006;
@@ -202,4 +255,98 @@ fn navigate(
         .sum();
     orbit.distance = (orbit.distance * (-scroll).exp()).clamp(10., 5_000.);
     **camera = pose(&orbit);
+}
+
+// Dependency readiness alone does not mean that a world instance has spawned.
+// Check both, then allow render preparation before requesting a GPU screenshot.
+fn capture_when_ready(
+    mut commands: Commands,
+    mut capture: ResMut<Capture>,
+    assets: Res<AssetServer>,
+    logo: Res<LogoAsset>,
+    bundle: Res<Bundle>,
+    scenes: Query<(&WorldAssetRoot, Option<&WorldInstance>), With<TileScene>>,
+    meshes: Query<(), With<Mesh3d>>,
+    spawner: Res<WorldInstanceSpawner>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if capture.path.is_none() || capture.finished {
+        return;
+    }
+    if capture.started.elapsed().as_secs_f64() > 180. {
+        error!("PNG export timed out before successful save; no completed export is claimed");
+        capture.finished = true;
+        exit.write(AppExit::error());
+        return;
+    }
+    if capture.requested {
+        return;
+    }
+    let ids: Vec<UntypedAssetId> = scenes
+        .iter()
+        .map(|(root, _)| root.id().into())
+        .chain([logo.0.id().into()])
+        .collect();
+    for id in &ids {
+        if let Some((load, dependencies, recursive)) = assets.get_load_states(*id) {
+            if load.is_failed() || dependencies.is_failed() || recursive.is_failed() {
+                error!("PNG export cancelled: tile or logo dependency failed: {id:?}");
+                capture.finished = true;
+                exit.write(AppExit::error());
+                return;
+            }
+        }
+    }
+    let ready = !bundle.tiles.is_empty()
+        && scenes.iter().count() == bundle.tiles.len()
+        && ids.iter().all(|id| assets.is_loaded_with_dependencies(*id))
+        && scenes.iter().all(|(_, instance)| {
+            instance.is_some_and(|instance| spawner.instance_is_ready(**instance))
+        })
+        && !meshes.is_empty();
+    if !ready {
+        capture.ready_at = None;
+        capture.warm_updates = 0;
+        return;
+    }
+    if capture.ready_at.is_none() {
+        let now = Instant::now();
+        capture.ready_at = Some(now);
+        info!(
+            "PNG export assets and instances ready: {} tiles, {} mesh entities, startup {:.3}s",
+            bundle.tiles.len(),
+            meshes.iter().count(),
+            now.duration_since(capture.started).as_secs_f64()
+        );
+    }
+    capture.warm_updates += 1;
+    if capture.warm_updates < 120 || capture.ready_at.unwrap().elapsed().as_secs_f64() < 4. {
+        return;
+    }
+    capture.requested = true;
+    let path = capture.path.clone().unwrap();
+    info!(
+        "Requesting renderer PNG after {} warm-up updates, startup {:.3}s",
+        capture.warm_updates,
+        capture.started.elapsed().as_secs_f64()
+    );
+    commands.spawn(Screenshot::primary_window()).observe(
+        move |event: On<ScreenshotCaptured>, mut capture: ResMut<Capture>, mut exit: MessageWriter<AppExit>| {
+            let saved = event.image.clone().try_into_dynamic().map_err(|e| format!("{e:?}")).and_then(|image| {
+                let image = image.into_rgb8();
+                image.save(&path).map(|()| (image.width(), image.height())).map_err(|e| e.to_string())
+            });
+            capture.finished = true;
+            match saved {
+                Ok((width, height)) => {
+                    info!("Saved renderer PNG {width}x{height} to {}: startup-to-save {:.3}s (includes warm-up and PNG encoding)", path.display(), capture.started.elapsed().as_secs_f64());
+                    if capture.exit_after { exit.write(AppExit::Success); }
+                }
+                Err(error) => {
+                    error!("Could not save renderer PNG {}: {error}", path.display());
+                    exit.write(AppExit::error());
+                }
+            }
+        },
+    );
 }
