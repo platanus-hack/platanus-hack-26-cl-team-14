@@ -7,7 +7,7 @@ const pageInfo = "pageInfo { hasNextPage endCursor }";
 const timeline = `timelineItems(first: 20, since: $since, itemTypes: [ISSUE_COMMENT, CLOSED_EVENT], after: $timelineCursor) {
   nodes {
     __typename
-    ... on IssueComment { id createdAt author { login } bodyText url }
+    ... on IssueComment { id createdAt author { login } body url }
     ... on ClosedEvent { id createdAt actor { login } url }
   }
   ${pageInfo}
@@ -15,7 +15,7 @@ const timeline = `timelineItems(first: 20, since: $since, itemTypes: [ISSUE_COMM
 const issuesQuery = `query($since: DateTime!, $cursor: String, $timelineCursor: String) {
   ${repository} {
     issues(first: 20, after: $cursor, filterBy: {since: $since}, orderBy: {field: CREATED_AT, direction: ASC}) {
-      nodes { id number title createdAt author { login } bodyText url ${timeline} }
+      nodes { id number title createdAt author { login } body url ${timeline} }
       ${pageInfo}
     }
   }
@@ -43,7 +43,7 @@ export async function issueActivity(since, until) {
     if (time < start || time > end) return;
     events.push({
       key: node.id, at: new Date(time).toISOString(), number: issue.number, title: issue.title,
-      kind, author: (node.author ?? node.actor)?.login ?? "ghost", body: node.bodyText ?? "", url: node.url,
+      kind, author: (node.author ?? node.actor)?.login ?? "ghost", body: node.body ?? "", url: node.url,
     });
   }
 

@@ -7,7 +7,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { issueActivity } from "./issue-activity.mjs";
 import { discord } from "./rest.mjs";
 
-const parent = "1573561159955648553"; // #agent-chat
+const parent = "1573760053905723443"; // #github
 const issueBase = "https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/";
 const minute = 60_000;
 const directory = join(homedir(), ".local", "state", "team14-discord-issue-mirror");
@@ -18,36 +18,71 @@ await new Promise((resolve, reject) => lock.once("error", reject).listen(43872, 
 mkdirSync(directory, { recursive: true, mode: 0o700 });
 const start = Math.floor(Date.now() / 1000) * 1000;
 const state = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {
-  start, cursor: start, seen: {}, threads: {}, batches: [],
+  start, parent, cursor: start, seen: {}, threads: {}, batches: [],
 };
 function save() {
   writeFileSync(file + ".next", JSON.stringify(state), { mode: 0o600 });
   renameSync(file + ".next", file);
 }
+// Older state files belong to #agent-chat. Resolve queued events again from GitHub
+// so pending excerpts are replaced by full text in the new destination.
+if (state.parent !== parent) {
+  for (const batch of state.batches) {
+    for (const key of batch.keys) {
+      state.cursor = Math.min(state.cursor, state.seen[key] ?? state.start);
+      delete state.seen[key];
+    }
+  }
+  state.parent = parent;
+  state.threads = {};
+  state.batches = [];
+  delete state.sending;
+}
 save();
 
-function excerpt(value, limit) {
-  const clean = value.replace(/https?:\/\/(?:[\w.-]+\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/\S+|(?:mfa\.[\w-]+|[\w-]{20,}\.[\w-]{5,}\.[\w-]{20,})|(?:gh[pousr]_|github_pat_)[\w]+/gi, "[redactado]")
-    .replace(/\s+/gu, " ").trim();
-  return clean.length > limit ? clean.slice(0, limit - 1) + "…" : clean;
+function redact(value) {
+  return value
+    .replace(/https?:\/\/(?:[\w.-]+\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/\S+|(?:mfa\.[\w-]+|[\w-]{20,}\.[\w-]{5,}\.[\w-]{20,})|(?:gh[pousr]_|github_pat_)[\w]+|sk-[a-zA-Z0-9_-]{16,}/gi, "[redactado]")
+    .replace(/(\b(?:[a-z_]*(?:TOKEN|PASSWORD|SECRET|API_KEY|PROXY_URL|BASE_URL)|HTTPS?_PROXY)\s*=\s*)(?:"[^"\n]*"|'[^'\n]*'|[^\s`]+)/gi, "$1[redactado]")
+    .replace(/(\bAuthorization:\s*(?:Bearer|Bot|Basic)\s+)\S+/gi, "$1[redactado]");
+}
+
+function* messageParts(event) {
+  const labels = { opened: "abrió", commented: "comentó", closed: "cerró" };
+  const header = `${event.author} ${labels[event.kind]} #${event.number}`;
+  const footer = `\n<${event.url}>`;
+  const body = redact(event.kind === "opened" ? `${event.title}\n${event.body}` : event.body);
+  if (header.length + 1 + body.length + footer.length <= 2000) {
+    yield header + "\n" + body + footer;
+    return;
+  }
+  let offset = 0;
+  for (let part = 1; offset < body.length; part++) {
+    const prefix = `${header} · parte ${part}\n`;
+    let end = Math.min(body.length, offset + 2000 - prefix.length - footer.length);
+    if (end < body.length && /[\uD800-\uDBFF]/.test(body[end - 1])) end--;
+    yield prefix + body.slice(offset, end) + footer;
+    offset = end;
+  }
 }
 
 function makeBatches(events) {
   const groups = new Map();
-  const labels = { opened: "abrió", commented: "comentó", closed: "cerró" };
   for (const event of events) {
     if (state.seen[event.key]) continue;
     const group = groups.get(event.number) ?? [];
     groups.set(event.number, group);
-    const detail = excerpt(event.kind === "opened" ? event.title : event.body, 200);
-    const line = `${event.author} ${labels[event.kind]} #${event.number}${detail ? " · " + detail : ""} <${event.url}>`;
-    let batch = group.at(-1);
-    if (!batch || batch.content.length + line.length + 1 > 2000) {
-      batch = { number: event.number, title: excerpt(`#${event.number} ${event.title}`, 100), content: "", keys: [] };
-      group.push(batch);
+    const title = redact(`#${event.number} ${event.title}`).replace(/\s+/g, " ").slice(0, 100);
+    let part = 0;
+    for (const content of messageParts(event)) {
+      let batch = group.at(-1);
+      if (!batch || batch.content.length + 2 + content.length > 2000) {
+        batch = { number: event.number, title, content: "", keys: [] };
+        group.push(batch);
+      }
+      batch.content += (batch.content ? "\n\n" : "") + content;
+      batch.keys.push(`${event.key}:${++part}`);
     }
-    batch.content += (batch.content ? "\n" : "") + line;
-    batch.keys.push(event.key);
     state.seen[event.key] = Date.parse(event.at);
   }
   return [...groups.values()].flat();

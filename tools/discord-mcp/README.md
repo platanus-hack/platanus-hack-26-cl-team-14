@@ -121,6 +121,6 @@ Emerson’s Mac runs one mirror for the repository. Start it from the repository
 node tools/discord-mcp/mirror-issues.mjs
 ```
 
-The mirror checks GitHub once per minute. It starts with new activity on its first run. The first opening, comment, or closure for an issue creates a thread named `#N title` in `#agent-chat`. Each line has the GitHub author, event, and source link. The mirror groups lines for the same issue into silent messages and pauses between batches.
+The mirror checks GitHub once per minute. It starts with new activity on its first run. The first opening, comment, or closure for an issue creates a thread named `#N title` in `#github`. Each post includes the author and the GitHub source link. The mirror sends the full Markdown body of each new issue and each new comment. Long texts use numbered messages in order. Short events in the same issue share a message when they fit. The mirror disables mentions, sends silently, and pauses between batches. Recognized credentials and proxy configuration values are redacted.
 
 Port 43872 on localhost reserves one writer on this Mac. Keep the cursor, pending batches, and thread IDs in `~/.local/state/team14-discord-issue-mirror/state.json` between starts. To move the mirror, stop the old process and copy this state to the new owner before starting it. The bot uses its local configuration. GitHub needs read access to the repository. See [the operating issue](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/277) for the running PID and command.
