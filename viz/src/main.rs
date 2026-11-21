@@ -11,7 +11,7 @@ use bevy::{
     prelude::*,
     render::view::screenshot::{Screenshot, ScreenshotCaptured},
     text::FontSize,
-    window::{PrimaryWindow, WindowResolution},
+    window::{PrimaryWindow, WindowPosition, WindowResolution},
     winit::WinitSettings,
 };
 use std::{env, time::Instant};
@@ -33,11 +33,26 @@ impl Plugin for MiniatureCamera {
 
 /// Use with DefaultPlugins.set(WindowPlugin { primary_window: Some(window()), ..default() }).
 pub fn window() -> Window {
-    Window {
+    let mut window = Window {
         title: "santiaguito.cl".into(),
         resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
         ..default()
+    };
+    if let Ok(bounds) = env::var("SANTIAGO_WINDOW_RECT") {
+        let values: Vec<i32> = bounds
+            .split_whitespace()
+            .map(|v| v.parse().unwrap())
+            .collect();
+        let [x, y, width, height] = values[..] else {
+            panic!("SANTIAGO_WINDOW_RECT requires x y width height")
+        };
+        window.position = WindowPosition::At(IVec2::new(x, y));
+        window.resolution =
+            WindowResolution::new(width as u32, height as u32).with_scale_factor_override(1.);
+        window.name = env::var("SANTIAGO_CITY_WINDOW_CLASS").ok();
+        window.focused = false;
     }
+    window
 }
 
 #[derive(Resource)]
