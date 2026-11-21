@@ -2,6 +2,8 @@
 
 Run `./run.sh` from the repository root to open the city and a terminal beside it. The terminal starts the installed Claude Code or Codex CLI with the Santiago MCP connected to this engine. Sign in to the CLI first. When both are installed, the launcher chooses Claude. Use `SANTIAGO_CHAT_CLI=codex ./run.sh` or `SANTIAGO_CHAT_CLI=claude ./run.sh` to choose one.
 
+The terminal uses the right 35% of the screen and displays text and icons in 17-point JetBrainsMono Nerd Font Mono. On Linux, xterm reads the bundled font through a launch-specific Fontconfig file. On macOS, Terminal uses the active font. If it is missing, the launcher prints the destination and copies the font to `~/Library/Fonts/JetBrainsMonoNerdFontMono-Regular.ttf`. If the font is disabled or unavailable, the demo opens with the Terminal profile font at 17 pt. You can activate or remove the bundled copy in Font Book. [Bundled font and SIL Open Font License](../tools/terminal-font/OFL.txt)
+
 To open only the viewer, run this command from the repository root with Rust 1.97.1 or later. The window reads the latest scenario and event stream on port 8787 by default.
 
 ```sh

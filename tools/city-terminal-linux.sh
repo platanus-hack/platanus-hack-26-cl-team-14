@@ -27,12 +27,28 @@ open_city_terminal_linux() {
         height=$((height - 72))
     fi
 
-    city_x=$x city_y=$y city_width=$((width * 7 / 10)) city_height=$height
+    city_x=$x city_y=$y city_width=$((width * 65 / 100)) city_height=$height
     term_width=$((width - city_width))
-    columns=$(((term_width - 8) / 7)) rows=$(((height - 8) / 14))
     export SANTIAGO_CITY_WINDOW_CLASS="$city_class"
-    xterm -name "$template" -T 'Santiago' -fn 7x14 -geometry \
-        "${columns}x${rows}+$((x + city_width))+$y" -e bash "$repo/tools/city-chat.sh" &
+    # JetBrains Mono's cell is 0.60 em wide and 1.32 em high. This initial
+    # geometry also works when the user's xterm settings block pixel resizing.
+    read -r columns rows < <(
+        { xrdb -query 2>/dev/null || :; } | awk -v w="$term_width" -v h="$height" '
+            BEGIN { dpi = 96 }
+            $1 == "Xft.dpi:" && $2 > 0 { dpi = $2 }
+            END {
+                em = 17 * dpi / 72
+                print int((w-20) / int(em*.60+.5)), int((h-20) / int(em*1.32+.5))
+            }'
+    )
+    # Xterm rounds the requested pixels to whole cells using its actual Xft metrics.
+    FONTCONFIG_FILE="$repo/tools/terminal-font/fonts.conf" \
+        xterm -name "$template" -T Santiago -u8 -wf -fa 'JetBrainsMono Nerd Font Mono' -fs 17 \
+            -bg '#182128' -fg '#e6eee9' -cr '#9dd5c4' +sb -xrm '*toolBar: false' -b 10 \
+            -geometry "${columns}x${rows}+$((x + city_width))+$y" -e bash -c '
+                printf "\033[4;%d;%dt" "$1" "$2"
+                exec bash "$3"
+            ' santiago "$height" "$term_width" "$repo/tools/city-chat.sh" &
     terminal_pid=$!
 
     if [[ -n $i3_rect ]]; then

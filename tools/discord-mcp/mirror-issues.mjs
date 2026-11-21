@@ -37,6 +37,7 @@ if (state.parent !== parent) {
   delete state.sending;
 }
 state.reverseStarted ??= Date.now();
+state.noticesStarted ??= Date.now();
 save();
 
 function redact(value) {
@@ -93,7 +94,7 @@ function makeBatches(events) {
 }
 
 // After an uncertain send, check Discord history before repeating the saved batch.
-async function send(batch, channel, content, key) {
+async function send(batch, channel, content, key, replyTo) {
   const nonce = createHash("sha256").update(`${channel}:${key}`).digest("hex").slice(0, 24);
   if (batch.sending) {
     let after = batch.sending;
@@ -109,7 +110,12 @@ async function send(batch, channel, content, key) {
     save();
   }
   const message = await discord(`/channels/${channel}/messages`, {
-    method: "POST", json: { content, flags: 4096 | 4, allowed_mentions: { parse: [] }, nonce, enforce_nonce: true },
+    method: "POST", json: {
+      content, nonce, enforce_nonce: true,
+      flags: replyTo ? 4 : 4096 | 4,
+      message_reference: replyTo ? { message_id: replyTo, fail_if_not_exists: false } : undefined,
+      allowed_mentions: { parse: [], replied_user: false },
+    },
   });
   return message.id;
 }
@@ -148,12 +154,23 @@ function ownDiscordPost(message, number, thread) {
     && message.content.endsWith(">") && (message.content ?? "").includes(`<${issueBase}${number}`);
 }
 
+async function sendNotice(number, thread) {
+  const source = thread.notice.id;
+  const link = `https://discord.com/channels/1573514576400752640/${thread.id}/${source}`;
+  await send(thread.notice, parent, `#${number} · <${link}>`, `notice:${source}`, thread.id);
+  delete thread.notice;
+  save();
+  await sleep(1000);
+}
+
 async function importReplies(number, thread, page) {
+  if (thread.notice) await sendNotice(number, thread);
   let messages;
   do {
     messages = await page(thread.id, thread.after ?? thread.id);
     for (const message of messages) {
-      if ([undefined, 0, 19].includes(message.type) && !ownDiscordPost(message, number, thread)) {
+      const isPost = [0, 19].includes(message.type);
+      if (isPost && !ownDiscordPost(message, number, thread)) {
         const content = await issueReplyText(thread.id, message);
         if (content) {
           const recovering = thread.importing === message.id;
@@ -166,9 +183,12 @@ async function importReplies(number, thread, page) {
           await sleep(1000);
         }
       }
+      const created = Number(BigInt(message.id) >> 22n) + 1420070400000;
+      if (isPost && created >= state.noticesStarted) thread.notice = { id: message.id };
       thread.after = message.id;
       thread.sent = (thread.sent ?? []).filter(id => BigInt(id) > BigInt(thread.after));
       save();
+      if (thread.notice) await sendNotice(number, thread);
     }
   } while (messages.length === 100);
 }

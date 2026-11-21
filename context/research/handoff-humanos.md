@@ -1,6 +1,6 @@
 # Cómo presentar santiaguito.cl
 
-Usa esta pregunta del primer ensayo para comprobar el arranque del chat y de la maqueta. El caso principal ahora es el intercambio MUT ↔ Monumental. [Decisión de presentación](https://discord.com/channels/1573514576400752640/1573688250797658172/1573733563491291157).
+Usa esta pregunta del primer ensayo para comprobar el arranque del chat y de la maqueta. El caso principal es el intercambio MUT ↔ Monumental. [Guion en vivo](pitch-live.md), [decisión de presentación](https://discord.com/channels/1573514576400752640/1573688250797658172/1573733563491291157).
 
 > ¿Cómo cambiarían los viajes al trabajo en Santiago si Estación Central tuviera la mitad más de residentes y Las Condes la mitad más de empleos?
 
@@ -14,19 +14,19 @@ Descarga el ZIP de macOS con Apple Silicon o Linux x86_64. Descomprímelo y ejec
 
 El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. El cálculo de eventos aplica al período completo de retorno. El chat ya puede estimar entradas en nuevos puntos de Metro. Esta función estima demanda del modelo. [PR #193](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/193), [configuración y alcance](../../README.md#ask-a-question-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
 
-Instala Rust 1.97.1 o posterior con Cargo, curl y Node.js 22 o posterior. Desde la raíz del repositorio, inicia el motor y la maqueta:
+Instala Rust 1.97.1 o posterior con Cargo, curl y Node.js 22 o posterior. Instala Codex CLI o Claude Code e inicia sesión antes del ensayo. En Linux, el lanzador usa X11 y `xterm`. Desde la raíz del repositorio ejecuta:
 
 ```sh
 ./run.sh
 ```
 
-Si el puerto 8787 está ocupado, usa `PORT=8790 ./run.sh`. Abre el chat desde el mismo repositorio. Configura el servidor MCP `santiago` con el valor de `SANTIAGO_API_URL` que imprime el lanzador. Usa Ctrl+C en la terminal del lanzador para cerrar el motor y la ventana.
+El lanzador de `main` prepara el escenario base, abre la maqueta a la izquierda e inicia el CLI a la derecha con el MCP conectado al motor. Si tienes ambos clientes, usa `SANTIAGO_CHAT_CLI=codex ./run.sh` o `SANTIAGO_CHAT_CLI=claude ./run.sh` para elegir. Si el puerto 8787 está ocupado, usa `PORT=8790 ./run.sh`. Usa Ctrl+C en la terminal del lanzador para cerrar la demo. La prueba completa de este lanzador sigue en [#257](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/issues/257).
 
 La tecla M cambia la maqueta entre superficie y subterráneo. La vista lee los archivos de `web/data/`. Sigue pendiente fijar la revisión aceptada para presentar. [Lanzador](../../README.md#run-the-native-santiago-demo), [maqueta](../../viz/README.md).
 
-### Permiso para la herramienta en el cliente
+### Chat abierto por separado
 
-En Codex CLI, la prueba con el cliente usó este permiso específico y la llamada a la herramienta siguió sin una pausa de aprobación:
+Si abres el chat por separado, configura el servidor MCP `santiago` con el valor de `SANTIAGO_API_URL` que imprime el lanzador. Este permiso de Codex se comprobó sin pausa de aprobación:
 
 ```sh
 codex -c 'mcp_servers.santiago.tools.simulate_city.approval_mode="approve"'

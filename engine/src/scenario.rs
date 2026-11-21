@@ -4,7 +4,7 @@
 use crate::choice::Choice;
 use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripGroup, TripPlan, trip_deltas};
 use crate::rechoose::{Base, rechoose};
-use crate::stations::access::{StationAccess, planned::PlannedStations};
+use crate::stations::access::{EntryOrigins, StationAccess, planned::PlannedStations};
 use santiago_scenario_core::{buildings::Buildings, editable_transit::LineCatalog, roads::RoadGraph};
 use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
@@ -122,7 +122,7 @@ impl Scenario {
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
         let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
-        sc.base = sc.state(&sc.pop, &Network::new(&sc.access));
+        sc.base = sc.state(&sc.pop, &Network::new(&sc.access), &mut []);
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
         for p in &sc.pop.homes { residents[sc.ix(&p.cut)] += p.weight; }
@@ -219,7 +219,7 @@ impl Scenario {
         self.pop.homes.iter().min_by(|a, b| d(a).total_cmp(&d(b))).unwrap().cut.clone()
     }
 
-    fn state(&self, pop: &Population, network: &Network) -> State {
+    fn state(&self, pop: &Population, network: &Network, origins: &mut [EntryOrigins]) -> State {
         let n = self.choice.n;
         let home: Vec<usize> = pop.homes.iter().map(|p| self.ix(&p.cut)).collect();
         let work: Vec<usize> = pop.jobs.iter().map(|p| self.ix(&p.cut)).collect();
@@ -235,7 +235,7 @@ impl Scenario {
         }
         let pts = |v: &[Point], m: &[f64]| v.iter().zip(m).map(|(p, &x)| (p.longitude, p.latitude, x)).collect::<Vec<_>>();
         self.access.weight_job_masses(pop.jobs.iter().map(|p| (p.id.as_str(), p.cut.as_str())), &mut j);
-        let day = self.access.project_with_additions(&pts(&pop.homes, &h), &pts(&pop.jobs, &j), &network.open, &network.additions)
+        let day = self.access.project_with_origins(&pts(&pop.homes, &h), &pts(&pop.jobs, &j), &network.open, &network.additions, origins)
             .into_iter().map(|x| x.2).collect();
         State { od, modes, day }
     }
@@ -609,7 +609,8 @@ impl Scenario {
         rows.sort_by(|a, b| (b.1[0].abs() + b.1[1].abs()).total_cmp(&(a.1[0].abs() + a.1[1].abs())));
         let blocks_total = rows.len();
         let blocks: Vec<Value> = rows.into_iter().take(300).map(|(mut v, d)| { v["jobs_delta"] = json!(d[0]); v["residents_delta"] = json!(d[1]); v }).collect();
-        let (b, s) = (&self.base, &self.state(&pop, &network));
+        let mut origins = vec![EntryOrigins::default(); self.stations.len() + network.additions.len()];
+        let (b, s) = (&self.base, &self.state(&pop, &network, &mut origins));
 
         let points: Vec<_> = self.stations.iter().map(|(id, name, x, y)| (id, name, *x, *y))
             .chain(network.additions.iter().map(|p| (&p.id, &p.name, p.longitude, p.latitude))).collect();
@@ -626,6 +627,7 @@ impl Scenario {
             let (base, scenario, delta) = daily[i];
             let mut v = json!({ "id": id, "name": name, "longitude": x, "latitude": y,
                 "base_daily": r1(base), "scenario_daily": r1(scenario), "delta_daily": r1(delta),
+                "access_origins": { "direction": "entry", "home": origins[i][0], "job": origins[i][1] },
                 "base_half_hour": base_bins(i).iter().map(|&x| r1(x)).collect::<Vec<_>>(), "scenario_half_hour": s.day[i].iter().map(|&x| r1(x)).collect::<Vec<_>>() });
             if order[..12].contains(&i) { v["delta"] = s.day[i].iter().zip(base_bins(i)).map(|(after, before)| r1(after - before)).collect(); }
             v
