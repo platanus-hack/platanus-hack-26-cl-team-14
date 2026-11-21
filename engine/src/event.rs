@@ -28,7 +28,11 @@ struct Venue { site_id: String, name: String, longitude: f64, latitude: f64 }
 #[derive(Deserialize)]
 struct Venues { venues: Vec<Venue> }
 
-pub struct EventModel { parents: Vec<Parent>, sat: Vec<Vec<Option<f64>>>, venues: Vec<Venue>, template: Vec<Option<f64>>, source_sha256: String }
+pub struct EventModel { parents: Vec<Parent>, sat: Vec<Vec<Option<f64>>>, venues: Vec<Venue>, template: Vec<Option<f64>>, inputs: Inputs }
+
+/// Identity of every input that changes the template or the allocation.
+#[derive(Serialize, Clone)]
+pub struct Inputs { observations_sha256: String, peer_manifest_sha256: String, venue_table_sha256: String, parent_file_sha256: String, template_revision_sha256: String }
 
 #[derive(Deserialize)]
 pub struct EventRequest { pub site_id: String, pub multiplier: f64 }
@@ -44,7 +48,7 @@ pub struct EventStation {
 #[derive(Serialize)]
 pub struct EventResponse {
     site_id: String, site_name: String, longitude: f64, latitude: f64, multiplier: f64,
-    source_day: &'static str, source_sha256: String, template: Vec<Option<f64>>, source_template_mask: Vec<bool>,
+    source_day: &'static str, inputs: Inputs, template: Vec<Option<f64>>, source_template_mask: Vec<bool>, window_bins: usize, known_template_bins: usize,
     known_template_mass_times_multiplier: f64, assigned_mass: f64, unassigned_mass: f64,
     stations: Vec<EventStation>, label: &'static str,
 }
@@ -61,9 +65,11 @@ impl EventModel {
     pub fn new(data: &Path) -> EventModel {
         let raw = std::fs::read(data.join("metro_observations.json")).unwrap();
         let o: Observations = serde_json::from_slice(&raw).unwrap();
-        let m: Manifest = serde_json::from_reader(std::fs::File::open(data.join("../validation/event_shape_2026_04/manifest.json")).unwrap()).unwrap();
-        let parents: Vec<Parent> = serde_json::from_reader(std::fs::File::open(data.join("metro_training.json")).unwrap()).unwrap();
-        let venues: Venues = serde_json::from_reader(std::fs::File::open(data.join("event_venues.json")).unwrap()).unwrap();
+        let (mraw, praw, vraw) = (std::fs::read(data.join("../validation/event_shape_2026_04/manifest.json")).unwrap(),
+            std::fs::read(data.join("metro_training.json")).unwrap(), std::fs::read(data.join("event_venues.json")).unwrap());
+        let m: Manifest = serde_json::from_slice(&mraw).unwrap();
+        let parents: Vec<Parent> = serde_json::from_slice(&praw).unwrap();
+        let venues: Venues = serde_json::from_slice(&vraw).unwrap();
         let sat_of = |id: &str| o.stations.iter().find(|s| s.station.id == id).unwrap().half_hour_bins.sabado.clone();
         let case = m.cases.iter().find(|c| c.day_type == "SABADO" && c.station_id == "PQ").unwrap();
         let pq = sat_of("PQ");
@@ -82,7 +88,9 @@ impl EventModel {
             };
         }
         let sat = parents.iter().map(|p| sat_of(&p.id)).collect();
-        EventModel { parents, sat, venues: venues.venues, template, source_sha256: sha256(&raw) }
+        let inputs = Inputs { observations_sha256: sha256(&raw), peer_manifest_sha256: sha256(&mraw), venue_table_sha256: sha256(&vraw),
+            parent_file_sha256: sha256(&praw), template_revision_sha256: sha256(serde_json::to_string(&template).unwrap().as_bytes()) };
+        EventModel { parents, sat, venues: venues.venues, template, inputs }
     }
 
     pub fn scenario(&self, r: EventRequest) -> Result<EventResponse, String> {
@@ -115,8 +123,9 @@ impl EventModel {
         let assigned = if stations.is_empty() { 0.0 } else { known };
         Ok(EventResponse {
             site_id: v.site_id.clone(), site_name: v.name.clone(), longitude: v.longitude, latitude: v.latitude, multiplier: r.multiplier,
-            source_day: "SABADO 2026-04-11 America/Santiago", source_sha256: self.source_sha256.clone(),
+            source_day: "SABADO 2026-04-11 America/Santiago", inputs: self.inputs.clone(),
             template: self.template.clone(), source_template_mask: self.template.iter().map(Option::is_some).collect(),
+            window_bins: WINDOW.len(), known_template_bins: WINDOW.filter(|&t| self.template[t].is_some()).count(),
             known_template_mass_times_multiplier: known, assigned_mass: assigned, unassigned_mass: known - assigned, stations, label: LABEL,
         })
     }
