@@ -1,11 +1,17 @@
 mod activity;
 mod facade;
 mod ground;
+mod streets;
 mod terrain;
 use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
 pub use terrain::terrain_from_xz;
+
+/// Drawing offset in metres above the DEM. OSM layers describe crossing order.
+pub fn road_surface_lift(layer: i32) -> f32 {
+    0.26 + 0.04 * layer as f32
+}
 
 /// Local Santiago coordinates in meters. East is +X and south is +Z.
 pub fn world(lon: f64, lat: f64) -> Vec3 {
@@ -586,7 +592,7 @@ pub(crate) fn setup_ground(
             MeshMaterial3d(mat.clone()),
         ));
     }
-    for mesh in ground::street_meshes(Path::new(".")) {
+    for mesh in streets::load(Path::new("web/data/road_surface.geojson.gz")) {
         commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(street_mat.clone())));
     }
     commands.insert_resource(SurfaceLayers {
