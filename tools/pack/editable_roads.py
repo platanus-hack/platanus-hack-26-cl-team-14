@@ -40,18 +40,15 @@ def car_allowed(tags, direction):
     return True
 
 
-def speed(tags, direction):
-    assumed = SPEEDS[tags["highway"]]
+def posted_cap(tags, direction):
     for key in ("maxspeed:" + direction, "maxspeed"):
         value = tags.get(key, "").strip().lower()
         match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(km/h|kmh|kph|mph)?", value)
         if match:
             kmh = float(match[1]) * (1.609344 if match[2] == "mph" else 1)
             if kmh > 0:
-                if kmh <= assumed:
-                    return round(kmh, 3), key
-                break
-    return assumed, "class_assumption"
+                return round(kmh, 3), key
+    return None, None
 
 
 def clipped_parts(way_id, members, points):
@@ -127,11 +124,19 @@ def build(pbf):
     for number, tags, members in source:
         way_id = str(number)
         oneway, direction_source = travel_direction(tags)
-        direction_speeds = {}
+        direction_speeds, edit_properties = {}, {}
+        assumed = SPEEDS[tags["highway"]]
         for suffix, direction, permitted in (("f", "forward", {"no", "yes"}),
                                              ("r", "backward", {"no", "-1"})):
-            if oneway in permitted and car_allowed(tags, direction):
-                direction_speeds[suffix] = speed(tags, direction)
+            cap, cap_source = posted_cap(tags, direction)
+            access = car_allowed(tags, direction)
+            edit_properties["speed_cap_" + direction + "_kmh"] = cap
+            edit_properties["car_access_" + direction] = access
+            if oneway in permitted and access:
+                if cap is not None and cap <= assumed:
+                    direction_speeds[suffix] = cap, cap_source
+                else:
+                    direction_speeds[suffix] = assumed, "class_assumption"
         parts, edges, drawn = [], [], []
         for part in clipped_parts(way_id, members, points):
             display = rounded_path([part[0][3], *(segment[4] for segment in part)], 8)
@@ -151,7 +156,7 @@ def build(pbf):
         if tags["highway"] in {"primary", "secondary"}:
             anchor_nodes.update(e[k] for e in edges for k in ("from", "to") if e[k].isdecimal())
         ways[way_id] = {"highway": tags["highway"], "class": tags["highway"].removesuffix("_link"), "name": tags.get("name", ""),
-                        "oneway": oneway, "oneway_source": direction_source, "parts": parts, "edges": edges}
+                        "oneway": oneway, "oneway_source": direction_source, **edit_properties, "parts": parts, "edges": edges}
     missing = set(map(str, visible)) - ways.keys()
     if missing:
         raise ValueError(f"Source lacks {len(missing)} displayed OSM ways; use the pinned Chile extract")
