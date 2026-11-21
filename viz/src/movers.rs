@@ -1,4 +1,7 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
+mod stations;
+use stations::Station;
+
 use crate::{
     city::{Surface, terrain_from_xz, world},
     net::Scenario,
@@ -167,10 +170,17 @@ impl RailRun {
     }
 }
 
+#[derive(Default)]
+struct StopCalls {
+    distance: f32,
+    departures: Vec<f32>,
+}
+
 struct RailLine {
     path: Arc<Path>,
     service: String,
     runs: Vec<RailRun>,
+    stops: Vec<StopCalls>,
     longest: f32,
     stations: Vec<String>,
 }
@@ -212,10 +222,21 @@ impl RailLine {
             .iter()
             .map(|r| r.calls.last().unwrap().departure - r.calls[0].arrival)
             .fold(0., f32::max);
+        let mut stops = Vec::from_iter(row["parent_station_ids"].as_array().unwrap()
+            .iter().map(|_| StopCalls::default()));
+        for run in &runs {
+            // A terminal arrival cannot take new riders on this run.
+            for call in &run.calls[..run.calls.len()-1] {
+                stops[call.station].distance = call.distance;
+                stops[call.station].departures.push(call.departure);
+            }
+        }
+        for stop in &mut stops { stop.departures.sort_unstable_by(f32::total_cmp); }
         Self {
             service: row["route"].as_str().unwrap().to_owned(),
             path,
             runs,
+            stops,
             longest,
             stations: row["parent_station_ids"]
                 .as_array()
@@ -537,17 +558,9 @@ enum Paint {
 #[derive(Resource, Default)]
 struct Replay {
     departures: Vec<Vec<Group>>,
-    platforms: Vec<Platform>,
+    platforms: Vec<Station>,
     longest: f32,
     revision_started: f32,
-}
-
-struct Platform {
-    pos: Vec3,
-    dir: Vec3,
-    daily: f64,
-    half_hour: Vec<f64>,
-    delta: Vec<f32>,
 }
 
 fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut replay: ResMut<Replay>) {
@@ -614,34 +627,7 @@ fn read_result(time: Res<Time>, result: Res<Scenario>, routes: Res<Routes>, mut 
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| {
-            let pos = world(s["longitude"].as_f64().unwrap(), s["latitude"].as_f64().unwrap());
-            let id = s["id"].as_str().unwrap();
-            let (pos, dir, _) = routes
-                .tracks
-                .iter()
-                .filter(|line| line.stations.iter().any(|v| v == id))
-                .map(|line| line.path.nearest(pos))
-                .min_by(|(a, _, _), (b, _, _)| a.distance_squared(pos).total_cmp(&b.distance_squared(pos)))
-                .unwrap_or((pos, Vec3::X, 0.));
-            Platform {
-                pos,
-                dir,
-                daily: s["scenario_daily"].as_f64().unwrap(),
-                half_hour: s["scenario_half_hour"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .map(|v| v.as_f64().unwrap())
-                    .collect(),
-                delta: s["delta"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .map(|v| v.as_f64().unwrap() as f32)
-                    .collect(),
-            }
-        })
+        .map(|station| Station::new(station, &routes.tracks))
         .collect();
 }
 
@@ -1086,40 +1072,7 @@ fn draw(
             }
         }
     }
-    for p in &replay.platforms {
-        if !visible(p.pos, 70.) {
-            continue;
-        }
-        let scale = size_at(p.pos).min(2.);
-        let side = right(p.dir);
-        let center = p.pos + side * 9. + Vec3::Y * 0.25;
-        place(
-            Model::Platform,
-            Paint::Plain,
-            pose(center, p.dir, Vec3::new(52., 1., 6.)),
-        );
-        // With a half-hour profile each figure uses the same scale as a moving group.
-        // Results that publish daily totals show one figure per 1,600 daily boardings.
-        let count = p
-            .half_hour
-            .get(slot as usize)
-            .map_or(p.daily / 1600., |n| n / PERSONS_PER_MOVER)
-            .round() as usize;
-        let delta = p.delta.get(slot as usize).copied().unwrap_or_default();
-        let accent = if delta > 0. {
-            Paint::Gain
-        } else if delta < 0. {
-            Paint::Loss
-        } else {
-            Paint::Plain
-        };
-        for i in 0..count {
-            let along = (i % 20) as f32 * 2.04 - 19.4;
-            let across = (i / 20) as f32 * 1.15 - 1.8;
-            let at = center + p.dir * along + side * across + Vec3::Y * 0.58;
-            place(Model::Person, accent, pose(at, -side, Vec3::splat(scale)));
-        }
-    }
+    for station in &replay.platforms { station.draw(now, &visible, &mut place); }
     for batch in pool.0.values() {
         for &id in &batch.entities[batch.used..] {
             let (_, mut vis) = query.get_mut(id).unwrap();
