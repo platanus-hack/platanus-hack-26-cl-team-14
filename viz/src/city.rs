@@ -391,12 +391,60 @@ pub fn load_buildings(
 #[derive(Component)]
 pub(crate) struct HeightTransition(f32);
 
+#[derive(Resource, Default)]
+pub struct SubwayView(pub bool);
+
+#[derive(Resource)]
+pub(crate) struct SurfaceLayers {
+    scenery: Entity,
+    materials: [(Handle<StandardMaterial>, f32); 3],
+}
+
+pub(crate) fn toggle_subway(
+    mut mode: ResMut<SubwayView>,
+    layers: Res<SurfaceLayers>,
+    buildings: Res<Buildings>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut visibility: Query<&mut Visibility>,
+    mut background: ResMut<ClearColor>,
+) {
+    mode.0 = !mode.0;
+    *visibility.get_mut(layers.scenery).unwrap() = if mode.0 {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    background.0 = if mode.0 {
+        Color::srgb_u8(32, 43, 54)
+    } else {
+        crate::DAY_SKY
+    };
+    for (handle, alpha) in layers
+        .materials
+        .iter()
+        .map(|(h, a)| (h, *a))
+        .chain([(&buildings.facade_material, 0.045)])
+    {
+        let mut material = materials.get_mut(handle).unwrap();
+        material
+            .base_color
+            .set_alpha(if mode.0 { alpha } else { 1. });
+        material.alpha_mode = if mode.0 {
+            AlphaMode::Blend
+        } else {
+            AlphaMode::Opaque
+        };
+        material.unlit = mode.0;
+    }
+}
+
 pub(crate) fn draw_buildings(
     mut commands: Commands,
     mut buildings: ResMut<Buildings>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut rig: ResMut<crate::Rig>,
     scenario: Res<crate::net::Scenario>,
+    layers: Res<SurfaceLayers>,
     time: Res<Time>,
     mut weights: Query<(&HeightTransition, &mut MeshMorphWeights)>,
     mut named: Query<(&NamedBuilding, &mut Transform)>,
@@ -479,7 +527,7 @@ pub(crate) fn draw_buildings(
                 MeshMaterial3d(mat.clone()),
             ));
             if detail != Detail::Near {
-                chunk.insert(bevy::light::NotShadowCaster);
+                chunk.insert((ChildOf(layers.scenery), bevy::light::NotShadowCaster));
             }
             if animated {
                 chunk.insert((
@@ -503,11 +551,17 @@ pub(crate) fn setup_ground(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mat = materials.add(StandardMaterial {
+    let surface = StandardMaterial {
         cull_mode: None,
         perceptual_roughness: 1.,
         ..default()
-    });
+    };
+    let terrain_mat = materials.add(surface.clone());
+    let street_mat = materials.add(surface.clone());
+    let mat = materials.add(surface);
+    let root = commands
+        .spawn((Transform::default(), Visibility::Inherited))
+        .id();
     for ((tile, i), base, mesh) in ground::named_buildings(Path::new(".")) {
         commands.spawn((
             NamedBuilding(tile, i),
@@ -516,11 +570,27 @@ pub(crate) fn setup_ground(
             Transform::from_xyz(0., base, 0.),
         ));
     }
-    for (name, mesh) in ground::load_ground(Path::new(".")) {
+    let (terrain, scenery) = ground::load_ground(Path::new("."));
+    for (name, mesh) in terrain {
         commands.spawn((
+            Name::new(name),
+            Mesh3d(meshes.add(mesh)),
+            MeshMaterial3d(terrain_mat.clone()),
+        ));
+    }
+    for (name, mesh) in scenery {
+        commands.spawn((
+            ChildOf(root),
             Name::new(name),
             Mesh3d(meshes.add(mesh)),
             MeshMaterial3d(mat.clone()),
         ));
     }
+    for mesh in ground::street_meshes(Path::new(".")) {
+        commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(street_mat.clone())));
+    }
+    commands.insert_resource(SurfaceLayers {
+        scenery: root,
+        materials: [(mat, 0.045), (terrain_mat, 0.08), (street_mat, 0.32)],
+    });
 }
