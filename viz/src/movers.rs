@@ -1153,6 +1153,9 @@ fn draw(
     };
     let size_at = |p: Vec3| (eye.distance(p) * 0.0024).clamp(1.35, 11.);
     // Twelve city seconds per real second, starting in the morning peak.
+    let now = clock.0
+        .unwrap_or(8. * 3600. + 10. * 60. + time.elapsed_secs() * 12.)
+        .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
     for batch in pool.0.values_mut() {
@@ -1160,6 +1163,11 @@ fn draw(
     }
     let mut place =
         |model, paint, transform| pool.place(model, paint, transform, &models, &mut commands, &mut query);
+    let transition = if clock.0.is_some() {
+        1.
+    } else {
+        ((time.elapsed_secs() - replay.revision_started) / 1.2).clamp(0., 1.)
+    };
     for bin in slot - (replay.longest / BIN).ceil() as i32..=slot {
         let since_bin = now - bin as f32 * BIN;
         for g in &replay.departures[bin.rem_euclid(48) as usize] {
