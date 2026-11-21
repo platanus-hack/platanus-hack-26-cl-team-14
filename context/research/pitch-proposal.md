@@ -10,7 +10,7 @@ Propuesta para el equipo que presenta. El equipo humano decide el guion en [cont
 | 1:45–2:45 | «¿Qué cambiarían ustedes en Santiago? Puede ser dónde se vive, dónde se trabaja, cuánto tarda un viaje o si cierra una estación». | Escribimos una pregunta del jurado. El agente usa la misma herramienta y explica el resultado. La maqueta muestra el efecto que estime el motor. |
 | 2:45–3:00 | «Una decisión en un barrio puede cambiar el viaje de alguien que vive lejos. Hagamos la pregunta antes de construir». | Dejamos la ciudad a la vista. |
 
-La persona que presenta escribe en el chat. La maqueta queda a la vista sin controles, tarjetas ni texto. El resultado del motor dirige el movimiento. El agente explica en el chat lo que el motor puede calcular de la pregunta. [Decisión del equipo](../decisions/20261121-1351-native-city-and-chat.md).
+La persona que presenta escribe la pregunta en el chat. La maqueta muestra el resultado sin tarjetas. La tecla M alterna superficie y subterráneo. El motor dirige la animación del escenario. El agente explica en el chat lo que el motor puede calcular de la pregunta. [Decisión del equipo](../decisions/20261121-1351-native-city-and-chat.md), [vista subterránea](../decisions/20261121-1457-subway-view.md).
 
 ## Qué probó el ensayo y qué falta
 
