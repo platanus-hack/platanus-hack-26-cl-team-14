@@ -106,7 +106,7 @@ pub(super) fn position_closed_signs(
 ) {
     let (camera, transform) = *camera;
     for (sign, mut node, mut visibility) in &mut signs {
-        if (!sign.name || (350. ..=2200.).contains(&rig.distance))
+        if (!sign.name || (100. ..=2200.).contains(&rig.distance))
             && let Ok(mut point) = camera.world_to_viewport(transform, sign.centre) {
             // Pixel mode centres and scales the 3D target on a window-sized UI camera.
             if let Ok(sprite) = canvas.single()

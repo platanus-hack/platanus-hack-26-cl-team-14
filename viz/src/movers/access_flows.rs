@@ -125,10 +125,17 @@ impl AccessFlows {
         }
         let size = (view_distance * 0.012).clamp(1.8, 22.);
         let district = (650. ..3500.).contains(&view_distance);
-        // Show the last minute of arrivals at each mapped door. A sample switches
+        // Show recent mapped arrivals (15 city seconds in close-up and 60 at district scale). A sample switches
         // from walking to an arrival stamp, so it is drawn once in each frame.
         let mut recent = vec![[0usize; 2]; self.gates.len()];
-        let slot = ((now - if district { 60. } else { 0. }) / BIN).floor() as i32;
+        let window = if district {
+            60.
+        } else if (150. ..650.).contains(&view_distance) {
+            15.
+        } else {
+            0.
+        };
+        let slot = ((now - window) / BIN).floor() as i32;
         for approach in &self.approaches {
             if !visible(approach.centre, approach.radius + 20.) {
                 continue;
@@ -149,7 +156,7 @@ impl AccessFlows {
                     let fraction = (phase + copy as f64 * 0.7548776662466927).fract();
                     let arrival = (arrival_slot as f32 + fraction as f32) * BIN;
                     let gained = self.has_baseline && copy >= plain;
-                    if district && (0. ..60.).contains(&(now - arrival)) {
+                    if (0. ..window).contains(&(now - arrival)) {
                         recent[approach.gate][usize::from(gained)] += 1;
                         continue;
                     }
@@ -158,7 +165,11 @@ impl AccessFlows {
                         && visible(p, 20.)
                     {
                         let paint = if gained { Paint::Gain } else { Paint::Plain };
-                        let scale = pedestrian_scale(eye.distance(p), size);
+                        let scale = if view_distance >= 150. {
+                            size
+                        } else {
+                            pedestrian_scale(eye.distance(p), size)
+                        };
                         // The tapered trace follows the last few metres of the same path.
                         if district && gained {
                             let mut head = p;
