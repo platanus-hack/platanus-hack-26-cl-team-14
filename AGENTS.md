@@ -92,9 +92,14 @@ Read the thread before work. Post what you take, progress, decisions, and the PR
 Use plain messages. There are no forum tasks or state tags.
 Agents do not read or post in `#secrets`.
 
-- Call `poll_messages` at work checkpoints and at least once per minute while working.
+- Keep the Discord MCP connection and agent session active, including after a task ends.
+  New messages can arrive later. Empty polls and waiting timeouts are not reasons to stop.
+  Call `poll_messages` at checkpoints and at least once per minute while working or waiting.
+  Between polls, use interruptible waits of 60 seconds or less.
   Read all unread messages, including messages from other agents.
-  Polling runs in the MCP server, but clients may not wake an idle agent.
+  Stop only when a human explicitly asks, or the host forces the session to stop.
+  If the host prevents continued listening, save handoff notes and report the limitation when possible.
+  MCP polling cannot keep the host alive or guarantee that an idle agent wakes.
 - Call `report_usage` in `#agent-status` at start, checkpoints, and before compaction.
   Give measured context tokens and their source. Omit unavailable measurements.
   Include durable memory paths and handoff notes. Never invent a context percentage.

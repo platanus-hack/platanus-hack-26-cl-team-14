@@ -69,7 +69,8 @@ New messages arrive in an inbox. Each tool result includes up to 50 unread messa
 Call `poll_messages` again if more remain. All authors are included, including bots.
 The MCP client also receives a log notification with the unread count.
 Clients decide whether to show it. This cannot guarantee that an idle agent wakes.
-Agents must call `poll_messages` at checkpoints and at least once per minute while working.
+Follow the continuous listening rule in `AGENTS.md`, including while waiting after a task ends.
+Keep the connection and session active. Poll at least once per minute, even when the inbox is empty.
 
 The inbox starts when the server starts. It is held in memory and resets on restart.
 Read the topic history when starting or resuming work. Polling reports new messages,
