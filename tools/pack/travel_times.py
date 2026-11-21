@@ -72,7 +72,12 @@ for row in table("stop_times.txt"):
 patterns = collections.defaultdict(list)
 for trip, rows in sequence.items():
     rows.sort()
-    patterns[tuple((s, a, d) for _, s, a, d in rows)].append(trip)
+    patterns[tuple(s for _, s, _, _ in rows)].append(trip)
+# Ride seconds on each edge, from the first trip of the pattern.
+pattern_edges = {}
+for key, trip_list in patterns.items():
+    rows = sequence[trip_list[0]]
+    pattern_edges[key] = [rows[i + 1][2] - rows[i][3] for i in range(len(rows) - 1)]
 
 # One boarding wait for each pattern: headway / 2 at 08:00.
 pattern_wait = {}
@@ -91,17 +96,15 @@ print(f"{len(patterns)} patterns, {len(pattern_wait)} run at 08:00")
 # cost, in-vehicle seconds, boardings, access metres travel with each edge.
 graph = collections.defaultdict(list)
 for index, (key, wait) in enumerate(pattern_wait.items()):
-    for position, (stop, _, _) in enumerate(key):
+    for position, stop in enumerate(key):
         if stop not in coords:
             continue
-        ride = (index, position)
-        graph[("s", stop)].append((ride, wait, 0, 1, 0.0))
-        graph[ride].append((("s", stop), 0.0, 0, 0, 0.0))
+        ride = ("r", index, position)
+        graph[("s", stop)].append((ride, wait, 0, 1))
+        graph[ride].append((("s", stop), 0.0, 0, 0))
         if position + 1 < len(key):
-            nxt, arrival, _ = key[position + 1]
-            seconds_on_board = arrival - key[position][2]
-            graph[ride].append(((index, position + 1), seconds_on_board,
-                                seconds_on_board, 0, 0.0))
+            on_board = max(pattern_edges[key][position], 0)
+            graph[ride].append((("r", index, position + 1), on_board, on_board, 0))
 
 # Walk transfers: a grid keeps this to the near stops only.
 CELL = TRANSFER_M / 111320 * 2
@@ -118,42 +121,49 @@ for stop, (lon, lat) in coords.items():
                     continue
                 distance = metres(lon, lat, *coords[other])
                 if distance <= TRANSFER_M:
-                    graph[("s", stop)].append((("s", other), distance / WALK_MPS,
-                                               0, 0, 0.0))
+                    graph[("s", stop)].append((("s", other), distance / WALK_MPS, 0, 0))
                     walk_edges += 1
 # A platform and its parent station are the same place.
 for stop, row in stop_rows.items():
     parent = row["parent_station"]
     if parent in coords:
-        graph[("s", stop)].append((("s", parent), 0.0, 0, 0, 0.0))
-        graph[("s", parent)].append((("s", stop), 0.0, 0, 0, 0.0))
+        graph[("s", stop)].append((("s", parent), 0.0, 0, 0))
+        graph[("s", parent)].append((("s", stop), 0.0, 0, 0))
 print(f"{len(graph)} nodes, {sum(len(v) for v in graph.values())} edges "
       f"({walk_edges} transfer walks)")
 
 communes = list(csv.DictReader(COMMUNES.open(encoding="utf-8")))
 points = {r["cut"]: (float(r["longitude"]), float(r["latitude"])) for r in communes}
 # Stops within ACCESS_M of each comuna point.
-reachable = {}
+reachable, covered = {}, {}
 for cut, (lon, lat) in points.items():
-    near = [(stop, metres(lon, lat, *coords[stop])) for stop in coords]
-    reachable[cut] = [(s, d) for s, d in near if d <= ACCESS_M]
+    near = sorted(((stop, metres(lon, lat, *coords[stop])) for stop in coords),
+                  key=lambda x: x[1])
+    inside = [(s, d) for s, d in near if d <= ACCESS_M]
+    reachable[cut] = inside or near[:1]
+    covered[cut] = bool(inside)
+outside = sorted(c for c in covered if not covered[c])
 print("stops within 1 km of a comuna point:",
       min(len(v) for v in reachable.values()), "to", max(len(v) for v in reachable.values()))
+print(f"{len(outside)} comuna points have NO stop within {ACCESS_M:.0f} m: {outside}")
 
 rows = []
 for origin in sorted(points):
     best = {}
     queue = []
+    order = 0
     for stop, distance in reachable[origin]:
-        heapq.heappush(queue, (distance / WALK_MPS, 0, 0, distance, ("s", stop)))
+        heapq.heappush(queue, (distance / WALK_MPS, order, 0, 0, distance, ("s", stop)))
+        order += 1
     while queue:
-        cost, on_board, boardings, access, node = heapq.heappop(queue)
+        cost, _, on_board, boardings, access, node = heapq.heappop(queue)
         if node in best:
             continue
         best[node] = (cost, on_board, boardings, access)
-        for target, edge, vehicle, board, _ in graph[node]:
+        for target, edge, vehicle, board in graph[node]:
             if target not in best:
-                heapq.heappush(queue, (cost + edge, on_board + vehicle,
+                order += 1
+                heapq.heappush(queue, (cost + edge, order, on_board + vehicle,
                                        boardings + board, access, target))
     for destination in sorted(points):
         if destination == origin:
@@ -168,13 +178,18 @@ for origin in sorted(points):
         if answer:
             rows.append([origin, destination, round(answer[0] / 60, 1),
                          round(answer[1] / 60, 1), max(answer[2] - 1, 0),
-                         round(answer[3]), round(answer[4])])
-    print(f"  {origin} done, {len(best)} nodes reached", flush=True)
+                         round(answer[3]), round(answer[4]),
+                         "in_feed" if covered[origin] and covered[destination]
+                         else "outside_feed"])
+    print(f"  {origin} {len(best)} nodes", end=" ", flush=True)
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 with OUT.open("w", newline="", encoding="utf-8") as fh:
     writer = csv.writer(fh)
     writer.writerow(["origin_cut", "destination_cut", "minutes_door_to_door",
-                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress"])
+                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress",
+                     "coverage"])
     writer.writerows(rows)
-print(OUT, len(rows), "directed pairs of the 2,652 possible")
+in_feed = sum(1 for r in rows if r[7] == "in_feed")
+print(OUT, len(rows), "directed pairs of the 2,652 possible;",
+      in_feed, "with coverage in_feed")
