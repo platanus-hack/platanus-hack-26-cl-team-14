@@ -459,6 +459,9 @@ pub(crate) fn draw_buildings(
                 Mesh3d(meshes.add(mesh.finish())),
                 MeshMaterial3d(mat.clone()),
             ));
+            if detail == Detail::Far {
+                chunk.insert(bevy::light::NotShadowCaster);
+            }
             if animated {
                 chunk.insert((
                     MeshMorphWeights::Value {
