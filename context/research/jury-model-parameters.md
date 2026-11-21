@@ -5,7 +5,7 @@ Texto para una lámina extra del jurado. [Pedido de Mac](https://discord.com/cha
 | Datos de Santiago | Cómo estima los viajes | Qué cambia en la demo |
 | --- | --- | --- |
 | Censo 2024: hogares, empleo y viaje al trabajo. | Distribuye trabajadores según empleos y tiempos de viaje. | **Monumental:** cambia el recinto y los empleos de dos manzanas. Mantiene 39.222 asistentes. |
-| MINEDUC 2026: matrícula y destinos de estudio. | Estima el modo según tiempo, distancia y acceso a auto. | **Mapocho:** agrega 10 muelles. Supone 17 km/h, un ferry cada 10 min y 1 min por parada. |
+| MINEDUC 2026: matrícula y destinos de estudio. | Estima el modo según tiempo, distancia y acceso a auto. | **Mapocho:** agrega 10 muelles. Supone 17 km/h, un ferry cada 10 min y 1 min en cada parada intermedia. |
 | DTPM: horarios, rutas y validaciones. OpenStreetMap: calles y edificios. | Calcula una base y una variante. Guarda los resultados para reproducir el antes y el después. | **Metro:** suprime el servicio de 07:00 a 10:00. Mantiene los lugares de trabajo y estima cambios de modo. |
 
 ## Notas para responder al jurado
