@@ -1,6 +1,6 @@
 //! One entry point for any question about the city: a list of structured changes -> the full day of all persons.
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
-//! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
+//! again once (rechoose.rs) and projects the station day once (station_access.rs, L9 with April 2026 job weights). The map and the MCP tool read the same result.
 use crate::choice::Choice;
 use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripGroup, TripPlan, trip_deltas};
 use crate::rechoose::{Base, rechoose};
@@ -62,7 +62,7 @@ const ASSUMPTIONS: [&str; 10] = [
     "Travel times are comuna to comuna and lower than survey times. The effect of a time change is an unvalidated sensitivity; the size and direction of its error are unknown.",
     "A mode change does not reach the stations yet: stations use the baseline public share of the home comuna.",
     "Open city for residents: more or fewer residents change the total of workers, with the baseline workers per resident of the comuna.",
-    "Station access (L9): a walk within 1,000 m, or else one bus. A closed station does not change the travel minutes between comunas or the job choice.",
+    "Station access (L9, April 2026 transport job weights): a walk within 1,000 m, or else one bus. A closed station does not change the travel minutes between comunas or the job choice.",
     "Students do not choose again.",
     "Trips are display groups of workers, not persons. Departure half hours come from the EOD 2012 survey. Students are not included.",
     "The Census sets walking and cycling totals inside each comuna pair. The 2012 survey distance rule allocates workers within those totals. The engine has no measured response for cycling uptake after a new cycleway.",
@@ -90,7 +90,7 @@ impl Scenario {
         }
         let share = modes.iter().map(|m| m.0 / m.1).collect();
         let plan = TripPlan::new(&pop, 2000);
-        let access = StationAccess::load(dir);
+        let access = StationAccess::load_with_april_transport_jobs(dir).unwrap();
         let st: Vec<Value> = serde_json::from_reader(std::fs::File::open(dir.join("metro_training.json")).unwrap()).unwrap();
         let s = |v: &Value| v.as_str().unwrap().to_string();
         let stations = st.iter().map(|v| (s(&v["id"]), s(&v["name"]), v["longitude"].as_f64().unwrap(), v["latitude"].as_f64().unwrap())).collect();
@@ -130,6 +130,7 @@ impl Scenario {
             j[p.dest as usize] += share[o];
         }
         let pts = |v: &[Point], m: &[f64]| v.iter().zip(m).map(|(p, &x)| (p.longitude, p.latitude, x)).collect::<Vec<_>>();
+        self.access.weight_job_masses(pop.jobs.iter().map(|p| (p.id.as_str(), p.cut.as_str())), &mut j);
         let day = self.access.project_points(&pts(&pop.homes, &h), &pts(&pop.jobs, &j), open).into_iter().map(|x| x.2).collect();
         State { od, public, day }
     }
