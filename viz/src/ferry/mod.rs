@@ -2,7 +2,9 @@
 //! line_riders row supplies representative passengers. No simulation runs here.
 mod access;
 mod passengers;
+mod underpass;
 mod vessel;
+use underpass::{FerryMaterial, RiverDepth};
 
 use crate::{
     city::SubwayView,
@@ -12,7 +14,7 @@ use crate::{
     },
     net::Scenario,
 };
-use bevy::prelude::*;
+use bevy::{light::NotShadowCaster, prelude::*};
 use passengers::{DAY, Sailing, Trip};
 use std::collections::{HashMap, HashSet};
 use vessel::Line;
@@ -23,6 +25,7 @@ const CROSSING: f32 = 4.;
 pub(super) struct FerryPlugin;
 impl Plugin for FerryPlugin {
     fn build(&self, app: &mut App) {
+        underpass::install(app);
         app.init_resource::<Service>()
             .add_systems(PostStartup, setup)
             .add_systems(PostUpdate, crate::city::edits::ferry_routes)
@@ -50,8 +53,9 @@ struct Symbols {
     person: Handle<Mesh>,
     plank: Handle<Mesh>,
     font: Handle<Font>,
-    hull: Handle<StandardMaterial>,
-    coat: Handle<StandardMaterial>,
+    hull: Handle<FerryMaterial>,
+    coat: Handle<FerryMaterial>,
+    deck_coat: Handle<FerryMaterial>,
     timber: Handle<StandardMaterial>,
 }
 
@@ -59,6 +63,8 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
+    mut ferries: ResMut<Assets<FerryMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     models: Res<Models>,
     mut fonts: ResMut<Assets<Font>>,
 ) {
@@ -71,6 +77,19 @@ fn setup(
         cull_mode: None,
         ..default()
     };
+    let (dem, grid) = crate::city::ferry_depth_grid();
+    let dem = images.add(dem);
+    let mut ferry = |color, aboard| {
+        ferries.add(FerryMaterial {
+            base: material(color),
+            extension: RiverDepth {
+                dem: dem.clone(),
+                grid,
+                aboard,
+            },
+        })
+    };
+    let coat = Color::srgb_u8(111, 60, 115);
     commands.insert_resource(Symbols {
         access: access::load(),
         font: fonts.add(Font::from_bytes(
@@ -79,8 +98,9 @@ fn setup(
         boat: meshes.add(vessel::mesh()),
         person: meshes.add(person),
         plank: meshes.add(Cuboid::from_size(Vec3::ONE)),
-        hull: mats.add(material(Color::WHITE)),
-        coat: mats.add(material(Color::srgb_u8(111, 60, 115))),
+        hull: ferry(Color::WHITE, 1),
+        coat: ferry(coat, 0),
+        deck_coat: ferry(coat, 1),
         timber: mats.add(material(Color::srgb_u8(108, 117, 129))),
     });
 }
@@ -150,6 +170,7 @@ fn refresh(
             commands.spawn((
                 FerryEntity,
                 Actor::Boat { line: ix, run },
+                NotShadowCaster,
                 Mesh3d(symbols.boat.clone()),
                 MeshMaterial3d(symbols.hull.clone()),
                 Visibility::Hidden,
@@ -266,11 +287,18 @@ fn person_pose(
 }
 
 fn animate(
+    mut commands: Commands,
     clock: Res<CityClock>,
     mode: Res<SubwayView>,
     service: Res<Service>,
     symbols: Res<Symbols>,
-    mut actors: Query<(&Actor, &mut Transform, &mut Visibility)>,
+    mut actors: Query<(
+        Entity,
+        &Actor,
+        &mut Transform,
+        &mut Visibility,
+        Option<&mut MeshMaterial3d<FerryMaterial>>,
+    )>,
     mut legends: Query<&mut Visibility, (With<FerryLegend>, Without<Actor>)>,
 ) {
     let Some(now) = clock.0 else {
@@ -283,7 +311,7 @@ fn animate(
             Visibility::Inherited
         });
     }
-    for (actor, mut position, mut visibility) in &mut actors {
+    for (entity, actor, mut position, mut visibility, material) in &mut actors {
         let pose = if mode.0 {
             None
         } else {
@@ -302,13 +330,24 @@ fn animate(
                 Actor::Person { line, run, trip } => {
                     let d = &service.0[line];
                     let sailing = &d.runs[run];
-                    person_pose(
-                        &d.line,
-                        &sailing.trips[trip],
-                        age(now, sailing.start),
-                        sailing.deck_rows,
-                        &symbols.access,
-                    )
+                    let trip = &sailing.trips[trip];
+                    let age = age(now, sailing.start);
+                    let aboard = (trip.board_at..trip.leave_at + CROSSING).contains(&age);
+                    let coat = if aboard {
+                        &symbols.deck_coat
+                    } else {
+                        &symbols.coat
+                    };
+                    if material.unwrap().set_if_neq(MeshMaterial3d(coat.clone())) {
+                        // The shadow pass uses physical mesh heights. A symbol below a
+                        // cartographic deck must not cast its silhouette on the pavement.
+                        if aboard {
+                            commands.entity(entity).insert(NotShadowCaster);
+                        } else {
+                            commands.entity(entity).remove::<NotShadowCaster>();
+                        }
+                    }
+                    person_pose(&d.line, trip, age, sailing.deck_rows, &symbols.access)
                 }
             }
         };
