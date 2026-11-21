@@ -300,6 +300,8 @@ Score at first run: WAPE_bins 0.5001, WAPE_daily 0.4198 (trivial training-mean p
 
 L2 (formula frozen at 07:11 UTC, cleared by clever-heron 07:13): add `public` after the radius. Each RM-internal OD pair is multiplied by the mode-2 share of its home comuna (`mode_share.csv`, all rows, −99 in the denominator), on the home side and the job side. Assumption: the home comuna's share applies to all its internal destinations; destination-specific shares are not observed. Mode 2 is broad public transport, not Metro. Assigned mass: homes 597,156, jobs 772,562. Scale 1.7865. WAPE_bins **0.4688**, WAPE_daily 0.3429.
 
+L7 (formula frozen 07:31, cleared by clever-heron 07:32): add `classes`. r_s = job mass / home mass of the station inside 1,000 m (L2 masses; home mass 0 → work). Cut = median of the 95 training ratios (48th sorted value) = 0.8145; above the cut = work class, ties = home. Each class has its own training-only profile, one shared scale. Training classes 48 home / 47 work; held-out 13 / 18. WAPE_bins **0.4669**, WAPE_daily 0.3421. One held-out observed cell (Manquehue, bin 6) has no training support in any class and is predicted 0, as in L2.
+
 L2b, **rejected** (registered 07:17, run 07:31 UTC): homes 1,000 m, jobs 500 m, else L2. Code `5288e37` on branch `feat/station-l2b` (not merged), args `1000/500 public`, `jobs.csv` of main `ef34915`, predictions SHA256 `657736c0993c425151592db99e44c2d4f393a241873ebfba7cd267f1075a5a64`. WAPE_bins 0.5202, WAPE_daily 0.3808: worse than L2, so not kept.
 
 Known weakness of L0: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
