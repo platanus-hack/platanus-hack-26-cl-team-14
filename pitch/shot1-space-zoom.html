@@ -101,8 +101,10 @@ async function play() {
   on('city', false);
   // 3. Dive to the MUT.
   await fly({ center: MUT, zoom: 17.2, pitch: 64, bearing: -35, duration: 4200, curve: 1.2 });
-  map.once('idle', markMut);
   on('place', true);
+  // The orbit keeps the map busy, so mark the MUT at idle before the orbit starts.
+  await new Promise(r => map.once('idle', r));
+  markMut();
   // 4. Slow orbit around the MUT.
   const t0 = performance.now();
   (function orbit(t) { map.setBearing(-35 + (t - t0) / 220); requestAnimationFrame(orbit); })(t0);
