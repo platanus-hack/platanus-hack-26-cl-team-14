@@ -335,22 +335,15 @@ impl RiderPlan {
         }
     }
 
-    // Interpolate between the mapped gate, platform and service door at display walking speed.
-    fn connect(&mut self, from: Vec3, to: Vec3, has_origin: bool) {
-        self.until(
-            self.duration() + from.distance(to) / Vehicle::Walk.speed(),
-            if has_origin {
-                RiderAction::StationWalk { from, to }
-            } else {
-                RiderAction::Unrouted
-            },
-        );
+    // Unmapped connections still consume time when choosing a departure.
+    fn connect(&mut self, from: Vec3, to: Vec3, action: RiderAction) {
+        self.until(self.duration() + from.distance(to) / Vehicle::Walk.speed(), action);
     }
 
     pub(super) fn build(path: &Path, legs: usize, start: f32, copy: usize, routes: &Routes) -> Self {
         let mut plan = Self { steps: Vec::new() };
         let mut transfer = None;
-        let mut has_origin = false;
+        let mut street_end = None;
         let legs = &path.legs[..legs];
         for (i, leg) in legs.iter().enumerate() {
             let first = if i == 0 { 0 } else { legs[i - 1].end };
@@ -362,12 +355,12 @@ impl RiderPlan {
                     let duration = *walk.seconds.last().unwrap();
                     if duration > 0. {
                         plan.until(plan.duration() + duration, RiderAction::StreetWalk(walk.clone()));
-                        has_origin = true;
+                        street_end = walk.points.last().map(|p| *p + Vec3::Y * 0.25);
                     }
                 } else {
                     let duration = path.seconds[leg.end] - path.seconds[first];
                     if duration > 0. {
-                        has_origin = false;
+                        street_end = None;
                         plan.until(plan.duration() + duration, RiderAction::Unrouted);
                     }
                 }
@@ -383,35 +376,51 @@ impl RiderPlan {
                     (gate + Vec3::new(along, 0., across), Vec3::X)
                 }
             };
-            plan.connect(transfer.take().unwrap_or(gate), wait, has_origin);
-            let waiting = if has_origin {
-                RiderAction::Wait { at: wait, facing }
+            let at_platform = transfer == Some(wait);
+            let from = transfer.take().unwrap_or(gate);
+            let waiting_at = if options.platform.is_none() {
+                street_end
+            } else if at_platform {
+                Some(wait)
             } else {
-                RiderAction::Unrouted
+                None
             };
+            let waiting = || {
+                waiting_at.map_or(RiderAction::Unrouted, |at| RiderAction::Wait { at, facing })
+            };
+            plan.connect(from, wait, waiting());
             let ready = start + plan.duration();
             let Some(service) = options.next(ready, |trip| {
                 wait.distance(trip.door(routes, trip.board_distance, copy)) / Vehicle::Walk.speed()
             }) else {
-                plan.until(DAY - start, waiting);
+                plan.until(DAY - start, waiting());
                 break;
             };
             let door = service.door(routes, service.board_distance, copy);
-            // Bus arrivals have zero reported dwell. Walk to the stop before the bus arrives.
+            // Bus calls have zero reported dwell. Reserve the approach time before arrival.
             let approach = match service.key {
                 RideKey::Metro { .. } => service.arrival,
                 RideKey::Surface { .. } => service.arrival - wait.distance(door) / Vehicle::Walk.speed(),
             };
-            plan.until(approach - start, waiting);
-            plan.connect(wait, door, has_origin);
+            plan.until(approach - start, waiting());
+            let crossing = if at_platform {
+                RiderAction::StationWalk { from: wait, to: door }
+            } else {
+                waiting()
+            };
+            plan.connect(wait, door, crossing);
             plan.until(service.alight - start, RiderAction::Ride(service.key));
-            has_origin = true;
             let exit_door = service.door(routes, service.exit_distance, copy);
             let exit = if let RideKey::Metro { track, .. } = service.key {
                 let (platform, _) = platform_pose(&routes.tracks[track], service.exit_distance, copy);
-                plan.connect(exit_door, platform, has_origin);
+                plan.connect(exit_door, platform, RiderAction::StationWalk {
+                    from: exit_door,
+                    to: platform,
+                });
+                street_end = None;
                 platform
             } else {
+                street_end = Some(exit_door);
                 exit_door
             };
             // A blocked transfer ends on the last reachable platform.
@@ -419,7 +428,7 @@ impl RiderPlan {
             if routes.riders.interchange(Some(index), next) {
                 transfer = Some(exit);
             } else {
-                plan.connect(exit, path.points[leg.end] + Vec3::Y * 0.25, has_origin);
+                plan.connect(exit, path.points[leg.end] + Vec3::Y * 0.25, RiderAction::Unrouted);
             }
         }
         plan
