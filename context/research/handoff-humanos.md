@@ -18,7 +18,7 @@ git clone https://github.com/platanus-hack/platanus-hack-26-cl-team-14.git
 cd platanus-hack-26-cl-team-14 && ./run.sh      # deja esta terminal ocupada
 ```
 
-Abre `http://127.0.0.1:5173/web/` en el navegador. En macOS también puedes usar `open http://127.0.0.1:5173/web/` en otra terminal.
+En el navegador: `http://127.0.0.1:5173/web/`. En otra terminal de macOS: `open http://127.0.0.1:5173/web/`.
 
 Vistas: `/web/?t=36&mut=1` (Tobalaba), `/web/?v=s` (Santiago), `/web/?v=p&t=36` (Puntaje). Ctrl-C en la primera terminal apaga ambos servidores (`lsof -i :8787` debe quedar vacío).
 
