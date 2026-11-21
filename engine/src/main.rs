@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
     extract::State,
     http::StatusCode,
+    response::sse::{Event, KeepAlive, Sse},
     routing::{get, post},
 };
 use city::{Coverage, Flow, Metadata, World, Zone, ZoneChange};
@@ -71,6 +72,7 @@ struct SiteHttpResponse {
 
 struct Core {
     latest: std::sync::Mutex<(u64, serde_json::Value)>,
+    scenario_events: tokio::sync::watch::Sender<serde_json::Value>,
     baseline: World,
     pairs: Vec<(usize, usize)>,
     site: site::SiteModel,
@@ -252,6 +254,7 @@ impl Core {
             station_observation_metadata,
             event_model: event::EventModel::new(directory),
             latest: std::sync::Mutex::new((0, serde_json::Value::Null)),
+            scenario_events: tokio::sync::watch::channel(serde_json::Value::Null).0,
         }
     }
 
@@ -292,9 +295,36 @@ impl Core {
             let mut result = serde_json::to_value(result).unwrap();
             result["revision"] = serde_json::json!(latest.0 + 1);
             *latest = (latest.0 + 1, result.clone());
+            self.scenario_events.send_replace(result.clone());
             Ok(result)
         }
     }
+}
+
+async fn scenario_events(
+    State(core): State<Arc<Core>>,
+) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
+    let mut receiver = core.scenario_events.subscribe();
+    let initial = receiver.borrow_and_update().clone();
+    let stream = futures_util::stream::unfold(
+        (receiver, Some(initial)),
+        |(mut receiver, initial)| async move {
+            let result = match initial.filter(|result| !result.is_null()) {
+                Some(result) => result,
+                None => {
+                    receiver.changed().await.ok()?;
+                    receiver.borrow_and_update().clone()
+                }
+            };
+            let event = Event::default()
+                .event("scenario")
+                .id(result["revision"].to_string())
+                .json_data(result)
+                .unwrap();
+            Some((Ok(event), (receiver, None)))
+        },
+    );
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 async fn event_scenario(
@@ -437,6 +467,7 @@ async fn main() {
         .route("/api/site-scenario", post(site_scenario))
         .route("/api/station-scenario", post(station_scenario))
         .route("/api/event-scenario", post(event_scenario))
+        .route("/api/scenario-events", get(scenario_events))
         .layer(CorsLayer::permissive())
         .with_state(core);
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
