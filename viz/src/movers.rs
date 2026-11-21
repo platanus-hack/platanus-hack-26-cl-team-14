@@ -1,6 +1,7 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
 #[path = "events.rs"]
 pub(crate) mod events;
+pub(crate) mod clock;
 mod fleet;
 mod instanced;
 mod levels;
