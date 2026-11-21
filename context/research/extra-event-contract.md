@@ -1,7 +1,8 @@
 # Extra hypothetical event: boarding-profile contract
 
-**Conditional review proposal. Local reversible preparation is allowed; no
-implementation push or merge until the contract and data gates pass.** L4b and its weekday
+**Accepted contract after review of [evidence PR96](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/96)
+and [venue PR97](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/97).**
+Implementation may proceed under the staged review gates below. L4b and its weekday
 score stay unchanged. Add a scaled observed contrast to a fixed Saturday
 baseline. Do not remove the source event or label this operation “move”.
 
