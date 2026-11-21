@@ -1,5 +1,8 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
-use crate::{city::world, net::Scenario};
+use crate::{
+    city::{Surface, terrain_from_xz, world},
+    net::Scenario,
+};
 use bevy::{
     camera::primitives::{Frustum, Sphere as Bounds},
     prelude::*,
@@ -116,7 +119,9 @@ impl Path {
         let to = self.points[end];
         let t = (value - axis[end - 1]) / (axis[end] - axis[end - 1]);
         let leg = self.legs.partition_point(|leg| leg.end < end);
-        Some((from.lerp(to, t), (to - from).normalize(), self.legs[leg].vehicle))
+        let mut pos = from.lerp(to, t);
+        pos.y = terrain_from_xz(pos.x, pos.z);
+        Some((pos, (to - from).normalize(), self.legs[leg].vehicle))
     }
 }
 
@@ -736,7 +741,56 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mats: Res
     })
     .collect();
     commands.insert_resource(Models { mesh, paint });
-    commands.insert_resource(Routes::load());
+    let routes = Routes::load();
+    let track_material = mats.add(StandardMaterial {
+        perceptual_roughness: 0.85,
+        ..default()
+    });
+    for line in &routes.tracks {
+        commands.spawn((
+            Mesh3d(meshes.add(track_mesh(&line.path))),
+            MeshMaterial3d(track_material.clone()),
+        ));
+    }
+    commands.insert_resource(routes);
+}
+
+// A surface cutaway exposes the published Metro alignment, including underground sections.
+fn track_mesh(path: &Path) -> Mesh {
+    let mut surface = Surface::default();
+    let bed = Color::srgb_u8(93, 91, 84).to_linear().to_f32_array();
+    let steel = Color::srgb_u8(159, 162, 155).to_linear().to_f32_array();
+    for edge in path.points.windows(2) {
+        let delta = edge[1] - edge[0];
+        let side = right(delta).normalize_or_zero();
+        let steps = (delta.length() / 50.).ceil() as usize;
+        for i in 0..steps {
+            let a = edge[0] + delta * (i as f32 / steps as f32);
+            let b = edge[0] + delta * ((i + 1) as f32 / steps as f32);
+            for (left, right, lift, color) in [
+                (1.0, 4.0, 0.32, bed),
+                (1.59, 1.8, 0.38, steel),
+                (3.2, 3.41, 0.38, steel),
+            ] {
+                let start = surface.positions.len() as u32;
+                for mut p in [
+                    a + side * left,
+                    a + side * right,
+                    b + side * right,
+                    b + side * left,
+                ] {
+                    p.y = terrain_from_xz(p.x, p.z) + lift;
+                    surface.positions.push(p.to_array());
+                    surface.normals.push([0., 1., 0.]);
+                    surface.colors.push(color);
+                }
+                surface
+                    .indices
+                    .extend([start, start + 1, start + 2, start, start + 2, start + 3]);
+            }
+        }
+    }
+    surface.finish()
 }
 
 struct Train<'a> {
