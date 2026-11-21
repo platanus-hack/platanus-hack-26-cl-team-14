@@ -90,11 +90,15 @@ SII worker counts, FONASA, Servel, Censo 2017.
   the INE visualizer publishes.
 - Role: INPUT and TARGET.
 - Limits: the destination stops at the comuna, so it cannot place a job inside a comuna.
-  The corrected script keeps categories 2 and 3. It excludes code 1 (517,018 people
-  working at home) and code 4 (3,793 people working abroad) from commuting.
+  The corrected script keeps categories 2 and 3 and removes missing and region-only
+  destinations. It excludes work-at-home and foreign-work categories, with separate counts.
   The [official manual](https://censo2024.ine.gob.cl/wp-content/uploads/2025/12/manual_uso_microdatos_censo2024.pdf),
-  pages 42–43, permits region-only destinations within category 3. A check against
-  valid comuna codes is still required before labeling every output pair comuna-to-comuna.
+  pages 42–43, explains the region-only values. The [owner checked the output](https://discord.com/channels/1573514576400752640/1573579088684253235/1573582284097986581)
+  against 346 MINEDUC comuna codes: zero unmatched destinations or workers. This review
+  did not repeat the full-file run. The 2,740,454 retained workers include 51,640 whose
+  destination is outside RM. Preserve those external flows separately for an RM-only engine;
+  do not relabel them as internal flows. Migration now also excludes region-only values
+  and pads keys; its retained origin codes can still represent a comuna or a foreign place.
   Code 5, "no fixed place", is 313,358 people, 8.7% of all employed RM residents with an
   answer, and it is concentrated: 12.9% in Peñalolén (13122) and La Pintana (13112)
   against 3.2% in Melipilla (13501). Those people travel and the matrix cannot say where.
