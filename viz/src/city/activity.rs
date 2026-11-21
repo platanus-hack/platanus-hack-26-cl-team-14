@@ -79,8 +79,12 @@ impl HeightScales {
             return None;
         }
         let t = self.progress(now);
-        for (from, to) in self.previous.iter_mut().zip(&self.scales) {
-            *from += (*to - *from) * t;
+        if t == 1.0 {
+            self.previous.copy_from_slice(&self.scales);
+        } else {
+            for (from, to) in self.previous.iter_mut().zip(&self.scales) {
+                *from += (*to - *from) * t;
+            }
         }
         self.started = now;
         let has_previous = self.revision.replace(revision).is_some();
