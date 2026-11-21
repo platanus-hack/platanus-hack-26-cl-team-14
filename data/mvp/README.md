@@ -547,8 +547,8 @@ I compared the matrix with the real trip durations of EOD 2012
 (`data/raw/eod2012/.../viajes.csv`, `TiempoViaje`). Filter: weekday factor present,
 `Periodo` 2 (the 07:31 to 09:00 peak, which brackets the 08:00 departure),
 `ModoAgregado` in {2, 3, 4, 7, 9, 10} (bus and Metro and their pure combinations, no
-taxi, no colectivo, no car), origin comuna different from destination comuna, and the
-and the pair present in this file. That gives **3,184 sampled trips on 620 pairs**;
+taxi, no colectivo, no car), a reported duration above 0 and not above 300 minutes,
+origin comuna different from destination comuna, and the pair present in this file. That gives **3,184 sampled trips on 620 pairs**;
 I kept the **80 pairs with 10 or more sampled trips** and took the **unweighted** median
 of the sampled durations of each pair. `FactorLaboralNormal` is used only to select
 weekday trips, never as a weight, so a pair median is a median over sampled trips and
@@ -561,7 +561,13 @@ not over the expanded population.
 | ratio mine / EOD, median | **0.651** (p10 0.452, p90 0.867) |
 | mean absolute error | 20.9 min, WAPE 36.4% |
 | Pearson r | **0.783** |
-| Spearman | **0.744** |
+| Spearman | **0.734** |
+
+**Spearman uses the average rank inside a group of equal values.** The survey medians
+include ties because EOD reports round minutes, so the
+no-ties shortcut `1 − 6Σd²/(n³−n)` is not Spearman here and its answer depends on the
+order of the pairs. The number above is the Pearson correlation of the tie-corrected
+ranks; the shortcut gave 0.744.
 
 Before the dwell was charged, the same check gave 34.1 min, ratio 0.608, WAPE 40.6% and
 Pearson 0.739. Charging the dwell moved every one of those numbers toward the
@@ -574,6 +580,7 @@ A model that puts these minutes in a decay function with one freely fitted coeff
 absorbs a **common multiplicative** factor, so a uniform level bias would not reach its
 score. That is only part of the story here: the ratio runs from 0.45 at p10 to 0.87 at
 p90, so the bias is not uniform, and the pair-by-pair part does reach any such score.
+What survives is the ordering: Spearman 0.734.
 
 Four causes of the gap, and they do not all point the same way:
 1. A comuna point is not a trip end. An EOD trip runs door to door anywhere inside the

@@ -252,15 +252,38 @@ def compare_with_eod():
           f"p10 {ratios[len(ratios) // 10]:.3f} p90 {ratios[9 * len(ratios) // 10]:.3f}")
     print(f"mean absolute error {statistics.mean(abs(m - s) for m, s in zip(model, survey)):.1f}"
           f" min | WAPE {sum(abs(m - s) for m, s in zip(model, survey)) / sum(survey):.1%}")
-    ms, mm = statistics.mean(survey), statistics.mean(model)
-    pearson = (sum((s - ms) * (m - mm) for s, m in zip(survey, model))
-               / (sum((s - ms) ** 2 for s in survey) * sum((m - mm) ** 2 for m in model)) ** 0.5)
-    rank = lambda values: {v: i for i, v in enumerate(sorted(range(len(values)),
-                                                            key=lambda j: values[j]))}
-    rs, rm = rank(survey), rank(model)
-    n = len(survey)
-    spearman = 1 - 6 * sum((rs[i] - rm[i]) ** 2 for i in range(n)) / (n * (n * n - 1))
-    print(f"Pearson {pearson:.3f} | Spearman {spearman:.3f}")
+    print(f"Pearson {correlation(survey, model):.3f} | "
+          f"Spearman {correlation(ranks(survey), ranks(model)):.3f}")
+    ties = len(survey) - len(set(survey))
+    print(f"duplicate survey medians beyond the first occurrence: {ties} of {len(survey)}")
+
+
+def correlation(xs, ys):
+    """Pearson correlation."""
+    mx, my = statistics.mean(xs), statistics.mean(ys)
+    return (sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+            / (sum((x - mx) ** 2 for x in xs) * sum((y - my) ** 2 for y in ys)) ** 0.5)
+
+
+def ranks(values):
+    """Ranks with the average rank for a group of equal values.
+
+    EOD durations are reported in round minutes and the model times are rounded to one
+    decimal, so ties are certain. Spearman is then the Pearson correlation of these
+    ranks, not the no-ties shortcut 1 - 6*sum(d^2)/(n^3-n).
+    """
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    out = [0.0] * len(values)
+    start = 0
+    while start < len(order):
+        stop = start
+        while stop + 1 < len(order) and values[order[stop + 1]] == values[order[start]]:
+            stop += 1
+        average = (start + stop) / 2
+        for i in order[start:stop + 1]:
+            out[i] = average
+        start = stop + 1
+    return out
 
 
 if "eod" in sys.argv:
