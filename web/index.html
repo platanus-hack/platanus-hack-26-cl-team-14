@@ -70,9 +70,12 @@
 </div>
 
 <div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
-<div id="delta" class="box t"><span id="dv"></span><small>Cambio de subidas al día, modelo</small>
+<div id="delta" class="box t"><span id="dv"></span><small>Cambio de subidas al día</small><small>contabilidad del sitio, supuestos visibles</small>
   <div style="display:flex;justify-content:flex-end;gap:32px;margin-top:14px;font-size:64px">
-    <div><span id="car"></span><small>en auto</small></div>
+    <div><span id="car"></span><small>en auto</small>
+  <div id="st" style="display:none"><div class="model" id="stv" style="font-size:64px;margin-top:14px"></div>
+  <small>sensibilidad del modelo de estaciones <span id="stl"></span>, sin validar</small>
+  <small>su base en Tobalaba: <span id="stb"></span> al día · observado: <span id="sto"></span></small></div></div>
     <div><span id="public"></span><small>en transporte público</small></div>
   </div>
   <small>Nuevos residentes: personas que salen al día<br>Supuesto: reparto modal de Las Condes</small></div>
@@ -154,6 +157,14 @@ function siteScenario() {
     $('public').textContent = publicTransport ? fmt(publicTransport.daily_home_departures) : '';
     draw();
   });
+  // second estimate of the same change, from the scored station model; shown with its own labels, never merged with the first
+  post('station-scenario', {site_id: 'MUT', dwellings_added: homes, jobs_removed: 4679, occupied_share: 0.9251, persons_per_occupied_dwelling: 2.0847,
+    occupancy_source: 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; transfer assumption'}).then(r => {
+    const s = r.stations.find(x => x.id == 'TB-TOB');
+    $('stv').textContent = (s.delta_daily > 0 ? '+' : '') + fmt(s.delta_daily); $('stl').textContent = r.layer;
+    $('stb').textContent = fmt(s.predicted_base_daily); $('sto').textContent = fmt(s.observed_daily);
+    $('st').style.display = 'block';
+  }, () => $('st').style.display = 'none');
 }
 
 function tobalaba() {
@@ -276,7 +287,7 @@ $('go').onclick = () => {
   $('go').textContent = active ? 'Volver al MUT' : 'Sacar el MUT';
   $('go').className = active ? 'on' : '';
   if (active) return siteScenario();
-  site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
+  site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = $('st').style.display = 'none'; draw();
 };
 $('jobs').oninput = $('housing').oninput = simulate;
 $('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
