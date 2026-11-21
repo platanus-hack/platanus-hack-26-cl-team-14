@@ -22,8 +22,8 @@ Answer to "public asking-price bulk data remains unverified" (clever-heron):
   - Santiago comuna appears as 3 units: `SANTIAGO CENTRO`, `SANTIAGO OESTE`, `SANTIAGO SUR`. Comuna names have no accents (`NUNOA`, `MAIPU`). COMUNA is an SII name, not an INE CUT code; SII numeric codes also differ from CUT (Providencia 15103 vs 13123, see `santiago-source-joins.md`). Build a name crosswalk before a census join.
   - Some inscription years are typos (3015, 3200, 9204). Filter to 1990–2026. Old rows often have no amount; recent rows have it (Providencia 2025: all rows).
   - To get a point, you need rol → location. See "SII public map" below. It is not verified.
-- Role: TARGET (sale price by place and year) and INPUT (turnover)
-- Use in the simulation: TARGET for housing price by place and year (sale price), and INPUT for move rates (transfers per rol per year = turnover). After a rol → manzana join, it gives price gradients and turnover at block level.
+- Role: TARGET at SII rol and comuna level only (sale price by year). It is not a block-level target until a rol → point join and an SII → INE comuna crosswalk exist.
+- Use in the simulation: TARGET for sale price by comuna and year (deduplicate repeated deed amounts first). Transfer counts are property turnover, not household moves: they include parking, bodega, and non-residential roles, and a sale does not always move a household.
 
 ### Chilepropiedades.cl: asking prices for sale and rent (scrape + geocode)
 - Link: https://chilepropiedades.cl/propiedades/venta/departamento/providencia/0 and detail pages `/ver-publicacion/...`. robots.txt: https://chilepropiedades.cl/robots.txt (allows these paths, `Crawl-delay: 2`).
@@ -48,8 +48,8 @@ Answer to "public asking-price bulk data remains unverified" (clever-heron):
 - Access: direct download, CSV 3.5 MB. Licence CC BY 4.0.
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 3,494,306 bytes, 18,904 rows (18,006 with price). Santiago 7,354, Providencia 3,021, Las Condes 2,819, Ñuñoa 1,922. We removed the host name and host id columns from our copy.
 - Limits: nightly price for tourists, not monthly rent. No m². Does not meet the target "price, area, coordinates".
-- Role: INPUT (short-stay share of the stock)
-- Use in the simulation: INPUT for the short-stay share of the housing stock by zone (dwellings removed from long-term rent). Weak use for price.
+- Role: INPUT (short-stay listing intensity)
+- Use in the simulation: INPUT for short-stay listing intensity by zone. A listing is not a dwelling removed from long-term rent (many are rooms, part-time, or inactive; use `availability_365` and reviews to filter). Weak use for price.
 
 ### SII statistics of property by comuna (avalúo fiscal)
 - Link: https://www.sii.cl/sobre_el_sii/estadisticas/csv/ebbrrc_16.csv (page: https://www.sii.cl/sobre_el_sii/estadisticas/estadisticas_bienes_raices_por_comuna.html, region 16 = RM)
@@ -62,13 +62,24 @@ Answer to "public asking-price bulk data remains unverified" (clever-heron):
 - Role: INPUT (comuna calibration)
 - Use in the simulation: INPUT for comuna calibration of the price surface. Weak.
 
+### MINVU "Avaluo_RM": land asking prices from Portal Inmobiliario, geocoded (ArcGIS)
+- Link: https://services3.arcgis.com/cTnMkBRk4HWkUCRo/ArcGIS/rest/services/Avaluo_RM/FeatureServer/0 (service note: "Info apoyo Gestión de suelo"). Lead from clever-puma.
+- Contents: one row = one Portal Inmobiliario listing. Columns: Tipo_Propiedad, tipo_aviso, comuna, Fecha (Excel serial), Total_UF, Sup_m2, UFm2, Direccion, CoordY/CoordX, Zona (PRC zone code), url.
+- Granularity: point. Snapshot.
+- Year: 2022-01-01 to 2022-04-21 (Fecha 44562 to 44651).
+- Access: ArcGIS REST query API, no key. CSV, shapefile, GeoPackage export.
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 521 rows, 3 read. All 521 are land: Terrenos 264, Sitios 201, Industriales 27, Loteos 23, Parcelas 6. Extent lon -70.83 to -70.47.
+- Limits: land only, no dwellings. Old (2022). `Observaciones` and `Vendedor` hold broker names and phone numbers: do not copy those columns.
+- Role: INPUT (land price per m² by point)
+- Use in the simulation: INPUT for land price per m² (UF/m²), the cost side of new housing (for example the "vertical ghetto" site). Small sample.
+
 ## Blocked or not usable
 
 ### Portal Inmobiliario (Mercado Libre)
 - Link: https://www.portalinmobiliario.com/robots.txt
 - Check: BLOCKED 2026-11-21. Even `robots.txt` redirects (302) to `/gz/account-verification` (bot wall). We did not scrape.
 - Role: NONE
-- Use in the simulation: NONE (largest Chilean portal, but no compliant access).
+- Use in the simulation: NONE for direct access (largest Chilean portal). A 2022 land-only slice exists in MINVU "Avaluo_RM" above.
 
 ### Mercado Libre public API (site MLC, real estate)
 - Link: https://api.mercadolibre.com/sites/MLC/search?category=MLC1459

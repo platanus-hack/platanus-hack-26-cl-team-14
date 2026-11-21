@@ -17,7 +17,8 @@ def get(url):
 
 def geocode(address, comuna):
     time.sleep(1.1)
-    q = urllib.parse.urlencode({"q": f"{address}, {comuna}, Chile", "format": "json", "limit": 1, "countrycodes": "cl"})
+    q = urllib.parse.urlencode({"q": f"{address}, {comuna}, Chile", "format": "json", "limit": 1, "countrycodes": "cl",
+                                "viewbox": "-70.95,-33.25,-70.40,-33.75", "bounded": 1})  # Gran Santiago box
     r = json.load(urllib.request.urlopen(urllib.request.Request("https://nominatim.openstreetmap.org/search?" + q, headers={"User-Agent": UA}), timeout=30))
     return (r[0]["lat"], r[0]["lon"]) if r else ("", "")
 
@@ -41,7 +42,9 @@ with open(f"{OUT}/listings.csv", "w", newline="") as f:
         a, extra = g["about"], {p["name"]: p["value"] for p in g["about"].get("additionalProperty", [])}
         addr = a["address"]
         lat, lon = geocode(addr["streetAddress"], addr["addressLocality"])
+        price, cur = g["offers"]["price"], g["offers"]["priceCurrency"]
+        cur = "CLF" if float(price) < 100000 else cur  # site mislabels some UF prices as CLP
         w.writerow([u.rsplit("/", 1)[1], u.split("/")[4], extra.get("Tipo de propiedad"), addr["addressLocality"], addr["streetAddress"],
-                    g["offers"]["price"], g["offers"]["priceCurrency"], a.get("floorSize", {}).get("value"),
+                    price, cur, a.get("floorSize", {}).get("value"),
                     extra.get("Dormitorios"), extra.get("Baños"), extra.get("Año construcción"), g.get("datePosted"), lat, lon, u])
         f.flush()

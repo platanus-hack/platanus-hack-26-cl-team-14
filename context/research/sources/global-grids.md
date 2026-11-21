@@ -2,6 +2,8 @@
 
 Topic: global raster and vector grids that give population, land cover, terrain, connectivity, or POIs for Santiago. Excludes local Chilean sources and building footprints (owned by clever-llama).
 
+**Use priority:** Census 2024 manzanas (a local Chilean source) give real persons and dwellings by block. The global rasters here are fallbacks: use them when the census is unavailable or when you need spatial disaggregation below the manzana level.
+
 Agent: claude-sonnet-4-6 (emersoftware@Emersons-MacBook-Air), 2026-11-21.
 
 ---
@@ -12,7 +14,7 @@ Agent: claude-sonnet-4-6 (emersoftware@Emersons-MacBook-Air), 2026-11-21.
 - Contents: One pixel = count of people living in that 100 m cell. UN-adjusted, constrained to built area. Single float band.
 - Granularity: point (100 m pixel). Static 2020 snapshot.
 - Year: 2020 (model from 2025 reanalysis R2025A)
-- Access: direct download. GeoTIFF. 59 MB.
+- Access: direct download. GeoTIFF. 62 MB.
 - Check: VERIFIED-BYTES 2026-11-21, HTTP 200, Content-Length 62,328,145 bytes. No rows parsed.
 - Role: INPUT
 - Limits: modeled, not census. Constrained version underestimates in informal settlements if built-area mask misses them. License: CC BY 4.0.
@@ -188,17 +190,17 @@ Agent: claude-sonnet-4-6 (emersoftware@Emersons-MacBook-Air), 2026-11-21.
 
 ---
 
-### Meta High Resolution Settlement Layer (HRSL) — NOT AVAILABLE for Chile
+### Meta High Resolution Settlement Layer (HRSL) Chile 2020
 
-- Link: https://registry.opendata.aws/dataforgood-fb-hrsl/
-- Contents: Would be: 30 m population density grid from Maxar satellite imagery + census.
-- Granularity: point (30 m)
-- Year: 2019
-- Access: AWS S3 bucket dataforgood-fb-data
-- Check: UNVERIFIED — S3 key listing for `csv/month=2019-07/country=CHL` returns `KeyCount=0`. Chile is NOT in this dataset. Meta confirms coverage for 160+ countries; Chile is a high-income OECD country and is excluded.
-- Role: NONE
-- Limits: Dataset does not cover Chile.
-- Use in the simulation: NONE
+- Link: https://data.humdata.org/dataset/dd47e052-02cc-4a3f-972a-421d600b3d85/resource/bb560451-9c50-4d57-8ff3-872fa260c102/download/chl_general_2020_csv.zip (redirects from HDX to signed S3)
+- Contents: One row = one 30 m cell with people. Columns: longitude, latitude, chl_general_2020 (count of persons). Derived from Maxar satellite imagery + census adjustment. 2020 edition.
+- Granularity: point (30 m pixel). Static 2020.
+- Year: 2020
+- Access: direct download via HDX. ZIP of CSV. 26 MB compressed.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 302 then 200, 26,010,426 bytes confirmed. Rows read by calm-otter (critic): 5,750,979 total rows; Santiago box (-33.75 to -33.25 lat, -70.95 to -70.40 lon) = 623,158 cells, sum 7,657,984 persons. Columns: longitude, latitude, chl_general_2020.
+- Role: INPUT
+- Limits: 30 m but population is estimated from land cover, not direct census. The AWS S3 `dataforgood-fb-data` bucket path `csv/month=2019-07/country=CHL` returns empty (KeyCount=0); use HDX URL above. License: CC BY 4.0.
+- Use in the simulation: best-resolution home location probability surface (3× finer than WorldPop 100 m). Use for intra-block population distribution.
 
 ---
 
@@ -218,8 +220,8 @@ Agent: claude-sonnet-4-6 (emersoftware@Emersons-MacBook-Air), 2026-11-21.
 
 ## Critique
 
-1. **VIIRS and Dynamic World are unverified.** Both require accounts or GEE access. For land cover, ESA WorldCover (verified) covers the use case. VIIRS remains the only open proxy for night-time economic activity; a team member with an EOG free account should download the 2022 annual composite.
+1. **No entry has rows read from the Santiago bounding box.** All verified entries are VERIFIED-BYTES (HEAD or range requests). No pixel value or hexagon was parsed to confirm that Santiago totals near 7 million. Add a row-level check for at least HRSL and WorldPop. The HRSL Santiago-box sum of 7,657,984 (read by critic calm-otter) is the first real population number; it should be added to this catalog as a cross-check value.
 
-2. **GHSL global ZIPs verified as bytes only; tiles not extracted.** The global ZIP files (5.1 GB and 7.9 GB) are confirmed to exist. No per-tile check was done for the Santiago area in Mollweide coordinates. The simulation team needs to identify tiles R??_C?? in the tiles/ subfolder covering Santiago before ingestion.
+2. **GHSL global ZIPs are 5.1 GB and 7.9 GB; tiles not extracted.** The simulation team needs to identify tiles R??_C?? in the tiles/ subfolder covering Santiago in Mollweide coordinates before ingestion. Use an online Mollweide converter for -33.45°S, -70.67°W to get the tile index.
 
-3. **Copernicus DEM 30 m is not publicly available for Chile.** Only the 90 m (GLO-90) tile was verified. If the simulation needs 30 m terrain, request it from the Copernicus Data Space portal (account required) or use SRTM 30 m from NASA EarthData (not checked here).
+3. **Several entries have low simulation value.** Ookla Speedtest (remote-work influence), Copernicus DEM (slope), OpenCelliD (mobile coverage), and Dynamic World (duplicate of WorldCover) have no clear pitch moment in the current scope. VIIRS also unverified (account required). Census 2024 manzanas (a local source) give real persons and dwellings by block; the rasters here are fallbacks if the census is unavailable or needs spatial disaggregation below manzana level.

@@ -4,9 +4,10 @@ Scope: crime data for the Región Metropolitana at the smallest public spatial u
 
 ## Honest verdict: is crime a real driver or decoration?
 
-**Mixed. Comuna scale: real driver. Below comuna: decoration.**
+**Mixed. Comuna scale: real driver potential. Below comuna: decoration.**
 
-- Comuna scale and above: public, deep, calibratable. CEAD gives casos policiales by comuna, familia, grupo and subgrupo, every year from 2005. ENUSC gives victimization and fear of crime by city. The Observatorio de Homicidios gives victim-level rows with comuna of aggression, hour, weapon and place type. That is enough to feed (a) a victimization term in the residential-choice utility (why upper-income households move east), (b) a time-space activity-aversion term (why Transantiago ridership drops after 21:00 in some comunas), and (c) a hotspot term for the tail (174 narco-controlled zones concentrate homicides).
+- The three effects below are **proposed mechanisms**, not measured effects of this catalog. The data below has the right shape and detail to feed them, but the elasticities still need to come from literature (or be fit at run time).
+- Comuna scale and above: public, deep, calibratable. CEAD gives casos policiales by comuna, familia, grupo and subgrupo, every year from 2005. ENUSC gives victimization and fear of crime by city. The Observatorio de Homicidios gives victim-level rows with comuna of aggression, hour, weapon and place type. That is enough to feed (a) a victimization term in the residential-choice utility, (b) a time-space activity-aversion term, and (c) a hotspot term for the tail (174 narco-controlled zones concentrate homicides).
 - Below the comuna: the only sub-comuna source is STOP Carabineros, which has cuadrantes in a Vue dashboard with Google Maps tiles and no public API or rows. No cuadrante shapefile, no incident points. OpenStreetMap has police stations but Overpass public endpoints were timing out at test time. For a cuadrante-scale sim of La Pintana or Puente Alto, crime becomes decoration unless the team pays for closed data (Paz Ciudadana / BigData, or a Transparencia request to Carabineros).
 - One warning: CEAD casos policiales are counts of police-known cases, not incidents. The gap (cifra negra) is what ENUSC measures, and for robo violento ENUSC 2024 finds ~60% of victims do not report. Treat CEAD by comuna as a lower bound, and reweight with the ENUSC comuna denuncia rate before use.
 
@@ -19,9 +20,9 @@ Scope: crime data for the Región Metropolitana at the smallest public spatial u
 - Year: 2005 to 2026 (Jan-Sep 2026 preliminary).
 - Access: HTTP POST, form-encoded, returns an HTML `<table>`. No auth, no robots block. See `tools/scrape/cead_comuna_casos.py`.
 - Check: VERIFIED-ROWS 2026-11-21. POST with `comuna[]=13101`, `anio[]=2024`, `anio[]=2025`, all 7 familias, HTTP 200, 3,898 B response. Rows read from HTML `<td>`: País 2024=158,213 / 2025=167,303; Región Metropolitana 50,456 / 54,630; Provincia Santiago 37,712 / 39,902; Comuna Santiago 5,170 / 4,950 (sum of 7 familias, casos policiales). Place code: 13101 (Santiago). Column headers: Unidad Territorial + one per year. Downloadable as XLSX with `descarga=true` (not tested).
-- Role: INPUT and TARGET.
-- Limits: counts, not incidents. Only police-known cases; cifra negra is ~60% for robo con violencia (ENUSC 2024). Classification changed in 2024 (7 familias replaced DMCS); older-series back-compat is partial. Dashboard is a WordPress endpoint, no versioning. No data below comuna.
-- Use in the simulation: INPUT for the comuna victimization pressure that enters the residential-choice utility and the night-travel aversion. TARGET for matching monthly comuna casos of the top 5 subgrupos (robo con violencia, robo en lugar habitado, lesiones, homicidio, VIF).
+- Role: INPUT.
+- Limits: counts, not incidents. Only police-known cases; cifra negra is ~60% for robo con violencia (ENUSC 2024). Classification changed in 2024 (7 familias replaced DMCS); older-series back-compat is partial. Dashboard is a WordPress endpoint, no versioning. No data below comuna. Verified with one comuna (Santiago, 13101) and annual totals; monthly and other comuna POSTs not run yet.
+- Use in the simulation: INPUT for the comuna victimization pressure that enters the residential-choice utility and the night-travel aversion. The same series also serves as a side-TARGET for matching monthly comuna casos of the top 5 subgrupos; keep one source entry to avoid double counting in the index.
 
 ### CEAD · Minuta nacional de casos policiales (PDF cuarto trimestre acumulado)
 - Link: https://cead.minsegpublica.gob.cl/wp-content/uploads/download-manager-files/casos-policiales-ene-sep-2026.pdf
@@ -40,7 +41,7 @@ Scope: crime data for the Región Metropolitana at the smallest public spatial u
 - Granularity: comuna of aggression + date + 6-hour time bin + place type (vía pública, domicilio particular, etc.).
 - Year: 2018 to primer semestre 2026.
 - Access: direct GET, no auth.
-- Check: VERIFIED-ROWS 2026-11-21. HTTP 200, 583,002 B, valid XLSX (OOXML zip). sheet1.xml has 9,142 `<row>` entries. Columns read from `sharedStrings.xml`: SEXO, EDAD_RECOD, CONDENAS, NACION_RECOD, LUG_AGR_RECOD, ARMA_RECOD, CONTEXTO_RECOD, COMUN_AGR, NOM_REG, DIA, MES2, ID_ANO, HORA_RECOD. Value examples: comuna Recoleta, región Metropolitana de Santiago, hour bin 00:00-05:59, weapon Arma de Fuego, context "asociado a delito y/o grupo organizado". Years 2018 to 2026 (primer semestre) implied by file name and row count.
+- Check: VERIFIED-BYTES 2026-11-21. HTTP 200, 583,002 B, valid XLSX (OOXML zip). `sheet1.xml` has 9,142 `<row>` elements and `xl/sharedStrings.xml` lists the 13 column names (SEXO, EDAD_RECOD, CONDENAS, NACION_RECOD, LUG_AGR_RECOD, ARMA_RECOD, CONTEXTO_RECOD, COMUN_AGR, NOM_REG, DIA, MES2, ID_ANO, HORA_RECOD) plus category labels (Recoleta, Metropolitana de Santiago, 00:00-05:59, Arma de Fuego, "asociado a delito y/o grupo organizado"). Cells are NOT yet joined to rows (column letters + sharedStrings indexes not resolved); the 9,142 row count and 2018–2026 S1 range come from the file name and the row element count, not from a cell read. A full parse is the next step.
 - Role: TARGET.
 - Limits: inter-institutional count (validated Carabineros + PDI + Fiscalía + SML + Interior), so it lags CEAD. Place of aggression is one of ~5 broad categories, not an address. Comuna is the only geo field.
 - Use in the simulation: TARGET. Comuna × month × place-type counts are a strong tail calibration target for the "fear zone" term and for scenarios like "remove the MUT and put a vertical ghetto there", where night-time violence in the receiving comuna matters.
@@ -104,12 +105,12 @@ Scope: crime data for the Región Metropolitana at the smallest public spatial u
 - Link: https://pazciudadana.cl/download/5886/
 - Contents: historical series of the Índice Paz Ciudadana – Adimark/GfK by the 41 comunas of the Gran Santiago sample, plus national bulletin PDFs 2010–2026.
 - Granularity: comuna (41 of Gran Santiago). Semestral.
-- Year: 2000 to 2013 for the comunal series PDF; national index continues through 2026-10.
+- Year: 2000 to 2012 in the series PDF (the PDF is dated March 2013; victimization inside the comuna starts in 2003). National index continues through 2026-10 in other PDFs.
 - Access: direct GET.
 - Check: VERIFIED-BYTES 2026-11-21. HTTP 200, 867,225 B, valid PDF 1.6. Downloaded under session cookie; no auth. Did not read the tables.
 - Role: TARGET.
-- Limits: the comunal series freezes at 2013 in the public PDF. 2014 onward is in annual slide decks with aggregate figures only.
-- Use in the simulation: TARGET for the fear-of-crime term by comuna until 2013 (long series lets us calibrate the fear→migration link across a decade). Pair with ENUSC for current periods.
+- Limits: the comunal series ends in 2012 (PDF dated March 2013). 2013 onward only appears in national slide decks as aggregate figures. Too old to use as a target for the current state of Santiago; keep only for historical calibration of the fear→migration link.
+- Use in the simulation: TARGET for the fear-of-crime term by comuna across 2003 to 2012 only. For current periods, use ENUSC.
 
 ### datos.gob.cl · Carabineros DMCS + VIF + Ley de Drogas por comuna 2010-2012 (XLSX)
 - Link: https://datos.gob.cl/uploads/recursos/Estadistico%20Delitos%20de%20Mayor%20Connotacion%20Social%20-%20VIF%20-%20Ley%20de%20Drogas.xlsx

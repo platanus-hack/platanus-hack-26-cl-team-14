@@ -123,9 +123,9 @@
 - Year: not stated in the service.
 - Access: ArcGIS Feature Service.
 - Check: VERIFIED-ROWS 2026-11-21. HTTP 200. The first row was Alonso de Córdova in Vitacura, with 1,111 vehicles per hour.
-- Role: TARGET
+- Role: NONE (candidate target pending provenance)
 - Limits: The service does not state the observation year or time window. Modeled flow must not be treated as a direct count without its method.
-- Use in the simulation: TARGET for private-vehicle flow by road segment.
+- Use in the simulation: Candidate road-flow source only. Establish whether values are observations or model outputs, and their year and time window, before score use.
 
 ### 10. GORE floating-population and stop demand
 - Link: https://services7.arcgis.com/ijNx96DNqvwR7rbt/arcgis/rest/services/Población_flotante/FeatureServer
@@ -134,9 +134,9 @@
 - Year: not stated in the service.
 - Access: ArcGIS Feature Service.
 - Check: VERIFIED-ROWS 2026-11-21. HTTP 200. The first row was stop `PA476`, with 120 boardings, 656 alightings, and 776 combined movements.
-- Role: TARGET
+- Role: NONE (candidate target pending provenance)
 - Limits: The service does not state the source date. The title `Población flotante` hides that the rows are stop-demand records.
-- Use in the simulation: TARGET for boardings, alightings, waiting time, and stop crowding.
+- Use in the simulation: Candidate stop-demand source only. Establish source method, date, and time window before score use.
 
 ### 11. Las Condes RED stops
 - Link: https://datos.lascondes.cl/proxy/s3/exports/open-data/shapes/paraderos_red/geojson/paraderos_red.geojson

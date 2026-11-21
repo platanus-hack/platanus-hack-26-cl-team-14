@@ -1,16 +1,19 @@
 """Censo 2024 person microdata -> two full comuna OD matrices for the RM.
 
-work.csv      home comuna (`comuna`) -> work comuna (`p44_lug_trab_esp`)
-migration.csv comuna of residence in 2019 (`p24_lug_resid5_esp`) -> comuna in 2024
+od_work_rm.csv      home comuna (`comuna`) -> work place (`p44_lug_trab_esp`), keyed also
+                    by `p44_lug_trab`: 1 works at home, 2 same comuna, 3 other comuna,
+                    4 other country (the destination is a country code), 5 no fixed place
+                    (the destination is 998/999). Keep code 1 out of any trip count.
+od_migration_rm.csv comuna of residence in 2019 (`p24_lug_resid5_esp`) -> comuna in 2024
 
 Output: data/raw/censo2024-personas/od_work_rm.csv, od_migration_rm.csv
 """
-import collections, csv, pathlib, subprocess, urllib.request
+import collections, csv, io, pathlib, urllib.request, zipfile
 
 URL = "https://storage.googleapis.com/bktdescargascenso2024/personas_censo2024.zip"
 DIR = pathlib.Path("data/raw/censo2024-personas")
 ZIP = DIR / "personas_censo2024.zip"
-MISSING = {"", "-99", "998", "999"}
+MISSING = {"", "-99"}
 
 DIR.mkdir(parents=True, exist_ok=True)
 if not ZIP.exists():
@@ -18,25 +21,25 @@ if not ZIP.exists():
 
 work = collections.Counter()
 migration = collections.Counter()
-proc = subprocess.Popen(["unzip", "-p", str(ZIP), "personas_censo2024.csv"], stdout=subprocess.PIPE)
-reader = csv.DictReader((l.decode("utf-8", "replace") for l in proc.stdout), delimiter=";")
+member = zipfile.ZipFile(ZIP).open("personas_censo2024.csv")
+reader = csv.DictReader(io.TextIOWrapper(member, encoding="utf-8", errors="replace"), delimiter=";")
 for row in reader:
     home = row["comuna"]
     if not home.startswith("13"):
         continue
     dest = row["p44_lug_trab_esp"]
     if dest not in MISSING:
-        work[(home, dest)] += 1
+        work[(home, dest, row["p44_lug_trab"])] += 1
     before = row["p24_lug_resid5_esp"]
     if before not in MISSING:
         migration[(before, home)] += 1
 
-for name, counter, cols in [("od_work_rm.csv", work, ("home_comuna", "work_comuna")),
+for name, counter, cols in [("od_work_rm.csv", work, ("home_comuna", "work_place", "p44_lug_trab")),
                             ("od_migration_rm.csv", migration, ("comuna_2019", "comuna_2024"))]:
     path = DIR / name
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow([*cols, "personas"])
-        for (o, d), n in counter.most_common():
-            w.writerow([o, d, n])
+        for key, n in counter.most_common():
+            w.writerow([*key, n])
     print(path, len(counter), "pairs")
