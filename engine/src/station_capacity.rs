@@ -54,7 +54,7 @@ impl StationCapacity {
     /// Use the scenario's station-access state and its modeled weekday entries for this bin.
     pub fn half_hour(&self, id: &str, bin: usize, entries: f64, open: bool) -> StationPressure {
         let places = if open {
-            self.places[id][bin]
+            self.places.get(id).and_then(|day| day[bin])
         } else {
             Some(0.0)
         };
