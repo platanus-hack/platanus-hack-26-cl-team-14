@@ -1,4 +1,5 @@
 mod site;
+mod stations;
 
 use axum::{
     Json, Router,
@@ -118,6 +119,9 @@ struct Core {
     site_destinations: Vec<(String, f64)>,
     site_modes: Vec<ModeShare>,
     site_mode_total: f64,
+    station_model: stations::StationModel,
+    station_observed: HashMap<String, Vec<Option<f64>>>,
+    station_observation_metadata: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -219,6 +223,28 @@ impl Core {
             .filter(|row| row.cut == "13114")
             .collect();
         let site_mode_total = site_modes.iter().map(|row| row.commuters).sum();
+        let station_model = stations::StationModel::new(directory);
+        let metro_observations: serde_json::Value = serde_json::from_reader(
+            std::fs::File::open(directory.join("metro_observations.json")).unwrap(),
+        )
+        .unwrap();
+        let station_observed = metro_observations["stations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| {
+                (
+                    row["station"]["id"].as_str().unwrap().to_owned(),
+                    serde_json::from_value(row["half_hour_bins"]["LABORAL"].clone()).unwrap(),
+                )
+            })
+            .collect();
+        let station_observation_metadata = serde_json::json!({
+            "source_file": "metro_observations.json", "day_type": "LABORAL",
+            "period": metro_observations["period"]["LABORAL"],
+            "timezone": metro_observations["timezone"], "unit": metro_observations["unit"],
+            "bin_definition": metro_observations["bin_definition"]
+        });
         Self {
             baseline: World {
                 metadata: Metadata {
@@ -262,6 +288,9 @@ impl Core {
             site_destinations,
             site_modes,
             site_mode_total,
+            station_model,
+            station_observed,
+            station_observation_metadata,
         }
     }
 
@@ -326,6 +355,44 @@ impl Core {
             elapsed_ms: start.elapsed().as_secs_f64() * 1000.0,
         }
     }
+}
+
+async fn station_scenario(
+    State(core): State<Arc<Core>>,
+    Json(request): Json<stations::MutRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let prediction = core.station_model.mut_scenario(request).map_err(|error| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({ "error": error })),
+        )
+    })?;
+    let mut response = serde_json::to_value(prediction).unwrap();
+    for station in response["stations"].as_array_mut().unwrap() {
+        let observed = &core.station_observed[station["id"].as_str().unwrap()];
+        let (mut observed_daily, mut base_daily, mut scenario_daily, mut delta_daily, mut bins) =
+            (0.0, 0.0, 0.0, 0.0, 0);
+        for (t, observation) in observed.iter().enumerate() {
+            if let Some(value) = observation {
+                let base = station["predicted_base"][t].as_f64().unwrap();
+                let scenario = station["predicted_scenario"][t].as_f64().unwrap();
+                observed_daily += value;
+                base_daily += base;
+                scenario_daily += scenario;
+                delta_daily += scenario - base;
+                bins += 1;
+            }
+        }
+        station["observed"] = serde_json::json!(observed);
+        station["observed_daily"] = serde_json::json!(observed_daily);
+        station["predicted_base_daily"] = serde_json::json!(base_daily);
+        station["predicted_scenario_daily"] = serde_json::json!(scenario_daily);
+        station["delta_daily"] = serde_json::json!(delta_daily);
+        station["observed_bin_count"] = serde_json::json!(bins);
+        station["daily_sum_scope"] = serde_json::json!("observed_bins_only");
+    }
+    response["observed_source"] = core.station_observation_metadata.clone();
+    Ok(Json(response))
 }
 
 async fn site_scenario(
@@ -401,6 +468,7 @@ async fn main() {
             ),
         )
         .route("/api/site-scenario", post(site_scenario))
+        .route("/api/station-scenario", post(station_scenario))
         .layer(CorsLayer::permissive())
         .with_state(core);
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
