@@ -1,0 +1,16 @@
+# Editable major-road graph
+
+Run this from the repository root with Python 3 and the osmium CLI. Pass the November 20, 2026 Geofabrik Chile snapshot or an extract that retains every selected way and member node. The builder selects the way IDs from `data/mvp/roads.geojson` and compares the simplified paths with that file before writing `data/mvp/road_graph.json`. [Chile snapshot](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf)
+
+```sh
+python3 -B tools/pack/editable_roads.py /path/to/chile-261120.osm.pbf
+```
+
+- `nodes[id]` holds WGS84 longitude and latitude. Original node IDs are decimal strings. A cut endpoint has ID `clip/<way>/<segment>/start|end`. Roads connect only at shared source nodes. A geometric crossing does not create a junction.
+- `ways[way_id]` contains the complete editable object within the city rectangle. `class` is the display class. `highway` retains the OSM link suffix. `name` is the OSM name or an empty string. `parts` lists ordered node IDs in each visible part before simplification. `roads.geojson` supplies display geometry for the same ID across all its parts.
+- `edges` lists directed car arcs. Each `id` is `<way>/<zero-based source segment>/<f|r>`. `from` and `to` refer to node IDs. `length_m` is the clipped segment length using the same local metre conversion as the published road layer. `speed_kmh` is a modeled free-flow speed. Divide length in metres by speed in km/h and multiply by 3.6 for seconds.
+- `oneway` is `yes`, `no`, `-1` or `unknown`. Reverse-only ways retain original node order in `parts`. `oneway_source` gives the OSM key, `osm_implied` for motorways and roundabouts, or `assumed_two_way`. Unsupported direction values have no arcs. Explicit motorcar, motor vehicle, vehicle and access tags apply in that order, including directional variants. Where these tags are present, only public, permissive, designated and official access is routed. Missing access tags permit cars on the selected highway classes. The graph omits turn relations, conditional restrictions, node barriers and traffic delays. [OSM oneway](https://wiki.openstreetmap.org/wiki/Key:oneway)
+- `speed_source` names the bound that sets speed. Directional limits take precedence over the general limit. Numeric km/h and mph tags cap the existing class assumptions. The cap comes from `maxspeed:forward`, `maxspeed:backward` or `maxspeed`. With no lower applicable limit, `class_assumption` uses the baseline road model: motorway 90, trunk 85, primary 65, secondary 55 km/h. Their links use 45, 40, 30 and 25 km/h respectively. These are routing assumptions. [Baseline car builder](../../tools/pack/car_paths.py) · [OSM maxspeed](https://wiki.openstreetmap.org/wiki/Key:maxspeed)
+- `anchors[cut]` and `anchor_distance_m[cut]` cover the 52 comuna reference points. Inside the display rectangle, each anchor is the closest original node on an active primary or secondary road, excluding link roads. The gap measures straight-line reference-point distance in local metres. The graph adds no access edge. Outside the rectangle both fields are null. The regional `car_minutes.csv` uses a larger graph, so its baseline times can differ.
+
+Credit © OpenStreetMap contributors. Data and derived geometry use ODbL 1.0. [OSM copyright](https://www.openstreetmap.org/copyright)
