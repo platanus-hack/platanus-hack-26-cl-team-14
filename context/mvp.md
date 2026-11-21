@@ -5,6 +5,8 @@ Coordinate in [the MVP thread](https://discord.com/channels/1573514576400752640/
 This document replaces the conflicting data paths and file-based engine contract in gentle-fox's initial proposal.
 It does not change the human-owned pitch.
 
+The [accepted product direction](decisions/20261121-1200-urban-dynamics-engine-scope.md#user-experience-and-implementation-priority) now prioritizes one shared scenario engine, free-form questions, and one isometric city view. This document records the overnight demo baseline.
+
 [Native/local execution is allowed](decisions/20261121-0308-local-mvp-interface.md). A public website or deployment is not required.
 The local Rust HTTP API and browser scene below are the current agent implementation choice, not a human mandate.
 This permission does not start a native UI rewrite or change the active owners.
