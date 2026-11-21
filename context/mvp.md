@@ -33,7 +33,7 @@ Start the API with the [engine run instructions](../engine/README.md#rust-scenar
 | Coordination and independent review | Main session orchestrators; Juan's clever-heron session reviews | Allocate bounded tasks, review exact published heads, and integrate accepted changes. |
 | Rust API | witty-llama, Bruno's session | Maintain comuna/site contracts and mode outputs. |
 | Data and web coordination | gentle-fox, Emerson's session | Publish canonical data and coordinate keen-panda's scene work. |
-| 3D scene | keen-panda, coordinated by gentle-fox | Consume Rust results; publish the mode display for browser review. |
+| 3D scene | keen-panda, coordinated by gentle-fox | Maintain the reviewed mode display; review the score view in a real browser. |
 | Independent station model | lucky-llama | Own the single station predictor and the next preregistered scored layers. |
 | Fixed development score | calm-condor; Juan's session reviews | Preserve frozen targets, coverage and eligibility. |
 | Pitch proposal | gentle-fox and keen-koala | Propose wording separately; leave `pitch.md` to humans. |
@@ -87,11 +87,19 @@ Keep two station calculations separate:
 - **Tobalaba site scenario:** observed April boardings minus estimated baseline site contribution plus estimated changed site contribution. This is accounting under explicit occupancy, attendance, mode and access assumptions. It has no citywide conservation claim and no independent forecast score. Missing observed bins remain null.
 - **Independent station prediction:** the [station binary](../engine/README.md#station-prediction-l0-stations-binary) uses geographic masses and training-only boarding profiles. The [canonical scorer](../tools/pack/check_score.py) freezes 31 parent IDs, 1,123 observed weekday cells and the target-file hash. WAPE (total absolute error divided by total observed boardings) compares those fixed cells; incomplete predictions are ineligible. Tobalaba, Los Leones and El Golf are excluded from holdout because the demo already used them. Repeated scoring is development validation, not an untouched final test or causal validation.
 
+Merged evidence now available:
+
+- [PR48](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/48) publishes the **L2** score artifact: WAPE_bins 0.4688. [PR52](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/52) adds L7's frozen station classes and training-only profiles: WAPE_bins 0.4669. The published artifact still represents L2. It records model/scorer commits and target/prediction hashes, but **no input-file hashes**. Do not attach that score to another fit or claim full input provenance.
+- [PR50](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/50) adds served-pair travel costs from March GTFS: expected headway waits, train dwell and walking, not an exact 08:00 timetable. Missing paths are omitted, not zero. [PR53](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/53) makes modeled job allocation deterministic and marks known-high estimates; these are not verified building employment.
+- [PR54](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/54) freezes the separate conditional 2002–2024 allocation experiment; [PR58](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/58) publishes independently reproduced results. [The result note](research/santiago-temporal-allocation-first-run.md) reports flow overlap 0.843726 / 0.927412 / 0.931071 for persistence / one scaling sweep / IPF. Observed 2024 margins are supplied conditions. This is retrospective allocation, not percentage accuracy, unknown-margin forecasting, or intervention validation.
+- [PR57](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/57) publishes April weekday bus activity and nearby Metro links for L3. [The handoff](research/bus-activity-handoff.md) preserves missing bins and overlapping links. Concurrent boardings are an association input, not observed transfers or independent causal evidence.
+
 Next work:
 
-1. Review the published mode UI in a real browser: values come from Rust, resident commuter stock stays distinct from daily departures, and baseline/change/reset labels remain correct. Public transport is not a Metro-only share.
-2. Add the next preregistered station-model layer through lucky-llama. Declare its mechanism before scoring, use no held-out observations or derived profiles in fitting, and report worse scores as well as improvements. Keep the same frozen target cells.
-3. After each accepted change, repeat the affected real-data/browser flow, record the exact revision and measured result, and post one release checkpoint. No new catalog or parallel model implementation is needed.
+1. The mode UI review is complete in [PR44](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/44). Review [PR56's score view](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/56) in a real browser against the actual artifact. Keep resident commuter stock distinct from daily departures and broad public transport distinct from Metro.
+2. Finish [PR55's station scenario](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/55): bind the displayed base score to the same model, arguments and actual input provenance; return equal baseline/scenario station arrays for zero change. Then integrate its route and UI. Keep it separate from the observed-plus-delta site accounting above.
+3. Preregister the L3 bus mechanism through lucky-llama before scoring. Declare how overlapping station links contribute; use no held-out observations or derived profiles in fitting. Report worse scores as well as improvements on the same frozen target cells.
+4. After each accepted change, review the affected real-data/browser flow and record the exact revision and measured result in the canonical thread. Post a release checkpoint for a changed presentation. No new catalog or parallel model implementation is needed.
 
 A fitted OD replay and the site model's reconstructed baseline are not independent predictive validation. Keep model scores separate from counterfactual story claims. Humans still decide pitch taste and direction.
 
