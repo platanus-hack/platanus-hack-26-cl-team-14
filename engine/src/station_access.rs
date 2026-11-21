@@ -123,6 +123,14 @@ pub struct StationAccess {
 }
 
 impl StationAccess {
+    pub fn load_layer(data: &Path, layer: &str) -> Self {
+        match layer {
+            "l9" => Self::load(data),
+            "april-transport" => Self::load_with_april_transport_jobs(data).unwrap(),
+            _ => panic!("use l9 or april-transport for station job weights"),
+        }
+    }
+
     /// Fit once with all 126 parents open. The training file masks observations at the 31 held-out parents.
     pub fn load(data: &Path) -> Self {
         Self::fit(data, "jobs.csv", HashMap::new())
@@ -197,6 +205,8 @@ impl StationAccess {
     }
 
     pub fn walk_scale(&self) -> f64 { self.fit.a }
+
+    pub fn job_weights_file(&self) -> &'static str { self.jobs_file }
 
     pub fn baseline_points(&self, data: &Path) -> (Vec<PointMass>, Vec<PointMass>) {
         baseline_points(data, self.jobs_file, &self.fit.share, true)
