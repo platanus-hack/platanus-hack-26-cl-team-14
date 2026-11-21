@@ -1,6 +1,7 @@
 mod city;
 mod net;
 mod movers;
+mod pixels;
 use std::{env, time::Instant};
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
@@ -41,6 +42,7 @@ pub fn window() -> Window {
 pub struct Rig {
     pub target: Vec3,
     pub distance: f32,
+    fixed: bool,
 }
 
 impl Default for Rig {
@@ -48,6 +50,7 @@ impl Default for Rig {
         let focus = env::var("SANTIAGO_FOCUS").unwrap_or_else(|_| "-70.6505,-33.443".into());
         let (lon, lat) = focus.split_once(',').unwrap();
         Self {
+            fixed: env::var_os("SANTIAGO_CAPTURE").is_some() || env::var_os("SANTIAGO_LOCK_CAMERA").is_some(),
             target: world(lon.trim().parse().unwrap(), lat.trim().parse().unwrap()),
             distance: env::var("SANTIAGO_DISTANCE").map_or(1650.0, |s| s.parse().unwrap()),
         }
@@ -124,6 +127,7 @@ fn navigate(
     mut wheel: MessageReader<MouseWheel>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
+    if rig.fixed {return;}
     let scroll: f32 = wheel.read().map(|event| event.y * match event.unit {
         MouseScrollUnit::Line => 0.15,
         MouseScrollUnit::Pixel => 0.002,
@@ -166,9 +170,11 @@ struct Sample {
 fn measure(
     mut commands: Commands,
     mut sample: Local<Sample>,
+    buildings:Res<city::Buildings>,
+    rig:Res<Rig>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
-    if sample.finished {
+    if !buildings.ready || sample.finished {
         return;
     }
     let now = Instant::now();
@@ -186,6 +192,7 @@ fn measure(
     if elapsed < 6.0 {
         return;
     }
+    info!("Camera target {:?}, distance {} m",rig.target,rig.distance);
     let fps = sample.frames as f64 / elapsed;
     info!("{}x{}: {} frames / {:.3} s = {:.2} FPS ({:.2} ms/frame), vsync {:?}",
         window.physical_width(), window.physical_height(), sample.frames, elapsed, fps, 1000.0 / fps, window.present_mode);
@@ -206,7 +213,7 @@ fn measure(
 fn main() -> AppExit {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {primary_window: Some(window()), ..default()}))
-        .add_plugins((MiniatureCamera,net::NetPlugin,movers::MoversPlugin))
+        .add_plugins((MiniatureCamera,net::NetPlugin,movers::MoversPlugin,pixels::PixelMode))
         .add_systems(Startup,(city::load_buildings,city::setup_ground))
         .add_systems(Update,city::draw_buildings)
         .run()
