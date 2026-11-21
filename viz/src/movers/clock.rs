@@ -43,6 +43,7 @@ fn show(
     replay: Res<Replay>,
     fixed: Res<FixedClock>,
     rate: Res<PlaybackRate>,
+    mut night: ResMut<crate::Night>,
     mut text: Single<(&mut Text, &mut Visibility), With<ClockText>>,
 ) {
     let Some(now) = fixed
@@ -52,6 +53,7 @@ fn show(
         return;
     };
     let minutes = (now.rem_euclid(DAY) / 60.) as u32;
+    night.set_if_neq(crate::Night(!(6 * 60..20 * 60).contains(&minutes)));
     text.0.0 = format!("Día hábil · {:02}:{:02}", minutes / 60, minutes % 60);
     *text.1 = Visibility::Inherited;
 }

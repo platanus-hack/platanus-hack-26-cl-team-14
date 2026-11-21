@@ -1,8 +1,14 @@
 # Mapocho chart and capture
 
-Handoff for the [Mapocho storyboard](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/338). The draft contract below follows the [V1 ferry proposal](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/359) at `de072bdce878ac69da296de224c4804985592716`. Confirm the fields against the final cached result.
+Handoff for the [Mapocho storyboard](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/338). The field names follow the [merged V1 ferry contract](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/359). The capture runner can use the routed preview below to check the final cached result.
 
-## Chart
+## Routed preview
+
+The saved pair `mapocho-baseline` → `mapocho-ferry` starts at 07:00. The ferry uses 355 river-following points in each direction and the corresponding travel times. Both saved results played with one relay call each and zero simulation calls. Preview source `f6da8dec5b7a72b37d1112a73e278a6b3e6206e4`. [Requests, caches, and trace](https://discord.com/channels/1573514576400752640/1573809606277337280/1573822794423345193)
+
+The chart uses `line_riders.0.riders_to_work` for east and `line_riders.1.riders_to_work` for west. The saved values are **3,470.2 east** and **932.2 west**, in modeled work trips per weekday. The baseline has no ferry. Canelo independently matched the chart values, IDs, and geometry to the saved results. The payload sets an 11-second chart delay. The first visible frame still needs verification. [Independent check](https://discord.com/channels/1573514576400752640/1573809606277337280/1573823306749181964)
+
+## Chart fields
 
 | Screen label | Source and unit |
 | --- | --- |
@@ -18,5 +24,5 @@ The draft supplies no street speed or segment delay. Leave the congestion panel 
 
 - Save the same weekday demand and 07:00 scene for the baseline and experiment. Save both directed line definitions, pier order and coordinates, speed, dwell, headway, capacity, and any time limits. Record the engine revision, replay IDs, and chart values.
 - Use the [Parque Forestal mock](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/347) as a close-up reference. Its center is longitude −70.637000 and latitude −33.435590, with north up and a vertical span of about 400 m.
-- The draft line geometry connects consecutive pier points with straight segments. Use a river-following track for the vessel capture. Check the mapped route and the boat position at the shot time with V2.
-- Open both cached results and confirm that playback makes zero simulation calls. Check chart values against the saved JSON and the frame against the route geometry. The engine output and native capture still need verification.
+- Check the vessel position on the routed geometry with V2. The preview saves the path. The native vessel motion and pier access still need verification.
+- Rebuild both results on the integrated engine and viewer revision. Confirm zero simulation calls during playback. Check the chart values, real-time reveal, wide camera, close-up, and terminal return in the native rehearsal.
