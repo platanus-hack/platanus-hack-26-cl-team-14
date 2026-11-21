@@ -1,5 +1,7 @@
 # Data pack
 
+Some sections describe builder outputs that are not on `main` yet: `blocks.csv`, `communes_urban.geojson`, `schools.csv`, `school_od.csv`, `site_inputs.csv`, `jobs.csv`, `buildings.geojson`. They arrive in later PRs.
+
 ## blocks.csv
 
 Home blocks of the simulation. One row per Census 2024 block-table row of the Región Metropolitana (urban manzanas, rural village blocks, rural entities, comuna containers). Builder: `python3 -I tools/pack/zones.py`.
