@@ -151,11 +151,11 @@ impl Scenario {
 
     fn change_car_share(&self, raw: &Value, shares: &mut BTreeMap<usize, f64>) -> Result<Value, &'static str> {
         if raw["target"]["type"] != "comuna" {
-            return Err("Use a comuna target and its home CUT for household car ownership.");
+            return Err("Use a comuna target and its home CUT for household access to a car.");
         }
         let cut = raw["target"]["id"].as_str().unwrap_or("");
         let origin = self.choice.cuts.iter().position(|id| id == cut).ok_or("Unknown home comuna CUT.")?;
-        let cars = self.car_ownership.as_ref().ok_or("Household car ownership needs eod_car_mode.csv in the data pack.")?;
+        let cars = self.car_ownership.as_ref().ok_or("Household car access needs eod_car_mode.csv in the data pack.")?;
         let value = raw["value"].as_f64().filter(|v| v.is_finite()).ok_or("Use a finite numeric car share or multiplier.")?;
         let before = shares.get(&origin).copied().unwrap_or(cars.base[origin]);
         let after = match raw["op"].as_str() {
@@ -165,7 +165,7 @@ impl Scenario {
             _ => return Err("Use set or multiply for the household car share."),
         };
         if !(0.0..=1.0).contains(&after) {
-            return Err("The resulting share of households with a car must be between 0 and 1.");
+            return Err("The resulting share of households with access to a car must be between 0 and 1.");
         }
         shares.insert(origin, after);
         Ok(json!({ "comuna": self.choice.names[origin], "household_car_share_before": before, "household_car_share_after": after }))
@@ -381,7 +381,7 @@ impl Scenario {
         }).collect();
         let mut assumptions = ASSUMPTIONS.map(Value::from).to_vec();
         if !car_shares.is_empty() {
-            assumptions.push(json!("The 2012 Santiago travel survey links household car ownership to commute modes. The scenario uses this association to estimate mode counts by home comuna. It does not measure a causal effect."));
+            assumptions.push(json!("The 2012 Santiago travel survey links household access to a car with the mode used to travel to work. The model uses this survey association to estimate commuter counts by mode and home comuna."));
         }
         if !network.additions.is_empty() {
             assumptions.push(json!("New stations model walking access only. The model assigns each new station a fitted profile from its job and home catchment. New stations do not change train schedules, transfers, travel times, or job choice."));
