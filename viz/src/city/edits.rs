@@ -1,4 +1,4 @@
-use super::{Buildings, NamedBuilding, Surface, ground::ribbon, world};
+use super::{Buildings, NamedBuilding, SubwayView, Surface, ground::ribbon, world};
 use crate::net::Scenario;
 use bevy::prelude::*;
 use serde_json::Value;
@@ -6,6 +6,9 @@ use std::collections::{BTreeMap, HashSet};
 
 #[derive(Component)]
 pub(crate) struct EditMesh;
+
+#[derive(Component)]
+pub(crate) struct SurfaceEdit;
 
 fn rings(value: &Value) -> Vec<Vec<Vec3>> {
     value
@@ -80,6 +83,7 @@ pub(crate) fn refresh(
     mut commands: Commands,
     scenario: Res<Scenario>,
     mut buildings: ResMut<Buildings>,
+    mode: Res<SubwayView>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     old: Query<Entity, With<EditMesh>>,
@@ -141,17 +145,27 @@ pub(crate) fn refresh(
         {
             let shape = draw(&before, &kind, true);
             if !shape.indices.is_empty() {
-                commands.spawn((
+                let mut entity = commands.spawn((
                     EditMesh,
                     Mesh3d(meshes.add(shape.finish())),
                     MeshMaterial3d(path_material.clone()),
                 ));
+                if kind == "road" || before["properties"]["mode"] != "metro" {
+                    entity.insert((
+                        SurfaceEdit,
+                        if mode.0 {
+                            Visibility::Hidden
+                        } else {
+                            Visibility::Inherited
+                        },
+                    ));
+                }
             }
         }
         if !after.is_null() {
             let shape = draw(&after, &kind, false);
             if !shape.indices.is_empty() {
-                commands.spawn((
+                let mut entity = commands.spawn((
                     EditMesh,
                     Mesh3d(meshes.add(shape.finish())),
                     MeshMaterial3d(if kind == "building" {
@@ -160,6 +174,16 @@ pub(crate) fn refresh(
                         path_material.clone()
                     }),
                 ));
+                if kind == "road" || (kind == "line" && after["properties"]["mode"] != "metro") {
+                    entity.insert((
+                        SurfaceEdit,
+                        if mode.0 {
+                            Visibility::Hidden
+                        } else {
+                            Visibility::Inherited
+                        },
+                    ));
+                }
             }
         }
     }

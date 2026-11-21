@@ -425,6 +425,7 @@ pub(crate) fn toggle_subway(
     buildings: Res<Buildings>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
+    surface_edits: Query<Entity, With<edits::SurfaceEdit>>,
     mut background: ResMut<ClearColor>,
 ) {
     mode.0 = !mode.0;
@@ -433,6 +434,13 @@ pub(crate) fn toggle_subway(
     } else {
         Visibility::Inherited
     };
+    for entity in &surface_edits {
+        *visibility.get_mut(entity).unwrap() = if mode.0 {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+    }
     background.0 = if mode.0 {
         Color::srgb_u8(32, 43, 54)
     } else {
