@@ -2,51 +2,79 @@ use super::*;
 
 // OSM's layer tags give relative order. Use a display depth of 12 m in tunnels
 // and a display height of 7 m on viaducts. Grade transitions within mixed legs are schematic.
-pub(super) struct Levels(Vec<(f32, f32)>);
+pub(super) struct Levels {
+    anchors: Vec<(f32, f32)>,
+    open_cut: Option<f32>,
+}
 
 impl Levels {
     pub(super) fn load(row: &Value, data: &Value, path: &Path) -> Self {
-        let mut endpoints = Vec::new();
+        let mut anchors = Vec::new();
+        let mut open_cut = None;
         for feature in data["features"].as_array().unwrap() {
             let p = &feature["properties"];
-            if p["feature"] != "track"
-                || p["line"] != row["route"]
-                || p["direction"] != row["direction"]
-            {
+            if p["line"] != row["route"] {
                 continue;
             }
-            let coords = feature["geometry"]["coordinates"].as_array().unwrap();
-            for (coord, kind) in [
-                (&coords[0], &p["origin_kind"]),
-                (coords.last().unwrap(), &p["destination_kind"]),
-            ] {
-                let h = match kind.as_str().unwrap() {
-                    "tunnel" => -12.,
-                    "viaduct" => 7.,
-                    "surface" => 0.,
-                    _ => continue,
+            let coords = &feature["geometry"]["coordinates"];
+            if p["feature"] == "platform" {
+                if p["station_setting"] == "partly_open_below_street" {
+                    open_cut = Some(path.nearest(point(coords)).2);
+                }
+                continue;
+            }
+            if p["direction"] != row["direction"] {
+                continue;
+            }
+            let coords = coords.as_array().unwrap();
+            let start = path.nearest(point(&coords[0])).2;
+            let end = path.nearest(point(coords.last().unwrap())).2;
+            let kinds = p["kind_sequence"].as_array().unwrap();
+            let lengths = p["osm_kind_metres"].as_object().unwrap();
+            let total: f64 = lengths.values().map(|v| v.as_f64().unwrap()).sum();
+            let mut left = start;
+            for kind in kinds {
+                let name = kind.as_str().unwrap();
+                // Repeated classes share their published total equally. The portal positions
+                // are illustrative. Unknown intervals inherit interpolation from adjacent evidence.
+                let repeats = kinds.iter().filter(|other| *other == kind).count();
+                let metres = lengths[name].as_f64().unwrap();
+                let right = left + (end - start) * (metres / (total * repeats as f64)) as f32;
+                let h = match name {
+                    "tunnel" => Some(-12.),
+                    "surface" => Some(0.),
+                    "viaduct" => Some(7.),
+                    _ => None,
                 };
-                endpoints.push((path.nearest(point(coord)).2, h));
+                if let Some(height) = h {
+                    let ramp = ((right - left) * 0.25).min(45.);
+                    anchors.push((left + ramp, height));
+                    anchors.push((right - ramp, height));
+                }
+                left = right;
             }
         }
-        endpoints.sort_by(|a, b| a.0.total_cmp(&b.0));
-        endpoints.dedup_by(|a, b| a.0 == b.0);
-        Self(endpoints)
+        anchors.sort_by(|a, b| a.0.total_cmp(&b.0));
+        anchors.dedup_by(|a, b| a.0 == b.0);
+        Self { anchors, open_cut }
     }
 
     pub(super) fn at(&self, distance: f32) -> f32 {
-        let i = self.0.partition_point(|&(d, _)| d < distance);
-        if i == 0 {
-            return self.0[0].1;
-        }
-        if i == self.0.len() {
-            return self.0[i - 1].1;
-        }
-        let (a, from) = self.0[i - 1];
-        let (b, to) = self.0[i];
-        // Keep platforms level. The pack locates the endpoints, but not the portal.
-        let t = ((distance - a) / (b - a) * 2. - 0.5).clamp(0., 1.);
-        from + (to - from) * t
+        let i = self.anchors.partition_point(|&(d, _)| d < distance);
+        let h = if i == 0 {
+            self.anchors[0].1
+        } else if i == self.anchors.len() {
+            self.anchors[i - 1].1
+        } else {
+            let (a, from) = self.anchors[i - 1];
+            let (b, to) = self.anchors[i];
+            from + (to - from) * (distance - a) / (b - a)
+        };
+        // Neptuno is in an open cut. Four metres is a representative display depth.
+        let blend = self
+            .open_cut
+            .map_or(0., |s| ((115. - (distance - s).abs()) / 70.).clamp(0., 1.));
+        h + (-4. - h) * blend
     }
 }
 
