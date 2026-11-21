@@ -1,3 +1,289 @@
+use bevy::{
+    input::mouse::{MouseScrollUnit, MouseWheel},
+    input_focus::{InputFocus, tab_navigation::TabIndex},
+    prelude::*,
+    text::{EditableText, EditableTextSystems, TextCursorStyle},
+    ui::RelativeCursorPosition,
+    ui_widgets::TextInput,
+    window::Ime,
+};
+use std::thread::{self, JoinHandle};
+
+pub(crate) struct ChatPlugin;
+
+#[derive(Component)]
+pub(crate) struct ChatPanel;
+
+#[derive(Component)]
+pub(crate) struct ChatInput;
+
+#[derive(Component)]
+struct Transcript;
+
+#[derive(Component)]
+struct ChatStatus;
+
+#[derive(Resource)]
+struct Chat {
+    font: Handle<Font>,
+    history: Vec<(String, String)>,
+    pending: Option<(String, JoinHandle<Result<String, String>>)>,
+}
+
+impl Plugin for ChatPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup_chat)
+            .add_systems(Update, (receive_answer, scroll_chat))
+            .add_systems(PostUpdate, submit.after(EditableTextSystems));
+    }
+}
+
+pub(crate) fn city_keys_enabled(
+    focus: Res<InputFocus>,
+    inputs: Query<(), With<ChatInput>>,
+) -> bool {
+    !focus.get().is_some_and(|entity| inputs.contains(entity))
+}
+
+fn chat_font(font: &Handle<Font>, size: f32) -> TextFont {
+    TextFont {
+        font: font.clone().into(),
+        font_size: FontSize::Px(size),
+        ..default()
+    }
+}
+
+const HINT: &str = "Mensaje · Enter para enviar";
+
+fn setup_chat(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
+    let font = fonts.add(Font::from_bytes(
+        include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec(),
+    ));
+    commands
+        .spawn((
+            ChatPanel,
+            RelativeCursorPosition::default(),
+            GlobalZIndex(20),
+            Node {
+                position_type: PositionType::Absolute,
+                right: px(16),
+                top: px(16),
+                bottom: px(32),
+                width: vw(23),
+                min_width: px(285),
+                max_width: px(440),
+                padding: px(18).all(),
+                row_gap: px(12),
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            BackgroundColor(Color::srgb_u8(24, 33, 40)),
+        ))
+        .with_children(|panel| {
+            panel.spawn((
+                Text::new("Chat"),
+                chat_font(&font, 26.),
+                TextColor(Color::WHITE),
+            ));
+            panel
+                .spawn((
+                    Transcript,
+                    ScrollPosition::default(),
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        flex_grow: 1.,
+                        min_height: px(0),
+                        row_gap: px(12),
+                        overflow: Overflow::scroll_y(),
+                        ..default()
+                    },
+                ))
+                .with_children(|transcript| {
+                    transcript.spawn((
+                        Text::new("¿Qué quieres cambiar en Santiago?"),
+                        chat_font(&font, 20.),
+                        TextColor(Color::srgb_u8(203, 218, 220)),
+                    ));
+                });
+            panel.spawn((
+                ChatStatus,
+                Text::new(HINT),
+                chat_font(&font, 17.),
+                TextColor(Color::srgb_u8(180, 222, 210)),
+            ));
+            panel.spawn((
+                ChatInput,
+                TextInput,
+                TabIndex(0),
+                EditableText {
+                    allow_newlines: false,
+                    ..default()
+                },
+                TextLayout::no_wrap(),
+                chat_font(&font, 21.),
+                TextColor(Color::WHITE),
+                TextCursorStyle {
+                    color: Color::WHITE,
+                    ..default()
+                },
+                Node {
+                    height: px(47),
+                    width: percent(100),
+                    flex_shrink: 0.,
+                    padding: UiRect::axes(px(9), px(7)),
+                    border: px(1).all(),
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                BorderColor::from(Color::srgb_u8(142, 171, 170)),
+                BackgroundColor(Color::srgb_u8(40, 53, 60)),
+            ));
+        });
+    commands.insert_resource(Chat {
+        font,
+        history: vec![],
+        pending: None,
+    });
+}
+
+fn add_message(
+    commands: &mut Commands,
+    transcript: Entity,
+    scroll: &mut ScrollPosition,
+    font: &Handle<Font>,
+    author: &str,
+    body: &str,
+) {
+    commands.entity(transcript).with_children(|list| {
+        list.spawn(Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: px(2),
+            flex_shrink: 0.,
+            ..default()
+        })
+        .with_children(|turn| {
+            turn.spawn((
+                Text::new(author.to_owned()),
+                chat_font(font, 17.),
+                TextColor(Color::srgb_u8(164, 215, 203)),
+            ));
+            turn.spawn((
+                Text::new(body.to_owned()),
+                chat_font(font, 20.),
+                TextLayout {
+                    linebreak: LineBreak::WordOrCharacter,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+    });
+    scroll.0.y = f32::MAX;
+}
+
+fn submit(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    focus: Res<InputFocus>,
+    mut ime: MessageReader<Ime>,
+    mut chat: ResMut<Chat>,
+    mut inputs: Query<&mut EditableText, With<ChatInput>>,
+    mut status: Single<&mut Text, With<ChatStatus>>,
+    transcript: Single<(Entity, &mut ScrollPosition), With<Transcript>>,
+) {
+    let ime_committed = ime
+        .read()
+        .filter(|e| matches!(e, Ime::Commit { .. }))
+        .count()
+        != 0;
+    if ime_committed
+        || !(keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter))
+        || chat.pending.is_some()
+    {
+        return;
+    }
+    let Some(entity) = focus.get() else { return };
+    let Ok(mut field) = inputs.get_mut(entity) else {
+        return;
+    };
+    if field.is_composing() {
+        return;
+    }
+    let prompt = field.value().to_string().trim().to_owned();
+    if prompt.is_empty() {
+        return;
+    }
+    field.clear();
+    let (list, mut scroll) = transcript.into_inner();
+    add_message(&mut commands, list, &mut scroll, &chat.font, "Tú", &prompt);
+    status.0 = "Consultando…".into();
+    let turns: Vec<_> = chat
+        .history
+        .iter()
+        .map(|(question, answer)| serde_json::json!({"pregunta": question, "respuesta": answer}))
+        .collect();
+    let context = serde_json::json!({"historial": turns, "pregunta_actual": &prompt});
+    let request = format!(
+        "Responde a pregunta_actual. Usa historial como contexto. No repitas acciones anteriores.\n{context}"
+    );
+    chat.pending = Some((prompt, thread::spawn(move || ask(&request))));
+}
+
+fn receive_answer(
+    mut commands: Commands,
+    mut chat: ResMut<Chat>,
+    mut status: Single<&mut Text, With<ChatStatus>>,
+    transcript: Single<(Entity, &mut ScrollPosition), With<Transcript>>,
+) {
+    if !chat
+        .pending
+        .as_ref()
+        .is_some_and(|(_, worker)| worker.is_finished())
+    {
+        return;
+    }
+    let (prompt, worker) = chat.pending.take().unwrap();
+    let result = worker
+        .join()
+        .unwrap_or_else(|_| Err("Se interrumpió la consulta.".into()));
+    let (list, mut scroll) = transcript.into_inner();
+    match result {
+        Ok(answer) => {
+            add_message(
+                &mut commands,
+                list,
+                &mut scroll,
+                &chat.font,
+                "Santiago",
+                &answer,
+            );
+            chat.history.push((prompt, answer));
+        }
+        Err(error) => add_message(&mut commands, list, &mut scroll, &chat.font, "Chat", &error),
+    }
+    status.0 = HINT.into();
+}
+
+fn scroll_chat(
+    mut wheels: MessageReader<MouseWheel>,
+    panel: Single<&RelativeCursorPosition, With<ChatPanel>>,
+    transcript: Single<(&ComputedNode, &mut ScrollPosition), With<Transcript>>,
+) {
+    let delta: f32 = wheels
+        .read()
+        .map(|wheel| match wheel.unit {
+            MouseScrollUnit::Line => wheel.y * 32.,
+            MouseScrollUnit::Pixel => wheel.y,
+        })
+        .sum();
+    if delta == 0. || !panel.cursor_over() {
+        return;
+    }
+    let (node, mut scroll) = transcript.into_inner();
+    let scale = node.inverse_scale_factor();
+    let limit = (node.content_size().y - node.size().y).max(0.) * scale;
+    scroll.0.y = (node.scroll_position.y * scale - delta).clamp(0., limit);
+}
 fn ask(prompt: &str) -> Result<String, String> {
     use std::{env, io::ErrorKind, path::Path, process::Command};
 

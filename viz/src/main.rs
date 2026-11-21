@@ -1,3 +1,4 @@
+mod chat;
 mod city;
 mod movers;
 mod net;
@@ -150,9 +151,17 @@ fn navigate(
     mouse: Res<ButtonInput<MouseButton>>,
     mut motion: MessageReader<MouseMotion>,
     mut wheel: MessageReader<MouseWheel>,
+    panel: Single<&bevy::ui::RelativeCursorPosition, With<chat::ChatPanel>>,
+    mut drag_from_panel: Local<bool>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
-    if rig.fixed {
+    let over_chat = panel.cursor_over();
+    if mouse.just_pressed(MouseButton::Left) {
+        *drag_from_panel = over_chat;
+    }
+    if rig.fixed || over_chat || (mouse.pressed(MouseButton::Left) && *drag_from_panel) {
+        motion.clear();
+        wheel.clear();
         return;
     }
     let scroll: f32 = wheel
@@ -277,6 +286,7 @@ fn main() -> AppExit {
         }))
         .add_plugins((
             MiniatureCamera,
+            chat::ChatPlugin,
             net::NetPlugin,
             movers::MoversPlugin,
             movers::events::EventsPlugin,
@@ -285,9 +295,13 @@ fn main() -> AppExit {
         .init_resource::<city::SubwayView>()
         .add_systems(
             PreUpdate,
-            city::toggle_subway.after(bevy::input::InputSystems).run_if(
-                bevy::input::common_conditions::input_just_pressed(KeyCode::KeyM),
-            ),
+            city::toggle_subway
+                .after(bevy::picking::PickingSystems::Last)
+                .after(bevy::ui::UiSystems::Focus)
+                .run_if(chat::city_keys_enabled)
+                .run_if(bevy::input::common_conditions::input_just_pressed(
+                    KeyCode::KeyM,
+                )),
         )
         .add_systems(Startup, (city::load_buildings, city::setup_ground))
         .add_systems(Update, city::draw_buildings)
