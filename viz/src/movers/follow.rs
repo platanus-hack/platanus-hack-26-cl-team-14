@@ -49,10 +49,17 @@ fn follow(
         }
         state.armed = true;
     }
-    if std::mem::take(&mut state.armed) {
+    // A new result rebuilds the departures, so pick again near the camera.
+    if replay.is_changed() && state.person.is_some() {
+        state.person = None;
+        state.armed = true;
+    }
+    if state.armed {
+        // Keep looking until a rider is on foot.
         state.person = nearest_walker(&replay, now, rig.target);
         if let Some(person) = state.person {
-            let at = locate(&replay, &routes, now, person).unwrap();
+            state.armed = false;
+            let at = locate(&replay, &routes, now, person, rig.target).unwrap();
             rig.fly_to(at, STREET);
             info!("Following group {} copy {} from {at:?}", person.1, person.2);
         }
@@ -63,13 +70,14 @@ fn follow(
     if rig.flight.is_some() {
         return;
     }
-    match locate(&replay, &routes, now, person) {
+    match locate(&replay, &routes, now, person, rig.target) {
         Some(at) => {
             let blend = (time.delta_secs() * 4.).min(1.);
             rig.target = rig.target.lerp(at, blend);
             rig.distance = STREET;
         }
         None => {
+            info!("Trip of group {} copy {} ended", person.1, person.2);
             state.person = None;
             rig.fly_to(crate::city::world(-70.6505, -33.443), CITY);
         }
@@ -84,9 +92,12 @@ fn nearest_walker(replay: &Replay, now: f32, target: Vec3) -> Option<(i32, usize
         let since_bin = now - bin as f32 * BIN;
         for (index, g) in replay.departures[bin.rem_euclid(48) as usize].iter().enumerate() {
             for (copy, plan) in g.itineraries.iter().enumerate() {
-                if let Some(RiderState::Walking(p, _)) =
-                    plan.at(since_bin - departure_offset(g.phase, copy))
-                {
+                let age = since_bin - departure_offset(g.phase, copy);
+                // The hook needs a routed trip with at least 10 more city minutes.
+                if !(1..=10).all(|k| plan.at(age + k as f32 * 60.).is_some()) {
+                    continue;
+                }
+                if let Some(RiderState::Walking(p, _)) = plan.at(age) {
                     let distance = p.distance_squared(target);
                     if distance < best_distance {
                         best_distance = distance;
@@ -99,18 +110,34 @@ fn nearest_walker(replay: &Replay, now: f32, target: Vec3) -> Option<(i32, usize
     best
 }
 
-fn locate(replay: &Replay, routes: &Routes, now: f32, (bin, index, copy): (i32, usize, usize)) -> Option<Vec3> {
+// None only when the trip has ended. Between trains the camera holds its place.
+fn locate(
+    replay: &Replay,
+    routes: &Routes,
+    now: f32,
+    (bin, index, copy): (i32, usize, usize),
+    hold: Vec3,
+) -> Option<Vec3> {
     let g = replay.departures[bin.rem_euclid(48) as usize].get(index)?;
     let age = now - bin as f32 * BIN - departure_offset(g.phase, copy);
-    match g.itineraries.get(copy)?.at(age)? {
-        RiderState::Walking(p, _) | RiderState::Waiting(p, _) => Some(p),
-        RiderState::Riding(RideKey::Metro { track, run }) => trains(routes, now)[track]
-            .iter()
-            .find(|t| t.run_index == run)
-            .map(|t| t.pos),
-        RiderState::Riding(RideKey::Surface { template, start }) => routes
-            .riders
-            .surface_pose(template, start + bin.div_euclid(48) * DAY as i32, now)
-            .map(|(p, _, _)| p),
+    let plan = g.itineraries.get(copy)?;
+    if age > plan.duration() {
+        return None;
+    }
+    match plan.at(age) {
+        None => Some(hold),
+        Some(RiderState::Walking(p, _) | RiderState::Waiting(p, _)) => Some(p),
+        Some(RiderState::Riding(RideKey::Metro { track, run })) => Some(
+            trains(routes, now)[track]
+                .iter()
+                .find(|t| t.run_index == run)
+                .map_or(hold, |t| t.pos),
+        ),
+        Some(RiderState::Riding(RideKey::Surface { template, start })) => Some(
+            routes
+                .riders
+                .surface_pose(template, start + bin.div_euclid(48) * DAY as i32, now)
+                .map_or(hold, |(p, _, _)| p),
+        ),
     }
 }
