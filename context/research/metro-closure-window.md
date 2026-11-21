@@ -21,7 +21,7 @@ Real run (`scenario` binary, `data/mvp`):
 
 Weekday Metro entries: 2,457,348 → 1,748,979. Tobalaba: zero in bins 14–19, baseline in the other bins.
 
-The window does not show reopening at 10:00 for a trip in progress: a trip that starts at 09:30 uses the closed network for the whole trip. It assumes residents do not change; with a residents change the window rule is not applied correctly.
+The window does not show reopening at 10:00 for a trip in progress: a trip that starts at 09:30 uses the closed network for the whole trip. A residents change in the same request turns the window off and the result lists it in `not_modeled`.
 
 - Use the window with `"temporary": true`. Without it, workers outside the window keep their mode but still get the job moves of a full-day change.
 - Map trip groups: groups whose display half-hour is outside the window show the baseline; groups inside show the scenario. A display group has its own half-hour, so the map is a picture, not a count. The window counts are `closure_window` and the station half-hours.

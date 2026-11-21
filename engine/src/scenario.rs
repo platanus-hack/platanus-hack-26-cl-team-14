@@ -277,8 +277,7 @@ impl Scenario {
         // Minute changes of temporary edits (`"temporary": true`): they move mode choice, not job choice.
         let mut temporary = vec![0.0; n * n];
         // A closure window `half_hours: [start, end)` on any change: only workers who leave home inside it face the changed city.
-        let window = changes.iter().find_map(|v| v["half_hours"].as_array().map(|w| (w[0].as_u64().unwrap() as usize, w[1].as_u64().unwrap() as usize)));
-        let in_window = |i: usize, p: &Person| window.is_some_and(|(a, z)| (a..z).contains(&person_departure(p.mode, i)));
+        let mut window = changes.iter().find_map(|v| v["half_hours"].as_array().map(|w| (w[0].as_u64().unwrap() as usize, w[1].as_u64().unwrap() as usize)));
         let (mut applied, mut not_modeled) = (vec![], vec![]);
         let mut network = Network::new(&self.access);
         let mut building_edits = self.buildings.as_ref().map(Buildings::edits);
@@ -561,6 +560,12 @@ impl Scenario {
             if !stock_child { applied.push(note); }
         }
 
+        // The window matches each worker with the baseline worker at the same index, so it cannot combine with a residents change.
+        if window.is_some() && resident_stock_edits > 0 {
+            window = None;
+            not_modeled.push(json!({ "half_hours": "closure window", "reason": "A closure window cannot be combined with a residents change in the same request. The window was not applied." }));
+        }
+        let in_window = |i: usize, p: &Person| window.is_some_and(|(a, z)| (a..z).contains(&person_departure(p.mode, i)));
         if resident_stock_edits > 0 {
             self.apply_net_residents(&mut pop);
             if resident_stock_edits == 1 {
