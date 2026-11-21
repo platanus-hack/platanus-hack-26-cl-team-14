@@ -1,6 +1,8 @@
 # Santiago miniature
 
-Run this command from the repository root with Rust 1.97.1 or later. The window reads the latest scenario and event stream on port 8787 by default.
+Run `./run.sh` from the repository root to open the city and a terminal beside it. The terminal starts the installed Claude Code or Codex CLI with the Santiago MCP connected to this engine. Sign in to the CLI first. When both are installed, the launcher chooses Claude. Use `SANTIAGO_CHAT_CLI=codex ./run.sh` or `SANTIAGO_CHAT_CLI=claude ./run.sh` to choose one.
+
+To open only the viewer, run this command from the repository root with Rust 1.97.1 or later. The window reads the latest scenario and event stream on port 8787 by default.
 
 ```sh
 CARGO_TARGET_DIR=/tmp/viz-target cargo run --manifest-path viz/Cargo.toml
