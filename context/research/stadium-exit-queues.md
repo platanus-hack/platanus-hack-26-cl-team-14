@@ -10,7 +10,7 @@ The pitch compares the same match in two locations. The current [event projectio
 
 ## First layer and check
 
-1. Start with a post-match station entry profile. Hold attendance and the origin mix fixed between venues. Apply the profile after the end time and account for walking to the station. Use dated service for that window, including any event reinforcement.
+1. Start with a post-match station entry profile. Hold attendance and the origin mix fixed between venues. Align observed station entries to the match end and keep the bins before the end. Those timestamps already include the walk. If the input counts people leaving the stadium instead, add the walk once before assigning entries to bins. Use dated service for that window, including any event reinforcement.
 2. Fit on one observed match. Freeze the model, then compare the half-hour excess entries at Pedrero and Mirador on a different match against a matched non-match day. Compare the sum of absolute bin errors with a baseline that puts all event entries in the first half hour. Report the peak bin and total excess entries. Keep signed observed differences, including negative bins. Report closures and lost observations.
 3. Add a queue only when there is effective capacity or queue evidence. At a station entrance, serve up to the observed gate throughput and carry the rest to the next interval. On a platform, available places equal train capacity less passengers remaining after alighting. Separate the two queues. Without queue observations, report station entries alone. A gate validation does not measure train boarding.
 
