@@ -1084,3 +1084,42 @@ Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.
 The Ministry's *Estadio Nacional*, PDF page 6, describes the changes for the 1962 World Cup: “agregando las cuatro torres de iluminación, de 54 metros de altura”. The source documents the installation height. A present-day measurement is unavailable. Each tower records `height_source=mop_1962_works` and the page URL. [Ministerio de Obras Públicas, Dirección de Arquitectura, p. 6](https://arquitectura.mop.gob.cl/uploads/sites/6/2024/11/estadio-nacional_bajo.pdf#page=6)
 
 For a detailed stadium view, extrude the shell with its inner ring open. The broad landmark perimeter is the same outer boundary. The shell, track and pitch have zero pairwise overlap area. Rebuild using `python3 tools/pack/estadio_nacional_parts.py data/raw/osm-buildings-city/urban.osm.pbf`.
+
+## Local routes for aggregate movers
+
+`web/data/local_mover_routes.json.gz` contains walking, driving, and bicycle paths for the base and scenario groups in the Quilicura 20,000-job Rust result (revision 2). The file has 760 distinct group signatures and 760 paths, with 35,336 points, 880,783 raw bytes and 168,216 gzip bytes. All input groups in this result have at least 872 represented people. The builder only exports groups with a count of two or more.
+
+After gunzip, `groups[]` contains `id`, `mode`, original `origin` and `destination` coordinate pairs, `route` (an index into `paths[]`), `snap_m` (origin and destination gaps in metres), and `length_m` (full routed distance). A path is an array of WGS84 longitude and latitude pairs. Match **all four** of `id`, `mode`, `origin`, and `destination` to the current engine group using the original coordinates. The engine reused 81 IDs with changed endpoints across the two scenes. Missing signatures have no local route. The pack contains no public-transport or `other` paths.
+
+| Mode | Groups per scene | Routed base / scenario | Same-comuna routes base / scenario | Median / p95 / max endpoint snap |
+| --- | ---: | ---: | ---: | --- |
+| Walk | 181 | 154 / 154 | 134 / 134 | 26 / 87 / 247 m |
+| Car | 595 | 467 / 467 | 116 / 115 | 25 / 94 / 236 m |
+| Bicycle | 76 | 71 / 71 | 43 / 43 | 36 / 114 / 236 m |
+
+Both scenes have 692 routed groups out of 852 eligible groups. Of the remaining 160, 149 have an endpoint with no eligible edge within 250 m, nine have disconnected endpoints, and two have zero road distance. The base case gains 313 routes for groups with no prior comuna-pair path. These consist of 154 walks, 116 car groups, and 43 bicycle groups. Endpoints outside the urban road extract account for 112 of 128 unmatched car groups and 22 of 27 unmatched walking groups in the base scene.
+
+The OSRM 26.11.0 walking and car profiles use the cached urban OSM graph. Bicycles use the regional OSRM graph described in the bicycle-route section above. OSRM snaps each aggregate endpoint to an eligible street within 250 m. The path starts and ends at the snapped street positions. Missing local access segments are not drawn. The 3 m path simplification and five-decimal coordinates keep the payload small. Across the delivered paths, rounding changed either endpoint's measured snap distance by less than 0.9 m. These are modeled paths for aggregate engine groups.
+
+**Rebuild.** Use the same [Geofabrik Chile snapshot](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf) and its urban extract (2026-11-20 21:21 UTC). Set `OSRM_PROFILES` to the directory containing the installed OSRM Lua profiles. Build the region bicycle graph using the bicycle-route steps above. Build the two urban graphs from the repository root.
+
+```sh
+for profile in foot car; do
+  mkdir -p "data/raw/local-mover-routes/$profile"
+  graph="data/raw/local-mover-routes/$profile/urban.osrm"
+  osrm-extract -t 2 -p "$OSRM_PROFILES/$profile.lua" -o "$graph" data/raw/osm-buildings-city/urban.osm.pbf
+  osrm-partition -t 2 "$graph"
+  osrm-customize -t 2 "$graph"
+done
+```
+
+Run each router in its own terminal, then pass a Rust scenario result and the three local ports (walk, car, bicycle) to the exporter.
+
+```sh
+osrm-routed -i 127.0.0.1 -p 19141 -t 2 -a mld data/raw/local-mover-routes/foot/urban.osrm
+osrm-routed -i 127.0.0.1 -p 19142 -t 2 -a mld data/raw/local-mover-routes/car/urban.osrm
+osrm-routed -i 127.0.0.1 -p 19143 -t 2 -a mld data/raw/bicycle/region.osrm
+python3 tools/pack/local_mover_routes.py /path/to/quilicura-20k-rust.json 19141 19142 19143
+```
+
+The source result SHA-256 is `c9a41d56111e8c79abf4b859e2c1a8e3637e76aec3d72dd8ffe8a28711be4def`. The JSON also contains `source_sha256` and `max_snap_m`. Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The path geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
