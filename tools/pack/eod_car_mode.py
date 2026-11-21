@@ -23,14 +23,16 @@ def key(name):
     return unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().upper().strip()
 
 
-def rows(name):
-    with (args.survey / f"{name}.csv").open(encoding="utf-8-sig") as f:
+def rows(name, encoding="utf-8-sig"):
+    with (args.survey / f"{name}.csv").open(encoding=encoding) as f:
         yield from csv.DictReader(f, delimiter=";")
 
 
 with (ROOT / "data/mvp/communes.csv").open() as f:
     cut = {key(r["name"]): r["cut"] for r in csv.DictReader(f)}
-home = {r["Hogar"]: (cut[key(r["Comuna"])], int(r["NumVeh"]) > 0, weight(r["Factor"])) for r in rows("Hogares")}
+# A car: TipoVeh 1 auto, 3 pickup or SUV, 5 van or minivan. NumVeh also counts motorcycles, trucks, taxis and buses.
+cars = {r["Hogar"] for r in rows("Vehiculo", "latin-1") if r["TipoVeh"] in ("1", "3", "5")}
+home = {r["Hogar"]: (cut[key(r["Comuna"])], r["Hogar"] in cars, weight(r["Factor"])) for r in rows("Hogares")}
 person_weight = {r["Persona"]: weight(r["Factor_LaboralNormal"]) for r in rows("personas")}
 
 households = defaultdict(lambda: [0.0, 0.0])  # cut -> [expanded households, with a car]
