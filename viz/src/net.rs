@@ -19,7 +19,7 @@ pub struct NetPlugin;
 
 impl Plugin for NetPlugin {
     fn build(&self, app: &mut App) {
-        let base = env::var("SANTIAGO_ENGINE").unwrap_or_else(|_| "http://127.0.0.1:8790".into());
+        let base = env::var("SANTIAGO_ENGINE").unwrap_or_else(|_| "http://127.0.0.1:8787".into());
         let (send, receive) = mpsc::channel();
         thread::spawn(move || {
             if let Err(error) = read_engine(base.trim_end_matches('/'), send) {
