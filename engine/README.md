@@ -460,3 +460,27 @@ Each file contains 48 half-hours for each of 126 GTFS parent IDs. The model proj
 2,700.9 fewer weekday boardings at Tobalaba and 1,655.7 fewer across the network.
 These are scenario estimates. When comparing hosts, check for equal values within
 the existing tolerance of 1e-9 boardings per half-hour.
+
+## April weights for station access
+
+The population CLI accepts two station projections. Both use the same workers
+and the same census job stocks. The April option changes the fit and the
+distribution of public-transport job mass within each comuna.
+
+```sh
+cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp /tmp/l9.json l9
+cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp /tmp/april.json april-transport
+python3 -I tools/pack/check_score.py /tmp/april.json
+```
+
+The frozen score covered 31 stations and all 1,123 observed cells.
+Absolute error fell from 238,349.700047 to 234,697.773506 boardings.
+Half-hour WAPE fell from 0.4178865487 to 0.4114838095.
+For Tobalaba, the two models predicted 39,823.55 and 53,720.26 entries
+in the observed weekday half-hours. DTPM recorded 81,612.80.
+
+A scenario caller can opt in with
+`StationAccess::load_with_april_transport_jobs(data)?`. For each projection,
+call `weight_job_masses` on the freshly aggregated public commuter masses
+in job-point order before calling `project_points`. The default constructor
+uses the census job stocks.

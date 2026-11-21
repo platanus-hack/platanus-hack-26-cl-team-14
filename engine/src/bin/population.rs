@@ -1,5 +1,5 @@
 //! Build the synthetic person-level state, then run one full day of station boardings from it.
-//! Usage: cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp <out predictions.json>
+//! Usage: cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp <out predictions.json> [l9|april-transport] [closed parent IDs...]
 #[path = "../population.rs"]
 mod population;
 #[path = "../stations.rs"]
@@ -12,18 +12,35 @@ fn main() {
     let t = std::time::Instant::now();
     let pop = population::Population::build(data);
     let build_ms = t.elapsed().as_secs_f64() * 1e3;
-    let model = stations::StationModel::new(data);
+    let access = a.get(3).map(|layer| match layer.as_str() {
+        "l9" => stations::access::StationAccess::load(data),
+        "april-transport" => stations::access::StationAccess::load_with_april_transport_jobs(data).unwrap(),
+        _ => panic!("use l9 or april-transport"),
+    });
+    let walk = access.is_none().then(|| stations::StationModel::new(data));
     let t = std::time::Instant::now();
     // L4b weighting kept on purpose: each worker counts with the public share of its home comuna (L2), so the
     // persons state can be compared with the accepted fit; students are not in the fit.
     let (mut h, mut j) = (vec![0.0; pop.homes.len()], vec![0.0; pop.jobs.len()]);
+    let share: Vec<_> = pop.homes.iter().map(|home| match &access {
+        Some(model) => model.public_share(&home.cut),
+        None => walk.as_ref().unwrap().public_share(&home.cut),
+    }).collect();
     for p in pop.persons.iter().filter(|p| !p.student) {
-        let w = model.public_share(&pop.homes[p.home as usize].cut);
+        let w = share[p.home as usize];
         h[p.home as usize] += w;
         j[p.dest as usize] += w;
     }
     let pts = |v: &[population::Point], m: &[f64]| v.iter().zip(m).map(|(p, &x)| (p.longitude, p.latitude, x)).collect::<Vec<_>>();
-    let pred = model.project_points(&pts(&pop.homes, &h), &pts(&pop.jobs, &j));
+    let homes = pts(&pop.homes, &h);
+    let pred = if let Some(model) = access {
+        model.weight_job_masses(pop.jobs.iter().map(|p| (p.id.as_str(), p.cut.as_str())), &mut j);
+        let mut active = model.all_parent_ids();
+        for id in &a[4..] { active.remove(id); }
+        model.project_points(&homes, &pts(&pop.jobs, &j), &active)
+    } else {
+        walk.unwrap().project_points(&homes, &pts(&pop.jobs, &j))
+    };
     let day_ms = t.elapsed().as_secs_f64() * 1e3;
     let out: BTreeMap<String, Vec<f64>> = pred.into_iter().map(|(id, _, v)| (id, v)).collect();
     serde_json::to_writer(std::fs::File::create(&a[2]).unwrap(), &out).unwrap();
