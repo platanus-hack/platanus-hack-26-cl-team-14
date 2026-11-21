@@ -8,6 +8,8 @@ import { basename, dirname, isAbsolute, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
+import { inboxDirectory, localPage, newMessages, snapshot, startInbox, watched } from "./inbox.mjs";
+
 const API_URL = "https://discord.com/api/v10";
 const CHANNEL_TYPES_WITH_CONTENT = new Set([0, 5, 15]); // text, announcement, forum
 const THREAD_TYPES = new Set([10, 11, 12]);
@@ -239,10 +241,11 @@ async function discord(path, { auth = true, token = auth ? savedToken() : undefi
 }
 
 async function listChannels() {
-  const guilds = await discord("/users/@me/guilds");
+  const local = snapshot();
+  const guilds = local?.guilds ?? await discord("/users/@me/guilds");
   const sections = await Promise.all(
     guilds.map(async (guild) => {
-      const [channels, { threads }] = await Promise.all([
+      const [channels, { threads }] = local ? [guild.channels, { threads: guild.threads.filter(t => !t.archived) }] : await Promise.all([
         discord(`/guilds/${guild.id}/channels`),
         discord(`/guilds/${guild.id}/threads/active`),
       ]);
@@ -278,7 +281,14 @@ function formatMessage(message) {
 
 async function readMessages({ channel_id, limit = 50, before, after, around }) {
   checkIds([channel_id, before, after, around]);
-  const query = new URLSearchParams({ limit: String(Math.min(Math.max(limit, 1), 100)) });
+  limit = Math.min(Math.max(limit, 1), 100);
+  const state = snapshot();
+  const channel = state?.guilds.flatMap(watched).find(c => c.id === channel_id);
+  if (channel && [before, after, around].filter(Boolean).length <= 1) {
+    const page = localPage(state, channel, { limit, before, after, around });
+    if (page) return page.map(formatMessage).join("\n") || "No messages.";
+  }
+  const query = new URLSearchParams({ limit: String(limit) });
   for (const [key, value] of Object.entries({ before, after, around })) {
     if (value) query.set(key, value);
   }
@@ -423,7 +433,21 @@ let pollError;
 let logLevel = "info";
 const logLevels = ["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"];
 
+let coveredThrough = connectedAt;
+
 async function pollDiscord() {
+  const started = Date.now();
+  const local = snapshot();
+  if (local && coveredThrough >= local.since) {
+    for (const channel of local.guilds.flatMap(watched)) {
+      for (const message of newMessages(local, channel, cursors.get(channel.id) ?? initialCursor)) {
+        inbox.push(`#${channel.name}: ${formatMessage(message)}`);
+        cursors.set(channel.id, message.id);
+      }
+    }
+    coveredThrough = started;
+    return;
+  }
   const guilds = await discord("/users/@me/guilds");
   for (const guild of guilds) {
     const channels = await discord(`/guilds/${guild.id}/channels`);
@@ -461,6 +485,7 @@ async function pollDiscord() {
       }
     }
   }
+  coveredThrough = started;
 }
 
 function poll() {
@@ -552,7 +577,7 @@ async function callTool({ name, arguments: args = {} }) {
     create_thread: createThread,
     find_member: findMember,
     create_channel: createChannel,
-    poll_messages: async () => { await poll(); return "Discord inbox checked."; },
+    poll_messages: async () => { if (!inbox.length) await poll(); return "Discord inbox checked."; },
     report_usage: reportUsage,
   };
   try {
@@ -588,7 +613,12 @@ function send(message) {
   process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}\n`);
 }
 
-createInterface({ input: process.stdin }).on("close", () => { clearInterval(pollTimer); process.exit(0); }).on("line", async (line) => {
+const inboxToken = savedToken();
+if (inboxToken) inboxDirectory(inboxToken);
+if (process.argv.includes("--inbox")) {
+  if (!inboxToken) throw new Error(ASK_FOR_TOKEN);
+  await startInbox(inboxToken, discord);
+} else createInterface({ input: process.stdin }).on("close", () => { clearInterval(pollTimer); process.exit(0); }).on("line", async (line) => {
   let request;
   try {
     request = JSON.parse(line);
