@@ -308,6 +308,7 @@ impl RiderNetwork {
 
 enum RiderAction {
     Unrouted,
+    StreetWalk(Arc<Path>),
     StationWalk { from: Vec3, to: Vec3 },
     Wait { at: Vec3, facing: Vec3 },
     Ride(RideKey),
@@ -354,8 +355,16 @@ impl RiderPlan {
         for (i, leg) in legs.iter().enumerate() {
             let first = if i == 0 { 0 } else { legs[i - 1].end };
             let Some(index) = leg.scheduled else {
-                if transfer.is_none() {
-                    // Public walk links join endpoints without a routed pedestrian path.
+                if transfer.is_some() {
+                    continue;
+                }
+                if let Some(walk) = &leg.walk_path {
+                    let duration = *walk.seconds.last().unwrap();
+                    if duration > 0. {
+                        plan.until(plan.duration() + duration, RiderAction::StreetWalk(walk.clone()));
+                        has_origin = true;
+                    }
+                } else {
                     let duration = path.seconds[leg.end] - path.seconds[first];
                     if duration > 0. {
                         has_origin = false;
@@ -433,6 +442,10 @@ impl RiderPlan {
         };
         Some(match step.action {
             RiderAction::Unrouted => return None,
+            RiderAction::StreetWalk(ref walk) => {
+                let (p, dir, _) = walk.at(age - start_age, &walk.seconds)?;
+                RiderState::Walking(p + Vec3::Y * 0.25, dir)
+            }
             RiderAction::StationWalk { from, to } => {
                 let t = (age - start_age) / (step.end_age - start_age);
                 RiderState::Walking(from.lerp(to, t), (to - from).normalize())

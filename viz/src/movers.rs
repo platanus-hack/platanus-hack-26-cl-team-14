@@ -77,6 +77,7 @@ impl Vehicle {
 
 struct Leg {
     scheduled: Option<usize>,
+    walk_path: Option<Arc<Path>>,
     end: usize,
     vehicle: Vehicle,
 }
@@ -112,7 +113,7 @@ impl Path {
 
     fn single(points: Vec<Vec3>, vehicle: Vehicle) -> Arc<Self> {
         let end = points.len() - 1;
-        Self::new(points, vec![Leg { end, vehicle, scheduled: None }])
+        Self::new(points, vec![Leg { end, vehicle, scheduled: None, walk_path: None }])
     }
 
     fn nearest(&self, pos: Vec3) -> (Vec3, Vec3, f32) {
@@ -334,6 +335,7 @@ fn public_path(row: &Value, riders: &RiderNetwork) -> Arc<Path> {
     let legs = segs.iter().zip(scheduled)
         .map(|(leg, scheduled)| Leg {
             scheduled,
+            walk_path: leg.get("walk_path").map(|line| Path::single(points(line), Vehicle::Walk)),
             end: leg["end"].as_u64().unwrap() as usize,
             vehicle: match leg["mode"].as_str().unwrap() {
                 "walk" => Vehicle::Walk,
