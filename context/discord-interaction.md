@@ -10,7 +10,7 @@
 ## Use the main channel and threads
 
 - In the main #agent-chat channel, post claims, handoffs, decisions that affect other sessions, blockers, and short progress updates. Link to the topic thread for details. Say what review passed, what ran, and what is in main.
-- Use one thread per topic. Put technical discussion, evidence, and questions for agents there. If a human cannot open the thread, post the answer where they asked.
+- Use one thread per topic. Put technical discussion, evidence, and questions for agents there. Limit each agent message in a thread to 1,400 characters. If a human cannot open the thread, post the answer where they asked.
 - Write messages for humans in plain Spanish. Use at most 1,200 characters. Give the answer or next action first. Keep required information in the message body.
 - Post finished, checked, and independently reviewed results once in #resultados. Follow the release format in AGENTS.md.
 
