@@ -20,6 +20,9 @@ pub struct Shopping {
     pub shops: Vec<Shop>,
     /// Comunas without an EOD 2012 rate (outside the survey area).
     no_rate: Vec<String>,
+    /// Departure half-hour shares (48) and mode shares (car, public, walk, bicycle, other) of shopping trips, by home comuna.
+    /// EOD 2012 `eod_trip_profiles.csv`. A trip keeps the profile of its home comuna at any destination.
+    profile: Vec<([f64; 48], [f64; 5])>,
     /// Total variation between modeled and EOD 2012 destination totals by comuna, at baseline.
     destination_tv: f64,
 }
@@ -54,6 +57,22 @@ impl Shopping {
         for r in records(&dir.join("eod_trip_rates.csv")).filter(|r| &r[1] == "shopping") {
             if let Some(o) = ix(&r[0]) { rate[o] = Some(r[6].parse::<f64>().unwrap()); }
         }
+        let mut profile = vec![([0.0; 48], [0.0; 5]); n];
+        for r in records(&dir.join("eod_trip_profiles.csv")).filter(|r| &r[1] == "shopping") {
+            let (Some(o), Ok(bin)) = (ix(&r[0]), r[3].parse::<usize>()) else { continue }; // bin "unknown" has no time
+            let w: f64 = r[6].parse().unwrap();
+            match &r[2] {
+                "start_half_hour" => profile[o].0[bin] += w,
+                // ModoAgregado: 1 car; 2–7 and 9–12 public transport; 17 walk; 18 bicycle (tools/pack/eod_leisure.py).
+                "mode_eod" => profile[o].1[match bin { 1 => 0, 2..=7 | 9..=12 => 1, 17 => 2, 18 => 3, _ => 4 }] += w,
+                _ => {}
+            }
+        }
+        for (time, mode) in &mut profile {
+            let (t, m) = (time.iter().sum::<f64>(), mode.iter().sum::<f64>());
+            time.iter_mut().for_each(|x| *x /= t.max(1e-9));
+            mode.iter_mut().for_each(|x| *x /= m.max(1e-9));
+        }
         let no_rate = (0..n).filter(|&o| rate[o].is_none()).map(|o| cuts[o].clone()).collect();
         let trips: Vec<f64> = (0..n).map(|o| residents[o] * rate[o].unwrap_or(0.0)).collect();
         let shops: Vec<Shop> = records(&dir.join("activity_points.csv"))
@@ -69,7 +88,7 @@ impl Shopping {
         let modeled: Vec<f64> = (0..n).map(|d| (0..n).map(|o| od[o * n + d]).sum()).collect();
         let (m, s) = (modeled.iter().sum::<f64>(), observed.iter().sum::<f64>());
         let destination_tv = (0..n).map(|d| (modeled[d] / m - observed[d] / s).abs()).sum::<f64>() / 2.0;
-        Shopping { trips, shops, no_rate, destination_tv }
+        Shopping { trips, shops, no_rate, profile, destination_tv }
     }
 
     /// Add `delta` shop points at a point (comuna `cut`), with ids from `next_id`, or remove the `-delta` nearest shop points.
@@ -104,8 +123,16 @@ impl Shopping {
             let total: f64 = by_home.iter().sum();
             let mut order: Vec<usize> = (0..n).collect();
             order.sort_by(|&x, &y| by_home[y].total_cmp(&by_home[x]));
+            let (mut time, mut mode) = ([0.0; 48], [0.0; 5]);
+            for o in 0..n {
+                for (t, p) in time.iter_mut().zip(self.profile[o].0) { *t += by_home[o] * p; }
+                for (m, p) in mode.iter_mut().zip(self.profile[o].1) { *m += by_home[o] * p; }
+            }
+            let [car, public, walk, bicycle, other] = mode.map(|x| x.round());
             json!({ "trips": total.round() + 0.0, "by_home_top5": order[..5].iter().filter(|&&o| by_home[o] > 0.0)
-                .map(|&o| json!({ "id": cuts[o], "name": names[o], "trips": by_home[o].round() })).collect::<Vec<_>>() })
+                .map(|&o| json!({ "id": cuts[o], "name": names[o], "trips": by_home[o].round() })).collect::<Vec<_>>(),
+                "by_mode": { "car": car, "public": public, "walk": walk, "bicycle": bicycle, "other": other },
+                "by_departure_half_hour": time.iter().map(|x| x.round()).collect::<Vec<_>>() })
         };
         // A removed site reports its shoppers in the base, an added site in the scenario.
         // Only baseline shops count as removed and only shops still in the final stock count as added.
