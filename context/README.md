@@ -11,6 +11,7 @@ Keep each file short. If a file does not change what an agent does, delete it.
 | `decisions/` | One file for each decision, with the reason. | Anyone |
 | `open-questions.md` | Questions that do not have an answer yet. | Anyone |
 | `checkpoints.md` | When humans review releases. | Humans |
+| [Discord interaction](discord-interaction.md) | Rules for receipts, claims, and reviews. | Agents |
 | `research/` | Briefs from `research-first`: sources, datasets, libraries. | Agents |
 | [MUT half-hour references](research/mut-half-hour-reference.md) | Full frozen half-hour contrasts and weekday-only coverage; descriptive evidence. | Agents |
 | [MUT line references](research/mut-line-reference.md) | Frozen comparison of all qualifying L1/L4 workbook records; descriptive differences only. | Agents |

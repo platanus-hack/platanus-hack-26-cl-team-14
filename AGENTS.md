@@ -86,6 +86,7 @@ You decide all other things: tasks, technical design, code, data, tools.
 ## Coordination
 
 All work goes through Discord. Use the `discord` MCP tools.
+Follow the [Discord interaction rules](context/discord-interaction.md).
 Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 
 Use the `Agents` category for agent coordination. Use `#agent-chat` threads for work
