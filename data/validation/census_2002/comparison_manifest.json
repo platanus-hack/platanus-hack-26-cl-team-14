@@ -1,0 +1,176 @@
+{
+  "checked_date": "2026-11-21",
+  "source_retrieved_at_utc": null,
+  "retrieval_time_note": "Exact source retrieval UTC was not recorded.",
+  "generator": {
+    "path": "tools/pack/historical_commuting.py",
+    "sha256": "65af6d5a7860bb8924408e5ac945aec7efefd005da824c0bad08699ae9cdec4f"
+  },
+  "inputs_sha256": {
+    "data/validation/census_2002/raw_od.csv": "7071f2714a6df7f1a022776abcff791fba564a5915799f50ac2135815205aac1",
+    "data/validation/census_2002/manifest.json": "380899400c5a6b9ea9ff78a308d731554c482fad532148f169823e22a4e2d62d",
+    "data/validation/census_2002/destination-classification.csv": "fca09b94cc4fdf18bce2b028b6b9de472890778054a2e42f4c84df61f67ab2cd",
+    "data/validation/census_2002/old_current_cut_crosswalk.csv": "0ce2666c2beba8b777417a21622fce9acb3c4135f4b74de3108368dd31ad15bf",
+    "data/mvp/communes.csv": "fc2d1a729e6d1535ad2f26dd26856ecdc07b47ee25b2f23328003ef349486056",
+    "data/mvp/work_od.csv": "442b1a12ad6b65820c173bf1c4805bb93dadf2b2dc53ae7967147196a8010038"
+  },
+  "outputs_sha256": {
+    "data/validation/census_2002/intercommunal_2002.csv": "9ce6a30aa279a867fbb8dbd0f2180fdf9d0fbf66564be61f2dc32dfdbbb928ef",
+    "data/validation/census_2002/intercommunal_2024.csv": "71b81b3715d00485218f11f37aa4118877387f3e89c8878395203e752c6f2b6e"
+  },
+  "domain": {
+    "cuts": [
+      "13101",
+      "13102",
+      "13103",
+      "13104",
+      "13105",
+      "13106",
+      "13107",
+      "13108",
+      "13109",
+      "13110",
+      "13111",
+      "13112",
+      "13113",
+      "13114",
+      "13115",
+      "13116",
+      "13117",
+      "13118",
+      "13119",
+      "13120",
+      "13121",
+      "13122",
+      "13123",
+      "13124",
+      "13125",
+      "13126",
+      "13127",
+      "13128",
+      "13129",
+      "13130",
+      "13131",
+      "13132",
+      "13201",
+      "13202",
+      "13203",
+      "13301",
+      "13302",
+      "13303",
+      "13401",
+      "13402",
+      "13403",
+      "13404",
+      "13501",
+      "13502",
+      "13503",
+      "13504",
+      "13505",
+      "13601",
+      "13602",
+      "13603",
+      "13604",
+      "13605"
+    ],
+    "origin_count": 52,
+    "destination_count": 52,
+    "same_home_work_commune_excluded": true,
+    "cells_per_year": 2652
+  },
+  "coverage": {
+    "2002": {
+      "source_rows": 20956,
+      "source_workers": 2242438,
+      "source_workers_by_destination_class": {
+        "foreign_reported": 462,
+        "internal_rm52": 2009186,
+        "known_external_domestic": 30301,
+        "unknown_destination": 202489
+      },
+      "internal_rm_workers_including_diagonal": 2009186,
+      "excluded_diagonal_workers": 646660,
+      "included_intercommunal_workers": 1362526,
+      "excluded_outside_internal_rm_workers": 233252,
+      "excluded_total_workers": 879912,
+      "dense_output_cells": 2652,
+      "positive_output_cells": 2491
+    },
+    "2024": {
+      "source_rows": 9128,
+      "source_workers": 2740454,
+      "source_workers_by_destination_class": {
+        "internal_rm52": 2688814,
+        "known_external_domestic": 51640
+      },
+      "internal_rm_workers_including_diagonal": 2688814,
+      "excluded_diagonal_workers": 835484,
+      "included_intercommunal_workers": 1853330,
+      "excluded_outside_internal_rm_workers": 51640,
+      "excluded_total_workers": 887124,
+      "dense_output_cells": 2652,
+      "positive_output_cells": 2575
+    }
+  },
+  "source_frames": {
+    "2002": "All enumeration geography; habitual RM home VIVEHAB; employed SLABORAL 1/2/4; raw COMTRAES classified by official workplace-answer aggregate.",
+    "2024": "Canonical RM-resident work_od.csv; work-location codes 2/3 and known domestic destinations; home workers, multiple/foreign/unknown destinations already excluded upstream."
+  },
+  "cohort_caveats": [
+    "2002 cannot separate home workers from other same-commune workers. The diagonal is excluded in both years; full-matrix cohort equivalence is not established.",
+    "Absent 2024 pairs are assigned zero only under the existing complete known-workplace count-aggregation assumption; they are not missing survey observations.",
+    "The 52 RM codes are stable in the audited primary lists; this does not establish cadastral boundary equivalence.",
+    "Crosswalk is derived from primary lists, not an official published concordance. Four external historical parents require child aggregation and cannot be allocated to child units.",
+    "Foreign categories are classified from responses, not numeric prefixes; country names remain unmapped. All raw categories remain unchanged in raw_od.csv.",
+    "Counts represent employed people at usual workplaces, not daily trips. INE assumes employed students reported work in 2002.",
+    "Domestic external, foreign, unknown and diagonal workers are excluded, not redistributed. No global normalization is applied."
+  ],
+  "classification_provenance": {
+    "status": "qualified_pass",
+    "checked_date": "2026-11-21",
+    "retrieved_at_utc": null,
+    "source_method": "Official COMTRAES by LUGTRAES aggregate for the same habitual-RM-home/employed cohort; not numeric prefix inference.",
+    "source_html_sha256": "771380f1a9186ba2e590640b6d1e7220fa5549dbebc35b2ce83718aeb819d263",
+    "workers_by_destination_class": {
+      "known_external_domestic": 30301,
+      "foreign_reported": 462,
+      "internal_rm52": 2009186,
+      "unknown_destination": 202489
+    },
+    "codes_by_destination_class": {
+      "known_external_domestic": 288,
+      "foreign_reported": 62,
+      "internal_rm52": 52,
+      "unknown_destination": 1
+    },
+    "raw_code_99999": {
+      "workers": 202489,
+      "reported_other_commune_without_code": 16569,
+      "reported_ignored": 185920
+    },
+    "rm52_codes_identical_in_primary_lists": true,
+    "crosswalk_kind": "Derived join of primary lists, not an official published concordance.",
+    "external_historical_parent_groups": 4,
+    "external_parent_limit": "Current child units must aggregate to the historical parent; historical counts cannot be allocated to children.",
+    "country_names": "unmapped",
+    "cadastral_boundary_equivalence": "not established",
+    "primary_lists": [
+      {
+        "url": "https://redatam-ine.ine.cl/redbin/RpWebUtilities.exe/Down_Dictionary.dic?LFN=RpBases%5CCenso2002%5CBaseR%5CCENSO2002.dic",
+        "sha256": "c15ae03f8195cb29cc42fda488251aced82daa9e17e22bf4718d2a2705b5b3e8"
+      },
+      {
+        "url": "https://www.bcn.cl/leychile/navegar?idNorma=168185&tipoVersion=original",
+        "sha256": "eef5c609bad4bd5d5206301584e91c7fd2edb167e046b376c5c764ddca0cf4fb"
+      },
+      {
+        "url": "https://www.ine.gob.cl/docs/default-source/ocupacion-y-desocupacion/bbdd/libro-de-codigos/codigos-ene-2020.pdf",
+        "sha256": "adaf5f141c0720c23e3200e74da3c4e77c3ec5abb9c7208286dcaafcc0a24aa6"
+      }
+    ],
+    "zero_padding_or_current_cut_conversion_of_raw_file": false,
+    "scope_limit": "Destination response classes and RM code identity only; full-matrix cohort equivalence and benchmark approval are not established."
+  },
+  "benchmark_implemented": false,
+  "approved_evaluation_target": false
+}
