@@ -3,7 +3,7 @@
 p44_lug_trab: 1 = works in this dwelling, 2 = in this comuna, 3 = in another comuna (mode_share.py keeps 2 and 3).
 Output: data/mvp/work_at_home.csv  cut,at_home,travel,at_home_share
 travel counts every person with p44 2 or 3 in a region-13 comuna (also those with an unknown or out-of-region work comuna),
-so at_home_share = at_home / (at_home + travel) is over all persons with a workplace answer.
+so at_home_share = at_home / (at_home + travel) is the share among persons with workplace codes 1-3 (3,268,983 in region 13).
 Run from the repo root after downloading personas_censo2024.zip (tools/scrape/censo2024-od.py).
 """
 import collections, csv, io, pathlib, tempfile, zipfile
