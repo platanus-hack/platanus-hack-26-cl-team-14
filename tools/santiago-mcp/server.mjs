@@ -166,6 +166,8 @@ const createReplayTool = {
         description: 'The final chart of the replay, drawn in the city view as stacked bars. Each bar reads one field of a saved result: a number, or an object of numbers (one stack segment per key). Example: {"title":"Entradas al Metro","unit":"entradas por día hábil","bars":[{"label":"Antes","field":"summary.boardings_base"},{"label":"Después","field":"summary.boardings_scenario"}]}.',
         properties: {
           title: { type: 'string' }, unit: { type: 'string' },
+          keys: { type: 'object', additionalProperties: { type: 'string' }, description: 'Screen label of each value key, for example {"public":"Transporte público","car":"Auto","other":"Otro"}.' },
+          show_after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts before the chart appears, so the map plays first. Default 0.' },
           bars: { type: 'array', minItems: 1, items: { type: 'object', required: ['label', 'field'], properties: {
             label: { type: 'string' },
             field: { type: 'string', description: 'Dot path in the saved result, for example events.0.fan_base.by_mode.' },
@@ -178,10 +180,11 @@ const createReplayTool = {
 };
 
 // The chart reads saved results only, so the numbers on screen are the cached engine values.
-function chartValues({ id, chart: { title, unit, bars } }) {
-  return { title, unit, bars: bars.map(({ label, field, replay = id }) => {
+function chartValues({ id, chart: { title, unit, bars, keys = {}, show_after_seconds = 0 } }) {
+  return { title, unit, show_after_seconds, bars: bars.map(({ label, field, replay = id }) => {
     const value = field.split('.').reduce((v, key) => v[key], readReplay(replay).result);
-    return { label, values: typeof value === 'number' ? { total: value } : value };
+    const values = typeof value === 'number' ? { total: value } : value;
+    return { label, values: Object.fromEntries(Object.entries(values).map(([k, v]) => [keys[k] ?? k, v])) };
   }) };
 }
 
