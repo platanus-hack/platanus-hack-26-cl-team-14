@@ -129,11 +129,128 @@ impl Path {
     }
 }
 
+struct Call {
+    arrival: f32,
+    departure: f32,
+    distance: f32,
+    station: usize,
+}
+
+struct RailRun {
+    calls: Vec<Call>,
+}
+
+impl RailRun {
+    // Hold the published arrival and departure. Ramp for up to six seconds at each end.
+    fn distance(&self, now: f32) -> Option<f32> {
+        let calls = &self.calls;
+        if now < calls[0].arrival || now > calls.last()?.departure {
+            return None;
+        }
+        let i = calls.partition_point(|call| call.departure < now);
+        let next = &calls[i];
+        if now >= next.arrival {
+            return Some(next.distance);
+        }
+        let prev = &calls[i - 1];
+        let duration = next.arrival - prev.departure;
+        let t = now - prev.departure;
+        let ramp = 6.0_f32.min(duration * 0.5);
+        let travelled = if t < ramp {
+            t * t / (2. * ramp)
+        } else if t > duration - ramp {
+            duration - ramp - (duration - t).powi(2) / (2. * ramp)
+        } else {
+            t - ramp * 0.5
+        };
+        Some(prev.distance + (next.distance - prev.distance) * travelled / (duration - ramp))
+    }
+}
+
 struct RailLine {
     path: Arc<Path>,
     service: String,
-    departures: Vec<usize>,
+    runs: Vec<RailRun>,
+    longest: f32,
     stations: Vec<String>,
+}
+
+impl RailLine {
+    fn load(row: &Value, timetable: &Value) -> Self {
+        let path = Path::single(points(&row["path"]), Vehicle::Rail);
+        let table = timetable["lines"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|line| line["route"] == row["route"] && line["direction"] == row["direction"])
+            .unwrap();
+        let runs: Vec<_> = table["trips"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|trip| {
+                let calls = trip[1]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|call| {
+                        let vertex = call[2].as_f64().unwrap();
+                        let a = path.metres[vertex.floor() as usize];
+                        let b = path.metres[vertex.ceil() as usize];
+                        Call {
+                            arrival: call[0].as_f64().unwrap() as f32,
+                            departure: call[1].as_f64().unwrap() as f32,
+                            distance: a + (b - a) * vertex.fract() as f32,
+                            station: call[3].as_u64().unwrap() as usize,
+                        }
+                    })
+                    .collect();
+                RailRun { calls }
+            })
+            .collect();
+        let longest = runs
+            .iter()
+            .map(|r| r.calls.last().unwrap().departure - r.calls[0].arrival)
+            .fold(0., f32::max);
+        Self {
+            service: row["route"].as_str().unwrap().to_owned(),
+            path,
+            runs,
+            longest,
+            stations: row["parent_station_ids"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|id| id.as_str().unwrap().to_owned())
+                .collect(),
+        }
+    }
+
+    // The GTFS gives a centreline shared by opposite directions. Project the car's two
+    // bogies onto it so its yaw and the side offset change continuously through corners.
+    fn centre(&self, distance: f32) -> Vec3 {
+        let axis = &self.path.metres;
+        let end = axis
+            .partition_point(|&d| d <= distance)
+            .clamp(1, axis.len() - 1);
+        let start = end - 1;
+        let a = self.path.points[start];
+        let b = self.path.points[end];
+        if axis[end] == axis[start] {
+            return b;
+        }
+        let mut p = a.lerp(b, (distance - axis[start]) / (axis[end] - axis[start]));
+        p.y = terrain_from_xz(p.x, p.z);
+        p
+    }
+
+    fn coach(&self, distance: f32) -> (Vec3, Vec3) {
+        let front = self.centre(distance + 5.);
+        let rear = self.centre(distance - 5.);
+        let dir = (front - rear).normalize_or_zero();
+        let p = (front + rear) * 0.5 + right(dir) * 2.5;
+        (Vec3::new(p.x, terrain_from_xz(p.x, p.z) + 0.45, p.z), dir)
+    }
 }
 
 type Table = HashMap<String, Arc<Path>>;
@@ -265,28 +382,14 @@ fn local_routes(tracks: &[RailLine]) -> HashMap<LocalKey, Arc<Path>> {
 
 impl Routes {
     fn load() -> Self {
-        let mut tracks = Vec::new();
-        for row in json("web/data/transit_paths.json").as_array().unwrap() {
-            if row["mode"] != "metro" {
-                continue;
-            }
-            tracks.push(RailLine {
-                service: row["route"].as_str().unwrap().to_owned(),
-                path: Path::single(points(&row["path"]), Vehicle::Rail),
-                departures: row["trips"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| v.as_u64().unwrap() as usize)
-                    .collect(),
-                stations: row["parent_station_ids"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| v.as_str().unwrap().to_owned())
-                    .collect(),
-            });
-        }
+        let timetable = gzip_json("web/data/metro_schedule.json.gz");
+        let tracks: Vec<_> = json("web/data/transit_paths.json")
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| row["mode"] == "metro")
+            .map(|row| RailLine::load(row, &timetable))
+            .collect();
         let public = json("web/data/public_routes.json")
             .as_object()
             .unwrap()
@@ -775,22 +878,19 @@ fn trains(routes: &Routes, now: f32) -> Vec<Vec<Train<'_>>> {
     let mut out = Vec::new();
     for line in &routes.tracks {
         let mut running = Vec::new();
-        let duration = *line.path.seconds.last().unwrap();
-        let slot = (now / BIN).floor() as i32;
-        for bin in slot - (duration / BIN).ceil() as i32..=slot {
-            let count = line.departures[bin.rem_euclid(48) as usize];
-            for i in 0..count {
-                let start = (bin as f32 + i as f32 / count as f32) * BIN;
-                let distance = (now - start) * Vehicle::Rail.speed();
-                if let Some((pos, _, _)) = line.path.at(distance, &line.path.metres) {
-                    running.push(Train {
-                        line,
-                        distance,
-                        pos,
-                        riders: 0,
-                        paint: Paint::Plain,
-                    });
-                }
+        let first = line
+            .runs
+            .partition_point(|run| run.calls[0].arrival < now - line.longest);
+        let last = line.runs.partition_point(|run| run.calls[0].arrival <= now);
+        for run in &line.runs[first..last] {
+            if let Some(distance) = run.distance(now) {
+                running.push(Train {
+                    line,
+                    distance,
+                    pos: line.centre(distance),
+                    riders: 0,
+                    paint: Paint::Plain,
+                });
             }
         }
         out.push(running);
@@ -879,9 +979,9 @@ fn draw(
         )
     };
     let size_at = |p: Vec3| (eye.distance(p) * 0.0024).clamp(1.35, 11.);
-    // Twelve city seconds per real second, starting in the morning peak.
+    // The city clock runs in real time from the morning peak and survives scenario revisions.
     let now = clock.0
-        .unwrap_or(8. * 3600. + 10. * 60. + time.elapsed_secs() * 12.)
+        .unwrap_or(8. * 3600. + 10. * 60. + time.elapsed_secs())
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
@@ -970,13 +1070,10 @@ fn draw(
         if !visible(train.pos, 125.) {
             continue;
         }
-        let scale = size_at(train.pos).min(2.5);
-        for n in 0..3 {
-            let d = train.distance - n as f32 * 14.3 * scale;
-            let Some((p, dir, _)) = train.line.path.at(d, &train.line.path.metres) else {
-                continue;
-            };
-            let p = p + right(dir) * 2.5 + Vec3::Y * 0.45;
+        // Keep each three-car set centred at the station, with room for the opposite track.
+        let scale = 1.35;
+        for offset in [14.3, 0., -14.3] {
+            let (p, dir) = train.line.coach(train.distance + offset * scale);
             place(Model::Coach, train.paint, pose(p, dir, Vec3::splat(scale)));
             // The illuminated roof strip shows the workers riding this service in this frame.
             if train.riders > 0 {
