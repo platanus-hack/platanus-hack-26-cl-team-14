@@ -1,12 +1,12 @@
 //! Final replay chart: stacked bars from the `chart` block that `run_replay` adds to a cached result.
 use crate::net::Scenario;
-use bevy::{prelude::*, text::FontSize};
+use bevy::{prelude::*, text::FontSize, time::Real};
 
 pub struct ChartPlugin;
 impl Plugin for ChartPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, load_font)
-            .add_systems(Update, (draw.run_if(resource_changed::<Scenario>), reveal));
+            .add_systems(Update, (draw.run_if(resource_changed::<Scenario>), reveal).chain());
     }
 }
 
@@ -46,9 +46,9 @@ fn thousands(value: f64) -> String {
     out
 }
 
-fn reveal(time: Res<Time>, mut charts: Query<(&Chart, &mut Visibility)>) {
+fn reveal(time: Res<Time<Real>>, mut charts: Query<(&Chart, &mut Visibility)>) {
     for (chart, mut visibility) in &mut charts {
-        if time.elapsed_secs() >= chart.0 {
+        if *visibility == Visibility::Hidden && time.elapsed_secs() >= chart.0 {
             *visibility = Visibility::Inherited;
         }
     }
@@ -56,7 +56,7 @@ fn reveal(time: Res<Time>, mut charts: Query<(&Chart, &mut Visibility)>) {
 
 fn draw(
     mut commands: Commands,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     scenario: Res<Scenario>,
     font: Res<ChartFont>,
     old: Query<Entity, With<Chart>>,
