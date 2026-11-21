@@ -1,20 +1,20 @@
-# Local Costanera viewer
+# Local demo tile viewer
 
 Use Rust1.97.1 or later. Build the separate binary:
 
 ```sh
-CARGO_TARGET_DIR=/tmp/costanera-view-target cargo build --locked --manifest-path viz/Cargo.toml --bin view_costanera -j1
+CARGO_TARGET_DIR=/tmp/costanera-view-target cargo build --locked --manifest-path viz/Cargo.toml --bin view_demo_tiles -j1
 ```
 
 The operator opens the captured bundle:
 
 ```sh
-/tmp/costanera-view-target/debug/view_costanera /absolute/path/to/costanera
+/tmp/costanera-view-target/debug/view_demo_tiles /absolute/path/to/demo-bundle
 ```
 
 Left drag orbits. Right drag, middle drag, or Shift-left drag pans. Scroll zooms.
-The first view looks toward the tower from the southeast. The camera target is
-120 metres above the footprint origin. No city simulation systems run.
+The default view looks from the southeast. The camera target is
+120 metres above the capture origin. No city simulation systems run.
 For the small first-tile gate, add `--distance 100 --target-y 20`.
 These options change only the camera. The full-scene defaults remain 850 and 120 metres.
 The camera uses no tone-mapping lookup texture.
@@ -26,7 +26,7 @@ Each tile has a relative `path` to a local GLB and a column-major `transform`
 with 16 double-precision values. Capture composes inherited tile transforms,
 the glTF Y-up axis conversion, and Earth-to-local conversion before writing it.
 The resulting coordinates are metres: X east, Y up, Z south. The anchor uses
-the tower footprint center and the existing terrain elevation.
+the selected site center and the existing terrain elevation.
 
 The viewer casts only the local placement matrix to rendering precision.
 It preserves each GLB node hierarchy and disables additional axis rotation.
@@ -51,7 +51,7 @@ has already composed the required axes. The
 does not support Draco compression, so capture decodes it before display.
 
 First open one real decoded tile. Confirm orientation, texture attachment,
-and visible attribution. Then capture the full area. The operator must check
-the tower and mall, level overlap, orbit/zoom stability, and offline reopening
+and visible attribution. Then capture the full selected area. The operator must check
+the chosen demo site, level overlap, orbit/zoom stability, and offline reopening
 without an API key. No visual acceptance is implied by a successful build.
 The implementation worker does not open the native window.

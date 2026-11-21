@@ -51,7 +51,7 @@ fn main() {
     let directory = PathBuf::from(
         std::env::args()
             .nth(1)
-            .expect("Use: view_costanera <bundle-directory>"),
+            .expect("Use: view_demo_tiles <bundle-directory>"),
     )
     .canonicalize()
     .unwrap();
@@ -86,7 +86,7 @@ fn main() {
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Costanera · local Google 3D Tiles".into(),
+                        title: "Demo · local Google 3D Tiles".into(),
                         resolution: (1920, 1080).into(),
                         ..default()
                     }),
