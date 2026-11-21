@@ -802,3 +802,32 @@ The builder traces the winning path of the existing weekday 08:00 router. It inc
 The router assigns one wait to a stop pattern. When several route IDs share one pattern, the display uses the active trip with the shortest headway, or the first scheduled departure in the 08:00 hour. These paths connect population-weighted comuna centres and show modeled travel on a representative weekday. They have no passenger-level endpoints.
 
 Example: Quilicura → Santiago (`13125-13101`) uses bus 425 and Metro L3. The corresponding CSV row gives 37.4 minutes door to door, 25.6 minutes on board, and one transfer.
+
+## Bicycle routes
+
+`web/data/bicycle_routes.json` maps each directed key `originCut-destinationCut` to a path of WGS84 `[longitude, latitude]` points. Endpoints are the nearest routable bicycle locations to the population-weighted comuna points in `communes.csv`. The paths represent possible routes between these points. They do not measure cyclists or represent every street used by residents.
+
+The cutoff uses great-circle distance between the original comuna points, strictly below 15 km. The file contains all 822 eligible directed pairs among 46 of the 52 comunas. The other six have no other comuna point inside that radius. Road distance ranges from 2.53 to 27.50 km. Of the 822 routes, 309 exceed 15 km on the road. Display paths use a 4 m simplification tolerance. Together they contain 63,065 coordinates and take 1,512,826 bytes.
+
+`bicycle_route_lengths.csv` gives the direct distance, routed distance, and the gap from each comuna point to its route endpoint, in metres. Routed distance excludes both endpoint gaps. The median origin gap across directed routes is 11.2 m. Lampa has the largest gap, 716.9 m.
+
+For example, Santiago → Providencia (`13101-13123`) is 4,499.8 m direct and 5,268.3 m by bicycle. The route uses the Antonio Varas, Bilbao and Pocuro cycleways. Endpoint gaps are 9.6 and 25.6 m. The return trip is 5,294.7 m. All 29,827 route instructions across the export have OSRM mode `cycling`.
+
+Use the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The route geometry and distance table are available under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Source: [Geofabrik Chile, 20 November 2026](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf).
+
+### Rebuild
+
+Use OSRM 26.11.0 with its bicycle profile and the project wrapper. The profile uses mapped bicycle access, barriers, one-way rules and cycle lanes. Its `cyclability` weight penalizes roads with less suitable conditions. The wrapper excludes motorways, trunks, steps and motor roads. It excludes footways, pedestrian streets and paths unless bicycle access is explicit. It removes directions that require pushing a bike. Temporary closures and missing access signs remain unknown. [OSRM bicycle profile](https://github.com/Project-OSRM/osrm-backend/blob/v26.11.0/profiles/bicycle.lua)
+
+Set `OSRM_PROFILES` to the OSRM directory that contains `bicycle.lua` and `lib/`. From the repository root, run:
+
+```sh
+mkdir -p data/raw/bicycle
+osmium extract -b -71.59,-34.12,-70.23,-32.88 data/raw/osm-roads/chile.osm.pbf -o data/raw/bicycle/region.osm.pbf
+osrm-extract -t 2 -p tools/pack/bicycle_profile.lua -o data/raw/bicycle/region.osrm data/raw/bicycle/region.osm.pbf
+osrm-partition -t 2 data/raw/bicycle/region.osrm
+osrm-customize -t 2 data/raw/bicycle/region.osrm
+osrm-routed -i 127.0.0.1 -p 5196 -t 2 -a mld data/raw/bicycle/region.osrm
+```
+
+From a second terminal, run `python3 -I tools/pack/bicycle_routes.py`.
