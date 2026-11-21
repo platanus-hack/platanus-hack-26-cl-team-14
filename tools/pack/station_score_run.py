@@ -8,7 +8,7 @@ AFTER the run (observed values never go back into Rust). Daily sums use only the
 """
 import datetime, hashlib, json, re, subprocess, sys
 
-LAYERS = {(): "L0", ("1000",): "L1", ("1000", "public"): "L2", ("1000", "public", "classes"): "L7", ("1000", "public", "classes", "split"): "L4", ("1000", "public", "classes", "split", "inverse"): "L4b"}
+LAYERS = {(): "L0", ("1000",): "L1", ("1000", "public"): "L2", ("1000", "public", "classes"): "L7", ("1000", "public", "classes", "split"): "L4", ("1000", "public", "classes", "split", "inverse"): "L4b", ("1000", "public", "classes", "split", "inverse", "schools"): "L5"}
 args = sys.argv[1:]
 layer = LAYERS[tuple(args)]
 pred_path = "/tmp/station_predictions_" + layer + ".json"
@@ -41,7 +41,7 @@ assert round(wape_bins, 4) == printed["WAPE_bins"] and round(wape_daily, 4) == p
 
 out = {"layer": layer, "stations_args": args, "model_commit": git("log", "-1", "--format=%h", "--", "engine/src"),
        "model_source_sha256": sha("engine/src/stations.rs"),
-       "input_sha256": {f: sha("data/mvp/" + f) for f in ("work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json")},
+       "input_sha256": {f: sha("data/mvp/" + f) for f in ("work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json", "schools.csv")},
        "scorer_commit": git("log", "-1", "--format=%h", "--", "tools/pack/check_score.py"),
        "scorer_sha256": sha("tools/pack/check_score.py"),
        "run_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
