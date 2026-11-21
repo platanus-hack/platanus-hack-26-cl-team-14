@@ -3,6 +3,7 @@
 //! how they travel (the commute mode logit of choice.rs for the pair home comuna → venue comuna), not who they are.
 use crate::choice::{Choice, shares};
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::path::Path;
 
 pub const ASSUMPTIONS: [&str; 3] = [
@@ -15,9 +16,22 @@ pub struct Fans { population: Vec<f64> } // fans by comuna
 
 impl Fans {
     pub fn load(dir: &Path) -> Self {
-        let col = |file: &str, i: usize| -> Vec<f64> { csv::Reader::from_path(dir.join(file)).unwrap().records().map(|r| r.unwrap()[i].parse().unwrap()).collect() };
-        // Both files list the comunas in the order of communes.csv.
-        let population = col("communes.csv", 2).iter().zip(col("fan_base.csv", 6)).map(|(p, s)| p * s).collect();
+        let mut fan_base = csv::Reader::from_path(dir.join("fan_base.csv")).unwrap();
+        let shares_by_cut: HashMap<String, f64> = fan_base
+            .records()
+            .map(|row| {
+                let row = row.unwrap();
+                (row[0].to_owned(), row[6].parse().unwrap())
+            })
+            .collect();
+        let mut communes = csv::Reader::from_path(dir.join("communes.csv")).unwrap();
+        let population = communes
+            .records()
+            .map(|row| {
+                let row = row.unwrap();
+                row[2].parse::<f64>().unwrap() * shares_by_cut[&row[0]]
+            })
+            .collect();
         Fans { population }
     }
 
