@@ -1,52 +1,82 @@
 <!doctype html>
 <html lang="es">
 <meta charset="utf-8">
-<title>Tobalaba</title>
+<title>Santiago · Tobalaba</title>
 <script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
 <style>
   html, body { margin: 0; height: 100%; background: #0a0f24; color: #fff; overflow: hidden;
     font: 700 28px/1.1 -apple-system, "Helvetica Neue", Arial, sans-serif; }
   #map { position: absolute; inset: 0; } canvas { background: none !important; }
-  .box { position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; }
-  #clock { top: 28px; left: 28px; font-size: 150px; font-variant-numeric: tabular-nums; cursor: pointer; }
-  #clock small { display: block; font-size: 30px; color: #9fb0d8; }
-  #score { top: 28px; right: 28px; text-align: right; font-size: 110px; }
-  #score small { display: block; font-size: 30px; color: #9fb0d8; }
-  #panel { bottom: 28px; left: 28px; width: 560px; }
-  #go { width: 100%; padding: 22px; font: inherit; font-size: 46px; color: #0a0f24; background: #ff7a1a;
-    border: 0; border-radius: 16px; cursor: pointer; }
+  .box { position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; font-variant-numeric: tabular-nums; }
+  small { display: block; font-size: 30px; color: #9fb0d8; }
+  body.s .t, body.t .s { display: none !important; }
+  #switch { top: 28px; right: 28px; padding: 10px; display: flex; gap: 10px; }
+  button { font: inherit; font-size: 46px; padding: 18px 34px; color: #fff; background: #1c2750; border: 0; border-radius: 16px; cursor: pointer; }
+  body.s #vs, body.t #vt, #go, #reset { color: #0a0f24; background: #ff7a1a; }
   #go.on { background: #fff; }
-  #homes { font-size: 64px; margin: 18px 0 4px; font-variant-numeric: tabular-nums; }
-  #homes small { font-size: 30px; color: #9fb0d8; }
+  .tl { top: 28px; left: 28px; } .big { font-size: 130px; display: inline-block; margin-right: 50px; } .mid { font-size: 96px; } #zname { font-size: 72px; color: #ff7a1a; }
+  #clock { cursor: pointer; }
+  #engine { top: 170px; right: 28px; text-align: right; font-size: 80px; }
+  .panel { bottom: 28px; left: 28px; width: 560px; }
+  .panel button { width: 100%; }
+  .val { font-size: 64px; margin: 18px 0 4px; } .val small { display: inline; }
   input[type=range] { width: 100%; height: 44px; accent-color: #ff7a1a; }
-  #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; font-variant-numeric: tabular-nums; }
-  #delta small { display: block; font-size: 30px; color: #9fb0d8; }
-  #ph { top: 28px; left: 50%; transform: translateX(-50%); font-size: 60px; color: #ffd400;
-    border: 6px solid #ffd400; background: none; pointer-events: none; opacity: .85; display: none; }
-  .more { color: #ff4d6d; } .less { color: #3ddc97; }
+  #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; }
+  .more { color: #ff4d6d; } .less { color: #3ddc97; } .model { color: #ffb47a; }
+  i { display: inline-block; width: 26px; height: 26px; border-radius: 50%; margin: 0 8px 0 18px; }
 </style>
+<body class="t">
 <div id="map"></div>
-<div id="clock" class="box"><span id="hhmm">--:--</span><small><span id="now">0</span> subidas · Metro Tobalaba</small></div>
-<div id="score" class="box"><span id="sc">—</span><small>puntaje</small></div>
-<div id="panel" class="box">
-  <button id="go">Sacar el MUT</button>
-  <div id="homes"><span id="n">500</span> <small>viviendas</small></div>
-  <input id="slider" type="range" min="0" max="2000" step="50" value="500">
-</div>
-<div id="delta" class="box"><span id="dv">0</span><small>subidas al día</small></div>
-<div id="ph" class="box">placeholder</div>
-<script>
-const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, LightingEffect, AmbientLight, DirectionalLight} = deck;
-const MUT = [-70.6009, -33.4180];
-const SCALE = 0.1;            // metres of column for each boarding in a half hour
-const FIRST = 11, LAST = 47;  // 05:30 to 23:30
-const $ = id => document.getElementById(id);
-const fmt = n => Math.round(n).toLocaleString('es-CL');
-const isMut = f => f.properties.is_mut;
-const isMetro = s => !/^P[A-J]\d/.test(s.stop_id);
-const at = (a, t) => { const i = Math.floor(t), j = Math.min(i + 1, 47); return a[i] + (a[j] - a[i]) * (t - i); };
+<div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button></div>
 
-let run, buildings, ground, t = FIRST, playing = true, active = false, homes = 500;
+<div class="box tl t" id="clock">
+  <div class="big" id="hhmm">--:--</div>
+  <div class="big" id="now">—</div>
+  <small>subidas en 30 min · Metro Tobalaba · <span id="nowk">observado</span></small>
+  <small>abril 2026, día laboral promedio</small>
+</div>
+<div class="box panel t">
+  <button id="go">Sacar el MUT</button>
+  <div class="val"><span id="n">298</span> <small>viviendas · supuesto</small></div>
+  <input id="slider" type="range" min="0" max="1500" step="2" value="298">
+  <small>MUT, Las Condes · 7.124 empleos (modelo)</small>
+  <small id="legend"><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#fff"></i>modelo base<i style="background:#ff7a1a"></i>escenario</small>
+</div>
+
+<div class="box tl s">
+  <div class="mid" id="zname">—</div>
+  <div class="mid" id="zjobs">—</div><small>trabajan aquí · <span class="zk">observado, Censo 2024</span></small>
+  <div class="mid" id="zpop">—</div><small>viven aquí · <span class="zk">observado, Censo 2024</span></small>
+</div>
+<div class="box panel s">
+  <div class="val"><small>empleos</small> ×<span id="jv">1,0</span></div>
+  <input id="jobs" type="range" min="0.2" max="2" step="0.1" value="1">
+  <div class="val"><small>viviendas</small> ×<span id="hv">1,0</span></div>
+  <input id="housing" type="range" min="0.2" max="2" step="0.1" value="1">
+  <button id="reset">Volver</button>
+</div>
+
+<div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
+<div id="delta" class="box t"><span id="dv"></span><small>cambio al día · modelo</small></div>
+<script>
+const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
+const API = 'http://localhost:8787/api/';
+const MUT = [-70.6009, -33.4180];
+const FIRST = 11, LAST = 47;  // 05:30 to 23:30
+const HOMES = 298;            // average dwellings of an RM tower of 15 floors or more
+const KZ = 0.02;              // metres of comuna height for each person who works there
+const VIEWS = {
+  t: {longitude: -70.6040, latitude: -33.4205, zoom: 15.2, pitch: 55, bearing: -28},
+  s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15}};
+const $ = id => document.getElementById(id);
+const fmt = (n, d = 0) => n.toLocaleString('es-CL', {maximumFractionDigits: d, minimumFractionDigits: d});
+const height = v => 15 + 4 * Math.sqrt(v);  // square root with a 15 m floor: a bus stop stays visible
+const at = (a, t) => { const i = Math.floor(t), x = a[i], y = a[Math.min(i + 1, 47)]; return x == null || y == null ? x : x + (y - x) * (t - i); };
+const post = (path, body) => fetch(API + path, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.ok ? r.json() : Promise.reject());
+
+let view = 't', stops, tob, buildings, ground, communes, t = FIRST, playing = true, active = false, homes = HOMES;
+let site = null;                         // last answer of POST /api/site-scenario
+let world = null, sim = null, sel = '13123', seq = 0;  // GET /api/world, last POST /api/simulate, selected comuna
 
 // footprint of the new tower: a 44 m square on the MUT site
 const d = 0.00024, tower = [{polygon: [[MUT[0] - d, MUT[1] - d * .85], [MUT[0] + d, MUT[1] - d * .85], [MUT[0] + d, MUT[1] + d * .85], [MUT[0] - d, MUT[1] + d * .85]]}];
@@ -54,83 +84,180 @@ const d = 0.00024, tower = [{polygon: [[MUT[0] - d, MUT[1] - d * .85], [MUT[0] +
 const deckgl = new DeckGL({
   container: 'map',
   views: new MapView({orthographic: true}),
-  initialViewState: {longitude: -70.6015, latitude: -33.4160, zoom: 15.2, pitch: 55, bearing: -28},
+  initialViewState: VIEWS.t,
   controller: true,
   effects: [new LightingEffect({
     ambient: new AmbientLight({intensity: 1.0}),
     sun: new DirectionalLight({direction: [-2, -4, -3], intensity: 1.4})})],
 });
 
-function layers() {
-  const key = active ? 'scenario' : 'base';
-  const fill = s => {
-    const diff = active ? at(s.scenario, t) - at(s.base, t) : 0;
-    return diff > 0.5 ? [255, 77, 109] : diff < -0.5 ? [61, 220, 151] : isMetro(s) ? [0, 229, 255] : [255, 212, 0];
-  };
+function engine(r) {  // the measured time of the engine, or "sin motor"
+  $('ms').textContent = r ? fmt(r.elapsed_ms, 2) + ' ms' : 'sin motor';
+  $('msk').textContent = r ? 'motor Rust · medido' : 'localhost:8787 no responde';
+}
+
+// ---------- Tobalaba ----------
+function siteScenario() {
+  // every parameter is explicit; the engine has no defaults. P = value, kind, source.
+  const P = (value, source_kind, source) => ({value, source_kind, source});
+  const u = 'user_assumption', o = 'observed_aggregate';
+  post('site-scenario', {
+    station_id: 'TB-TOB', comuna_cut: '13114', longitude: MUT[0], latitude: MUT[1],
+    baseline_jobs: P(7124, u, 'data/mvp/jobs.csv, manzana 13114131009033, modeled, not measured'),
+    baseline_dwellings: P(0, u, 'the MUT has no dwellings'),
+    jobs_removed: P(7124, u, 'all modeled jobs of the manzana'),
+    dwellings_added: P(homes, u, 'slider on the page'),
+    parameters: {
+      occupied_share: P(0.901, o, 'Las Condes households / dwellings = 116,176 / 128,937, communes.csv, Census 2024'),
+      persons_per_occupied_dwelling: P(2.549, o, 'Las Condes population / households = 296,134 / 116,176, communes.csv, Census 2024'),
+      known_commuters_per_resident: P(0.3637, o, 'Las Condes origin total of work_od.csv / population = 107,707 / 296,134'),
+      attendance_home: P(1, u, 'each commuter goes to work each weekday'),
+      attendance_work: P(1, u, 'each worker comes each weekday'),
+      filled_job_share: P(1, u, 'all modeled jobs are filled'),
+      metro_entry_share_home: P(0.314, u, 'bus+Metro share of Las Condes commuters, mode_share.csv; upper limit for Metro entries'),
+      metro_entry_share_work: P(0.314, u, 'same value as home; no data on workers of the site'),
+      access_share_home: P(1, u, 'all Metro users of the site enter at the nearest station'),
+      access_share_work: P(1, u, 'all Metro users of the site enter at the nearest station'),
+      maximum_access_distance_m: P(1000, u, 'straight line'),
+    },
+    time_profile: 'observed_am_06_10_pm_16_21', population_policy: 'local_increment_unbalanced',
+  }).then(r => { site = r; engine(r); }, () => { site = null; engine(); }).then(() => {
+    const dd = site && site.delta.reduce((a, x) => a + (x || 0), 0);
+    $('dv').textContent = site ? (dd > 0 ? '+' : '') + fmt(dd) : '';
+    $('dv').className = dd > 0 ? 'more' : 'less';
+    $('delta').style.display = site ? 'block' : 'none';
+    draw();
+  });
+}
+
+function tobalaba() {
+  const cols = (id, key, dx, color, r = 18) => new ColumnLayer({id, data: [0].filter(() => at(site[key], t) != null),
+    getPosition: [tob.lon + dx, tob.lat], diskResolution: 20, radius: r, getElevation: () => height(at(site[key], t)),
+    getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
+  const zone = id => world && world.zones.find(z => z.id == id);
   return [
     new GeoJsonLayer({id: 'ground', data: ground, stroked: false,
       getFillColor: [26, 74, 62], getLineColor: f => /river|canal/.test(f.properties.kind) ? [40, 110, 200] : f.properties.major ? [70, 84, 130] : [38, 48, 86],
       getLineWidth: f => f.properties.kind == 'river' ? 45 : f.properties.kind == 'canal' ? 10 : f.properties.major ? 16 : 7, lineWidthUnits: 'meters'}),
     new GeoJsonLayer({id: 'buildings', data: buildings, extruded: true, stroked: false,
-      getElevation: f => isMut(f) && active ? 0 : f.properties.height_m,
-      getFillColor: f => isMut(f) ? [255, 122, 26] : [125, 140, 190],
+      getElevation: f => f.properties.is_mut && active ? 0 : f.properties.height_m,
+      getFillColor: f => f.properties.is_mut ? [255, 122, 26] : [125, 140, 190],
       material: {ambient: .45, diffuse: .7, shininess: 8},
       updateTriggers: {getElevation: active}, transitions: {getElevation: 900}}),
-    new deck.PolygonLayer({id: 'tower', data: tower, extruded: true, getPolygon: o => o.polygon,
-      getElevation: active ? homes * 0.12 : 0, getFillColor: [255, 255, 255],
+    new PolygonLayer({id: 'tower', data: tower, extruded: true, getPolygon: o => o.polygon,
+      getElevation: active ? homes * 0.15 : 0, getFillColor: [255, 255, 255],
       updateTriggers: {getElevation: [active, homes]}, transitions: {getElevation: 900}}),
-    new ColumnLayer({id: 'stops', data: run.stops, getPosition: s => [s.lon, s.lat], diskResolution: 20,
-      radius: 18, getElevation: s => at(s[key], t) * SCALE, getFillColor: fill,
-      material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: [t, key], getFillColor: [t, key]}}),
-    active && new ColumnLayer({id: 'ghost', data: run.stops, getPosition: s => [s.lon, s.lat], diskResolution: 20,
-      radius: 26, getElevation: s => at(s.base, t) * SCALE, getFillColor: [255, 255, 255, 50], parameters: {depthWriteEnabled: false}, updateTriggers: {getElevation: t}}),
-    new deck.TextLayer({id: 'label', data: [0], getPosition: [...MUT, active ? homes * 0.12 : 65], getPixelOffset: [0, -60], getText: () => active ? 'TORRE' : 'MUT',
+    // observed boardings; a half hour with no observation has no column
+    new ColumnLayer({id: 'stops', data: stops.filter(s => at(s.observed, t) != null), getPosition: s => [s.lon, s.lat], diskResolution: 20,
+      radius: 18, getElevation: s => height(at(s.observed, t)), getFillColor: s => s.name ? [0, 229, 255] : [255, 212, 0],
+      material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}}),
+    site && cols('base', 'base', 0.0005, [255, 255, 255]),
+    site && cols('scenario', 'scenario', 0.001, [255, 122, 26], 24),
+    new TextLayer({id: 'names', data: stops.filter(s => s.name), getPosition: s => [s.lon, s.lat, height(at(s.observed, t) || 0)], getPixelOffset: [0, -34],
+      getText: s => s.name, getSize: 36, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255], updateTriggers: {getPosition: t}}),
+    new TextLayer({id: 'label', data: [0], characterSet: 'auto', fontFamily: 'Helvetica, Arial, sans-serif', getPosition: [...MUT, active ? homes * 0.15 : 65], getPixelOffset: [0, -60], getText: () => active ? 'TORRE · supuesto' : 'MUT · Las Condes',
       getSize: 44, fontWeight: 800, getColor: [255, 255, 255], background: true, getBackgroundColor: active ? [10, 15, 36] : [255, 122, 26],
       backgroundPadding: [14, 8], updateTriggers: {getPosition: [active, homes], getText: active, getBackgroundColor: active}}),
-    active && new ArcLayer({id: 'flows', data: run.flows, getSourcePosition: f => f.from, getTargetPosition: f => f.to,
-      getWidth: f => 2 + Math.sqrt(f.persons), getSourceColor: [255, 255, 255], getTargetColor: [255, 122, 26]}),
+    site && world && new ArcLayer({id: 'siteflows', data: site.flows.filter(f => zone(f.destination_cut)), getSourcePosition: MUT,
+      getTargetPosition: f => [zone(f.destination_cut).longitude, zone(f.destination_cut).latitude],
+      getWidth: f => 2 + Math.sqrt(f.scenario_commuters), getSourceColor: [255, 255, 255], getTargetColor: [255, 122, 26]}),
   ];
 }
 
+// ---------- Santiago ----------
+function simulate() {
+  const n = ++seq, j = +$('jobs').value, h = +$('housing').value;
+  $('jv').textContent = fmt(j, 1); $('hv').textContent = fmt(h, 1);
+  post('simulate', {zone_id: sel, jobs_multiplier: j, housing_multiplier: h})
+    .then(r => { if (n == seq) { sim = r; engine(r); draw(); } }, () => engine());
+}
+
+function santiago() {
+  const zs = sim ? Object.fromEntries(sim.zones.map(z => [z.id, z])) : {};
+  const base = world ? Object.fromEntries(world.zones.map(z => [z.id, z])) : {};
+  const pos = id => [zs[id].longitude, zs[id].latitude, zs[id].jobs * KZ];
+  const z = zs[sel];
+  if (z) {
+    const model = sim.metadata.state != 'observed_baseline';
+    $('zname').textContent = z.name; $('zjobs').textContent = fmt(z.jobs); $('zpop').textContent = fmt(z.population);
+    $('zjobs').className = $('zpop').className = model ? 'mid model' : 'mid';
+    document.querySelectorAll('.zk').forEach(e => e.textContent = model ? 'modelo' : 'observado, Censo 2024');
+  }
+  return [
+    new GeoJsonLayer({id: 'communes', data: communes, extruded: !!sim, pickable: true,
+      getElevation: f => zs[f.properties.cut].jobs * KZ, getLineColor: [150, 170, 255],
+      getFillColor: f => {
+        const c = f.properties.cut, dj = sim ? zs[c].jobs - base[c].jobs : 0, k = sim ? Math.sqrt(zs[c].jobs / 5e5) : 0;  // more jobs, more light
+        return c == sel ? [255, 122, 26] : dj > 50 ? [255, 77, 109] : dj < -50 ? [61, 220, 151] : [14 + 60 * k, 20 + 80 * k, 48 + 150 * k];
+      },
+      material: {ambient: .5, diffuse: .7, shininess: 8},
+      onClick: ({object}) => { sel = String(object.properties.cut); $('jobs').value = $('housing').value = 1; simulate(); },
+      updateTriggers: {getElevation: sim, getFillColor: [sim, sel]}, transitions: {getElevation: 600}}),
+    // modeled work flows: the selected comuna in full, the rest only when large
+    sim && new ArcLayer({id: 'flows', data: sim.flows.filter(f => f.origin != f.destination && (f.origin == sel || f.destination == sel || f.workers > 6000)),
+      getSourcePosition: f => pos(f.origin), getTargetPosition: f => pos(f.destination),
+      getWidth: f => Math.sqrt(f.workers) / 8, getHeight: .25,
+      getSourceColor: f => f.destination == sel ? [255, 255, 255] : f.origin == sel ? [255, 122, 26] : [120, 140, 220, 60],
+      getTargetColor: f => f.destination == sel || f.origin == sel ? [255, 122, 26] : [120, 140, 220, 60],
+      updateTriggers: {getSourcePosition: sim, getTargetPosition: sim, getSourceColor: sel, getTargetColor: sel},
+      transitions: {getWidth: 600, getSourcePosition: 600, getTargetPosition: 600}}),
+  ];
+}
+
+// ---------- page ----------
 function draw() {
-  const i = Math.floor(t);
-  $('hhmm').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
-  $('now').textContent = fmt(run.stops[0][active ? 'scenario' : 'base'][i]);
-  const day = Math.max(0, Math.sin((t - 13) / 28 * Math.PI));  // 0 at 06:30 and 20:30, 1 near 13:30
-  document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
-  deckgl.setProps({layers: layers()});
+  if (view == 't') {
+    const i = Math.floor(t), now = (site ? site.scenario : tob.observed)[i];
+    $('hhmm').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
+    $('now').textContent = now == null ? '—' : fmt(now);
+    $('now').className = site ? 'big model' : 'big';
+    $('nowk').textContent = now == null ? 'sin dato' : site ? 'modelo' : 'observado';
+    const day = Math.max(0, Math.sin((t - 13) / 28 * Math.PI));  // 0 at 06:30 and 20:30, 1 near 13:30
+    document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
+  } else document.body.style.background = '';
+  deckgl.setProps({layers: view == 't' ? tobalaba() : santiago()});
 }
 
 function tick() {
-  if (playing) { t += 1 / 50; if (t >= LAST) t = FIRST; draw(); }  // about 0.85 s for each half hour
+  if (playing && view == 't') { t += 1 / 50; if (t >= LAST) t = FIRST; draw(); }  // about 0.85 s for each half hour
   requestAnimationFrame(tick);
 }
 
+function show(v) {
+  view = v; document.body.className = v;
+  deckgl.setProps({initialViewState: {...VIEWS[v], transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
+  draw();
+}
+
+$('vs').onclick = () => show('s'); $('vt').onclick = () => show('t');
 $('clock').onclick = () => playing = !playing;
-$('slider').oninput = e => { homes = +e.target.value; $('n').textContent = fmt(homes); draw(); };
+$('slider').oninput = e => { homes = +e.target.value; $('n').textContent = fmt(homes); if (active) siteScenario(); else draw(); };
 $('go').onclick = () => {
   active = !active;
   $('go').textContent = active ? 'Volver al MUT' : 'Sacar el MUT';
   $('go').className = active ? 'on' : '';
-  const sum = k => run.stops.reduce((a, s) => a + s[k].reduce((x, y) => x + y, 0), 0), dd = sum('scenario') - sum('base');
-  $('dv').textContent = (dd > 0 ? '+' : '') + fmt(dd);
-  $('dv').className = dd > 0 ? 'more' : dd < 0 ? 'less' : '';
-  $('delta').style.display = active ? 'block' : 'none';
-  draw();
+  if (active) return siteScenario();
+  site = null; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
 };
+$('jobs').oninput = $('housing').oninput = simulate;
+$('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
 
-// shortcut: reads a static file, change this URL to the engine when it gives per-stop estimates
-Promise.all(['data/run.json', 'data/buildings.geojson', 'data/ground.geojson'].map(u => fetch(u).then(r => r.json()))).then(([r, b, g]) => {
-  run = r; ground = g;
+const get = u => fetch(u).then(r => r.json());
+Promise.all(['stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
+    .map(u => get('data/' + u))).then(([bus, ...r]) => {
+  [ground, communes] = r.splice(-2);
   // the diorama tile: keep the buildings inside the frame of the ground extract
-  buildings = b.features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
-  run.stops.sort((a, b) => Math.max(...b.observed) - Math.max(...a.observed));  // stops[0] is Tobalaba
-  if (run.placeholder) $('ph').style.display = 'block';
-  else $('sc').textContent = run.score.toLocaleString('es-CL', {maximumFractionDigits: 2});
-  const q = new URLSearchParams(location.search);  // ?t=36&mut=1 gives a fixed frame for screenshots
+  buildings = r.pop().features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
+  // Metro: three reviewed station files (PR #29), 48 bins, null where there is no observation
+  stops = [...r.map(o => ({name: o.station.name, lon: o.station.longitude, lat: o.station.latitude, observed: o.half_hour_bins.LABORAL})), ...bus];
+  tob = stops[0];
+  const q = new URLSearchParams(location.search);  // ?v=s, or ?t=36&mut=1, gives a fixed frame for screenshots
   if (q.has('t')) { t = +q.get('t'); playing = false; }
-  if (q.has('mut')) $('go').onclick(); else draw();
+  if (q.has('mut')) $('go').onclick();
+  if (q.has('j')) $('jobs').value = q.get('j');
+  show(q.get('v') || 't');
   tick();
+  get(API + 'world').then(w => { world = sim = w; simulate(); }, () => engine());
 });
 </script>
 </html>
