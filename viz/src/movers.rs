@@ -4,6 +4,10 @@ use crate::{
     net::Scenario,
 };
 use bevy::{
+    asset::RenderAssetUsages,
+    image::{CompressedImageFormats, ImageSampler, ImageType},
+    mesh::Indices,
+    render::render_resource::PrimitiveTopology,
     camera::primitives::{Frustum, Sphere as Bounds},
     prelude::*,
 };
@@ -552,7 +556,7 @@ enum Model {
 #[derive(Resource)]
 struct Models {
     mesh: HashMap<Model, Handle<Mesh>>,
-    paint: HashMap<Paint, Handle<StandardMaterial>>,
+    paint: HashMap<(Model, Paint), Handle<StandardMaterial>>,
 }
 
 type Rgb = [u8; 3];
@@ -584,15 +588,6 @@ fn coat(at: [f32; 3], rgb: Rgb) -> Mesh {
     )
 }
 
-fn wheel(x: f32) -> Mesh {
-    let disc = Cylinder::new(0.43, 0.13)
-        .mesh()
-        .resolution(10)
-        .build()
-        .rotated_by(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2));
-    painted(disc, [x, 0.44, 0.], GLASS)
-}
-
 fn shape(parts: impl IntoIterator<Item = Mesh>) -> Mesh {
     let mut parts = parts.into_iter();
     let mut shape = parts.next().unwrap();
@@ -602,387 +597,119 @@ fn shape(parts: impl IntoIterator<Item = Mesh>) -> Mesh {
     shape
 }
 
-// Hand-drawn top-down slices, from tires to roof. The nose faces +X (right).
-// Each slice gives the near side up to the centerline. The other side mirrors it.
-const CAR_ROWS: &[&str] = &[
-    "......KKK...................KKK.......",
-    "......................................",
-    "......KKKKKKKKKKKKKKKKKKKKKKKKKK......",
-    ".....KKKKKKKKKKKKKKKKKKKKKKKKKKKK.....",
-    "....KKKKKKKKKKKKKKKKKKKKKKKKKKKKKK....",
-    ".....TTTTT.................TTTTT......",
-    "...KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK...",
-    "....KTHHHTK...............KTHHHTK.....",
-    "....KTTTTTK...............KTTTTTK.....",
-    "....KTTTTTK.TTTTTTTTTTTTT.KTTTTTK.T...",
-    "..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT..",
-    ".TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
-    "....KTHKHTK...............KTHKHTK.....",
-    "..H.KTTTTTK.HHHHHHHHHHHHH.KTTTTTK.HH..",
-    ".HH.KTTTTTK.PPPPPPPPPPPPP.KTTTTTK.PHH.",
-    "HHHPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPHHH",
-    "DDDPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPDDD",
-    "..R.KTHHHTK.DDDDDDDDDDDDD.KTHHHTK.KK..",
-    ".RR.KTTTTTK.PPPPPPPPPPPPP.KTTTTTK.KKK.",
-    "RRR.KTTTTTK.PPPPPPPPPPPPP.KTTTTTK.KKKK",
-    "RRRPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPKKKK",
-    "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
-    "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPKK",
-    "..RP.TTTTT.PDPPPPPPPPPPPDP.TTTTT.PLL..",
-    ".RRP.TTTTT.PPPPPPPPPPPPPPP.TTTTT.PLLL.",
-    "RRRP.TTTTT.PPPPPPPPPPPPPPP.TTTTT.PLLLL",
-    "RRRPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPLLLL",
-    "...P..KKK..PDHHPPPPPPPPPDP..KKK..PPP..",
-    "..PP..KKK..PPPPPPPPPPPPPPP..KKK..PPPP.",
-    ".PPP..KKK..PPPPPPPPPPPPPPP..KKK..PPPPP",
-    ".PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
-    ".WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
-    "...PPP...PPPPPPPPPPPPPPPPPPP...PPPP...",
-    "..KPPP...PPPPPPPPPPPPPPPPPPP...PPPPK..",
-    ".KKPPP...PPPPPPPPPPPPPPPPPPP...PPPPKK.",
-    ".KKPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPKK.",
-    ".PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP.",
-    ".WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.",
-    "....BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB....",
-    "...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...",
-    "..PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP..",
-    "..WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..",
-    ".......GGGGGGGDDGGGGGGGGGGG...........",
-    ".DDPP.GGGGGGGGPPGGGGGGGGGGGG..........",
-    ".DDPPGGPPPPPPPPPPPPPPPPPPPPGG.........",
-    ".DDPPGGWWWWWWWWWWWWWWWWWWWWGG.........",
-    ".........GGGGGDDGGGGGGGGGG............",
-    "........GGGGGGPPGGGGGGGGGGG...........",
-    ".......GGPPPPPPPPPPPPPPPPPGG..........",
-    ".......GGWWWWWWWWWWWWWWWWWGG..........",
-    "..........GGGGDDGGGGGGGGG.............",
-    ".........GGGGGPPGGGGGGGGGG............",
-    "........GGPPPPPPPPPPPPPPPGG...........",
-    "........GGWWWWWWWWWWWWWWWGG...........",
-    "...........VVVDDVVVVVVVV..............",
-    "..........VVVVPPVVVVVVVVV.............",
-    ".........GGPPPPPPPPPPPPPGG............",
-    ".........GGWWWWWWWWWWWWWGG............",
-    "............VVDDVVVVVVV...............",
-    "...........VVVPPVVVVVVVV..............",
-    "..........GGPPPPPPPPPPPGG.............",
-    "..........GGWWWWWWWWWWWGG.............",
-    ".............PPPPPPPPP................",
-    "............PPPPPPPPPPP...............",
-    "...........DPPPPPPPPPPPD..............",
-    "...........WWWWWWWWWWWWW..............",
-];
-const CAR_SLICES: &[&[usize]] = &[
-    &[0, 0, 0, 1, 2, 3, 4, 4, 4],
-    &[5, 5, 5, 3, 4, 6, 6, 6, 6],
-    &[7, 8, 9, 10, 11, 11, 11, 11, 11],
-    &[12, 13, 14, 15, 16, 16, 16, 16, 16],
-    &[17, 18, 19, 20, 20, 21, 22, 22, 22],
-    &[23, 24, 25, 26, 26, 21, 22, 22, 22],
-    &[27, 28, 29, 30, 30, 30, 30, 31, 31],
-    &[32, 33, 34, 35, 35, 36, 36, 37, 37],
-    &[1, 38, 39, 40, 40, 40, 40, 41, 41],
-    &[1, 42, 43, 44, 44, 44, 44, 45, 45],
-    &[1, 46, 47, 48, 48, 48, 48, 49, 49],
-    &[1, 50, 51, 52, 52, 52, 52, 53, 53],
-    &[1, 1, 54, 55, 56, 56, 56, 57, 57],
-    &[1, 1, 58, 59, 60, 60, 60, 61, 61],
-    &[1, 1, 1, 62, 63, 64, 64, 65, 65],
-];
+// Every art pixel is 12 cm in all three axes. One horizontal quad samples one PNG tile.
+const ART_PIXEL: f32 = 0.12;
 
-const BUS_ROWS: &[&str] = &[
-    "........KKK................................KKK..........",
-    "........KKK.KKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.KKK.K........",
-    "......KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.......",
-    ".......KTHTK..............................KTHTK.........",
-    ".....KKKTTTKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKTTTKKKKK.....",
-    "....KKKKTTTKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKTTTKKKKKK....",
-    "....KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK....",
-    "...HHHHKHHHKHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHKHHHKHHHHHH...",
-    "..TTTTTKTTTKTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTKTTTKTTTTTTT..",
-    "..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT..",
-    "..RRRKKKTHTKRRRRRRRRRRRRRKKKKRRRRRRRRRRRRRKTHTKKKKKRRR..",
-    ".RRRRKKKTTTKRRRRRRRRRRRRRKKKKRRRRRRRRRRRRRKTTTKKKKKRRRR.",
-    ".RRRRRRKTTTKRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRKTTTKRRRRRRRR.",
-    ".RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR.",
-    ".KKRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRKK.",
-    ".RPPPTK.KTK.PPPPPPPPPPPPPTKTTPPPPPPPPPPPPP.KTK.TKTTPPPL.",
-    "RRPPPTK.KTK.PPPPPPPPPPPPPTKTTPPPPPPPPPPPPP.KTK.TKTTPPPLL",
-    "RRPPPPP.KTK.PPPPPPPPPPPPPPPPPPPPPPPPPPPPPP.KTK.PPPPPPPLL",
-    "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
-    ".RPPPTKTT.PPPPPPPPPPPPPPPTKTTPPPPPPPPPPPPPPP.PTTKTTPPPL.",
-    "RRPPPTKTT.PPPPPPPPPPPPPPPTKTTPPPPPPPPPPPPPPP.PTTKTTPPPLL",
-    "RRPPPPPPP.PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP.PPPPPPPPPLL",
-    ".PPWPGKGGPPPPPPPPPPPPPPPPGKGGPPPPPPPPPPPPPPPPPGGKGGPWPP.",
-    "PPPPPGKGGPPPPPPPPPPPPPPPPGKGGPPPPPPPPPPPPPPPPPGGKGGPPPPP",
-    ".PWWWGKGGWWWWWWWWWWWWWWWWGKGGWWWWWWWWWWWWWWWWWGGKGGWWWP.",
-    "PPWWWGKGGWWWWWWWWWWWWWWWWGKGGWWWWWWWWWWWWWWWWWGGKGGWWWPP",
-    "PPWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWPP",
-    ".GGGGGKGGGGGGGKKGGGGGKKGGGKGGKGGGGGKKGGGGGKKGGGGKGGGGGG.",
-    "GGGGGGKGGGGGGGKKGGGGGKKGGGKGGKGGGGGKKGGGGGKKGGGGKGGGGGGG",
-    "GGVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVGG",
-    ".GGGGVKGGGGGGGKKGGGGGKKGGGKGGKGGGGGKKGGGGGKKGGGGKGVGGGG.",
-    ".GGGGGKGGGGHGGKKGGGGGKKGGGKGGKGGGGGKKGGGGGKKHGGGKGGGGGG.",
-    ".KVVVVVKKVVVVVKKVVVVVKKVVVVVKKVVVVVKKVVVVVKKVVVVVKKVVK..",
-    "KKVVVVVKKVVVVVKKVVVVVKKVVVVVKKVVVVVKKVVVVVKKVVVVVKKVVKK.",
-    "KKVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVKK.",
-    "KKVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVAA.",
-    "..PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP..",
-    ".PPWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWPP.",
-    "........................................................",
-    "...WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW...",
-    "..WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW..",
-    "......HHHHHHHHH.................HHHHHHHHHHH.............",
-    "......THHTHHTHH.................HTHHTHHTHHT.............",
-];
-const BUS_SLICES: &[&[usize]] = &[
-    &[0, 0, 1, 2, 2, 2, 2],
-    &[3, 4, 5, 6, 6, 6, 6],
-    &[7, 8, 8, 9, 9, 9, 9],
-    &[10, 11, 12, 13, 14, 14, 14],
-    &[15, 16, 17, 18, 18, 18, 18],
-    &[19, 20, 21, 18, 18, 18, 18],
-    &[22, 23, 18, 18, 18, 18, 18],
-    &[24, 25, 26, 26, 26, 26, 26],
-    &[27, 28, 29, 29, 29, 29, 29],
-    &[30, 28, 29, 29, 29, 29, 29],
-    &[31, 28, 29, 29, 29, 29, 29],
-    &[32, 33, 34, 35, 35, 35, 35],
-    &[36, 37, 37, 37, 37, 37, 37],
-    &[38, 39, 40, 40, 40, 40, 40],
-    &[38, 38, 38, 38, 41, 42, 42],
-];
-
-const METRO_ROWS: &[&str] = &[
-    "........KKK.KKK.....................................KKK.KKK.........",
-    "....................................................................",
-    "......KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK......",
-    ".....KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.....",
-    "....KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK....",
-    ".......KTHTKTHTK...................................KTHTKTHTK........",
-    ".......KTTTKTTTK...................................KTTTKTTTK........",
-    "...KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK...",
-    ".......KHHHKHHHK...................................KHHHKHHHK........",
-    "...HHHHKTTTKTTTKHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHKTTTKTTTKHHHHH...",
-    "..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT..",
-    ".TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
-    "...HHHHKTTTKTTTKHHHHHHHHHHHTHHHHHHHHHHHHHHHTHHHHHHHKTTTKTTTKHHHHH...",
-    "..HHHHHKTTTKTTTKHHHHHHHHHHHTHHHHHHHHHHHHHHHTHHHHHHHKTTTKTTTKHHHHHH..",
-    ".HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH.",
-    ".KKHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHKK.",
-    "........KTK.KTK.....................................KTK.KTK.........",
-    "...SSSS.KTK.KTK.SSSSSSSSSHHTHSSSSSSSSSSSSHHTHSSSSSS.KTK.KTK.SSSSSS..",
-    "..RSSSS.KTK.KTK.SSSSSSSSSHHTHSSSSSSSSSSSSHHTHSSSSSS.KTK.KTK.SSSSSSL.",
-    ".RRSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSLL",
-    ".SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
-    "..SSSSSSS.HHT.SSSSSSSSSSSHHTHSSSSSSSSSSSSHHTHSSSSSSSS.SHH.HSSSSSSS..",
-    ".RSSSSSSS.HHT.SSSSSSSSSSSHHTHSSSSSSSSSSSSHHTHSSSSSSSS.SHH.HSSSSSSSL.",
-    "RRSSSSSSS.SSS.SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.SSS.SSSSSSSSLL",
-    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
-    "..RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR..",
-    ".NRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRN.",
-    "NNRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRNN",
-    "...GGSSGGGGGGGGGGGGSSGGGGGGGGGGGGSSGGGGGGGGGGGGSSGGGGGGGGGGGGSSGGG..",
-    "..GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG.",
-    ".GGGSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGGG",
-    "...GGSSGGGGGHGGGGGGSSGGGGGGHGGGGGSSGGGGGGGGHGGGSSGGGGGGGGHGGGSSGGG..",
-    "...GGSVGGGGGGGGGGGGSSGGGGGGGGGGGGSSGGGGGGGGGGGGSSGGGGGGGGGGGGVSGG...",
-    "..GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG..",
-    ".GGGSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGGG.",
-    "...GGSSGGGGGHGGGGGGSSGGGGGGGGGGGGSSGGGGGGGGGGGGSSGGGGGHGGGGGGSSG....",
-    "..GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG...",
-    ".GGGSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGGG..",
-    "....GSSVVVVVVVVVVVVSSVVVVVVVVVVVVSSVVVVVVVVVVVVSSVVVVVVVVVVVVSSG....",
-    "...GGVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVGG...",
-    "..GGGSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGGG..",
-    "....RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR.....",
-    "...NRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRN....",
-    "..NNRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRNN...",
-    ".....SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS......",
-    "....SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.....",
-    "...SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS....",
-    ".........HHHHHHHHHHH............HHHHHHHH.......HHHHHHH..............",
-    ".........THHTHHTHHTH............HTHHTHHT.......HTHHTHH..............",
-];
-const METRO_SLICES: &[&[usize]] = &[
-    &[0, 0, 0, 1, 2, 3, 4, 4],
-    &[5, 6, 6, 3, 4, 7, 7, 7],
-    &[8, 6, 9, 10, 11, 11, 11, 11],
-    &[5, 12, 13, 14, 14, 15, 15, 15],
-    &[16, 17, 18, 19, 20, 20, 20, 20],
-    &[21, 22, 23, 24, 24, 24, 24, 24],
-    &[25, 26, 27, 27, 27, 27, 27, 27],
-    &[28, 29, 30, 30, 30, 30, 30, 30],
-    &[31, 29, 30, 30, 30, 30, 30, 30],
-    &[32, 33, 34, 34, 34, 34, 34, 34],
-    &[35, 36, 37, 37, 37, 37, 37, 37],
-    &[38, 39, 40, 40, 40, 40, 40, 40],
-    &[1, 41, 42, 43, 43, 43, 43, 43],
-    &[1, 44, 45, 46, 46, 46, 46, 46],
-    &[1, 1, 1, 1, 1, 47, 48, 48],
-];
-
-fn stacked_vehicle(rows: &[&str], slices: &[&[usize]], cell: [f32; 3], body: Rgb) -> Mesh {
-    use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
-
-    let half = slices[0].len();
-    let size = [rows[0].len() as i32, slices.len() as i32, (half * 2 - 1) as i32];
-    let pixel = |[x, y, z]: [i32; 3]| -> u8 {
-        if x < 0 || y < 0 || z < 0 || x >= size[0] || y >= size[1] || z >= size[2] {
-            return b'.';
-        }
-        rows[slices[y as usize][z.min(size[2] - z - 1) as usize]].as_bytes()[x as usize]
-    };
-    let tint = |key| {
-        let [r, g, b] = match key {
-            b'K' => [22, 30, 43],
-            b'T' => [36, 45, 57],
-            b'H' => [160, 180, 188],
-            b'G' => [40, 61, 84],
-            b'V' => [86, 119, 143],
-            b'W' => [240, 234, 215],
-            b'L' => [255, 226, 154],
-            b'S' => [214, 223, 220],
-            b'R' => [192, 47, 55],
-            b'A' => [235, 149, 77],
-            b'D' => [158, 91, 27],
-            b'N' => [35, 76, 137],
-            b'B' => [255, 200, 98],
-            b'E' => [90, 159, 222],
-            b'P' => body,
-            _ => unreachable!(),
-        };
-        Color::srgb_u8(r, g, b).to_linear().to_f32_array()
-    };
-
-    let mut vertices = Vec::new();
-    let mut normals = Vec::new();
-    let mut colors = Vec::new();
+fn sprite_stack(bytes: &[u8], slices: u32) -> (Mesh, Image) {
+    let image = Image::from_buffer(
+        bytes,
+        ImageType::Extension("png"),
+        CompressedImageFormats::NONE,
+        true,
+        ImageSampler::nearest(),
+        RenderAssetUsages::default(),
+    )
+    .unwrap();
+    let x = (image.width() / slices) as f32 * ART_PIXEL / 2.;
+    let z = image.height() as f32 * ART_PIXEL / 2.;
+    let mut positions = Vec::new();
+    let mut uv = Vec::new();
     let mut indices = Vec::new();
-    let origin = Vec3::new(
-        -0.5 * size[0] as f32 * cell[0],
-        0.,
-        -0.5 * size[2] as f32 * cell[2],
-    );
-    let cell = Vec3::from_array(cell);
-
-    // Each outward-facing run of equal color becomes one quad. Hidden faces cost no triangles.
-    for axis in 0..3 {
-        let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
-        for side in [-1, 1] {
-            let mut normal = [0.; 3];
-            normal[axis] = side as f32;
-            for depth in 0..size[axis] {
-                for row in 0..size[v] {
-                    let face = |col| {
-                        let mut p = [0; 3];
-                        p[axis] = depth;
-                        p[u] = col;
-                        p[v] = row;
-                        let key = pixel(p);
-                        p[axis] += side;
-                        if pixel(p) == b'.' { key } else { b'.' }
-                    };
-                    let mut col = 0;
-                    while col < size[u] {
-                        let start = col;
-                        let key = face(col);
-                        col += 1;
-                        if key == b'.' {
-                            continue;
-                        }
-                        while col < size[u] && face(col) == key {
-                            col += 1;
-                        }
-                        let index = vertices.len() as u32;
-                        let rgb = tint(key);
-                        for (a, b) in [(start, row), (col, row), (col, row + 1), (start, row + 1)] {
-                            let mut p = Vec3::ZERO;
-                            p[axis] = (depth + i32::from(side == 1)) as f32;
-                            p[u] = a as f32;
-                            p[v] = b as f32;
-                            vertices.push((origin + p * cell).to_array());
-                            normals.push(normal);
-                            colors.push(rgb);
-                        }
-                        let winding = if side == 1 {
-                            [0, 1, 2, 0, 2, 3]
-                        } else {
-                            [0, 2, 1, 0, 3, 2]
-                        };
-                        indices.extend(winding.map(|j| index + j));
-                    }
-                }
-            }
-        }
+    for slice in 0..slices {
+        let y = slice as f32 * ART_PIXEL;
+        let u_left = slice as f32 / slices as f32;
+        let u_right = (slice + 1) as f32 / slices as f32;
+        positions.extend([[-x, y, -z], [-x, y, z], [x, y, z], [x, y, -z]]);
+        uv.extend([[u_left, 0.], [u_left, 1.], [u_right, 1.], [u_right, 0.]]);
+        let i = slice * 4;
+        indices.extend([i, i + 1, i + 2, i, i + 2, i + 3]);
     }
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
-        .with_inserted_indices(Indices::U32(indices))
+    let mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0., 1., 0.]; positions.len()])
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uv)
+    .with_inserted_indices(Indices::U32(indices));
+    (mesh, image)
 }
 
 #[derive(Resource)]
 struct FixedClock(Option<f32>);
 
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mats: ResMut<Assets<StandardMaterial>>) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+) {
     let seconds = std::env::var("SANTIAGO_CLOCK_SECONDS").ok().map(|v| {
         v.parse::<f32>()
             .expect("SANTIAGO_CLOCK_SECONDS must be seconds after midnight")
     });
     commands.insert_resource(FixedClock(seconds));
-    let car = stacked_vehicle(CAR_ROWS, CAR_SLICES, [0.125, 0.115, 0.115], [235, 160, 53]);
-    let bus = stacked_vehicle(BUS_ROWS, BUS_SLICES, [0.205, 0.212, 0.205], [216, 51, 49]);
-    let bike = shape([
-        wheel(-0.7),
-        wheel(0.7),
-        block([1.35, 0.22, 0.22], [0., 0.65, 0.], [69, 158, 116]),
-        coat([0., 1.24, 0.], [41, 133, 90]),
-        head([0.14, 2.02, 0.]),
-    ]);
     let person = shape([
         block([0.44, 0.58, 0.51], [0., 0.3, 0.], GLASS),
         coat([0., 1.12, 0.], [36, 134, 171]),
         head([0., 1.97, 0.]),
     ]);
-    let coach = stacked_vehicle(METRO_ROWS, METRO_SLICES, [0.2, 0.22, 0.2], [217, 221, 222]);
-    let mesh = [
-        (Model::Car, car),
-        (Model::Bus, bus),
-        (Model::Bike, bike),
-        (Model::Person, person),
-        (Model::Coach, coach),
+    let sprites: [(Model, &[u8], u32); 4] = [
+        (Model::Car, include_bytes!("../assets/car.png"), 15),
+        (Model::Bus, include_bytes!("../assets/bus.png"), 27),
+        (Model::Coach, include_bytes!("../assets/metro.png"), 28),
+        (Model::Bike, include_bytes!("../assets/bicycle.png"), 16),
+    ];
+    let models = [
+        (Model::Person, person, None),
         (
             Model::Window,
-            block([1., 0.18, 1.35], [0., 0., 0.], [251, 183, 67]),
+            painted(
+                Plane3d::default().mesh().size(1., 1.35).build(),
+                [0.; 3],
+                [251, 183, 67],
+            ),
+            None,
         ),
         (
             Model::Platform,
             block([1., 0.55, 1.], [0., 0.28, 0.], [132, 137, 142]),
+            None,
         ),
     ]
     .into_iter()
-    .map(|(id, mesh)| (id, meshes.add(mesh)))
-    .collect();
-    let paint = [
-        (Paint::Plain, [255, 255, 255]),
-        (Paint::Gain, [103, 255, 169]),
-        (Paint::Loss, [255, 136, 144]),
-        (Paint::Rerouted, [144, 217, 255]),
-    ]
-    .into_iter()
-    .map(|(key, c)| {
-        (
-            key,
-            mats.add(StandardMaterial {
-                base_color: Color::srgb_u8(c[0], c[1], c[2]),
-                perceptual_roughness: 0.8,
-                ..default()
-            }),
-        )
-    })
-    .collect();
+    .chain(sprites.into_iter().map(|(model, bytes, layers)| {
+        let (mesh, image) = sprite_stack(bytes, layers);
+        (model, mesh, Some(images.add(image)))
+    }));
+    let mut mesh = HashMap::new();
+    let mut paint = HashMap::new();
+    for (model, geometry, texture) in models {
+        mesh.insert(model, meshes.add(geometry));
+        for (tint, [r, g, b]) in [
+            (Paint::Plain, [255, 255, 255]),
+            (Paint::Gain, [103, 255, 169]),
+            (Paint::Loss, [255, 136, 144]),
+            (Paint::Rerouted, [144, 217, 255]),
+        ] {
+            let sprite = texture.is_some();
+            paint.insert(
+                (model, tint),
+                mats.add(StandardMaterial {
+                    base_color: Color::srgb_u8(r, g, b),
+                    base_color_texture: texture.clone(),
+                    unlit: sprite,
+                    alpha_mode: if sprite {
+                        AlphaMode::Mask(0.5)
+                    } else {
+                        AlphaMode::Opaque
+                    },
+                    perceptual_roughness: 0.8,
+                    ..default()
+                }),
+            );
+        }
+    }
     commands.insert_resource(Models { mesh, paint });
     let routes = Routes::load();
     let track_material = mats.add(StandardMaterial {
@@ -1101,7 +828,7 @@ impl Pool {
                 .spawn((
                     Figure,
                     Mesh3d(models.mesh[&model].clone()),
-                    MeshMaterial3d(models.paint[&paint].clone()),
+                    MeshMaterial3d(models.paint[&(model, paint)].clone()),
                     transform,
                 ))
                 .id();
@@ -1257,7 +984,7 @@ fn draw(
                 place(
                     Model::Window,
                     train.paint,
-                    pose(p + Vec3::Y * 3.18 * scale, dir, Vec3::new(length, 1., 1.) * scale),
+                    pose(p + Vec3::Y * (27. * ART_PIXEL + 0.02) * scale, dir, Vec3::new(length, 1., 1.) * scale),
                 );
             }
         }
