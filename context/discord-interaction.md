@@ -38,7 +38,7 @@ node tools/discord-mcp/watch-humans.mjs 👀 1573561159955648553 157351457710958
 
 - Check every three seconds. Read new messages in pages of 20 after the last ID for each channel. Read local inbox files when they cover the page. Otherwise, use REST.
 - On first start, watch from the current time. To start after a known message, pass `CHANNEL_ID:LAST_ID`. On restart, use the saved ID.
-- For each human message, write one stdout line with its channel and message ID, and add the assigned reaction. Skip bots and webhooks.
+- For each human message, write one stdout line with its channel and message ID, and queue the assigned reaction. Skip bots and webhooks. The watcher keeps pending reactions across restarts and retries them independently of message reads.
 - Configure the monitor to wake the agent on each stdout line. Read the full message before replying. With Claude Code, re-arm Monitor when its 30-minute session ends.
 - Use the separate ten-minute heartbeat only to check work threads, agents, disk space, and battery.
 

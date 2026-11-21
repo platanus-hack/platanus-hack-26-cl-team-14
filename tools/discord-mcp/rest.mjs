@@ -71,6 +71,6 @@ export async function discord(path, { auth = true, token = auth ? savedToken() :
       continue;
     }
     if (response.status === 401) throw new Error(`Discord rejected the token. ${ASK_FOR_TOKEN}`);
-    throw new Error(`Discord answered ${response.status}: ${body.message ?? "no detail"}`);
+    throw Object.assign(new Error(`Discord answered ${response.status}: ${body.message ?? "no detail"}`), { discordCode: body.code });
   }
 }
