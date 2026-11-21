@@ -1356,3 +1356,12 @@ figure moved from about `(670,885)` to `(967,662)`, matching the predicted route
 positions within 7 screen pixels. This confirms the bounded path and pose change.
 The view had no group-ID label. A base-versus-scenario view and visual-density
 approval remain pending.
+
+## Pitch sites: MUT and Estadio Monumental parts
+
+`web/data/mut_parts.geojson` (5 parts) and `web/data/estadio_monumental_parts.geojson` (12 parts) give more detail at the two sites of the MUT ↔ Monumental case. They use the same properties as `estadio_nacional_parts.geojson`: `parent_id`, `kind`, `name`, `osm_type`, `osm_id`, `geometry_source`, `height_m`, `height_source`.
+
+- MUT: `podium` (Mercado Urbano Tobalaba, 5 levels × 3.5 = 17.5 m) and four `tower`s. Torres 1–3 use OSM `height` (61.2, 64.6, 57.8 m). Torre 4 (MUT El Bosque) has no OSM height. It uses 19 floors × 3.5 = 66.5 m from [La Tercera](https://www.latercera.com/pulso/noticia/los-cuatro-fantasticos-de-las-oficinas-en-el-mercado-chileno/), `height_source` `press_levels`.
+- Monumental: `grounds` (leisure=stadium outline), `stadium_shell` (building=stadium), `pitch` and nine named `stand`s. OSM has no stand heights. The shell uses the median 2023 Google Open Buildings 2.5D height of the 69 4 m pixels fully inside it: 15.2 m. Océano (3 pixels, 12.2 m) and Rapa Nui (40 pixels, 15.6 m) have their own median. Tucapel has OSM `building:levels` 1 (3.5 m). The other six stands are narrower than a whole pixel band and take the shell median, `height_source` `stadium_shell_median`. These are model estimates, not measurements.
+
+Rebuild (needs rasterio, shapely, pyproj, numpy, certifi; reads the main OSM API and byte ranges of the Google rasters): `python3 tools/pack/pitch_sites.py` from the repository root. © OpenStreetMap contributors, ODbL 1.0.
