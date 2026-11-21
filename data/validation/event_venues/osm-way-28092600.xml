@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="openstreetmap-cgimap 2.1.1 (2559548 spike-07.openstreetmap.org)" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+ <node id="308530303" visible="true" version="6" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4635341" lon="-70.6114064"/>
+ <node id="308530307" visible="true" version="5" changeset="33649176" timestamp="2015-08-28T17:48:40Z" user="Corre_cl" uid="1719640" lat="-33.4652915" lon="-70.6116253"/>
+ <node id="308530309" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:36Z" user="Corre_cl" uid="1719640" lat="-33.4654840" lon="-70.6114478"/>
+ <node id="308530310" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4656773" lon="-70.6111205"/>
+ <node id="308530312" visible="true" version="5" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4657417" lon="-70.6106991"/>
+ <node id="308530313" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4656919" lon="-70.6103998"/>
+ <node id="308530315" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:32Z" user="Corre_cl" uid="1719640" lat="-33.4655869" lon="-70.6101450"/>
+ <node id="308530316" visible="true" version="5" changeset="21128150" timestamp="2014-03-16T02:09:36Z" user="Corre_cl" uid="1719640" lat="-33.4653363" lon="-70.6098379"/>
+ <node id="308530318" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:32Z" user="Corre_cl" uid="1719640" lat="-33.4648843" lon="-70.6096514"/>
+ <node id="308530319" visible="true" version="5" changeset="21128150" timestamp="2014-03-16T02:09:32Z" user="Corre_cl" uid="1719640" lat="-33.4642005" lon="-70.6095428"/>
+ <node id="308530321" visible="true" version="5" changeset="21128150" timestamp="2014-03-16T02:09:32Z" user="Corre_cl" uid="1719640" lat="-33.4637409" lon="-70.6096249"/>
+ <node id="308530322" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:32Z" user="Corre_cl" uid="1719640" lat="-33.4634258" lon="-70.6098695"/>
+ <node id="308530324" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4632674" lon="-70.6101839"/>
+ <node id="308530325" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:36Z" user="Corre_cl" uid="1719640" lat="-33.4632088" lon="-70.6104770"/>
+ <node id="308530327" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4632217" lon="-70.6107587"/>
+ <node id="308530328" visible="true" version="4" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4632826" lon="-70.6110161"/>
+ <node id="308530330" visible="true" version="5" changeset="33649176" timestamp="2015-08-28T17:48:40Z" user="Corre_cl" uid="1719640" lat="-33.4634487" lon="-70.6113085"/>
+ <node id="427434307" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4636317" lon="-70.6114940"/>
+ <node id="427434311" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:36Z" user="Corre_cl" uid="1719640" lat="-33.4648843" lon="-70.6117304"/>
+ <node id="427434314" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4654039" lon="-70.6115460"/>
+ <node id="427434317" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4655511" lon="-70.6113603"/>
+ <node id="427434322" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4657301" lon="-70.6105362"/>
+ <node id="427434324" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4656460" lon="-70.6102689"/>
+ <node id="427434327" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4654222" lon="-70.6099174"/>
+ <node id="427434332" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4651036" lon="-70.6097134"/>
+ <node id="427434336" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4639333" lon="-70.6095606"/>
+ <node id="427434340" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:36Z" user="Corre_cl" uid="1719640" lat="-33.4636344" lon="-70.6096793"/>
+ <node id="427434344" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:36Z" user="Corre_cl" uid="1719640" lat="-33.4633158" lon="-70.6100629"/>
+ <node id="427434347" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4632330" lon="-70.6103288"/>
+ <node id="427434350" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4632079" lon="-70.6106215"/>
+ <node id="427434353" visible="true" version="3" changeset="21128150" timestamp="2014-03-16T02:09:36Z" user="Corre_cl" uid="1719640" lat="-33.4632459" lon="-70.6109063"/>
+ <node id="1974055878" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4657167" lon="-70.6109802"/>
+ <node id="1974055881" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4652284" lon="-70.6097644"/>
+ <node id="1974055882" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4657368" lon="-70.6108512"/>
+ <node id="1974055883" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:36Z" user="Corre_cl" uid="1719640" lat="-33.4634858" lon="-70.6098073"/>
+ <node id="1974055884" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4638393" lon="-70.6095926"/>
+ <node id="1974055885" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:32Z" user="Corre_cl" uid="1719640" lat="-33.4656236" lon="-70.6112467"/>
+ <node id="1974055888" visible="true" version="4" changeset="82337510" timestamp="2020-03-18T08:24:30Z" user="stadiaarcadia" uid="8570285" lat="-33.4639912" lon="-70.6115762"/>
+ <node id="1974055889" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4650024" lon="-70.6096756"/>
+ <node id="1974055898" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4633851" lon="-70.6112174"/>
+ <node id="1974055901" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4650257" lon="-70.6117279"/>
+ <node id="1974055903" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4638519" lon="-70.6115846"/>
+ <node id="1974055905" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4637324" lon="-70.6115530"/>
+ <node id="1974055916" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4633703" lon="-70.6099634"/>
+ <node id="1974055920" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4640228" lon="-70.6095467"/>
+ <node id="1974055923" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:35Z" user="Corre_cl" uid="1719640" lat="-33.4635467" lon="-70.6097461"/>
+ <node id="1974055924" visible="true" version="3" changeset="33649176" timestamp="2015-08-28T17:48:40Z" user="Corre_cl" uid="1719640" lat="-33.4655148" lon="-70.6100216"/>
+ <node id="1974055925" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4641092" lon="-70.6095342"/>
+ <node id="1974055927" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:34Z" user="Corre_cl" uid="1719640" lat="-33.4651797" lon="-70.6116808"/>
+ <node id="1974055928" visible="true" version="2" changeset="21128150" timestamp="2014-03-16T02:09:33Z" user="Corre_cl" uid="1719640" lat="-33.4633247" lon="-70.6111291"/>
+ <node id="6168003549" visible="true" version="2" changeset="72770729" timestamp="2019-07-29T13:24:53Z" user="stadiaarcadia" uid="8570285" lat="-33.4648301" lon="-70.6116959"/>
+ <node id="6657655253" visible="true" version="2" changeset="82337510" timestamp="2020-03-18T08:24:30Z" user="stadiaarcadia" uid="8570285" lat="-33.4647798" lon="-70.6117257"/>
+ <node id="6657655254" visible="true" version="2" changeset="82337510" timestamp="2020-03-18T08:24:30Z" user="stadiaarcadia" uid="8570285" lat="-33.4647835" lon="-70.6116914"/>
+ <node id="6657655255" visible="true" version="2" changeset="82337510" timestamp="2020-03-18T08:24:30Z" user="stadiaarcadia" uid="8570285" lat="-33.4639882" lon="-70.6116039"/>
+ <node id="6657655256" visible="true" version="1" changeset="72770729" timestamp="2019-07-29T13:24:53Z" user="stadiaarcadia" uid="8570285" lat="-33.4639371" lon="-70.6115611"/>
+ <node id="10981829535" visible="true" version="1" changeset="137433767" timestamp="2023-06-17T03:28:05Z" user="GustavoE" uid="2500882" lat="-33.4645637" lon="-70.6116925"/>
+ <node id="11395021976" visible="true" version="1" changeset="144770733" timestamp="2023-12-04T21:26:31Z" user="GustavoE" uid="2500882" lat="-33.4654656" lon="-70.6114703"/>
+ <way id="28092600" visible="true" version="27" changeset="144770733" timestamp="2023-12-04T21:26:31Z" user="GustavoE" uid="2500882">
+  <nd ref="308530303"/>
+  <nd ref="427434307"/>
+  <nd ref="1974055905"/>
+  <nd ref="1974055903"/>
+  <nd ref="6657655256"/>
+  <nd ref="1974055888"/>
+  <nd ref="6657655255"/>
+  <nd ref="10981829535"/>
+  <nd ref="6657655253"/>
+  <nd ref="6657655254"/>
+  <nd ref="6168003549"/>
+  <nd ref="427434311"/>
+  <nd ref="1974055901"/>
+  <nd ref="1974055927"/>
+  <nd ref="308530307"/>
+  <nd ref="427434314"/>
+  <nd ref="11395021976"/>
+  <nd ref="308530309"/>
+  <nd ref="427434317"/>
+  <nd ref="1974055885"/>
+  <nd ref="308530310"/>
+  <nd ref="1974055878"/>
+  <nd ref="1974055882"/>
+  <nd ref="308530312"/>
+  <nd ref="427434322"/>
+  <nd ref="308530313"/>
+  <nd ref="427434324"/>
+  <nd ref="308530315"/>
+  <nd ref="1974055924"/>
+  <nd ref="427434327"/>
+  <nd ref="308530316"/>
+  <nd ref="1974055881"/>
+  <nd ref="427434332"/>
+  <nd ref="1974055889"/>
+  <nd ref="308530318"/>
+  <nd ref="308530319"/>
+  <nd ref="1974055925"/>
+  <nd ref="1974055920"/>
+  <nd ref="427434336"/>
+  <nd ref="1974055884"/>
+  <nd ref="308530321"/>
+  <nd ref="427434340"/>
+  <nd ref="1974055923"/>
+  <nd ref="1974055883"/>
+  <nd ref="308530322"/>
+  <nd ref="1974055916"/>
+  <nd ref="427434344"/>
+  <nd ref="308530324"/>
+  <nd ref="427434347"/>
+  <nd ref="308530325"/>
+  <nd ref="427434350"/>
+  <nd ref="308530327"/>
+  <nd ref="427434353"/>
+  <nd ref="308530328"/>
+  <nd ref="1974055928"/>
+  <nd ref="1974055898"/>
+  <nd ref="308530330"/>
+  <nd ref="308530303"/>
+  <tag k="addr:city" v="Ñuñoa"/>
+  <tag k="addr:housenumber" v="2001"/>
+  <tag k="addr:street" v="Avenida Grecia"/>
+  <tag k="check_date" v="2023-08-31"/>
+  <tag k="leisure" v="stadium"/>
+  <tag k="name" v="Estadio Nacional Julio Martínez Prádanos"/>
+  <tag k="operator" v="Instituto Nacional del Deporte"/>
+  <tag k="sport" v="soccer;athletics"/>
+  <tag k="start_date" v="1938"/>
+  <tag k="website" v="https://www.coliseonacional.cl"/>
+  <tag k="wheelchair" v="limited"/>
+  <tag k="wikidata" v="Q594994"/>
+  <tag k="wikipedia" v="es:Estadio Nacional de Chile"/>
+ </way>
+</osm>
