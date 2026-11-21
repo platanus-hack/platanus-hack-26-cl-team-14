@@ -13,7 +13,7 @@ Summary: INE population projections and SERMIG permit workbooks downloaded succe
 - Granularity: comuna. Time step: one year (2002 to 2035).
 - Year: 2002 to 2035, base 2017. The estimate/projection cutoff was not checked.
 - Access: direct download, xlsx, 11,057,485 bytes.
-- Check: BYTES VERIFIED; DATA ROWS UNVERIFIED. 2026-11-21, HTTP 200, `application/vnd.openxmlformats` content type, 11,057,485 bytes. Unzipped the file and read the sheet name, shared-string header and the year columns. Row count not counted (sheet XML is 69 MB).
+- Check: VERIFIED-BYTES; DATA ROWS UNVERIFIED. 2026-11-21, HTTP 200, `application/vnd.openxmlformats` content type, 11,057,485 bytes. Unzipped the file and read the sheet name, shared-string header and the year columns. Row count not counted (sheet XML is 69 MB).
 - Limits: Base 2017, so it may differ from the 2024 census. The INE page shows an estimate at 31 Dec 2023, so check which series this file holds before you use it as a control total. Age granularity: check if it is single year or 5-year groups. No geometry.
 - Use in the simulation: Candidate INPUT for modeled population totals after row and version checks. Estimates and projections are not observed-count TARGETs; use Census counts for an observed baseline.
 
@@ -23,7 +23,7 @@ Summary: INE population projections and SERMIG permit workbooks downloaded succe
 - Granularity: region. No comuna column in this file.
 - Year: 2000 to 1st semester 2026 (from file name).
 - Access: direct download, xlsx, 1,627,497 bytes.
-- Check: BYTES VERIFIED; DATA ROWS UNVERIFIED. 2026-11-21, HTTP 200, valid xlsx (zip), 1,627,497 bytes. Declared sheet range A1:H47336 allows 47,335 rows below the header; populated records were not parsed or counted. Metadata file: HTTP 200, 31,202 bytes. Years in the data were not counted.
+- Check: VERIFIED-BYTES; DATA ROWS UNVERIFIED. 2026-11-21, HTTP 200, valid xlsx (zip), 1,627,497 bytes. Declared sheet range A1:H47336 allows 47,335 rows below the header; populated records were not parsed or counted. Metadata file: HTTP 200, 31,202 bytes. Years in the data were not counted.
 - Limits: Permits, not residents. The stock is not the same as the number of people living in the city. Counts can change later, per SERMIG. No comuna, so the comuna split must come from another source.
 - Use in the simulation: NONE for resident foreign-born shares. Permit transactions do not establish the resident stock or its composition. Use Census resident counts for that purpose.
 
@@ -83,9 +83,9 @@ Summary: INE population projections and SERMIG permit workbooks downloaded succe
 - Granularity: person-level records. No comuna column.
 - Year: 2024.
 - Access: direct download, CSV, 6,478,587 bytes, 71,224 data rows.
-- Check: ROWS VERIFIED (first rows only), 2026-11-21, HTTP 200, 6,478,587 bytes, 71,224 lines. The header and the first rows were read. The file was deleted after the check.
+- Check: VERIFIED-ROWS (first rows only), 2026-11-21, HTTP 200, 6,478,587 bytes, 71,224 lines. The header and the first rows were read. The file was deleted after the check.
 - Limits: Personal data. It has date of birth, sex, nationality, and job per person. It is one municipality only. Do not use it, and do not put it in `data/raw/`. Licence counts by comuna are not in this file.
-- Use in the simulation: NONE. Privacy risk. Do not use.
+- Use in the simulation: NONE. Privacy risk. Do not use. Do not keep this file, even for a check.
 
 ### Servel: Padrón electoral and participation (TOTEM-2 PDF, 2026)
 - Link: https://www.servel.cl/wp-content/uploads/2026/03/TOTEM-2.pdf
@@ -93,7 +93,7 @@ Summary: INE population projections and SERMIG permit workbooks downloaded succe
 - Granularity: region (the file we opened).
 - Year: 1988 to 2025.
 - Access: PDF.
-- Check: BYTES VERIFIED; no numeric table rows recorded in this check. HTTP 200, 1,255,941 bytes, PDF text read on pages 1 and 2. This is Valparaíso region data, not Santiago.
+- Check: VERIFIED-BYTES; no numeric table rows recorded in this check. HTTP 200, 1,255,941 bytes, PDF text read on pages 1 and 2. This is Valparaíso region data, not Santiago.
 - Limits: Not Santiago. Comuna tables for the Metropolitan region were not found. Servel published personal data in 2022 (CIPER report, 2022-04-28, shows the risk). Use only aggregate tables.
 - Use in the simulation: NONE for this file. The comuna padrón (adult count) would be an INPUT if a Metropolitan file is found.
 
