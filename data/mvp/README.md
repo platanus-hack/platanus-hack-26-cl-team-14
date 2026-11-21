@@ -185,8 +185,9 @@ imposes on an existing fit.
   0.600 → 0.680, La Florida 0.585 → 0.643, Ñuñoa 0.500 → 0.531.
 - **This file is still a transfer, and it does not have to be.** A person row carries
   `p44_lug_trab_esp` and `p45_medio_transporte` together, so the mode of a single
-  origin-destination pair is measurable; `mode_od.csv` measures it. Use this split for an
-  outbound question about a comuna's residents. For an inbound question use `mode_od.csv`.
+  origin-destination pair can be aggregated in a separate export. This file does not
+  contain those pair-specific counts. Use this split for an outbound question about
+  a comuna's residents; review a joint mode/OD export before using it for inbound flows.
   Either way, replacing a coefficient inside a fitted model is a refinement to register
   and review before it is scored, not a drop-in fix.
 
