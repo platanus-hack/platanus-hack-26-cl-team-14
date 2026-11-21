@@ -70,17 +70,19 @@
 </div>
 
 <div class="box tl e">
-  <div class="big" id="hh3">--:--</div>
-  <div class="big model" id="eadd">—</div>
-  <small>subidas añadidas en la tarde · patrón de Parque O'Higgins</small>
-  <small>sábado 11 de abril de 2026, observado · <span id="ebins"></span></small>
+  <div class="big" id="hh3" style="display:block">--:--</div>
+  <small>sábado 11 de abril de 2026, observado</small>
+  <div class="big model" id="eadd" style="display:block">—</div>
+  <small>subidas añadidas · patrón de Parque O'Higgins</small>
+  <small><span id="ebins"></span></small>
 </div>
 <div class="box panel e">
-  <div style="display:flex;gap:10px"><button class="site on" data-id="estadio_nacional">Nacional</button><button class="site" data-id="estadio_monumental">Monumental</button></div>
+  <div style="display:flex;gap:10px"><button class="site on" data-id="estadio_nacional" style="font-size:36px">Nacional</button><button class="site" data-id="estadio_monumental" style="font-size:36px">Monumental</button></div>
   <div class="val"><small>evento hipotético adicional</small> ×<span id="mv">1,0</span></div>
   <input id="mult" type="range" min="0" max="3" step="0.1" value="1">
   <small>supuesto: el exceso es del evento</small>
-  <small>supuesto: se comporta igual en otro lugar · sin validar</small>
+  <small>supuesto: se repite igual en otro lugar</small>
+  <small>sin validar</small>
   <small><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#ff7a1a"></i>con el patrón añadido</small>
 </div>
 
@@ -103,7 +105,7 @@ const VIEWS = {
   t: {longitude: -70.6040, latitude: -33.4218, zoom: 15.2, pitch: 55, bearing: -28},
   s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15},
   p: {longitude: -70.77, latitude: -33.45, zoom: 11.1, pitch: 55, bearing: -15},
-  e: {longitude: -70.625, latitude: -33.490, zoom: 13.1, pitch: 55, bearing: -15}};
+  e: {longitude: -70.629, latitude: -33.468, zoom: 13.4, pitch: 55, bearing: -15}};
 const $ = id => document.getElementById(id);
 // the panels were laid out at 1600 px of width; they grow with the window so a 1920 projector keeps the same proportions
 (onresize = () => document.documentElement.style.setProperty('--k', innerWidth / 1600))();
@@ -272,18 +274,19 @@ let ev = null, egen = 0, esite = 'estadio_nacional';
 function eventScenario() {
   const g = ++egen, m = +$('mult').value;
   $('mv').textContent = fmt(m, 1);
-  post('event-scenario', {site_id: esite, multiplier: m}).then(r => { if (g == egen) { ev = r; engine('e', r); draw(); } }, () => { if (g == egen) engine('e'); });
+  post('event-scenario', {site_id: esite, multiplier: m}).then(r => { if (g == egen) { if (!ev || ev.site_id != r.site_id) deckgl.setProps({initialViewState: {...VIEWS.e, longitude: r.longitude - 0.018, latitude: r.latitude - 0.004, transitionDuration: 1200, transitionInterpolator: new FlyToInterpolator()}});
+    ev = r; if (r.elapsed_ms == null) delete ms.e; else engine('e', r); draw(); } }, () => { if (g == egen) engine('e'); });
 }
 function evento() {
   const st = ev ? ev.stations : [];
   const col = (id, key, dx, color) => new ColumnLayer({id, data: st.filter(s => at(s[key], t) != null),
-    getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 60, getElevation: s => at(s[key], t) * 1.5,  // same scale for both
+    getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 90, getElevation: s => at(s[key], t) * 0.8,  // 0.8 m for each boarding, same scale for both
     getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
   return [
     new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 30}),
-    ev && new deck.ScatterplotLayer({id: 'site', data: [ev.site], getPosition: v => [v.longitude, v.latitude], getRadius: 140, getFillColor: [255, 255, 255]}),
-    col('eobs', 'observed', -0.0008, [0, 229, 255]), col('escn', 'scenario', 0.0008, [255, 122, 26]),
-    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude], getPixelOffset: [0, 40], getText: s => s.name,
+    ev && new deck.ScatterplotLayer({id: 'site', data: [ev], getPosition: v => [v.longitude, v.latitude], getRadius: 160, getFillColor: [255, 255, 255]}),
+    col('eobs', 'observed', -0.0012, [0, 229, 255]), col('escn', 'scenario', 0.0012, [255, 122, 26]),
+    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude], getPixelOffset: [0, 46], getText: s => s.name,
       getSize: 34, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255]}),
   ];
 }
@@ -301,8 +304,8 @@ function draw() {
   } else document.body.style.background = '';
   if (view == 'e') {
     const i = Math.floor(t); $('hh3').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00');
-    $('eadd').textContent = ev ? '+' + fmt(ev.known_assigned_mass) : '—';
-    $('ebins').textContent = ev ? ev.known_template_bins + ' de ' + ev.window_bins + ' medias horas con dato' : '';
+    $('eadd').textContent = ev ? '+' + fmt(ev.assigned_mass) : '—';
+    $('ebins').textContent = ev ? ev.known_template_bins + ' de ' + ev.window_bins + ' medias horas con dato, 19:00 a 23:30' : '';
   }
   if (view == 'p') { const i = Math.floor(t); $('hh2').textContent = String(i >> 1).padStart(2, '0') + ':' + (i % 2 ? '30' : '00'); }
   $('engine').style.display = ms[view] ? 'block' : 'none';
@@ -350,7 +353,7 @@ Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json
   if (q.has('t')) { t = +q.get('t'); playing = false; }
   if (q.has('mut')) $('go').onclick();
   if (q.has('j')) $('jobs').value = q.get('j');
-  if (q.has('site')) esite = q.get('site');
+  if (q.has('site')) document.querySelector(`.site[data-id=${q.get('site')}]`).onclick();
   if (q.has('m')) $('mult').value = q.get('m');
   if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || 't');
   tick();
