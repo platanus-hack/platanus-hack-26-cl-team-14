@@ -307,9 +307,7 @@ impl RiderNetwork {
 }
 
 enum RiderAction {
-    Walk {
-        path_time: f32,
-    },
+    Unrouted,
     StationWalk { from: Vec3, to: Vec3 },
     Wait { at: Vec3, facing: Vec3 },
     Ride(RideKey),
@@ -337,26 +335,32 @@ impl RiderPlan {
     }
 
     // Interpolate between the mapped gate, platform and service door at display walking speed.
-    fn connect(&mut self, from: Vec3, to: Vec3) {
+    fn connect(&mut self, from: Vec3, to: Vec3, has_origin: bool) {
         self.until(
             self.duration() + from.distance(to) / Vehicle::Walk.speed(),
-            RiderAction::StationWalk { from, to },
+            if has_origin {
+                RiderAction::StationWalk { from, to }
+            } else {
+                RiderAction::Unrouted
+            },
         );
     }
 
     pub(super) fn build(path: &Path, legs: usize, start: f32, copy: usize, routes: &Routes) -> Self {
         let mut plan = Self { steps: Vec::new() };
         let mut transfer = None;
+        let mut has_origin = false;
         let legs = &path.legs[..legs];
         for (i, leg) in legs.iter().enumerate() {
             let first = if i == 0 { 0 } else { legs[i - 1].end };
             let Some(index) = leg.scheduled else {
                 if transfer.is_none() {
-                    let path_time = path.seconds[first];
-                    plan.until(
-                        plan.duration() + (path.seconds[leg.end] - path_time),
-                        RiderAction::Walk { path_time },
-                    );
+                    // Public walk links join endpoints without a routed pedestrian path.
+                    let duration = path.seconds[leg.end] - path.seconds[first];
+                    if duration > 0. {
+                        has_origin = false;
+                        plan.until(plan.duration() + duration, RiderAction::Unrouted);
+                    }
                 }
                 continue;
             };
@@ -370,12 +374,17 @@ impl RiderPlan {
                     (gate + Vec3::new(along, 0., across), Vec3::X)
                 }
             };
-            plan.connect(transfer.take().unwrap_or(gate), wait);
+            plan.connect(transfer.take().unwrap_or(gate), wait, has_origin);
+            let waiting = if has_origin {
+                RiderAction::Wait { at: wait, facing }
+            } else {
+                RiderAction::Unrouted
+            };
             let ready = start + plan.duration();
             let Some(service) = options.next(ready, |trip| {
                 wait.distance(trip.door(routes, trip.board_distance, copy)) / Vehicle::Walk.speed()
             }) else {
-                plan.until(DAY - start, RiderAction::Wait { at: wait, facing });
+                plan.until(DAY - start, waiting);
                 break;
             };
             let door = service.door(routes, service.board_distance, copy);
@@ -384,13 +393,14 @@ impl RiderPlan {
                 RideKey::Metro { .. } => service.arrival,
                 RideKey::Surface { .. } => service.arrival - wait.distance(door) / Vehicle::Walk.speed(),
             };
-            plan.until(approach - start, RiderAction::Wait { at: wait, facing });
-            plan.connect(wait, door);
+            plan.until(approach - start, waiting);
+            plan.connect(wait, door, has_origin);
             plan.until(service.alight - start, RiderAction::Ride(service.key));
+            has_origin = true;
             let exit_door = service.door(routes, service.exit_distance, copy);
             let exit = if let RideKey::Metro { track, .. } = service.key {
                 let (platform, _) = platform_pose(&routes.tracks[track], service.exit_distance, copy);
-                plan.connect(exit_door, platform);
+                plan.connect(exit_door, platform, has_origin);
                 platform
             } else {
                 exit_door
@@ -400,7 +410,7 @@ impl RiderPlan {
             if routes.riders.interchange(Some(index), next) {
                 transfer = Some(exit);
             } else {
-                plan.connect(exit, path.points[leg.end] + Vec3::Y * 0.25);
+                plan.connect(exit, path.points[leg.end] + Vec3::Y * 0.25, has_origin);
             }
         }
         plan
@@ -410,7 +420,7 @@ impl RiderPlan {
         self.steps.last().map_or(0., |s| s.end_age)
     }
 
-    pub(super) fn at(&self, age: f32, path: &Path) -> Option<RiderState> {
+    pub(super) fn at(&self, age: f32) -> Option<RiderState> {
         if age < 0. {
             return None;
         }
@@ -422,10 +432,7 @@ impl RiderPlan {
             self.steps[i - 1].end_age
         };
         Some(match step.action {
-            RiderAction::Walk { path_time } => {
-                let (p, dir, _) = path.at(path_time + age - start_age, &path.seconds)?;
-                RiderState::Walking(p + Vec3::Y * 0.25, dir)
-            }
+            RiderAction::Unrouted => return None,
             RiderAction::StationWalk { from, to } => {
                 let t = (age - start_age) / (step.end_age - start_age);
                 RiderState::Walking(from.lerp(to, t), (to - from).normalize())

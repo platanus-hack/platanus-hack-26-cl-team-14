@@ -1111,7 +1111,7 @@ fn draw(
                     Paint::Plain
                 };
                 let movement = if let Some(plan) = g.itineraries.get(j) {
-                    match plan.at(age, &g.path) {
+                    match plan.at(age) {
                         Some(RiderState::Walking(p, dir) | RiderState::Waiting(p, dir)) => {
                             if visible(p, 100.) && (subway.0 || p.y >= terrain_from_xz(p.x, p.z) - 0.6) {
                                 place(Model::Person, paint, pose(p, dir, Vec3::splat(1.2 * presence)));
