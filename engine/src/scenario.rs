@@ -154,17 +154,39 @@ impl Scenario {
         sc
     }
 
-    // Stock edits take effect in order. Convert their net residential change to whole workers
-    // before the next direct resident change or job choice, so undoing an edit is exact.
-    fn apply_building_workers(&self, pop: &mut Population, original: &mut BTreeMap<usize, f64>) {
-        let mut net_workers = vec![0.0_f64; self.choice.n];
-        for (home, before) in std::mem::take(original) {
-            let after = pop.homes[home].weight;
-            let origin = self.ix(&pop.homes[home].cut);
-            let previous = net_workers[origin];
-            net_workers[origin] += (after - before) * self.ratio[origin];
-            let delta = net_workers[origin].round() - previous.round();
-            change_workers(pop, &[home], delta, after);
+    // Allocate whole workers once from the final resident stocks. Carry fractional workers
+    // between home blocks in the same comuna. Keep baseline workers when no stock changed.
+    fn apply_net_residents(&self, pop: &mut Population) {
+        let mut cumulative = vec![0.0_f64; self.choice.n];
+        let mut deltas = vec![0_i64; pop.homes.len()];
+        for (home, point) in pop.homes.iter().enumerate() {
+            let before = self.pop.homes.get(home).map_or(0.0, |p| p.weight);
+            if point.weight == before { continue; }
+            let cut = self.ix(&point.cut);
+            let previous = cumulative[cut];
+            cumulative[cut] += (point.weight - before) * self.ratio[cut];
+            deltas[home] = (cumulative[cut].round() - previous.round()) as i64;
+        }
+        if deltas.iter().any(|&d| d < 0) {
+            let mut counts = vec![0_u64; deltas.len()];
+            let mut seen = vec![0_u64; deltas.len()];
+            for p in pop.persons.iter().filter(|p| !p.student) {
+                counts[p.home as usize] += 1;
+            }
+            pop.persons.retain(|p| {
+                let h = p.home as usize;
+                if p.student || deltas[h] >= 0 { return true; }
+                let remove = deltas[h].unsigned_abs().min(counts[h]);
+                let i = seen[h];
+                seen[h] += 1;
+                // Spread removals evenly among the workers at this home block.
+                (i * remove).div_ceil(counts[h]) == (seen[h] * remove).div_ceil(counts[h])
+            });
+        }
+        for (home, delta) in deltas.into_iter().enumerate() {
+            pop.persons.extend((0..delta).map(|_| Person {
+                home: home as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE,
+            }));
         }
     }
 
@@ -239,7 +261,8 @@ impl Scenario {
         } else { None };
         // For an outage keep the last finite graph time. None means this pair had no graph baseline.
         let mut transit_reference: HashMap<usize, Option<f64>> = HashMap::new();
-        let mut building_home_weights = BTreeMap::new();
+        let mut building_residents = false;
+        let mut direct_workers_changed = false;
         let mut city_edits = Vec::new();
         let mut car_shares = BTreeMap::new();
         let mut requests = vec![];
@@ -328,7 +351,7 @@ impl Scenario {
                                 });
                                 let stock = &mut points[index].weight;
                                 if field == "residents_delta" {
-                                    building_home_weights.entry(index).or_insert(*stock);
+                                    building_residents = true;
                                 }
                                 *stock = (*stock + delta).max(0.0);
                             }
@@ -476,23 +499,19 @@ impl Scenario {
                 }
                 Kind::Residents => {
                     let (ids, cut) = points(&mut pop.homes);
-                    if !building_home_weights.is_empty() {
-                        let current = ids.iter().map(|&i| pop.homes[i].weight).sum();
-                        if op(current) != current {
-                            // Only a real stock change at a shared home needs its workers up to date.
-                            // Other blocks keep accumulating their building edits until job choice.
-                            let mut shared: BTreeMap<_, _> = ids.iter()
-                                .filter_map(|i| building_home_weights.remove_entry(i)).collect();
-                            if !shared.is_empty() { self.apply_building_workers(&mut pop, &mut shared); }
-                        }
-                    }
                     let Some((before, after)) = scale(&mut pop.homes, &ids, &self.pop.homes) else {
                         note["reason"] = json!("The comuna has no baseline block weights for this increase.");
                         not_modeled.push(note);
                         continue;
                     };
                     let k = ((after - before) * self.ratio[self.ix(&cut)]).round();
-                    let workers = change_workers(&mut pop, &ids, k, after);
+                    let workers = if building_residents {
+                        None
+                    } else {
+                        let workers = change_workers(&mut pop, &ids, k, after);
+                        direct_workers_changed |= workers != 0.0;
+                        Some(workers)
+                    };
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "residents_before": r1(before), "residents_after": r1(after), "workers_added": workers });
                     if let Target::Point { longitude, latitude } = &ch.target { let p = &pop.homes[ids[0]]; let new = p.id.starts_with("new"); note["understood"]["block"] = if new { json!(null) } else { json!(p.id) }; note["understood"]["block_distance_m"] = if new { json!(null) } else { json!(r1(dist_m(p, *longitude, *latitude))) }; }
                 }
@@ -511,7 +530,16 @@ impl Scenario {
             if !stock_child { applied.push(note); }
         }
 
-        if !building_home_weights.is_empty() { self.apply_building_workers(&mut pop, &mut building_home_weights); }
+        if building_residents {
+            // Direct edits can precede the first building in the same request.
+            if direct_workers_changed { pop.persons.clone_from(&self.pop.persons); }
+            self.apply_net_residents(&mut pop);
+            for note in applied.iter_mut().filter(|v| v["kind"] == "residents") {
+                if let Some(workers) = note["understood"].get_mut("workers_added") {
+                    *workers = Value::Null;
+                }
+            }
+        }
         for index in transit_reference.keys() {
             minutes[*index] = minutes[*index].max(1.0);
         }
@@ -533,6 +561,9 @@ impl Scenario {
             json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions))
         }).collect();
         let mut assumptions = ASSUMPTIONS.map(Value::from).to_vec();
+        if building_residents {
+            assumptions.push(json!("Building and direct resident edits share one final worker allocation. Summary workers_new gives the net change across the request."));
+        }
         if city_edits.iter().any(|edit| edit["kind"] == "line") {
             assumptions.push(json!("Exploratory station boardings after a transit line edit. The station model uses worker origins, job destinations and baseline public transport shares. Ridership on the edited service is unknown."));
         }
