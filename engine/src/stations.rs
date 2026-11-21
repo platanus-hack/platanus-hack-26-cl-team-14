@@ -140,7 +140,22 @@ const MUT_CUT: &str = "13114";
 #[derive(Deserialize)]
 struct ArtifactStation { id: String, predicted: Vec<f64> }
 #[derive(Deserialize)]
-struct Artifact { layer: String, stations_args: Vec<String>, wape_bins: f64, stations: Vec<ArtifactStation> }
+struct Artifact { layer: String, stations_args: Vec<String>, wape_bins: f64, #[serde(default)] model_source_sha256: String,
+    #[serde(default)] input_sha256: HashMap<String, String>, stations: Vec<ArtifactStation> }
+
+/// Files the fit reads; their hashes must equal the artifact's before its score is shown.
+const FIT_INPUTS: [&str; 5] = ["work_od.csv", "mode_share.csv", "blocks.csv", "jobs.csv", "metro_training.json"];
+
+fn sha256(bytes: &[u8]) -> String {
+    use sha2::Digest;
+    sha2::Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn layer_of(args: &[String]) -> Option<&'static str> {
+    match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        [] => Some("L0"), ["1000"] => Some("L1"), ["1000", "public"] => Some("L2"), ["1000", "public", "classes"] => Some("L7"), _ => None,
+    }
+}
 #[derive(Deserialize)]
 struct Commune { cut: String, population: f64 }
 #[derive(Deserialize)]
@@ -174,8 +189,15 @@ impl StationModel {
         let has = |k: &str| art.stations_args.iter().any(|x| x == k);
         let radius = art.stations_args.first().and_then(|r| r.parse().ok()).unwrap_or(f64::INFINITY);
         let (base, _, fit) = predict(data, &st, radius, has("public"), has("classes"));
-        // The stored score belongs to this fit only if the artifact holds the same held-out predictions.
-        let same = art.stations.iter().all(|a| st.iter().position(|s| s.id == a.id).is_some_and(|i| base[i] == a.predicted));
+        // The stored score belongs to this fit only if: same model source, same input bytes, the label of these
+        // arguments, all 31 frozen held-out stations present, and exactly the same held-out predictions.
+        let held: std::collections::BTreeSet<&str> = st.iter().filter(|s| s.holdout).map(|s| s.id.as_str()).collect();
+        let listed: std::collections::BTreeSet<&str> = art.stations.iter().map(|a| a.id.as_str()).collect();
+        let same = art.model_source_sha256 == sha256(include_bytes!("stations.rs"))
+            && FIT_INPUTS.iter().all(|f| art.input_sha256.get(*f) == Some(&sha256(&std::fs::read(data.join(f)).unwrap())))
+            && layer_of(&art.stations_args) == Some(art.layer.as_str())
+            && held.len() == 31 && listed == held && art.stations.len() == 31
+            && art.stations.iter().all(|a| st.iter().position(|s| s.id == a.id).is_some_and(|i| base[i] == a.predicted));
         let m = |cut: &str| if fit.public_share { let (p, t) = fit.share[cut]; p / t } else { 1.0 };
         let (mut out, mut inb, mut inb_w) = (0.0, 0.0, 0.0);
         for f in rows::<Od>(&data.join("work_od.csv")) {
@@ -193,7 +215,7 @@ impl StationModel {
     }
 
     /// MUT only: new dwellings become home mass, removed jobs leave job mass, both at the MUT jobs row,
-    /// through the frozen fit. Zero change returns no station.
+    /// through the frozen fit. The MUT parent is always returned; at zero change both arrays are equal.
     pub fn mut_scenario(&self, r: MutRequest) -> Result<MutResponse, String> {
         if r.site_id != "MUT" { return Err("site_id must be MUT".into()); }
         if !(r.dwellings_added >= 0.0 && r.dwellings_added.is_finite()) { return Err("dwellings_added must be finite and >= 0".into()); }
@@ -204,7 +226,7 @@ impl StationModel {
         let dj = -r.jobs_removed * self.job_public_factor;
         let (i, d) = nearest(&self.st, self.mut_point.0, self.mut_point.1);
         let mut stations = Vec::new();
-        if d <= self.fit.radius && (dh != 0.0 || dj != 0.0) {
+        if d <= self.fit.radius {
             let p = &self.fit.p[self.fit.class[i]];
             let scen = (0..48).map(|t| self.base[i][t] + self.fit.a * p[t] * if t < 24 { dh } else { dj }).collect();
             stations.push(StationChange { id: self.st[i].id.clone(), name: self.st[i].name.clone(), predicted_base: self.base[i].clone(), predicted_scenario: scen });
