@@ -74,7 +74,6 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
         CaptionBand,
         Text::default(),
         TextFont { font: font.into(), font_size: FontSize::Px(34.), ..default() },
-        TextLayout::no_wrap(),
         TextColor(Color::WHITE),
         Visibility::Hidden,
         BackgroundColor(Color::srgba(0.05, 0.07, 0.09, 0.90)),
