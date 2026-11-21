@@ -10,6 +10,7 @@ pub(crate) mod water;
 use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
+pub(crate) use terrain::ferry_depth_grid;
 pub use terrain::{cursor_ground, ground_on_line, terrain_from_xz};
 
 /// Drawing offset in metres above the DEM. OSM layers describe crossing order.
