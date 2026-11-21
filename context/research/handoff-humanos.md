@@ -8,7 +8,7 @@ Lee del chat el cambio que estima el motor en Universidad de Chile, en subidas p
 
 ## Qué puedes probar hoy
 
-El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor deja pendientes los eventos y las estaciones nuevas en otra ubicación. [Configuración y alcance](../../README.md#run-a-scenario-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
+El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. La revisión independiente de ese cálculo sigue pendiente. Crear una estación en otro punto queda fuera del alcance actual. [Configuración y alcance](../../README.md#run-a-scenario-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
 
 Necesitas Rust para el motor y Node.js 22 o posterior para el servidor MCP. Desde la raíz del repositorio, inicia el motor en un puerto libre:
 
