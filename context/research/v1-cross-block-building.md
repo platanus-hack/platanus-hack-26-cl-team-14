@@ -11,3 +11,7 @@ At `db0aa683ddd380c7be685b5fd8e85d016094c724`, the check is in `Catalog::block`.
 3. For known stock, debit the old block shares and credit the new ones in `effects.blocks`. Keep one complete footprint in `city_edits`. A catalog stadium with unknown employment or residents can move for display while its stock stays unknown. The MUT replay can keep its explicit job swap between the two blocks.
 
 For the demo, run the rejected stadium move again and inspect the complete destination geometry. Check an additional move of a scenario building with declared stocks. The sum of the debits and credits should be zero for each stock that the move preserves. The footprint and allocation should reach the existing scenario endpoint.
+
+## Exact stadium request
+
+Tinta's `B-clear-resolved-request.json` has SHA-256 `d7ee05f24b3e969b4c632de5f8133512dffab88f18926f98994bfc6b1d3990b7`. It contains 32 edits, including the move of `mesh:152:317`. I intersected its destination polygon with the packed census polygons in EPSG:32719. The 17,128 m² footprint overlaps 12 blocks with positive area. The union covers 72.83% of the footprint. The largest block, `13114131009026`, covers 29.37%. The move needs to retain the complete geometry across the gaps. [Request attachment](https://discord.com/channels/1573514576400752640/1573809708047798364/1573841839079956686) · [Census polygons](../../data/mvp/building_blocks.geojson.gz)
