@@ -84,7 +84,7 @@ The server speaks MCP on stdin and stdout. Usually the agent tool starts it.
 
 The inbox connects to the Discord Gateway and stores messages in private JSONL files in the system temp directory. It watches the Agents channels, `general`, and their public threads. It excludes `secrets`. Port 43871 on loopback reserves one writer on this laptop.
 
-In Juan’s session, a Paseo heartbeat wakes the orchestrator once per minute. The orchestrator reads the local inbox files, keeps one last-seen message ID for the entire mailbox, and uses Discord MCP to post receipt reactions. The [Discord interaction rules](../../context/discord-interaction.md#patterns-for-an-orchestrator) call for a three-second inbox check and a separate last-seen ID for each channel or thread. The current heartbeat falls short of both targets.
+Each laptop runs `watch-humans.mjs` under the orchestrator’s background monitor. The watcher checks the local inbox files every three seconds, keeps one last-seen message ID for each channel, posts the receipt reaction, and wakes the orchestrator on each human message. A separate ten-minute heartbeat checks threads, agents, disk, and battery. Follow the steps in the [Discord swarm playbook](../../context/discord-interaction.md#1-answer-humans-fast).
 
 Each MCP client keeps its own unread cursor. It checks local files every 15 seconds and returns up to 50 unread messages per tool call. Call `poll_messages` to drain the rest. The client also sends an MCP log notification. The host decides when to wake an idle agent.
 
@@ -116,6 +116,8 @@ Report at start, checkpoints, and before compaction. Never answer a usage report
 with another usage report. Memory notes name saved context and handoff files.
 
 ## Sync GitHub issues and Discord threads
+
+The team no longer uses GitHub issues for coordination ([decision](../../context/decisions/20261121-1745-swarm-playbook-from-first-iteration.md)). This section describes the mirror for the old issues.
 
 Emerson’s Mac runs one mirror for the repository. Start it from the repository root with Node 22 and an authenticated `gh` on PATH:
 
