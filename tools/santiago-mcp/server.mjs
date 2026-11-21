@@ -16,10 +16,12 @@ const comunaName = Object.fromEntries(communes.map((f) => [f.properties.cut, f.p
 const censusMode = { 1: 'car', 2: 'public transport (bus, Metro, train, taxi, colectivo)', 3: 'walking', 4: 'bicycle or scooter', 5: 'motorcycle', 6: 'horse or boat', 7: 'other', '-99': 'no answer' };
 const named = (counts, names) => Object.fromEntries(Object.entries(counts).map(([k, v]) => [names[k] ?? k, v]));
 const comunaAt = (p) => communes.find((f) => f.geometry.coordinates.some(([outer, ...holes]) => inRing(p, outer) && !holes.some((h) => inRing(p, h))))?.properties;
-const currentStations = new Set(JSON.parse(data('metro_training.json')).map((s) => s.id));
+const stationCatalog = JSON.parse(data('metro_training.json'));
+const currentStations = new Set(stationCatalog.map(s => s.id));
 
 const api = process.env.SANTIAGO_API_URL ?? 'http://127.0.0.1:8787';
 const comunas = '13101 Santiago, 13102 Cerrillos, 13103 Cerro Navia, 13104 Conchalí, 13105 El Bosque, 13106 Estación Central, 13107 Huechuraba, 13108 Independencia, 13109 La Cisterna, 13110 La Florida, 13111 La Granja, 13112 La Pintana, 13113 La Reina, 13114 Las Condes, 13115 Lo Barnechea, 13116 Lo Espejo, 13117 Lo Prado, 13118 Macul, 13119 Maipú, 13120 Ñuñoa, 13121 Pedro Aguirre Cerda, 13122 Peñalolén, 13123 Providencia, 13124 Pudahuel, 13125 Quilicura, 13126 Quinta Normal, 13127 Recoleta, 13128 Renca, 13129 San Joaquín, 13130 San Miguel, 13131 San Ramón, 13132 Vitacura, 13201 Puente Alto, 13202 Pirque, 13203 San José de Maipo, 13301 Colina, 13302 Lampa, 13303 Tiltil, 13401 San Bernardo, 13402 Buin, 13403 Calera de Tango, 13404 Paine, 13501 Melipilla, 13502 Alhué, 13503 Curacaví, 13504 María Pinto, 13505 San Pedro, 13601 Talagante, 13602 El Monte, 13603 Isla de Maipo, 13604 Padre Hurtado, 13605 Peñaflor';
+const plain = (name) => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 const scalarChange = {
   type: 'object',
   required: ['kind', 'target', 'op', 'value'],
@@ -101,6 +103,100 @@ const tool = {
   },
 };
 
+const sceneTool = {
+  name: 'set_scene',
+  description: 'Focus the city view on a place and a half hour. For a station change, first call set_scene for that station with half_hour "base_peak". Wait for the scene receipt, then call simulate_city. Keep the same scene for the comparison. The engine retains it when applying the change. For a time the user specifies, use its bin (0 = midnight, 1 = 00:30, 47 = 23:30).',
+  inputSchema: {
+    type: 'object', required: ['place', 'half_hour'],
+    properties: {
+      place: { oneOf: [
+        { type: 'object', required: ['type', 'id'], properties: {
+          type: { enum: ['station', 'place', 'comuna', 'line'] },
+          id: { type: 'string', description: 'Station name or ID, named place name or ID, comuna name or CUT, or transit route or pattern ID.' },
+        } },
+        { type: 'object', required: ['type', 'longitude', 'latitude'], properties: {
+          type: { enum: ['point'] }, longitude: { type: 'number' }, latitude: { type: 'number' },
+        } },
+      ] },
+      half_hour: { oneOf: [{ type: 'integer', minimum: 0, maximum: 47 }, { enum: ['base_peak'] }],
+        description: 'base_peak selects the earliest maximum of the station’s 48 modeled baseline bins.' },
+    },
+  },
+};
+
+function catalogEntry(rows, query) {
+  const matches = rows.filter(row => plain(row.name) === plain(query));
+  const exact = rows.find(row => plain(row.id) === plain(query));
+  if (exact) return exact;
+  if (matches.length === 1) return matches[0];
+  if (matches.length) throw new Error(`Select a catalog ID for ${query}: ${matches.map(row => row.id).join(', ')}.`);
+  throw new Error(`Unknown catalog entry: ${query}.`);
+}
+
+function lineCenter(id) {
+  const planned = JSON.parse(data('metro_planned.geojson')).features.filter(f =>
+    f.geometry.type === 'Point' && (f.properties.corridor === id || f.properties.line === id));
+  let points = planned.map(f => f.geometry.coordinates);
+  if (!points.length) {
+    const { lines, stops } = JSON.parse(data('editable_transit.json'));
+    const patterns = lines[id] ? [lines[id]] : Object.values(lines).filter(line => line.route_id === id);
+    const stopIds = new Set(patterns.flatMap(line => line.stop_ids));
+    points = [...stopIds].map(stop => stops[stop].coordinates);
+  }
+  if (!points.length) throw new Error(`Unknown transit route or pattern ID: ${id}.`);
+  const middle = axis => {
+    const values = points.map(p => p[axis]);
+    return (Math.min(...values) + Math.max(...values)) / 2;
+  };
+  return { id, longitude: middle(0), latitude: middle(1) };
+}
+
+async function engineJSON(path, body) {
+  const options = body === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  };
+  const response = await fetch(new URL(path, api), options);
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+async function setScene({ place, half_hour }) {
+  const { type, id } = place;
+  if (half_hour === 'base_peak' && type !== 'station') throw new Error('Select a station for base_peak.');
+  let entry;
+  let latest;
+  switch (type) {
+    case 'station':
+      latest = await engineJSON('/api/scenario-latest');
+      entry = catalogEntry(latest?.stations ?? stationCatalog, id);
+      break;
+    case 'place':
+      entry = catalogEntry(placeRows.map(r => ({ id: r[0], name: r[1], ...places[r[0]] })), id);
+      break;
+    case 'comuna': {
+      const rows = data('communes.csv').trim().split('\n').slice(1).map(row => row.split(','));
+      entry = catalogEntry(rows.map(([id, name, , , , x, y]) => ({ id, name, longitude: +x, latitude: +y })), id);
+      break;
+    }
+    case 'line': entry = lineCenter(id); break;
+    case 'point': entry = place; break;
+    default: throw new Error('Select a station, named place, comuna, line or point.');
+  }
+  const center = { type, id: entry.id, longitude: entry.longitude, latitude: entry.latitude };
+  if (half_hour === 'base_peak') {
+    // run.sh seeds the baseline. An empty standalone engine can seed it through the scene route without clearing edits.
+    if (!latest) {
+      await engineJSON('/api/scene', { place: center, half_hour: 0 });
+      latest = await engineJSON('/api/scenario-latest');
+      entry = catalogEntry(latest.stations, entry.id);
+    }
+    const peak = Math.max(...entry.base_half_hour);
+    if (!(peak > 0)) throw new Error('This station has no positive baseline boardings. Select an explicit half hour.');
+    half_hour = entry.base_half_hour.indexOf(peak);
+  }
+  return engineJSON('/api/scene', { place: center, half_hour });
+}
+
 // The viewer keeps full geometry and routing data. Keep the chat receipt small.
 function featureSummary(feature) {
   if (!feature) return null;
@@ -130,9 +226,13 @@ async function dispatch({ method, params }) {
     serverInfo: { name: 'santiago', version: '2.0.0' },
   };
   if (method === 'ping') return {};
-  if (method === 'tools/list') return { tools: [tool] };
-  if (method !== 'tools/call' || params?.name !== tool.name) return null;
+  if (method === 'tools/list') return { tools: [tool, sceneTool] };
+  if (method !== 'tools/call' || ![tool.name, sceneTool.name].includes(params?.name)) return null;
   try {
+    if (params.name === sceneTool.name) {
+      const receipt = await setScene(params.arguments);
+      return { content: [{ type: 'text', text: JSON.stringify(receipt) }] };
+    }
     const placesUsed = [];
     for (const change of params.arguments.changes ?? []) {
       if (change.target?.type !== 'place') continue;
@@ -147,14 +247,8 @@ async function dispatch({ method, params }) {
       change.target = { type: 'block', id: place.block };
     }
     const { stations: asked = [], ...request } = params.arguments;
-    const response = await fetch(new URL('/api/scenario', api), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-    });
-    if (!response.ok) throw new Error(await response.text());
     // The map reads the full result from the engine. The agent gets a short copy: the 5 largest station gains and losses and the 5 largest zone job changes.
-    const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, ...result } = await response.json();
+    const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, ...result } = await engineJSON('/api/scenario', request);
     if (result.city_edits) result.city_edits = result.city_edits.map(editSummary);
     for (const note of [...result.applied, ...result.not_modeled]) {
       if (['building', 'road', 'line'].includes(note.kind)) {
@@ -171,7 +265,6 @@ async function dispatch({ method, params }) {
       ...event, attendees_by_mode: named(attendees_by_census_mode, censusMode), attendees_by_return_comuna: named(attendees_by_return_comuna, comunaName) }));
     delete result.summary.top_station_gains;
     delete result.summary.top_station_losses;
-    const plain = (name) => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
     result.asked_stations = asked.flatMap((name) => {
       const byId = byDelta.filter((s) => s.id === name);
       const matches = byId.length ? byId : byDelta.filter((s) => plain(s.name) === plain(name));
