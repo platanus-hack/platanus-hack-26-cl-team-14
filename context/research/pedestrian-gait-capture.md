@@ -1,6 +1,6 @@
 # Pedestrian gait in the opening shot
 
-The pitch proposal follows one traveler at street zoom. The current viewer moves and turns the person mesh along the route. The arm and leg poses stay fixed. The draw path uses the same mesh for a routed person walking and waiting. A separate station-entry draw path also uses this mesh. [Pitch proposal](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/354) · [Person mesh and draw](../../viz/src/movers.rs) · [Rider states](../../viz/src/movers/riders.rs) · [Station entry figures](../../viz/src/movers/street_people.rs)
+The pitch proposal follows one traveler at street zoom. Before #396, the viewer moved and turned one fixed person mesh along the route. Walking, waiting, and station entry figures used that pose. #396 adds walking frames and keeps a separate standing pose. [Original mover draw](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/blob/f078db050f29286771e01e78e672c6d83232d6f1/viz/src/movers.rs) · [Integrated gait](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/396) [Pitch proposal](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/354) · [Person mesh and draw](../../viz/src/movers.rs) · [Rider states](../../viz/src/movers/riders.rs) · [Station entry figures](../../viz/src/movers/street_people.rs)
 
 ## Motion reference
 
@@ -11,7 +11,7 @@ The default replay advances eight city seconds per screen second. A study of adu
 ## Capture
 
 - Tagua’s run of follow PR #384 selected group 258, copy 3. The log confirms a 140 m camera. The 07:31 still shows people on the street, but the still does not identify the followed figure.
-- For a gait check, use the same baseline result and start time. Record one walking segment with `SANTIAGO_PLAYBACK_RATE=1`. Use a fixed street camera to see foot contact against the pavement. Confirm the group and copy in the log again. Compare with the original pose at the same camera and time.
-- Read a left step, a right step, and a planted foot on the sidewalk. If the selected person reaches a waiting state in the clip, check that the feet stop stepping. Then open the final 140 m follow shot at the presentation rate. Confirm the audience can identify the followed person and read that they are walking.
+- For foot contact, use the same baseline result and start time. Leave follow off. Set `SANTIAGO_LOCK_CAMERA=1` and `SANTIAGO_PLAYBACK_RATE=1`. Aim a street camera at the sidewalk and record one visible walker. Compare the old and new pose at the same fixed camera. Look for left and right steps and a foot that stays on the pavement during contact. This check uses the figure in the frame.
+- For the pitch shot, use a separate run with `SANTIAGO_FOLLOW=1` and an unlocked camera at the presentation rate. Record the group and copy from the follow log. Open the 140 m shot and check that the audience can identify the followed person and see them walking. If the person reaches a waiting state, check that the stepping stops.
 
 The gait clip and the final-rate check remain open. [Follow capture and log](https://discord.com/channels/1573514576400752640/1573809836699820163/1573823823596228669)
