@@ -2,7 +2,15 @@
   "mcpServers": {
     "discord": {
       "command": "node",
-      "args": ["tools/discord-mcp/server.mjs"]
+      "args": [
+        "tools/discord-mcp/server.mjs"
+      ]
+    },
+    "santiago": {
+      "command": "node",
+      "args": [
+        "tools/santiago-mcp/server.mjs"
+      ]
     }
   }
 }

@@ -219,11 +219,63 @@ function tobalaba() {
 }
 
 // ---------- Santiago ----------
+let changes = new Map(), revision = 0, submitting = false;
+function syncControls() {
+  const change = changes.get(sel);
+  for (const [control, field, label] of [['jobs', 'jobs_multiplier', 'jv'], ['housing', 'housing_multiplier', 'hv']]) {
+    const value = change?.[field] ?? 1;
+    $(control).value = value;
+    $(label).textContent = fmt(value, 1);
+  }
+}
+
+function applyCityResult(result, external) {
+  if (!result || result.revision <= revision) return;
+  revision = result.revision;
+  world = result.baseline;
+  sim = result.scenario;
+  changes = new Map(result.summary.changes.map(change => [change.zone_id, change]));
+  if (external && result.summary.changes.length) sel = result.summary.changes[0].zone_id;
+  syncControls();
+  engine('s', result);
+  if (view !== 's') show('s');
+  else draw();
+}
+
+async function runCityScenario() {
+  seq++;
+  if (submitting) return;
+  submitting = true;
+  let submitted;
+  do {
+    submitted = seq;
+    try {
+      const result = await post('simulate', {changes: [...changes.values()]});
+      if (submitted === seq) applyCityResult(result, false);
+    } catch {
+      if (submitted === seq) engine('s');
+    }
+  } while (submitted !== seq);
+  submitting = false;
+}
+
 function simulate() {
-  const n = ++seq, j = +$('jobs').value, h = +$('housing').value;
-  $('jv').textContent = fmt(j, 1); $('hv').textContent = fmt(h, 1);
-  post('simulate', {zone_id: sel, jobs_multiplier: j, housing_multiplier: h})
-    .then(r => { if (n == seq) { sim = r; engine('s', r); } }, () => engine('s'));
+  const j = +$('jobs').value, h = +$('housing').value;
+  if (j === 1 && h === 1) changes.delete(sel);
+  else changes.set(sel, {zone_id: sel, jobs_multiplier: j, housing_multiplier: h});
+  syncControls();
+  runCityScenario();
+}
+
+async function watchCity() {
+  try {
+    const result = await get(API + 'scenario-latest');
+    if (!submitting) applyCityResult(result, true);
+  } catch {
+    // The local engine can start after the browser.
+  } finally {
+    setTimeout(watchCity, 500);
+  }
 }
 
 function santiago() {
@@ -248,7 +300,7 @@ function santiago() {
         return blue.map((x, i) => x + (to[i] - x) * m);
       },
       material: {ambient: .5, diffuse: .7, shininess: 8},
-      onClick: ({object}) => { sel = String(object.properties.cut); $('jobs').value = $('housing').value = 1; simulate(); },
+      onClick: ({object}) => { if (object) { sel = String(object.properties.cut); syncControls(); draw(); } },
       updateTriggers: {getElevation: sim, getFillColor: [sim, sel]}, transitions: {getElevation: 600}}),
     // modeled work flows: the selected comuna in full, the rest only when large
     sim && new ArcLayer({id: 'flows', data: sim.flows.filter(f => f.origin != f.destination && (f.origin == sel || f.destination == sel || f.workers > 6000)),
@@ -346,7 +398,7 @@ $('go').onclick = () => {
   gen++; site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
 };
 $('jobs').oninput = $('housing').oninput = simulate;
-$('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
+$('reset').onclick = () => { changes.clear(); syncControls(); runCityScenario(); };
 
 const get = u => fetch(u).then(r => r.json());
 Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
@@ -364,9 +416,10 @@ Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json
   if (q.has('j')) $('jobs').value = q.get('j');
   if (q.has('site')) document.querySelector(`.site[data-id=${q.get('site')}]`).onclick();
   if (q.has('m')) $('mult').value = q.get('m');
-  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || 't');
+  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || 's');
   tick();
-  get(API + 'world').then(w => { world = sim = w; simulate(); }, () => engine('s'));
+  get(API + 'world').then(w => { world ??= w; sim ??= w; syncControls(); draw(); }, () => engine('s'));
+  watchCity();
 });
 </script>
 </html>
