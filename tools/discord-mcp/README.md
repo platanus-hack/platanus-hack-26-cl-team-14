@@ -21,6 +21,16 @@ Each message shows the agent name, for example `Clorinda-47 (v4rgas@thinkpad)`.
 Each agent session keeps one name and number. The names come from [Chilean Civil Registry data for 1940 to 1975](https://rivaquiroga.github.io/guaguas/). The GitHub user comes from `gh`. The machine name comes from the hostname.
 The bot posts through one webhook for each channel, named `agents`. Discord shows the tag `APP` on these messages.
 
+### Local name and quiet replies
+
+The MCP reads `discord-agent-names.json` from the system temp directory at startup. Use the parent PID of the MCP server as the name key. List numeric parent PIDs in `quiet` for agents that read unread messages on demand. For example:
+
+```json
+{"12345": "Lautaro", "quiet": [12345]}
+```
+
+Reconnect that agent’s Discord MCP after editing the file. A quiet agent can call `poll_messages` to collect unread messages. Its other tool replies omit the unread list.
+
 ## Create or replace the team bot
 
 1. Go to <https://discord.com/developers/applications>. Click **New Application**, enter a name, and click **Create**.

@@ -3,8 +3,8 @@
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
-import { hostname } from "node:os";
-import { basename, isAbsolute } from "node:path";
+import { hostname, tmpdir } from "node:os";
+import { basename, isAbsolute, join } from "node:path";
 import { createInterface } from "node:readline";
 import { ASK_FOR_TOKEN, discord, savedToken } from "./rest.mjs";
 
@@ -25,12 +25,21 @@ const NAMES = readFileSync(new URL("./chilean-names.txt", import.meta.url), "utf
 const seed = createHash("sha256").update(`${hostname()}-${process.ppid}`).digest();
 const givenName = NAMES[seed.readUInt16BE(0) % NAMES.length];
 const number = String(seed[2] % 100).padStart(2, "0");
-const AGENT_NAME = `${givenName}-${number}`;
+const drawnName = `${givenName}-${number}`;
+let agentSettings;
+try {
+  agentSettings = JSON.parse(readFileSync(join(tmpdir(), "discord-agent-names.json"), "utf8"));
+} catch {
+  // An absent or incomplete local file uses the session defaults.
+}
+const chosenName = agentSettings?.[process.ppid];
+const AGENT_NAME = typeof chosenName === "string" && chosenName.trim() ? chosenName : drawnName;
+const quietAgent = Array.isArray(agentSettings?.quiet) && agentSettings.quiet.includes(process.ppid);
 // Same name, same picture. Only the random name goes to DiceBear.
 // DiceBear picks one value from each list from the seed, so names look very different.
 const AVATAR_COLORS = "e6194b,3cb44b,ffe119,4363d8,f58231,911eb4,42d4f4,f032e6,bfef45,fabed4,469990,9a6324";
 const HAIR_COLORS = "ff3b3b,ff9f1c,ffe600,2ec4b6,3a86ff,8338ec,ff006e,00f5d4,ffffff,1a1a1a,7cfc00,c0c0c0";
-const AVATAR_URL = `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(AGENT_NAME)}&radius=50`
+const AVATAR_URL = `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(drawnName)}&radius=50`
   + `&backgroundColor=${AVATAR_COLORS}&hairColor=${HAIR_COLORS}`
   + "&glassesProbability=50&earringsProbability=50&featuresProbability=50";
 let identity;
@@ -536,7 +545,7 @@ async function callTool({ name, arguments: args = {} }) {
   try {
     if (!Object.hasOwn(handlers, name)) throw new Error(`Unknown tool: ${name}`);
     const result = await handlers[name](args);
-    const unread = unreadMessages();
+    const unread = quietAgent && name !== "poll_messages" ? "" : unreadMessages();
     return { content: [{ type: "text", text: result }, ...(unread ? [{ type: "text", text: unread }] : [])] };
   } catch (error) {
     return { content: [{ type: "text", text: error.message }], isError: true };
@@ -579,7 +588,7 @@ if (process.argv.includes("--inbox")) {
     send({ id: null, error: { code: -32700, message: "Not valid JSON" } });
     return;
   }
-  if (request.method === "notifications/initialized" && !pollTimer) {
+  if (request.method === "notifications/initialized" && !quietAgent && !pollTimer) {
     void poll();
     pollTimer = setInterval(poll, 15000);
   }
