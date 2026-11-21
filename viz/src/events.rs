@@ -123,15 +123,11 @@ fn refresh(
         })
         .collect();
     let previous = previous.as_deref();
-    if !rig.fixed
-        && let Some(new) = slots
-            .iter()
-            .rev()
-            .find(|s| !previous.is_some_and(|p| p.slots.iter().any(|old| old.venue == s.venue)))
-    {
-        rig.target = new.venue;
-        rig.distance = 720.;
-    }
+    let focus = slots
+        .iter()
+        .rev()
+        .find(|s| !previous.is_some_and(|p| p.slots.iter().any(|old| old.venue == s.venue)))
+        .copied();
     let anchor = slots
         .iter()
         .rev()
@@ -176,6 +172,12 @@ fn refresh(
             MeshMaterial3d(assets.amber.clone()),
             Transform::from_translation(slot.venue + Vec3::Y * 60.),
         ));
+        let frontage = frontage(&routes, slot.venue);
+        if !rig.fixed && Some(slot) == focus {
+            let curb = frontage.nearest(slot.venue).0;
+            rig.target = slot.venue.midpoint(curb);
+            rig.distance = 720_f32.max(200. + 2.5 * slot.venue.distance(curb));
+        }
         spawn_crowd(
             &mut commands,
             event,
@@ -183,7 +185,7 @@ fn refresh(
             slot,
             &open,
             assets,
-            &routes,
+            &frontage,
             &models,
             &fleet,
         );
@@ -202,26 +204,29 @@ fn nearest(points: &[Vec3], p: Vec3) -> Option<Vec3> {
         .min_by(|a, b| a.distance_squared(p).total_cmp(&b.distance_squared(p)))
 }
 
-// If the venue is inside a large field, use the street nearest its centre.
-fn curb(routes: &Routes, venue: Vec3) -> Option<Vec3> {
+// Use the nearest mapped frontage when a roof or a field covers the event point.
+fn frontage(routes: &Routes, venue: Vec3) -> Arc<Path> {
     if let Some(path) = routes
         .streets
         .local_path(venue, venue + Vec3::X, Vehicle::Walk)
     {
-        return Some(path.nearest(venue).0);
+        return path;
     }
-    routes
+    let (a, b) = routes
         .streets
         .0
         .values()
         .flatten()
-        .map(|&(a, b)| foot(venue, a, b))
-        .min_by(|a, b| {
-            a.distance_squared(venue)
-                .total_cmp(&b.distance_squared(venue))
-                .then(a.x.total_cmp(&b.x))
-                .then(a.z.total_cmp(&b.z))
+        .copied()
+        .min_by(|&(a, b), &(c, d)| {
+            foot(venue, a, b)
+                .distance_squared(venue)
+                .total_cmp(&foot(venue, c, d).distance_squared(venue))
+                .then(a.x.total_cmp(&c.x))
+                .then(a.z.total_cmp(&c.z))
         })
+        .unwrap();
+    Path::single(vec![a, b], Vehicle::Walk)
 }
 
 fn spawn_crowd(
@@ -231,7 +236,7 @@ fn spawn_crowd(
     slot: Slot,
     stations: &[Vec3],
     assets: &EventAssets,
-    routes: &Routes,
+    frontage: &Path,
     models: &Models,
     fleet: &fleet::Fleet,
 ) {
@@ -265,7 +270,8 @@ fn spawn_crowd(
     // and mapped bus stop. Show the other public modes walking toward the bus stop.
     let station = nearest(stations, slot.venue);
     let stop = nearest(&assets.stops, slot.venue);
-    let street = curb(routes, slot.venue);
+    let (curb, along, _) = frontage.nearest(slot.venue);
+    let side = right(along);
     let mut mass = 0.;
     let homes: Vec<_> = result["zones"]
         .as_array()
@@ -280,10 +286,11 @@ fn spawn_crowd(
         })
         .collect();
     for i in 0..copies {
-        // Layout only: spread the waiting figures over a small disk at the venue.
-        let angle = i as f32 * 2.3999631;
-        let radius = 30. * ((i as f32 + 0.5) / copies as f32).sqrt();
-        let mut start = slot.venue + radius * Vec3::new(angle.cos(), 0., angle.sin());
+        // The engine has no venue exits. Place the waiting crowd beside the
+        // street so figures remain visible when the point lies under a roof.
+        let along_offset = 50. * ((i as f32 + 0.5) / copies as f32 - 0.5);
+        let side_offset = 2. + 4. * (i as f32 * 0.618034).fract();
+        let mut start = curb + along * along_offset + side * side_offset;
         start.y = terrain_from_xz(start.x, start.z);
         let car = i >= bus_end && i < car_end;
         let path = if i < bus_end {
@@ -292,17 +299,18 @@ fn spawn_crowd(
             };
             Path::single(vec![start, end], Vehicle::Walk)
         } else {
-            let Some(curb) = street else { continue };
             // Mode and return comuna are separate engine totals. Sample the comuna
             // distribution for the heading of the first street segment only.
             let q = ((i as f64 + 0.5) * 0.61803398875).fract() * mass;
             let home = homes[homes.partition_point(|(upper, _)| *upper <= q)].1;
             let mode = if car { Vehicle::Car } else { Vehicle::Walk };
-            let Some(road) = routes.streets.local_path(curb, home, mode) else {
-                continue;
-            };
+            let [a, b] = [frontage.points[0], *frontage.points.last().unwrap()];
+            let mut end = if along.dot(home - curb) < 0. { a } else { b };
+            if end.distance_squared(curb) < 1. {
+                end = if end == a { b } else { a };
+            }
             Path::new(
-                vec![start, curb, *road.points.last().unwrap()],
+                vec![start, curb, end],
                 vec![
                     Leg {
                         end: 1,
