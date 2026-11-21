@@ -19,7 +19,7 @@ struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
 pub struct Station { pub id: String, pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
 
 #[derive(Serialize)]
-pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64, pub bus_beta: f64, pub bus_linked_stops: usize, pub bus_mass: f64 }
+pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64, pub bus_beta: f64, pub bus_linked_stops: usize, pub bus_mass: f64, pub bus_empty_share: f64 }
 
 fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
     csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
@@ -128,7 +128,7 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     }
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
     let mut report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
-        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), bus_beta: 0.0, bus_linked_stops: 0, bus_mass: 0.0 };
+        distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum(), bus_beta: 0.0, bus_linked_stops: 0, bus_mass: 0.0, bus_empty_share: 0.0 };
     let mut pred: Vec<Vec<f64>> = q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect();
     if bus {
         let b = bus_activity(data, st);
@@ -140,7 +140,7 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
         }
         let beta = (num / den).max(0.0);
         for i in 0..st.len() { for t in 0..48 { pred[i][t] += beta * b.0[i][t]; } }
-        report.bus_beta = beta; report.bus_linked_stops = b.1; report.bus_mass = b.0.iter().flatten().sum();
+        report.bus_beta = beta; report.bus_linked_stops = b.1; report.bus_mass = b.0.iter().flatten().sum(); report.bus_empty_share = b.2;
     }
     (pred, report, Fit { class, p, a, radius, share, public_share })
 }
@@ -149,8 +149,9 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
 struct BusLink { stop_id: String, parent_id: String }
 
 /// B[station][bin]: bus boardings of the stops within 300 m, a stop shared by n parents gives 1/n to each.
-/// Empty bins add nothing. Returns (B, number of linked stops).
-fn bus_activity(data: &Path, st: &[Station]) -> (Vec<Vec<f64>>, usize) {
+/// B is the sum of REPORTED boardings: empty bins add nothing, which is not proof of zero demand.
+/// Returns (B, number of linked stops, share of linked stop-bins that are empty).
+fn bus_activity(data: &Path, st: &[Station]) -> (Vec<Vec<f64>>, usize, f64) {
     let links: Vec<BusLink> = rows(&data.join("bus_metro_300m.csv"));
     let mut parents: HashMap<&str, Vec<usize>> = HashMap::new();
     for l in &links { parents.entry(&l.stop_id).or_default().push(st.iter().position(|s| s.id == l.parent_id).unwrap()); }
@@ -158,14 +159,16 @@ fn bus_activity(data: &Path, st: &[Station]) -> (Vec<Vec<f64>>, usize) {
     let mut r = csv::Reader::from_path(data.join("bus_activity.csv")).unwrap();
     let h = r.headers().unwrap().clone();
     let (id, b0) = (h.iter().position(|x| x == "gtfs_stop_id").unwrap(), h.iter().position(|x| x == "b00").unwrap());
+    let (mut empty, mut cells) = (0, 0);
     for row in r.records() {
         let row = row.unwrap();
         let Some(ps) = parents.get(&row[id]) else { continue };
         for t in 0..48 {
-            if let Ok(v) = row[b0 + t].parse::<f64>() { for &i in ps { b[i][t] += v / ps.len() as f64; } }
+            cells += 1;
+            match row[b0 + t].parse::<f64>() { Ok(v) => for &i in ps { b[i][t] += v / ps.len() as f64; }, Err(_) => empty += 1 }
         }
     }
-    (b, parents.len())
+    (b, parents.len(), empty as f64 / cells as f64)
 }
 
 /// The frozen parts of a fit that a scenario reuses: baseline classes, profiles, scale, radius, mode shares.
