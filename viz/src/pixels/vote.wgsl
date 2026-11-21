@@ -2,13 +2,16 @@
 @group(0) @binding(0) var scene: texture_2d<f32>;
 @group(0) @binding(1) var depth: texture_depth_2d;
 
-// Santiago roof clay, plaster, glass, vegetation, roads, water and transit.
-const PALETTE = array<u32, 25>(
-    0x30343au,0x51575eu,0x70757au,0x898a88u,0xaeb0adu,0xd2d3ceu,
-    0x774c44u,0xa5674fu,0xcd8d69u,0xe4b28bu,0xa79a79u,0xc8bfa1u,
-    0x374f47u,0x56705au,0x748a67u,0xa2ad7cu,0x456e80u,0x78a1a9u,
-    0xb74636u,0xe5bc53u,0xf2eee4u,0xd9cbb5u,0xe9ad95u,0xe76c4fu,0x93a3aau
+// Paper, graphite, violet, water, vegetation, lit windows and intervention marks.
+const PALETTE = array<u32, 28>(
+    0x22273du,0x343c58u,0x4d577au,0x687399u,0x9296bau,0xb2b2d3u,
+    0xcbc9e4u,0xe1e0eeu,0xefedf6u,0xfaf9f5u,
+    0x534e88u,0x7772a5u,0xa5b7dcu,0x5885bdu,0x315b99u,
+    0x4a6369u,0x6d9090u,0xa4bfb3u,0xc4d7c4u,
+    0xb09689u,0xd3beb1u,0xf0e4ceu,0xeac281u,0xffe4a4u,
+    0xaa4848u,0xe56d5eu,0xeb9c87u,0xe4a942u
 );
+const BAYER = array<u32,16>(0u,8u,2u,10u,12u,4u,14u,6u,3u,11u,1u,9u,15u,7u,13u,5u);
 fn swatch(i:u32)->vec3<f32>{
     let c=PALETTE[i];
     return vec3<f32>(f32((c>>16u)&255u), f32((c>>8u)&255u), f32(c&255u))/255.;
@@ -20,14 +23,15 @@ fn srgb(rgb_linear:vec3<f32>)->vec3<f32>{
 fn decode_srgb(c:vec3<f32>)->vec3<f32>{
     return select(pow((c+vec3<f32>(.055))/1.055,vec3<f32>(2.4)),c/12.92,c<=vec3<f32>(.04045));
 }
-fn nearest(c:vec3<f32>)->u32{
+fn nearest(color:vec3<f32>, bias:f32)->u32{
+    let value = dot(color,vec3<f32>(.30,.55,.15));
+    let chroma = max(color.r,max(color.g,color.b)) - min(color.r,min(color.g,color.b));
+    let paper = .55 * smoothstep(.30,.78,value) * (1.-smoothstep(.28,.65,chroma));
+    let washed = mix(color,vec3<f32>(.98,.975,.99),paper) + bias;
     var best=0u; var score=1e8;
-    let chroma = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-    for(var i=0u;i<25u;i++){
-        // Concrete and metal should retain a neutral hue under cool light.
-        if chroma < 0.085 && i >= 12u && i <= 19u { continue; }
-        let d=swatch(i)-c;
-        let dist=dot(d*d,vec3<f32>(.34,.5981,.2621));
+    for(var i=0u;i<28u;i++){
+        let d=swatch(i)-washed;
+        let dist=dot(d*d,vec3<f32>(.30,.55,.15));
         if dist<score { best=i; score=dist; }
     }
     return best;
@@ -61,11 +65,14 @@ fn front_edge(p:vec2<i32>, offset:vec2<i32>)->bool{
     for (var i = 0u; i < 4u; i++) {
         front_count += select(0u, 1u, z[i] >= front_depth);
     }
+    let grid = vec2<u32>(p/2);
+    let rank = f32(BAYER[(grid.x & 3u) + 4u * (grid.y & 3u)]);
+    let bias = ((rank + .5)/16. - .5) * .35 * .3 * .25;
     var votes: array<u32,4>;
     var keep: array<bool,4>;
     for (var i = 0u; i < 4u; i++) {
         keep[i] = z[i] > 0. && ((z[i] >= front_depth) == (front_count >= 2u));
-        if keep[i] { votes[i] = nearest(srgb(textureLoad(scene, p + offsets[i], 0).rgb)); }
+        if keep[i] { votes[i] = nearest(srgb(textureLoad(scene, p + offsets[i], 0).rgb),bias); }
     }
 
     var winner = 0u;
@@ -85,6 +92,7 @@ fn front_edge(p:vec2<i32>, offset:vec2<i32>)->bool{
             edge = edge || front_edge(q, vec2(2,0)) || front_edge(q, vec2(0,2));
         }
     }
-    let color = swatch(votes[winner]) * select(1., .82, edge);
+    let fill = swatch(votes[winner]);
+    let color = select(fill, mix(fill, swatch(10u), .68), edge);
     return vec4<f32>(decode_srgb(color), 1.);
 }

@@ -17,16 +17,21 @@ use bevy::{
 };
 use std::{env, time::Instant};
 
-const DAY_SKY: Color = Color::srgb_u8(185, 202, 205);
+const DAY_SKY: Color = Color::srgb_u8(249, 248, 244);
+
+#[derive(Resource, Default, PartialEq)]
+pub(crate) struct Night(bool);
 
 pub struct MiniatureCamera;
 
 impl Plugin for MiniatureCamera {
     fn build(&self, app: &mut App) {
         app.init_resource::<Rig>()
+            .init_resource::<Night>()
             .insert_resource(WinitSettings::continuous())
             .insert_resource(ClearColor(DAY_SKY))
             .add_systems(Startup, setup)
+            .add_systems(Update, city::paper_light)
             .add_systems(
                 Update,
                 (
@@ -133,16 +138,10 @@ fn setup(mut commands: Commands, rig: Res<Rig>, mut fonts: ResMut<Assets<Font>>)
         pose(&rig),
         lens(rig.distance),
         Tonemapping::ReinhardLuminance,
-        AmbientLight {
-            color: Color::srgb_u8(195, 218, 255),
-            brightness: 950.0,
-            ..default()
-        },
+        AmbientLight::default(),
     ));
     commands.spawn((
         DirectionalLight {
-            color: Color::srgb_u8(255, 245, 231),
-            illuminance: 12_000.0,
             shadow_maps_enabled: true,
             ..default()
         },
@@ -166,8 +165,10 @@ fn setup(mut commands: Commands, rig: Res<Rig>, mut fonts: ResMut<Assets<Font>>)
             ..default()
         },
         TextColor(Color::WHITE),
+        BackgroundColor(Color::srgba(0.09, 0.10, 0.16, 0.8)),
         Node {
             position_type: PositionType::Absolute,
+            padding: UiRect::axes(px(5), px(2)),
             bottom: px(8),
             right: px(12),
             ..default()

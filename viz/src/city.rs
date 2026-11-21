@@ -43,7 +43,7 @@ impl Surface {
     fn vertex(&mut self, point: Vec3, normal: Vec3, color: Rgba) {
         self.positions.push(point.to_array());
         if self.textured {
-            self.uvs.push([0.025, 0.025]);
+            self.uvs.push([0.00625, 0.00625]);
         }
         self.normals.push(normal.to_array());
         self.colors.push(color);
@@ -90,8 +90,8 @@ impl Surface {
                     self.vertex(p, n, wall);
                 }
                 if self.textured {
-                    let bays = (a.distance(*b) / 3.6).round().max(1.);
-                    let floors = (height / 3.5).round().max(1.);
+                    let bays = (a.distance(*b) / 3.6).round().max(1.) / 4.;
+                    let floors = (height / 3.5).round().max(1.) / 4.;
                     self.uvs[first as usize..].copy_from_slice(&[
                         [0., floors],
                         [bays, floors],
@@ -382,7 +382,8 @@ pub fn load_buildings(
         ..default()
     });
     let facade_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(facade::window_texture())),
+        base_color_texture: Some(images.add(facade::window_texture(false))),
+        emissive_texture: Some(images.add(facade::window_texture(true))),
         cull_mode: None,
         perceptual_roughness: 0.9,
         ..default()
@@ -426,7 +427,6 @@ pub(crate) fn toggle_subway(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
     surface_edits: Query<Entity, With<edits::SurfaceEdit>>,
-    mut background: ResMut<ClearColor>,
 ) {
     mode.0 = !mode.0;
     *visibility.get_mut(layers.scenery).unwrap() = if mode.0 {
@@ -441,11 +441,6 @@ pub(crate) fn toggle_subway(
             Visibility::Inherited
         };
     }
-    background.0 = if mode.0 {
-        Color::srgb_u8(32, 43, 54)
-    } else {
-        crate::DAY_SKY
-    };
     for (handle, alpha) in layers.materials.iter().map(|(h, a)| (h, *a)).chain([
         (&buildings.facade_material, 0.045),
         (&buildings.edit_material, 0.045),
@@ -461,6 +456,44 @@ pub(crate) fn toggle_subway(
         };
         material.unlit = mode.0;
     }
+}
+
+pub(crate) fn paper_light(
+    night: Res<crate::Night>,
+    mode: Res<SubwayView>,
+    buildings: Res<Buildings>,
+    layers: Res<SurfaceLayers>,
+    mut sky: ResMut<ClearColor>,
+    mut sun: Single<&mut DirectionalLight>,
+    mut ambient: Single<&mut AmbientLight>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if !night.is_changed() && !mode.is_changed() {
+        return;
+    }
+    sky.0 = if mode.0 {
+        Color::srgb_u8(32, 43, 54)
+    } else if night.0 {
+        Color::srgb_u8(57, 65, 91)
+    } else {
+        crate::DAY_SKY
+    };
+    let dark = night.0 && !mode.0;
+    sun.illuminance = if dark { 1700. } else { 12_000. };
+    sun.color = if dark { Color::srgb_u8(157, 181, 255) } else { Color::srgb_u8(255, 245, 231) };
+    ambient.brightness = if dark { 300. } else { 950. };
+    ambient.color = if dark { Color::srgb_u8(147, 161, 223) } else { Color::srgb_u8(226, 228, 255) };
+    let (street, _) = &layers.materials[2];
+    materials.get_mut(street).unwrap().emissive = if dark {
+        LinearRgba::rgb(0.07, 0.09, 0.15)
+    } else {
+        LinearRgba::BLACK
+    };
+    materials.get_mut(&buildings.facade_material).unwrap().emissive = if dark {
+        LinearRgba::rgb(2.6, 1.65, 0.55)
+    } else {
+        LinearRgba::BLACK
+    };
 }
 
 pub(crate) fn draw_buildings(

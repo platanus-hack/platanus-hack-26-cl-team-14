@@ -6,12 +6,17 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
-/// One wall module in the miniature. Mip levels blend the panes into a facade at a distance.
-pub(super) fn window_texture() -> Image {
-    let mut level = Vec::with_capacity(64 * 64 * 4);
-    for y in 0..64 {
-        for x in 0..64 {
+/// A four-by-four window tile. The emission mask lights a subset of rooms.
+pub(super) fn window_texture(lit_panes: bool) -> Image {
+    const SIZE: usize = 256;
+    let mut level = Vec::with_capacity(SIZE * SIZE * 4);
+    for row in 0..SIZE {
+        for column in 0..SIZE {
+            let room = (row / 64) * 4 + column / 64;
+            let (x, y) = (column % 64, row % 64);
             let color = match (x, y) {
+                (34..=51, 17..=40) if lit_panes && matches!(room, 0 | 3 | 5 | 10 | 12 | 13) => [255, 255, 255],
+                _ if lit_panes => [0, 0, 0],
                 (8..=55, 9..=45) if x == 8 || x == 55 || y == 9 || y == 45 => [109, 111, 115],
                 (10..=53, 12..=43) if x == 32 || x == 33 => [165, 174, 177],
                 (10..=53, 12..=43) if y < 16 => [54, 71, 84],
@@ -26,8 +31,8 @@ pub(super) fn window_texture() -> Image {
         }
     }
     let size = Extent3d {
-        width: 64,
-        height: 64,
+        width: SIZE as u32,
+        height: SIZE as u32,
         depth_or_array_layers: 1,
     };
     let mut image = Image::new(
@@ -37,7 +42,7 @@ pub(super) fn window_texture() -> Image {
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
     );
-    let mut width = 64;
+    let mut width = SIZE;
     while width > 1 {
         let half = width / 2;
         let mut next = Vec::with_capacity(half * half * 4);
