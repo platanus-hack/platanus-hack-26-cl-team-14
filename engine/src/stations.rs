@@ -42,7 +42,7 @@ fn nearest(st: &[Station], x: f64, y: f64) -> (usize, f64) {
 
 /// Parents within `radius` of (x, y) with raw weights and their sum: 1 each (L4), or 1/max(d, 50 m) (L4b).
 /// The share of parent k is w_k / sum.
-fn parents_in_reach(st: &[Station], x: f64, y: f64, radius: f64, inverse: bool) -> (Vec<(usize, f64)>, f64) {
+pub(crate) fn parents_in_reach(st: &[Station], x: f64, y: f64, radius: f64, inverse: bool) -> (Vec<(usize, f64)>, f64) {
     let near: Vec<(usize, f64)> = (0..st.len()).map(|k| (k, metres(st[k].longitude, st[k].latitude, x, y)))
         .filter(|&(_, d)| d <= radius).map(|(k, d)| (k, if inverse { 1.0 / d.max(50.0) } else { 1.0 })).collect();
     let tot = near.iter().map(|n| n.1).sum();
