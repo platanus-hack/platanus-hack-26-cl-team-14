@@ -313,3 +313,70 @@ Known weakness of L0: nearest-only assignment gives terminal stations the outer 
 ### MUT station scenario (`StationModel::mut_scenario`)
 
 `StationModel::new(data)` fits once with the arguments stored in `station_score_run.json`. It returns that file's `wape_bins` only if the file records the same `stations.rs` SHA256, the frozen target SHA256 (`ecd8131f…`, also checked on the bytes of `metro_observations.json`), the frozen scorer SHA256 of `check_score.py`, 1,123 observed cells, the same SHA256 of the 5 fit inputs (`work_od.csv`, `mode_share.csv`, `blocks.csv`, `jobs.csv`, `metro_training.json`), the layer label of its arguments, all 31 frozen held-out stations, and exactly this fit's held-out predictions; otherwise `wape_bins` is `null`. So any edit to `stations.rs` or to an input needs a new artifact run. Request: `site_id` "MUT", `dwellings_added` ≥ 0, `jobs_removed` in 0..=jobs of `jobs.csv` row 13114131009033, `occupied_share` in 0..=1, `persons_per_occupied_dwelling` ≥ 0, `occupancy_source` (text, echoed). ΔH = dwellings × occupied × persons × (13114 internal commuters / population) × 13114 mode-2 share (L2). ΔJ = −jobs_removed × Σ_c F_c,13114·m_c / Σ_c F_c,13114. Both at that row's point, through the frozen classes, profiles, scale and radius. The MUT parent (TB-TOB) is always returned; at zero change its two arrays are equal. Manual run: `cargo run --release --manifest-path engine/Cargo.toml --bin mut_scenario -- data/mvp '<request json>'`.
+
+### HTTP station scenario
+
+`POST /api/station-scenario` uses this cached model. Startup fits once; requests do not refit.
+The module owns scope, physical units, caps and score binding. Module errors return JSON HTTP 422 (`{"error":"reason"}`);
+malformed request bodies use Axum's standard response. Existing world, commune and site routes keep their contracts.
+
+Exact request example, matching the published UI's explicit transfer assumptions:
+
+```json
+{
+  "site_id": "MUT",
+  "dwellings_added": 298,
+  "jobs_removed": 4679,
+  "occupied_share": 0.9251,
+  "persons_per_occupied_dwelling": 2.0847,
+  "occupancy_source": "UI-supplied apartment-cohort transfer assumption; not measured at MUT"
+}
+```
+
+Dwelling/job fields are physical counts. The example removes the current modeled `jobs.csv` count, not measured MUT employment.
+No coefficient defaults or clipping are added by the caller. The fitted activity sensitivity is not a per-worker Metro probability.
+This mechanism and the `/api/site-scenario` accounting route are independent; neither validates the other's intervention response.
+
+The response preserves every module field and adds the observation join:
+
+```text
+{
+  site_id, dwellings_added, jobs_removed, layer, model_args, wape_bins: number|null,
+  scope_label, assumptions, delta_home_mass, delta_job_mass, job_public_factor,
+  home_conversion: { occupied_share, persons_per_occupied_dwelling, occupancy_source,
+    commuters_per_resident, public_share },
+  stations: [{ id, name, predicted_base: number[48], predicted_scenario: number[48],
+    observed: (number|null)[48], observed_daily, predicted_base_daily,
+    predicted_scenario_daily, delta_daily, observed_bin_count,
+    daily_sum_scope: "observed_bins_only" }],
+  observed_source: { source_file, day_type, period, timezone, unit, bin_definition }
+}
+```
+
+The caller loads `metro_observations.json` once into a separate parent-ID map and joins `half_hour_bins.LABORAL` after model calculation.
+Those joined observations do not enter fitting or scenario calculation. Source period/timezone/unit/bin meaning come from the actual file metadata.
+Every daily value uses only bins with a non-null observation. The raw 48-bin predictions stay unchanged; missing observations remain null.
+Daily summaries are observed-bin sums, not estimates of missing hours or complete 24-hour totals.
+Base predictions stay separate from observations so the baseline gap remains visible.
+`wape_bins` is **“error del modelo base, no del escenario”**; a missing binding returns null, not an intervention score.
+
+Manual integration check on dependency `e067620646fbe40a30649ea1ed7f6c90b2e0ce09`: release build passed in 19.98 seconds with two jobs.
+The published dependency bytes were tested here; the coordinator integrates accepted latest main before caller publication.
+On localhost 8788, baseline, 298 dwellings, 1,500 dwellings and reset returned HTTP 200.
+Scope, negative dwelling count and removal above the 4,679 modeled-job cap returned specific JSON HTTP 422 errors.
+World/commune/site checks returned HTTP 200; normalized comparisons matched prior route values and baseline/reset exactly.
+All scenarios retained 11 observed nulls and the same 37 observed bins, source period `average of 2026-04-13 through 2026-04-17`.
+L7 score binding remained `wape_bins=0.4668620082499278`.
+
+| Request assumptions; all changed cases remove 4,679 modeled jobs | Observed-bin base | Observed-bin scenario | Observed-bin delta |
+| --- | ---: | ---: | ---: |
+| Baseline/reset: no changes | 47816.81818985732 | 47816.81818985732 | 0 |
+| 298 dwellings; occupancy 0.9, persons 2.1 (illustrative) | 47816.81818985732 | 43835.907573823526 | -3980.910616033793 |
+| 1,500 dwellings; occupancy 0.9, persons 2.1 (illustrative) | 47816.81818985732 | 44287.5509072491 | -3529.267282608225 |
+| 298 dwellings; UI pair 0.9251, 2.0847 (transfer assumption) | 47816.81818985732 | 43838.19179014317 | -3978.6263997141455 |
+
+Observed-bin boardings are 81,612.8 for each run, visibly above the base prediction.
+For the UI pair, raw 48-bin sums are base 47816.87452620005 and scenario 43838.250906886016;
+these differ from the same-observed-mask daily values and must not replace them.
+Evidence with actual requests and all 48-bin responses: `/private/tmp/station-route-http-run`.
+Temporary servers PID 15887 and 15931 stopped after their runs. No station module, artifact or fit parameters were changed.
