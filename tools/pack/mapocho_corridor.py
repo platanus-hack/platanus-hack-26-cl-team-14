@@ -28,7 +28,7 @@ def utm19s_to_lonlat(x, y):
 
 import csv, json, sys, collections
 eod_dir, nom = sys.argv[1], sys.argv[2]
-rel = [r for r in json.load(open(nom)) if r['osm_type'] == 'relation'][0]['geojson']['coordinates']
+rel = [r for r in json.load(open(nom)) if r['osm_type'] == 'relation' and r['osm_id'] == 7548664][0]['geojson']['coordinates']  # Río Mapocho waterway relation
 # Urban stretch: Lo Barnechea (La Dehesa) to Pudahuel (Ruta 68 area).
 LON0, LON1 = -70.80, -70.52
 K = 111320 * math.cos(math.radians(-33.43))
@@ -48,7 +48,7 @@ def near(p):
         if d < best[0]: best = (d, q[0])
     return best
 num = lambda s: float(s.replace(',', '.'))
-MODES = {1:'auto',2:'bus',3:'bus',4:'metro',5:'colectivo',6:'taxi',7:'bus',8:'auto+metro',9:'bus+metro',10:'bus+metro',11:'metro',12:'metro',13:'metro',14:'bus',15:'bus+metro',16:'otros',17:'caminata',18:'bicicleta'}
+MODES = {1:'auto',2:'bus',3:'bus',4:'metro',5:'colectivo',6:'taxi',7:'bus',8:'auto+metro',9:'bus+metro',10:'bus+metro',11:'colectivo+metro',12:'taxi+metro',13:'otros+metro',14:'otros+bus',15:'otros+bus+metro',16:'otros',17:'caminata',18:'bicicleta'}
 pf = {}
 for r in csv.DictReader(open(eod_dir + '/personas.csv', encoding='latin-1'), delimiter=';'):
     if r['Factor_LaboralNormal']: pf[r['Persona']] = num(r['Factor_LaboralNormal'])
@@ -72,9 +72,9 @@ for R in (800,):
         by_hour[r['HoraIni'][:2]] += f
         pairs[tuple(sorted((names[r['ComunaOrigen']], names[r['ComunaDestino']])))] += f
         if r['TiempoViaje']: minutes.append((int(r['TiempoViaje']), f))
-print('weekday trips total (expanded):', round(tot))
+print('weekday trips with coordinates (expanded):', round(tot))
 print('both ends <=800 m from river, >=3 km apart east-west after projection:', round(along['trips']))
-print('share of all weekday trips: %.2f%%' % (100*along['trips']/tot))
+print('share of weekday trips with coordinates: %.2f%%' % (100*along['trips']/tot))
 for m, v in by_mode.most_common(): print(' mode', m, round(v), '%.1f%%' % (100*v/along['trips']))
 minutes.sort(); acc=0; half=sum(f for _,f in minutes)/2
 for t,f in minutes:
