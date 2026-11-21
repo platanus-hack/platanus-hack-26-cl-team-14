@@ -3,7 +3,6 @@
 Delete a question when it has an answer, and write a decision.
 
 - What is the idea? What is the concrete simulation? (owner: humans, due: today)
-- Discord: channel names (tasks, decisions, releases) and the tool or MCP server that agents use to read and post. Do not put the bot token in the repo.
 - Checkpoint times: after how many hours do humans review the first release?
 - What are the criteria for "looks like the mock"? (fill `pitch.md`)
 - Rust for the core, or a better tool? (see `decisions/20261120-2308-rust-core.md`)

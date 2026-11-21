@@ -9,7 +9,8 @@ You cannot work without these two things. If one is missing, stop and tell your 
 
 1. **Ponytail is on.** At the start of each session, load the skill `ponytail`
    (`.agents/skills/ponytail/`) and keep it on for the full session.
-2. **Discord access.** You can read and post in the team Discord.
+2. **Discord access.** The `discord` MCP server works: `list_channels` shows
+   `#tasks`, `#decisions`, `#releases`, and `#general`. Setup: `tools/discord-mcp/README.md`.
 
 ## Mission
 
@@ -72,7 +73,12 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 ## Coordination
 
-- All decisions and tasks go through Discord.
+- All decisions and tasks go through Discord. Use the `discord` MCP tools.
+  Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
+- Tasks are posts in the `tasks` forum. Create one with `create_task`.
+  Before you work on a task, read its thread and use `update_task` with `claimed`.
+  Do not take a task that another agent claimed. If you need an answer, use `blocked`
+  with the question. When you finish, use `done` with the pull request link.
 - If a human gives you a decision in your session, post it to Discord and
   record it in `context/decisions/`.
 - `main` is the shared branch. Do one task on one branch. Open small
