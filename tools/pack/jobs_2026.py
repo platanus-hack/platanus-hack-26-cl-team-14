@@ -29,12 +29,21 @@ for row in csv.DictReader(target.open()):
         arrivals[station] += float(row["expanded_trips"])
 
 scale = sum(mass.values()) / sum(arrivals.values())
+census_total = Counter()
+weighted_total = Counter()
+for row, station in zip(jobs, assignment):
+    weight = int(row["jobs"])
+    census_total[row["cut"]] += weight
+    if station and mass[station] > 0:
+        weight *= arrivals[station] * scale / mass[station]
+    row["jobs"] = weight
+    weighted_total[row["cut"]] += weight
+
 with (data / "jobs_2026.csv").open("w", newline="") as output:
-    writer = csv.DictWriter(output, fieldnames=["block_id", "cut", "longitude", "latitude", "jobs"])
+    writer = csv.DictWriter(output, fieldnames=["block_id", "cut", "longitude", "latitude", "jobs"], extrasaction="ignore")
     writer.writeheader()
-    for row, station in zip(jobs, assignment):
-        weight = int(row["jobs"])
-        if station and mass[station] > 0:
-            weight *= arrivals[station] * scale / mass[station]
-        writer.writerow({key: weight if key == "jobs" else row[key] for key in writer.fieldnames})
+    for row in jobs:
+        cut = row["cut"]
+        row["jobs"] = float(row["jobs"]) * census_total[cut] / weighted_total[cut]
+        writer.writerow(row)
 print(len(stations), "training stations;", sum(v > 0 for v in mass.values()), "with positive job mass")
