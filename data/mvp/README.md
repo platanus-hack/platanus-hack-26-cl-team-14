@@ -743,3 +743,129 @@ Run `python3 -I tools/pack/travel_times_blocks.py` with the March 2026 GTFS feed
 `origin_access_share` and `destination_access_share` give the fraction of resident workers within 1 km of a stop at each end. The minutes describe travel between the sampled blocks with access. `worker_pairs` counts routed block pairs.
 
 Eleven comunas have no worker block within 1 km of a stop in this feed. These are San José de Maipo, Tiltil, Melipilla, Alhué, Curacaví, María Pinto, San Pedro, Talagante, El Monte, Isla de Maipo, and Peñaflor. They account for 211,532 workers. A time for these comunas requires a separate assumption. The table contains no car times. The reported median ratio to EOD 2012 survey times is about 0.65 and serves only as a descriptive comparison.
+
+## roads.geojson
+
+Major roads in the Santiago city view. Each GeoJSON LineString has the OSM way ID in `id`, the road class in `kind`, and the mapped `name` when available. Link roads use their parent class. A way that leaves and re-enters the view has several features with the same ID.
+
+The view spans longitude −70.85 to −70.45 and latitude −33.65 to −33.30. It contains 18,649 ways and 18,651 paths, with 2,781 km of mapped carriageways before simplification. Opposing carriageways count separately. Paths use an 8 m simplification tolerance and five decimal places per coordinate. File size is 3,578,472 bytes.
+
+Map credit: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). Road data and derived geometry are available under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). The [Geofabrik Chile extract](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf) records the OSM state on 2026-11-20 at 21:21:21 UTC. Its MD5 is `fef09ad7ee6f28c7afc925ef68c737a4`.
+
+Place the extract at `data/raw/osm-roads/chile.osm.pbf`. Run the following commands from the repository root. The larger extraction box includes all 52 comuna reference points.
+
+```sh
+cd data/raw/osm-roads
+osmium extract -b -71.59,-34.12,-70.23,-32.88 chile.osm.pbf -o region.osm.pbf
+osmium tags-filter region.osm.pbf 'w/highway=motorway,trunk,primary,secondary,motorway_link,trunk_link,primary_link,secondary_link' -o santiago.osm
+cd ../../..
+python3 -I tools/pack/roads.py
+```
+
+## car_paths.json and car_minutes.csv
+
+The two files cover all 2,652 directed pairs between **different** comunas in the RM. Each JSON record contains the string keys `origin_cut` and `destination_cut` and a `path` array of longitude and latitude pairs. Paths follow the OSM major-road network described above. They contain 147,558 points after 20 m display simplification. The CSV uses the same keys and gives free-flow `car_minutes`, road `distance_km`, and the two straight-line gaps to the road in `origin_snap_m` and `destination_snap_m`. Travel time and distance use the full geometry.
+
+Each comuna uses its population-weighted reference point from `communes.csv`. We use the nearest primary or secondary road node to enter and leave the network. The median gap is 135 m. The largest is 2,976 m at Tiltil. The model omits local access time and same-comuna travel.
+
+The route minimizes driving time. A road's assumed free-flow speed follows the [OSRM car profile](https://github.com/Project-OSRM/osrm-backend/blob/master/profiles/car.lua): 90, 85, 65 and 55 km/h on motorways, trunk, primary and secondary roads. Corresponding link speeds are 45, 40, 30 and 25 km/h. Lower numeric OSM speed limits cap each direction. The graph respects static one-way roads, roundabouts, and mapped car-access bans. It excludes roads tagged reversible or alternating. The model omits turn restrictions, conditional traffic rules, signals, queues and congestion. Peak trips can take longer.
+
+Maipú to Las Condes takes **28.03 modeled minutes over 28.276 km**. The route passes through Avenida Los Pajaritos, Ruta 78, the Alameda, and Costanera Norte. The gaps to the major roads are 21 m in Maipú and 131 m in Las Condes. These are estimates for the two reference points.
+
+Build both files from the same regional OSM extract with `python3 tools/pack/car_paths.py`. Display the map credit **© OpenStreetMap contributors** with a link to [the OSM copyright page](https://www.openstreetmap.org/copyright). The derived network data use ODbL 1.0.
+
+The view reads `web/data/car_routes.json`. Each key joins the two CUT codes with a hyphen, for example `13119-13114` for Maipú to Las Condes. Each value contains the existing car path as an array of longitude and latitude pairs. The export keeps between-comuna routes with at least one worker in `work_od.csv`. Rebuild it with `python3 -I tools/pack/car_routes_view.py`.
+
+## cycleways.geojson
+
+The urban display box contains 2,157 paths and 643.5 km of mapped ways. The file is 488,457 bytes. Each feature gives its OSM way ID, name, kind and five-decimal WGS84 coordinates. A lane on both sides of one street contributes one street length. Separately mapped ways contribute one length each. Map credit: © OpenStreetMap contributors. [Geofabrik Chile extract, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile.html) · [Open Database License](https://www.openstreetmap.org/copyright)
+
+For comparison, the July 2026 SECTRA inventory reports 565.414 km in 442 existing segments across the 34 Gran Santiago comunas. The query sums the KM field for ETAPA = existentes and CUT_COM in 13101–13132, 13201 and 13401. SECTRA uses comuna boundaries. The display uses a rectangle and includes tagged lanes as well as separate cycleways. The two inventories have different coverage and counting rules. [SECTRA inventory](https://services6.arcgis.com/feQ9HId8vmgonvvD/ArcGIS/rest/services/CICLOV_validVisor_WFL1/FeatureServer/0)
+
+Rebuild with the regional PBF used for roads:
+
+```sh
+mkdir -p data/raw/osm
+osmium extract --bbox=-70.85,-33.65,-70.45,-33.30 data/raw/osm-roads/region.osm.pbf -o data/raw/osm/urban.pbf
+osmium tags-filter data/raw/osm/urban.pbf w/highway=cycleway w/cycleway=lane,track w/cycleway:right=lane,track w/cycleway:left=lane,track w/cycleway:both=lane,track -o data/raw/osm/cycleways.osm
+python3 tools/pack/cycleways.py
+```
+
+## public_routes.json
+
+The map loads `web/data/public_routes.json`. The pack links to the same file. Run `python3 tools/pack/public_routes.py` to rebuild it from the March 2026 GTFS.
+
+Each key is a directed `origin_cut-destination_cut` pair from `travel_times.csv`. Each value contains a path of longitude/latitude points and the GTFS route IDs used, listed in first-boarding order within each mode. The keys are `metro_lines`, `bus_routes`, and `rail_routes` when the path uses EFE. The map has 1,190 pairs between 35 comuna centres. The other 17 centres have no GTFS stop within 1 km. Same-comuna paths are outside this matrix.
+
+The builder traces the winning path of the existing weekday 08:00 router. It includes the initial walk, each transfer, each ride, and the final walk. Walks use straight segments at 4.8 km/h, up to 1 km at each end and 300 m per transfer edge. A platform and its parent station have zero transfer cost. Rides use a GTFS shape between the boarding and exit stops, or the ordered stop positions when a shape is absent. The display simplifies each ride at 25 m tolerance and rounds coordinates to five decimal places.
+
+The router assigns one wait to a stop pattern. When several route IDs share one pattern, the display uses the active trip with the shortest headway, or the first scheduled departure in the 08:00 hour. These paths connect population-weighted comuna centres and show modeled travel on a representative weekday. They have no passenger-level endpoints.
+
+Example: Quilicura → Santiago (`13125-13101`) uses bus 425 and Metro L3. The corresponding CSV row gives 37.4 minutes door to door, 25.6 minutes on board, and one transfer.
+
+## Bicycle routes
+
+`web/data/bicycle_routes.json` maps each directed key `originCut-destinationCut` to a path of WGS84 `[longitude, latitude]` points. Endpoints are the nearest routable bicycle locations to the population-weighted comuna points in `communes.csv`. The paths represent possible routes between these points. They do not measure cyclists or represent every street used by residents.
+
+The cutoff uses great-circle distance between the original comuna points, strictly below 15 km. The file contains all 822 eligible directed pairs among 46 of the 52 comunas. The other six have no other comuna point inside that radius. Road distance ranges from 2.53 to 27.50 km. Of the 822 routes, 309 exceed 15 km on the road. Display paths use a 4 m simplification tolerance. Together they contain 63,065 coordinates and take 1,512,826 bytes.
+
+`bicycle_route_lengths.csv` gives the direct distance, routed distance, and the gap from each comuna point to its route endpoint, in metres. Routed distance excludes both endpoint gaps. The median origin gap across directed routes is 11.2 m. Lampa has the largest gap, 716.9 m.
+
+For example, Santiago → Providencia (`13101-13123`) is 4,499.8 m direct and 5,268.3 m by bicycle. The route uses the Antonio Varas, Bilbao and Pocuro cycleways. Endpoint gaps are 9.6 and 25.6 m. The return trip is 5,294.7 m. All 29,827 route instructions across the export have OSRM mode `cycling`.
+
+Use the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The route geometry and distance table are available under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Source: [Geofabrik Chile, 20 November 2026](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf).
+
+### Rebuild
+
+Use OSRM 26.11.0 with its bicycle profile and the project wrapper. The profile uses mapped bicycle access, barriers, one-way rules and cycle lanes. Its `cyclability` weight penalizes roads with less suitable conditions. The wrapper excludes motorways, trunks, steps and motor roads. It excludes footways, pedestrian streets and paths unless bicycle access is explicit. It removes directions that require pushing a bike. Temporary closures and missing access signs remain unknown. [OSRM bicycle profile](https://github.com/Project-OSRM/osrm-backend/blob/v26.11.0/profiles/bicycle.lua)
+
+Set `OSRM_PROFILES` to the OSRM directory that contains `bicycle.lua` and `lib/`. From the repository root, run:
+
+```sh
+mkdir -p data/raw/bicycle
+osmium extract -b -71.59,-34.12,-70.23,-32.88 data/raw/osm-roads/chile.osm.pbf -o data/raw/bicycle/region.osm.pbf
+osrm-extract -t 2 -p tools/pack/bicycle_profile.lua -o data/raw/bicycle/region.osrm data/raw/bicycle/region.osm.pbf
+osrm-partition -t 2 data/raw/bicycle/region.osrm
+osrm-customize -t 2 data/raw/bicycle/region.osrm
+osrm-routed -i 127.0.0.1 -p 5196 -t 2 -a mld data/raw/bicycle/region.osrm
+```
+
+From a second terminal, run `python3 -I tools/pack/bicycle_routes.py`.
+
+## City block volumes
+
+`web/data/city_blocks.json` contains one display volume for every row of `blocks.csv`, in the same order. Each row has six fields: `[longitude, latitude, side_m, height_m, cut, block_id]`. Coordinates use decimal degrees. Side and height use display metres. Both IDs are strings. The file has 52,646 rows, 52 comunas and 3,087,045 bytes.
+
+For 52,593 rows, area comes from the 2024 INE polygon with the same `MANZENT` in `Manzanas_CPV24` or `Entidades_CPV24`. Its `SHAPE_Area` is in square degrees (EPSG:4674). The builder approximates square metres as `SHAPE_Area × (π × 6371008.8 / 180)² × cos(latitude)`, with latitude in radians. The square is centred on the point in `blocks.csv`. [INE RM cartography](https://storage.googleapis.com/bktdescargascenso2024/Cartografia/GPKG/Cartografia_censo2024_R13.zip) · [INE Census block table](https://storage.googleapis.com/bktdescargascenso2024/Datos_agregados/Base_manzana_entidad_CPV24.zip)
+
+The remaining 53 rows are Census comuna containers. INE withholds their exact location. The volume uses the population-weighted point from `blocks.csv`, a fixed assumed area of 625 m² and a display side of 20 m. In this file these are exactly the block IDs ending in `999999`. They account for 42,018 dwellings. The tallest volume (78.3 m) is the Puente Alto container. Its location and size are illustrative. [INE cartography manual](https://storage.googleapis.com/bktdescargascenso2024/Datos_agregados/Manual_uso_cartografia_CPV2024.pdf)
+
+The graphic represents activity density. Its dimensions are stylized. With area `A` in m², Census dwellings `D` and allocated job count `J`, the display rules are:
+
+- `side_m = min(120, 0.8 × sqrt(A))`. The inset leaves space between neighbouring blocks. The cap limits large rural squares. It applies to 7,604 rows.
+- `height_m = 1 + 5 × log2(1 + (D + 0.5 × J) × 10000 / A)`. A doubling of one plus weighted activity per hectare adds 5 display metres. Empty blocks have a 1 m base. Both dimensions round to 0.1 m. The median height is 30.2 m.
+- `J` is the modeled weight at the same block ID in `jobs.csv`, or zero if absent. The match covers 1,771,829 jobs. Another 916,985 jobs on 2,489 rows have their own coordinates outside the home-block list. They remain in `jobs.csv`, including the airport and the 4,679 modeled jobs at MUT. Use the job layer for those locations.
+
+To rebuild, run `python3 -I tools/pack/city_blocks.py` from the repository root. The default input is `data/raw/verify-people-work/cartography-rm.gpkg`. An optional argument selects another path to the same INE file.
+
+## Central Santiago building footprints
+
+The city view can load `web/data/city_footprints.json`. It contains **22,451 OSM building polygons** in a continuous 32.86 km² central area. The rectangle extends from −70.663 to −70.583 longitude and −33.448 to −33.408 latitude, from Santiago Centro through Providencia to MUT. Every exterior ring lies inside the rectangle. Mapped polygons cover 6.719 km² in total after subtracting courtyard holes. This sum can include overlapping buildings. OSM mapping coverage varies.
+
+The whole urban view has about 279,000 mapped polygons. The 4,723,922-byte export keeps the central area to meet the view's 5 MB limit. Osmium assembles multipolygon relations before export. The pack includes 244 polygon components from 232 relations and retains 325 holes. The builder excludes footprints crossing the rectangle, untagged structures, and standalone parts with only a `building:part` tag. One outline lost its area at five-decimal precision and was omitted. Read each `buildings[].polygon` as an array of closed rings with `[longitude, latitude]` vertices at five decimal places. The first ring is the exterior.
+
+Use `height_m` where present (178 records). An additional 5,959 polygons have tagged `levels` only. Estimate their display height as `levels * metres_per_level` (3.5 m). The remaining 16,314 polygons use `default_height_m` (6 m) for display. These estimates describe styling. The tallest tagged height in the pack is 300 m.
+
+Credit the map as [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The footprint data use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Source: [Geofabrik Chile, OSM snapshot 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf).
+
+To rebuild, place that extract at `data/raw/osm-roads/chile.osm.pbf` and run the following commands.
+
+```sh
+mkdir -p data/raw/osm-buildings-city
+cd data/raw/osm-buildings-city
+osmium extract -s smart -b -70.85,-33.65,-70.45,-33.30 ../osm-roads/chile.osm.pbf -o urban.osm.pbf
+osmium tags-filter urban.osm.pbf 'wr/building' -o buildings.osm.pbf
+osmium export -u type_id --geometry-types=polygon -f geojsonseq buildings.osm.pbf -o polygons.geojsonseq
+cd ../../..
+python3 -I tools/pack/city_footprints.py
+```
