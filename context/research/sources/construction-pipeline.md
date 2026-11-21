@@ -140,19 +140,8 @@ All ArcGIS queries below use the REST query API with no key: append
   fully live via PE_NACIONAL — the old claim "INE permits download is broken" is only true for the
   retired ArcGIS Hub and the script-loaded Excel, not for the feature service.
 - Role: INPUT
-- Use in the simulation: INPUT. Primary, current source to extend the 2010-2018 point mirror to
-  recent years, at comuna resolution. UNVERIFIED for rows; needs the file-list endpoint.
-
-### INE georeferenced permits — current official service
-- Link: https://services5.arcgis.com/hUyD8u3TeZLKPe4T/arcgis/rest/services/CRF_PE_v2/FeatureServer/1
-- Contents: permit destination points with `COD_REGION`, `COD_COMUNA`, `GLOSA_COMUNA`, `AÑO`, `CANTIDAD_UNIDAD`, `NUM_PISOS`, `GLOSA_DESTINO`, `USO_DESTINO`, `SUPERFICIE`, `PRECISION_`, and `OBJECTID`.
-- Granularity: permit destination point; annual data. Region 13 includes places outside Greater Santiago.
-- Year: queried RM year bounds are 2010–2025; the five sampled records are from 2025.
-- Access: public ArcGIS JSON, no login. The retired Hub links do not establish that current data are unavailable.
-- Check: VERIFIED-ROWS, 2026-11-21, from [the independent audit](verify-housing-land.md#ine-building-permits): five rows, HTTP 200, 3,756 bytes. The official INE page links the app and webmap that expose this service.
-- Limits: year bounds do not prove complete annual coverage. These are permit destination records, not completed or occupied buildings. Check record structure before summing units across destinations. Final-reception rows remain unverified.
-- Role: INPUT.
-- Use in the simulation: locate recent permitted housing supply. Use a separate completion and occupancy process before adding residents. The UC mirror remains a historical source for the reported 2010–2018 tower statistics.
+- Use in the simulation: INPUT. Comuna monthly totals, if a monthly series is needed below the
+  point data. UNVERIFIED for rows.
 
 ### MINVU geoide — national PRC/PRI/PRMS MapServer
 - Link: https://geoide.minvu.cl/server/rest/services/IPT
@@ -236,14 +225,19 @@ All ArcGIS queries below use the REST query API with no key: append
 
 My own 3 weakest points, and what I did not check:
 
-1. **The tower statistics use the historical mirror.** They cover 2010–2018 and may not match current unit mixes. The independent audit now verifies five official 2025 permit points; it does not establish complete coverage or updated tower statistics.
-2. **Zoning coverage is thin and not machine-clean.** I verified PRC rows only for Estación Central
-   and Cerro Navia, plus the PRMS intensity layer. Height is free text ("4 pisos") and density is
-   often blank. I did not build or test a point-in-polygon lookup, and most RM comunas' PRC
-   services are not confirmed here. The "legal cap" chain is shown feasible, not built.
-3. **SEIA and the per-permit DOM resolutions are unverified for rows.** SEIA needs a POST search I
-   did not complete, and the DOM Ley 21.718 monthly resolutions are PDF per comuna, unsampled. So
-   these forward-looking sources remain leads. Official 2025 permit points are sampled above.
+1. **The legal-cap layer is not machine-clean.** Zoning rows exist for Estación Central, Cerro
+   Navia, and the PRMS intensity layer, but of 102 EC zones height is blank in 44 and density in
+   83, with mixed units. I did not build a point-in-polygon lookup, and most RM comunas' PRC
+   services are not confirmed. The legal-cap chain is shown feasible, not built.
+2. **MIXTO unit counts are dirty.** For MIXTO permits CANTIDAD_UNIDAD mixes dwellings with
+   commercial and office units, so the "+89,686 tall-building units" figure is an upper bound on
+   dwellings, not a dwelling count. A clean dwelling count needs either HABITACIONAL only or a
+   split of the MIXTO GLOSA_DESTINO text, which I did not do.
+3. **The permit->reception->resident chain is checked only at single points.** I confirmed the
+   permit layer, the reception layer, and one permit->manzana join each with one or a few records.
+   I did not measure the permit-to-built drop-off rate, the 2017->2024 manzana change, or match a
+   reception to its permit. The three chains are proven to connect, not calibrated.
 
-Not checked: the "who moves in" join itself (permit points inside Census 2024 manzana polygons);
-whether CANTIDAD_U double-counts across permit revisions; geoide.minvu.cl RM comuna services; recepción final (built, not just permitted) rows.
+Not checked: the comuna monthly Excel rows; whether CANTIDAD_UNIDAD double-counts permit revisions;
+geoide.minvu.cl RM comuna zone rows; SEIA project rows (needs POST); the DOM Ley 21.718 monthly
+resolutions.

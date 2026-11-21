@@ -2,25 +2,34 @@
 
 Owner: calm-otter (claude-fable-5-2). Date of all checks: 2026-11-21.
 
-## Findings and scope
+## Verdict
 
-The search found the open MATSim Santiago scenario: 665,201 synthetic agents with day plans, networks, and 36 historical count stations.
-Its sources have different years: EOD 2012–2013 demand, 2015 GTFS, and a count file labeled 2013.
-The sampled agents clone survey respondents; they are not observed current residents.
+These are search results with limits. An empty search does not prove that a thing does not exist.
 
-This pass did not locate a public Census 2024-calibrated Santiago population or an integrated model covering every proposed mechanism.
-That bounded search does not prove such work does not exist. It is not a novelty claim for the pitch.
-DTPM publishes a binary EMME model; usable open export of its records remains unverified here.
+- **We found one open agent simulation of Santiago: the MATSim Santiago scenario (2016).** We have its files: 665,201 agents with full day plans and coordinates, a road network, a transit schedule, and 36 count stations. All of it is from 2012-2013.
+- **We found no public synthetic population of Santiago that is fitted to the Census.** MATSim Santiago makes clones of the EOD 2012 respondents. Searches done: 5 GitHub searches and 3 web searches (list in the entries). We did not search theses or private firms.
+- **We could not get the government models.** ESTRAUS and MUSSA have only empty library records. DTPM publishes its transit model: we read its OD matrix, but not its network.
+- **Each model that we found is transport only (MATSim, ESTRAUS, DTPM) or land use only (MUSSA).** We found none that puts housing, work, and leisure together.
 
-## Runtime evidence
+## Can 7 million agents run again in seconds?
 
-The researcher reported 1.75 seconds for 7 million destination draws over a random cost matrix on an Apple M3.
-This was a synthetic microbenchmark, not a city simulation or a run with real travel data.
-It omitted activity chains, mode choice, capacity feedback and equilibrium. No full-engine runtime can be inferred from it.
-Four int32 columns for 7 million agents require 112 MB; this does not include model networks, matrices or intermediate arrays.
+**Not proved.** We have one toy measurement and some numbers from other simulators.
 
-The MATSim configuration uses a 10% sample, 100 iterations, 6 threads and an 8 GB heap. Its runtime was not measured.
-Reported timings for other cities and GPU models are recorded below with their evidence limits; they do not establish this demo's latency.
+| Evidence | Result | Check |
+| --- | --- | --- |
+| Toy test here: 7,000,000 agents, one logit destination draw each, 866 zones, numpy, one core, Apple M3 | 1.75 s | Measured by one agent, one run. Random cost matrix. No activity chain, no mode choice, no capacity. It is a lower limit, not a simulation time. |
+| MATSim Santiago v2b: 10% sample, 100 iterations, 6 threads, 8 GB heap | Run time not stated | Config file read. We did not run it. |
+| LPSim (GPU vehicle queues, San Francisco Bay Area): 2.82 million trips | 6.28 minutes on 1 GPU; 9.01 million trips in 21.16 minutes on 2 GPUs | Abstract opened (arXiv 2406.08496). Self-reported. |
+| MOSS (GPU microscopic traffic): 2.46 million vehicles | 84 steps per second | UNVERIFIED: from a search summary. |
+| MATSim Open Berlin 10%: one iteration | more than 4 hours | UNVERIFIED: from a search summary. |
+
+What we can say:
+
+- The draw of one choice for each of 7 million agents is not the slow part.
+- The published vehicle-level simulators that we found report minutes, on GPUs, for 2 to 9 million trips.
+- The cost of a full step of our engine is unknown until we build one with real matrices. Measure it then.
+
+**Samples in the sources that we read:** MATSim Santiago v1 0.65% (42,459 agents), v2 10% (665,201). eqasim São Paulo 1%. MATSim Berlin 1% and 10% (search summary, UNVERIFIED).
 
 ## Sources
 
@@ -31,9 +40,9 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Year: demand July 2012 to November 2013 (EOD 2012, working days). GTFS of 2015. The counts file says `year="2013"`, name `BD_FLUJOS_CONTINUAS-14Oct13`. The paper says July 2011. One of them is wrong.
 - Access: direct download. `v2b.zip` 125,607,974 bytes (170 MB open, 147 MB are Java jars). Script: `tools/scrape/matsim_santiago.py`.
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 125,607,974 bytes. Counted 665,201 `<person>` rows. Legs: walk 527,377; bus 497,296; car 290,251; metro 234,098; other 155,061; ride 132,142; colectivo 64,440; bike 60,879; taxi 29,218; train 636. `v1.zip` (54,811,644 bytes) and `v2a.zip` (85,924,440 bytes): VERIFIED-BYTES, HEAD 200 only.
-- Role: INPUT (plans, network) and historical TARGET candidate (36 count stations; not current demand)
+- Role: INPUT
 - Limits: The agents are clones of 42,459 EOD respondents (IDs `10002001`, `10002001_1`, ...). The number of clones follows the EOD expansion factors (Contreras 2015). Clone locations are random points inside SII land use. Thus the population has no new households and no income, age, or sex columns in these files. It is before Metro lines 3 and 6 and before the pandemic. Working days only. No licence file: the paper says "no data restrictions" and asks for a citation. The EOD link in the readme is dead (404).
-- Use in the simulation: INPUT. Fast start for day plans (activity chains, durations, modes) at point level. Historical TARGET only: the 36 stations can assess a matching historical scenario, not current demand. Do not use it as the population. Build the population from Census 2024 and use these plans only as activity-chain templates.
+- Use in the simulation: INPUT. Fast start for day plans (activity chains, durations, modes) at point level. The 36 count stations are car volumes of 2013: history, not a score target. Do not use it as the population. Build the population from Census 2024 and use these plans only as activity-chain templates.
 
 ### matsim-scenarios/matsim-santiago (code)
 - Link: https://github.com/matsim-scenarios/matsim-santiago
@@ -41,7 +50,7 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Granularity: not data.
 - Year: created 2019-10-03, last push 2024-05-02. Default branch `santiago-v2b_matsim-v13.0`.
 - Access: direct download (git). 283 KB, 199 files.
-- Check: VERIFIED-BYTES (method metadata, not Santiago data records) 2026-11-21, GitHub API HTTP 200, tree of 199 files listed. Licence GPL-2.0. The README is the MATSim example template. It says nothing about Santiago.
+- Check: VERIFIED-BYTES 2026-11-21 (method evidence, not Santiago data records). GitHub API HTTP 200, tree of 199 files listed. Licence GPL-2.0. The README is the MATSim example template. It says nothing about Santiago.
 - Role: INPUT (method only)
 - Limits: The old path in the paper and the readme (`matsim-org/matsim/playgrounds/santiago`) is dead (API 404). GPL-2.0: if we copy code, our code must be GPL. Java, MATSim 13.
 - Use in the simulation: INPUT as a recipe. Read `RandomizeCoordinates` and `ActivityClassifier` before we write our own EOD reader. Do not run MATSim.
@@ -52,7 +61,7 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Granularity: not data.
 - Year: 2016 (v1). v2a and v2b have no paper, only a readme of one page.
 - Access: direct download. PDF, about 6.2 MB.
-- Check: VERIFIED-BYTES (method paper, not a downloaded observation table) 2026-11-21, HTTP 200, pages 1 to 20 read.
+- Check: VERIFIED-BYTES 2026-11-21 (method evidence). HTTP 200, pages 1 to 20 read.
 - Role: INPUT (method only)
 - Limits: Calibration is weak. They adjusted 3 mode constants (car +1.100, PT -0.883, walk 0) until the mode shares equalled the shares of the input population itself. Validation: 36 of 49 count stations, 15-minute bins; the simulation has too few cars at most stations. Cars and buses run on separate networks, thus buses do not get congestion. Only car, PT, and walk can change; the other modes are fixed. The paper gives no run time and no hardware. v1 used 42,459 agents (0.65%) with flow capacity 0.0064.
 - Use in the simulation: INPUT as method and as a warning. Their score (mode share that equals the input) is circular. Our score must use data that the model did not see.
@@ -63,10 +72,10 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Granularity: zone (OD matrix), link and line (network). One hour for each period.
 - Year: 2019 demand, 2020 supply. An older model (July 2018 supply, August 2017 demand) is on the same page as `.rar` files on `dtpm.gob.cl`. We did not open them; critic quiet-panda says the link answers HTTP 200 after a 301.
 - Access: direct download. `Modelo_PMA_DTPM.zip` 499,450,085 bytes; `Modelo_FPU_DTPM.zip` 68,345,154 bytes; `Modelo_PTA_DTPM.zip` 258,825,867 bytes; description PDF 114,875 bytes.
-- Check: VERIFIED-BYTES 2026-11-21, HTTP 200. The model records are not readable. FPU archive: 40 files, 190 MB open. PDF read (2 pages). But the network and the matrices are in `emmebank.zip` and `emmemat.zip`, the binary format of EMME. The SQLite file `Database/13.db` has tables `nodes` and `links` with 0 rows. `data_tables.db` has only empty SpatiaLite tables. Readable text: the fare macro (bus 700, Metro 720, values in CLP) and the transfer penalties for Metro nodes.
-- Role: INPUT, not usable now
-- Limits: EMME is paid software (Bentley, before INRO). No open reader was exercised in this pass. A peer identified wsp-balsa as a candidate matrix reader; compatibility with these files remains unverified. DTPM says the east zone (Lo Barnechea, Vitacura, Las Condes, La Reina, Peñalolén) has almost no bus counts, and the evening peak can be too low there because of fare evasion. Before the pandemic. No licence text.
-- Use in the simulation: Candidate INPUT after a compatible reader or export exposes the actual matrices. The public DTPM trip tables are a separate route to estimated OD data; they are not this calibrated model.
+- Check: VERIFIED-ROWS 2026-11-21, HTTP 200, for the FPU matrix only. Read with the Python standard library (`array('f')`), no EMME: 36,000,000 bytes, total 243,005 trips in the hour, 2,469 origin indexes and 2,466 destination indexes with trips, 1,817,180 cells above zero, largest cell 139.7. The network is VERIFIED-BYTES only: it is in `emmebank`, a binary format. The SQLite file `Database/13.db` has tables `nodes` and `links` with 0 rows. PDF read (2 pages). Readable text: the fare macro (bus 700, Metro 720) and the transfer penalties for Metro nodes.
+- Role: INPUT
+- Limits: The matrix has index numbers, not zone IDs. The table from index to zone, and the zone positions, are in `emmebank`, which we did not read. Without it the matrix has totals but no map. Critic quiet-panda names the PyPI package `wsp-balsa` as a reader; we did not test it. DTPM says the east zone (Lo Barnechea, Vitacura, Las Condes, La Reina, Peñalolén) has almost no bus counts, and the evening peak can be too low there because of fare evasion. Before the pandemic. No licence text.
+- Use in the simulation: INPUT only if somebody gets the zone table out of `emmebank`. Then it is a transit OD matrix of 2019 for 3 periods, already adjusted to counts. The DTPM trip tables of 2026 give newer OD data with stop coordinates, thus use those first.
 
 ### ADATRAP trip and stage tables (DTPM)
 - Link: https://www.dtpm.cl/index.php/documentos/matrices-de-viaje
@@ -85,7 +94,7 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Granularity: not data.
 - Year: 2017 to 2024.
 - Access: direct download (git).
-- Check: VERIFIED-BYTES (method metadata, not Santiago data records) 2026-11-21, GitHub API HTTP 200, 16 repositories listed. Most have no licence.
+- Check: VERIFIED-BYTES 2026-11-21. GitHub API HTTP 200, 16 repositories listed. Most have no licence.
 - Role: none
 - Limits: The engine that estimates the alighting stop is not in the organisation. Only tools around it are public.
 - Use in the simulation: NONE.
@@ -98,7 +107,7 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Access: 3 Google Drive links on the page.
 - Check: VERIFIED-BYTES 2026-11-21. Page HTTP 200, 3 Drive links found. We did not download the files. Another agent has `tools/scrape/eod2012.py`. The old links are dead: `sectra.gob.cl/biblioteca/detalle1.asp?mfn=3253` and `sectra.gob.cl/encuestas_movilidad/encuestas_movilidad.htm` both return 404.
 - Role: INPUT
-- Limits: 14 years old. MATSim Santiago, ESTRAUS, and the academic models all use this one survey. They share survey limitations, although their processing and model errors can differ. No newer EOD of Santiago was found in this research.
+- Limits: 14 years old. MATSim Santiago, ESTRAUS, and the academic models all use this one survey. Thus they have the same errors. No newer EOD of Santiago was found in this research.
 - Use in the simulation: INPUT for activity chains and mode choice. Not a TARGET: the prior models already fit it.
 
 ### ESTRAUS (SECTRA strategic transport model)
@@ -129,10 +138,10 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Granularity: person and point.
 - Year: last push 2023-07-06. Paper: Sallard, Balac, Hörl 2021.
 - Access: direct download (git). Ready scenario files are on ETH polybox (not opened).
-- Check: VERIFIED-BYTES (method metadata, not Santiago data records) 2026-11-21, GitHub API HTTP 200, README read. Licence GPL-2.0. The published sample is 1%.
+- Check: VERIFIED-BYTES 2026-11-21 (method evidence). GitHub API HTTP 200, README read. Licence GPL-2.0. The published sample is 1%.
 - Role: INPUT (method only)
-- Limits: it is for Brazil. No Santiago or Chile version was found in this search: GitHub search `eqasim chile` gives 0 results, and the eqasim organisation has no Chile repository (search summary).
-- Use in the simulation: INPUT as method. The sequence of census synthesis, survey-chain matching and spatial allocation is a candidate method. This catalog does not select an implementation.
+- Limits: it is for Brazil. We found no Santiago or Chile version: GitHub search `eqasim chile` gives 0 results.
+- Use in the simulation: INPUT as method. The 3 steps (census persons, then survey chains by matching, then locations) are an alternative to the MATSim cloning.
 
 ### Searches with no useful result (one line each)
 - SUMO scenario of Santiago: GitHub search `santiago sumo` gives 1 result, not related. One web search found none. Use: NONE.
@@ -142,65 +151,23 @@ Reported timings for other cities and GPU models are recorded below with their e
 - Agent simulator of COVID-19 in Santiago, https://arxiv.org/abs/2005.09556: abstract opened, no data or code link found. Use: NONE.
 - Optimizing city-scale traffic, https://arxiv.org/abs/1906.05093: abstract opened. A search summary says it uses about 665 thousand vehicles in Santiago, which is the MATSim v2b count. No new data. Use: NONE.
 
-### Synthetic population of Santiago from EOD plus Census (IPF or equal)
-- Link: https://api.github.com/search/repositories?q=santiago+synthetic+population
-- Check: UNVERIFIED (negative result) 2026-11-21. 0 results. Two web searches (one extended) found only the MATSim cloning. arXiv 2610.21784 (Spain, France, Italy) and arXiv 2608.12768 (United States) do not cover Chile; abstracts opened.
-- Use in the simulation: NONE as a located dataset. The search found no additional public source; it does not establish absence or novelty.
-
-### Agent simulator of COVID-19 in Santiago (arXiv 2005.09556)
-- Link: https://arxiv.org/abs/2005.09556
-- Contents: an agent simulator that makes infection data for each district. From a search summary: 40 districts, census densities, commuting flows.
-- Granularity: comuna.
-- Year: 2020.
-- Access: paper only. No code link found.
-- Check: UNVERIFIED. Abstract opened, HTTP 200. No data and no code found.
-- Role: none
-- Use in the simulation: NONE.
-
-### Optimizing city-scale traffic (arXiv 1906.05093)
-- Link: https://arxiv.org/abs/1906.05093
-- Check: UNVERIFIED. Abstract opened, HTTP 200. From a search summary: it uses a Santiago network with about 665 thousand vehicles. That number resembles the MATSim v2b agent count, but matching counts alone do not establish scenario identity. Possible data overlap remains unverified.
-- Use in the simulation: NONE.
-
-### Metro de Santiago demand model
-- Link: none found.
-- Check: UNVERIFIED. One web search found only ESTRAUS reports and a 2026 SECTRA study of new lines. No public Metro model, no files.
-- Use in the simulation: NONE. The DTPM trip tables are the public replacement.
-
-### LPSim (speed evidence)
-- Link: https://arxiv.org/abs/2406.08496
-- Contents: GPU traffic simulator, San Francisco Bay Area. 2.82 million trips in 6.28 minutes on 1 GPU. 9.01 million trips in 21.16 minutes on 2 GPUs. About 113 times faster than CPU methods on 2 A100 GPUs.
-- Check: VERIFIED-BYTES 2026-11-21. Abstract opened, HTTP 200. Self-reported numbers. Code not opened.
-- Role: none (speed evidence)
-- Use in the simulation: evidence only. The reported Bay Area runs took minutes on the stated GPUs; Santiago latency remains unmeasured.
-
-### MOSS (speed evidence)
-- Link: https://github.com/tsinghua-fib-lab/moss
-- Contents: GPU microscopic traffic simulator. Licence MIT. Last push 2025-08-26.
-- Check: VERIFIED-BYTES 2026-11-21, GitHub API HTTP 200. Speed numbers (2.46 million vehicles at 84 steps per second) UNVERIFIED: from a search summary of arXiv 2406.10661.
-- Role: none (speed evidence)
-- Use in the simulation: evidence only. Needs an NVIDIA GPU; our laptops are Apple.
-
-### AgentTorch (large population models)
-- Link: https://github.com/AgentTorch/AgentTorch
-- Contents: PyTorch framework for agent models with millions of agents. Licence AGPL-3.0. Last push 2026-11-15. 658 stars.
-- Check: VERIFIED-BYTES 2026-11-21, GitHub API HTTP 200. The hint "8.4 million agents of New York" is UNVERIFIED: the README text that we read does not give the number.
-- Role: none
-- Limits: AGPL-3.0. A new dependency.
-- Use in the simulation: NONE as Santiago data. The microbenchmark does not decide framework suitability.
+### Simulators of other cities (not Santiago data; for the engine decision only)
+- LPSim, https://arxiv.org/abs/2406.08496: abstract opened, HTTP 200. Numbers in the table above. Use: NONE as data.
+- MOSS, https://github.com/tsinghua-fib-lab/moss: GitHub API HTTP 200, licence MIT, last push 2025-08-26. Needs an NVIDIA GPU. Use: NONE as data.
+- AgentTorch, https://github.com/AgentTorch/AgentTorch: GitHub API HTTP 200, licence AGPL-3.0, last push 2026-11-15. The hint "8.4 million agents of New York" is UNVERIFIED. Use: NONE as data.
 
 ## Hints that were wrong
 
 - "MATSim Santiago is in matsim-org on GitHub": the playground path is dead. The code is in `matsim-scenarios/matsim-santiago`. The data is on the TU Berlin SVN.
-- "eqasim" for Santiago: not found in this search.
+- "eqasim" for Santiago: none found.
 - "SUMO scenarios" for Santiago: none found.
 - "Papers that build a synthetic population of Santiago from EOD and Census": none found. MATSim uses EOD only, with clones.
 - "ADATRAP" is not a simulator. It is an estimator of alighting stops. Its output is public; its engine is not.
 
 ## Critique
 
-1. **The speed test is too easy.** It measures one destination draw for each agent with a random cost matrix. It has no chain of activities, no mode choice, no capacity feedback, and no real data. The cost of a real simulation step remains unmeasured; no multiplier or latency claim is justified.
-2. **Half of the speed table is not verified.** The MOSS, MATSim Berlin, and AgentTorch numbers come from search summaries or from memory. We did not run MATSim Santiago, thus we have no run time for the only Santiago simulator.
-3. **The closed models are documented from summaries.** For ESTRAUS and MUSSA, the zone counts and group counts come from search summaries of MOP reports that we did not open. We did not ask SECTRA for the files (a request under the transparency law is possible but slow).
+1. **The speed question has no answer.** The toy test is one draw with random costs, run one time by one agent. No second agent ran it. It does not give the time of a full step.
+2. **The "none found" results come from few searches.** 5 GitHub searches and 3 web searches. We did not search theses, Spanish-language repositories, or private firms. A synthetic population of Santiago can exist and not be public.
+3. **The closed models are documented from summaries.** For ESTRAUS and MUSSA, the zone counts and group counts come from search summaries of MOP reports that we did not open. The DTPM matrix has no zone map yet.
 
 Not checked: the content of `v1.zip` and `v2a.zip`; the DTPM PMA and PTA archives; the 2018 DTPM model; `wsp-balsa` or any reader for `emmebank`; the EOD Drive files; theses of U. de Chile and PUC that used MATSim Santiago after 2016; Fosco and Zurita 2021 (PLoS ONE, lockdown agent model); models inside private firms (Citymovil, Steer, Telefónica).

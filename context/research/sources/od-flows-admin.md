@@ -1,5 +1,8 @@
 # Origin-destination flows in administrative data
 
+> Privacy limit (review of PR #15): SAE and PAES rows have a person key (`mrun`) and, for SAE, the home point of a child.
+> Use aggregates only. Do not commit person rows. `tools/scrape/mineduc-school-od.py` writes comuna totals only; the point export was removed in review.
+
 Topic: which administrative source gives a real pair (home place, destination place),
 and at which granularity. Every entry below says which two columns hold the pair.
 Checks were made on 2026-11-21.
@@ -46,10 +49,14 @@ SII worker counts, FONASA, Servel, Censo 2017.
   The home point carries deliberate noise, so it is good for distributions and wrong for
   one household. `rbd_admitido` is the offer, not the enrolment; use Matrícula for the
   enrolment. `calidad_georef` marks weak geocodes and this check did not filter on it.
+  **Privacy.** One row is a child: a home point plus the school that admitted that child.
+  The script drops the `mrun` key and writes only the point pair, the output stays in
+  git-ignored `data/raw/`, and nothing below the comuna goes into a commit or the demo.
+  Use the pairs for distributions, never for one household.
 - Use in the simulation: the only public administrative source that gives a trip below
   the comuna. It calibrates the distance-decay term of destination choice, which the
   comuna-level sources cannot do.
-- Script: `tools/scrape/mineduc-school-od.py` -> `data/raw/mineduc-od/od_school_points_rm.csv`
+- Script: none in the repository. The point export was removed in review (person-level data). The numbers in this entry come from a local run that is not kept.
 
 ### Censo 2024, person microdata
 - Link: https://storage.googleapis.com/bktdescargascenso2024/personas_censo2024.zip
