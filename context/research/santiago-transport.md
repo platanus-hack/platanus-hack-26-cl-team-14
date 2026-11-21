@@ -3,21 +3,20 @@
 Checked: 2026-11-21. Scope: inputs and calibration data for Santiago's urban simulation. Research only; the pitch is still empty.
 
 This catalog separates scheduled service from recorded travel. It covers useful public sources, not every transport dataset.
-All source pages below were opened or attempted in this session. Access failures are explicit.
-“Header confirmed” means an HTTP 200 response and file signature were observed; it does not mean the full dataset was inspected.
+Initial page checks are supplemented by the [bounded April verification](santiago-transport-verified.md). Access failures and sample limits are explicit.
+“Header confirmed” means a file signature was observed; it does not establish data rows.
 
 ## Catalog
 
-All 9 entries are **UNVERIFIED FOR INGESTION**: no actual data rows were retrieved.
-The access evidence below concerns pages, metadata, or file headers only.
-INPUT and TARGET are proposed uses, not proof that the data supports the final score.
+The April GTFS, boarding workbook, and first trip/stage archive members have **VERIFIED-ROWS** evidence. The remaining entries retain their initial page or metadata checks here.
+Row verification establishes sampled contents, not complete ingestion or resolved joins. INPUT and TARGET are proposed uses, not proof that the data supports the final score.
 
 
 | Source | Role and concrete mechanism | Contents and granularity | Coverage and data date | Access observed | Limit for the simulation |
 | --- | --- | --- | --- | --- | --- |
-| [DTPM static GTFS](https://www.dtpm.cl/index.php/gtfs-vigente) | INPUT: routes, stops, and schedules constrain available public transport paths and departures. | Scheduled routes, stop points, station links, shapes, trips, frequencies, and calendars. | Santiago public transport; feed effective 2026-11-14. Includes Red, Metro, MetroTren, and airport buses per the [official format note](https://www.dtpm.cl/descargas/gtfs/Descripcion%20GTFS%20estatico%20DTPM_20260210.pdf). | Public [ZIP](https://www.dtpm.cl/descargas/gtfs/GTFS_20261114_v2.zip), about 12.8 MB; header confirmed. CSV-style TXT files. | Describes planned service, not passenger demand or actual arrivals. Inspect calendar validity before use. |
-| [DTPM trips and stages](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) | INPUT or TARGET: estimate origin–destination demand, or compare simulated trip totals by zone and time. Separate fitting and evaluation samples. | Payment and bus-GPS-derived trips; estimated origin/destination stops and stages. | Red, Metro, and train; April 11–17, 2026; older cuts available. | Public [trip CSV ZIP](https://www.dtpm.cl/descargas/modelos_y_matrices/Viajes_2026-04.zip), about 1.66 GB; header confirmed. Stage ZIP and TXT dictionaries linked. | Excludes fare evasion. Destinations are estimated. Sample days do not represent every week. |
-| [DTPM stop and station boardings](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) | TARGET: compare simulated boardings per stop/station and half-hour. Calibration target only; not an independent holdout of the trip table. | Aggregated demand by bus stop or rail station and half-hour. | Santiago system; April 2026 and older cuts. | Public [XLSX](https://www.dtpm.cl/descargas/modelos_y_matrices/Subidas_Paradero_Estacion_2026.04_v3.xlsx), about 29.3 MB; header confirmed. Workbook not inspected. | Derived from the same trip system, not independent validation. Station names and bus stop codes need different joins. |
+| [DTPM static GTFS](https://www.dtpm.cl/index.php/gtfs-vigente) | INPUT: routes, stops, calendars, and headways constrain available public transport paths. | Scheduled routes, stop points, station links, shapes, trips, frequencies, and calendars. | Red/Metro/EFE network, not Santiago comuna. March feed V161.20260314 calendars cover April 11–17, 2026, with no exceptions that week. | VERIFIED-ROWS: [March ZIP](https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip), HTTP 200, 10,701,870 bytes. Read feed metadata, six calendar rows, 28 exceptions, and all 14,474 frequency rows; sampled linked trips and stop times. | All frequency rows use `exact_times=0`: headways, not fixed departures. Use stop-time offsets. Advertised end date December 31 does not prove that later replacement feeds are equivalent. No actual arrivals or demand. |
+| [DTPM trips and stages](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) | INPUT or conditional TARGET: estimate transit OD demand, or compare compatible zone/time totals after resolving expansion and schema semantics. | Payment and bus-GPS-derived trips and stages; estimated alighting; stops, comunas, and Zona777. | April 11–17, 2026 release; actual rows sampled only from April 11 first members. | VERIFIED-ROWS, bounded: [trip ZIP](https://www.dtpm.cl/descargas/modelos_y_matrices/Viajes_2026-04.zip) and [stage ZIP](https://www.dtpm.cl/descargas/modelos_y_matrices/Etapas-2026-04.zip), each HTTP 206, 65,536 bytes. Inflated first gzip member and read three complete records each. Trip header: 100 named fields plus trailing empty field; stage: 35 fields. | Trip `tipodia=1` conflicts with text labels in the dictionary; `tviaje2` sample indicates seconds despite documented minutes. Resolve both before ingestion. Missing alighting uses `-`; destinations are estimated. Expansion rules and full archive coverage remain unverified. |
+| [DTPM stop and station boardings](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) | TARGET: compare simulated validation-derived boardings per stop/station, half-hour, and day type. Not an independent holdout of the trip system. | Seven fields: day type, mode, internal stop, user stop code, comuna, Excel half-hour fraction, and average boardings. | Weekday average April 13–17, Saturday April 11, Sunday April 12, 2026. Network coverage, not Santiago comuna alone. | VERIFIED-ROWS: [XLSX](https://www.dtpm.cl/descargas/modelos_y_matrices/Subidas_Paradero_Estacion_2026.04_v3.xlsx), HTTP 200, 29,342,772 bytes. Read source/dictionary sheets and numeric observations for all nine mode/day combinations. PB1559 weekday 05:00 average is 1.2. | Excludes fare evasion. Actual header is `Paradero Usuario`, called SIMIT in the dictionary. Metro/train user codes can be `-`; names need separate joins. A half-hour value of 0.208333 is 05:00. Missing rows do not automatically mean zero demand. |
 | [SECTRA Santiago EOD](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) | INPUT: estimate initial mode shares and trip-purpose distributions with survey weights. Current-year calibration still needed. | Household travel survey; trip purposes, mode shares, and survey zones. | Gran Santiago; 2012 survey. | Official page links [database ZIP](https://drive.google.com/file/d/193675NwL6QNDs6VJFHU0mXiX5-6SdBPJ/view) and [zoning ZIP](https://drive.google.com/file/d/1SM2C5b3jhbmYCbAkmtg2yWRU2dMQkGRl/view). Drive pages opened; archive contents and unauthenticated downloads not verified. | Useful for all-mode behavior. Too old to treat as current demand without recalibration. Preserve survey weights and zone definitions. |
 | [OpenStreetMap via Geofabrik](https://download.geofabrik.de/south-america/chile/index.html) | INPUT: street and path geometry defines candidate walking, cycling, and car connections. | Mapped streets and paths at segment level; other mapped objects are included. | Chile, then clip to Santiago; daily snapshot, with 2026-11-20 files listed. | Public PBF, SHP, and GeoPackage downloads listed; file contents not inspected. Page states ODbL 1.0. | Mapping completeness varies. A mapped street does not supply measured traffic, capacity, or travel speed. |
 | [SECTRA cycle network](https://geoportal.cl/index.php/geoportal/catalog/36392/ciclovias) | INPUT: existing cycleway segments constrain cycling paths; planned segments can define a scenario. | Cycleway lines, commune, length, and construction/planning status. | Chile, filter Metropolitan Region; live layer named July 2026, last edited 2026-07-31. | [ArcGIS layer](https://services6.arcgis.com/feQ9HId8vmgonvvD/ArcGIS/rest/services/CICLOV_validVisor_WFL1/FeatureServer/0) metadata opened. Query supports JSON, GeoJSON, and PBF; 2,000-record limit. Features not downloaded. | Catalog says May 2024, while live layer is newer. Filter `ETAPA` to existing infrastructure for a baseline. |
@@ -25,26 +24,26 @@ INPUT and TARGET are proposed uses, not proof that the data supports the final s
 | [DTPM operating statistics](https://www.dtpm.cl/index.php/noticias/estadisticas) | TARGET candidate: compare simulated operated kilometers with published totals. Old speed tables cannot validate current travel times. | Operated kilometers by operating unit; historical service-direction speed tables by time interval. | Santiago bus system. Kilometer links extend into August/September 2026; displayed speed tables are from 2010. | Public page and dated file links inspected; individual tables not downloaded. | A current page contains old sections. Do not label the speed tables as 2026 observations. |
 | [CONASET crash portal](https://mapas-conaset.opendata.arcgis.com/) | NONE for the present social-dynamics model. Crash locations do not measure demand; retain only as an optional safety research lead. | Geospatial road-crash source; intended point-level safety evidence. | Chile; select Metropolitan Region. Layer years and geographic completeness not verified. | Portal opened but returned no readable layer metadata. The [2024 commune report](https://www.conaset.cl/wp-content/uploads/2025/09/Distritos-Circunscripciones-2024.pdf) appeared in official search results, but retrieval failed. No usable layer export confirmed. | Access lead, not a ready input. Obtain a dated layer or the commune report before making a safety claim. |
 
-## First inputs to obtain
+## First inputs to use
 
-Recommendation: start with the DTPM boarding workbook, matching-period GTFS, and an OSM street extract.
-These give demand totals, scheduled transport, and network geometry. They do not establish a causal response to a land-use change.
+Start with the sampled DTPM boarding workbook and matching March GTFS. Obtain an OSM street extract for geometry.
+The workbook measures validation-derived boardings; GTFS describes scheduled supply. They do not establish a causal response to a land-use change.
 Use the larger trip archive only when the selected demo needs origin–destination patterns.
 
 The [April 2026 trip dictionary](https://www.dtpm.cl/descargas/modelos_y_matrices/Estructura%20Tabla%20de%20Viajes%202026%204.txt) was opened.
 It includes origin/destination communes, stops, Zone777 codes, expansion factors, and estimated travel-time components.
-Its `tviaje` field is deprecated in favor of improved time fields; `tviaje2` is the total of the listed components.
+Its `tviaje` field is deprecated in favor of improved time fields. The dictionary calls `tviaje2` a component sum in minutes, but the sampled value 1258 equals 1,258 seconds between its timestamps. Resolve this unit mismatch before using travel times.
 Zone777 is a separate geography: do not equate its identifiers with EOD survey zones or census blocks.
 
 ## Gaps and use limits
 
-The [official historical GTFS index](https://www.dtpm.cl/index.php/programas-de-operaciones/gtfs-historicos) was opened.
-It links a 2026 archive, but a feed covering April 11–17, 2026 remains unresolved here.
-Clever-koala owns feed matching and actual-row sampling in a separate transport verification brief.
+The [April verification](santiago-transport-verified.md) resolves the matching GTFS calendar and actual boarding records.
+Active service IDs are S on April 11; D/F on April 12; L/LJ on April 13–16; and L/V on April 17.
+This establishes calendar applicability, not complete stop joins or realized operations.
 
 
 - No current, complete private-car origin–destination dataset was verified. EOD 2012 is the nearest verified official survey source.
 - No public live bus-position feed or station crowding feed was verified. GTFS alone cannot provide either.
 - Current route geometry and older observed trips need compatible stop identifiers and service dates before calibration.
 - Public access does not establish reuse terms. OSM declares ODbL; the other opened pages did not establish a common catalog-wide license.
-- No full archives were downloaded, no ingestion code was written, and no tests were run.
+- The full March GTFS and boarding workbook were downloaded. Only 64 KiB of each trip/stage archive was retrieved. No full ingestion pipeline or tests were run.

@@ -4,6 +4,20 @@ Research date: 2026-11-21. This catalog supports source selection for the urban 
 These briefs cover transport, people, work, housing, and land. Companion research covers buildings and activity places.
 This is not an exhaustive inventory or an imported dataset.
 
+## Download order
+
+This order is a research recommendation. The final pitch still determines which mechanisms to build.
+
+1. **Census 2024 block totals and cartography:** establish population and household totals within one explicit study boundary.
+2. **GTFS valid for the observation week:** establish the public transport network before comparing passenger demand.
+3. **DTPM April 11–17, 2026 boardings:** candidate stop/station and half-hour comparison target. Keep fare-evasion and estimation limits explicit.
+4. **Schools, health facilities, SII branches, and activity places:** add destinations. Enrolment can weight schools; branch worker counts and venue visits remain separate gaps.
+5. **Housing, land, and environmental layers:** add only the inputs required by the selected social mechanism.
+
+A public-transport score does not validate cars, walking, cycling, housing, or the whole city's social dynamics.
+No complete current street-level count dataset for all those travel modes was verified in the initial catalog.
+Access failures are not proof that a dataset does not exist.
+
 ## Scope and evidence
 
 The pitch is still empty. This work supports problem research; it does not define demo features.
@@ -25,13 +39,20 @@ UNVERIFIED FOR INGESTION means actual data rows were not inspected, even when me
 | Housing, property values, land use, public space, and settlements | [Housing and land](santiago-housing-land.md) |
 | Building geometry, shops, culture, sport, and other activity places | [Buildings and activity](data-sources-buildings-activity.md) |
 | Weather, air quality, and optional environmental context | [Environment](santiago-environment-hazards.md) |
+| Geographic identifiers, coordinate systems, and time compatibility | [Source joins](santiago-source-joins.md) |
+| Additional source topics, comparison targets, and independent sample reports | [Detailed source index](sources/INDEX.md) |
 
-Actual-row sampling and matching-period transport verification continue in the #agent-chat goal thread (`1573562197387251883`).
+Independent transport evidence is in [April transport verification](santiago-transport-verified.md). Topic reports in the detailed index distinguish parsed rows, file bytes, and unverified access.
 
 ## Sampled records
 
 | Source | Observed evidence | Remaining limit |
 | --- | --- | --- |
+| Census 2024 | 52,646 RM aggregate records; 52,593 match the sampled polygon layers, as recorded in the people/work verification report | 53 commune containers hold 108,997 people without unit polygons; allocation remains a model choice |
+| MINEDUC 2026 | 16,831 school records parsed; 3,227 operating RM schools | Coordinates are approximate; enrolment is not daily attendance |
+| March GTFS and April DTPM boardings | Active service IDs checked for April 11–17; numeric boarding rows read for all nine mode/day combinations | Frequency service is not exact departures; stop identifiers still need a full join |
+| April DTPM trips and stages | Three complete records read from each archive through 64 KiB range requests | Day-code and duration-unit mismatches; full archives and expansion rules remain unresolved |
+| Housing and land | Independent samples of public property transfers, 2025 permits, green areas, and settlements | Transfers are not household moves; price, use, and geography joins remain incomplete |
 | SINCA, Cerrillos II | 7 daily PM2.5 records, 2026-11-12 to 2026-11-18; exact response URL and fields in the environment brief | Preliminary values; other stations and full archive not checked |
 | DMC, Quinta Normal | 31 daily temperature records, January 2025; exact report URL and fields in the environment brief | Report does not expose per-row validation flags |
 
