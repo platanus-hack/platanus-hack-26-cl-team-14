@@ -41,3 +41,21 @@ PY
 Expected current-network result: 126 stations, 31 held out, 1,123 scored cells, half-hour WAPE 0.4179 and absolute error 238,349.700047. The L7 run should add 16 physical stations with finite nonnegative half-hour series. Actual projected entries require a remote run. The frozen score on the current network and the historical backcheck of station openings answer different questions. The threshold for a change to the baseline is 1,000 fewer absolute boarding errors.
 
 Juan’s first CLI run reproduced the baseline absolute error of 238,349.700047. It projected 253,310.13 weekday entries at the 16 new L7 parents and a decrease of 87,912.36 at the existing 126, for a net increase of 165,397.77. These are outputs of the access rule. Historical validation remains open. The four stations in the L2 extension benchmark all appear in the 2026 training data. A retrospective comparison must exclude their boarding observations from any fit and label the difference between the 2024 observation year and the 2026 network and population inputs. [CLI result](https://discord.com/channels/1573514576400752640/1573688245361844345/1573729347754524714) · [L2 observations](../data/validation/metro_extension_2023/line2.md)
+
+## Scenario request
+
+Use `kind: "station"`, `op: "set"` and `value: 1` to open or `0` to close. A target can be an existing station ID or name, a design station ID, a line, a corridor, or a user-supplied point. The engine applies changes in input order within one request. Each request starts from the original network.
+
+```sh
+printf '%s\n' '[{"kind":"station","target":{"type":"line","id":"L7"},"op":"set","value":1}]' |
+  cargo run --locked --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - > /tmp/open-line-scenario.json
+jq '{applied, not_modeled, station_rows:(.stations|length), summary}' /tmp/open-line-scenario.json
+```
+
+An explicit point uses the same access calculation:
+
+```json
+{"kind":"station","target":{"type":"point","id":"H1","name":"Proposed station","longitude":-70.70,"latitude":-33.44},"op":"set","value":1}
+```
+
+For the L7 request expect one applied change with 19 design station IDs mapped to 19 distinct physical IDs, zero unsupported changes, and 142 station rows. Three of the design stations reuse current parents, so 16 rows have a new physical ID and zero baseline entries. The modeled totals should match the CLI projection within the rounding used by the scenario response. To check request isolation, follow the opening with an empty request on the same running engine. Its response should contain the original 126 station rows. A request with L7 and an unknown line should apply L7 and return the unknown line in `not_modeled`.

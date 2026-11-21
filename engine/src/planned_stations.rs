@@ -17,6 +17,7 @@ pub enum Selector<'a> {
     Corridor(&'a str),
 }
 
+#[derive(Default)]
 pub struct PlannedStations {
     features: Vec<Value>,
     physical: HashMap<String, String>,
