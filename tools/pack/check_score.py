@@ -52,7 +52,7 @@ EXPECTED_CELLS = 1123
 EXPECTED_TOTAL = 570369.4
 
 with open(ARTIFACT, 'rb') as source:
-    if hashlib.file_digest(source, 'sha256').hexdigest() != ARTIFACT_SHA256:
+    if hashlib.sha256(source.read()).hexdigest() != ARTIFACT_SHA256:
         sys.exit('ABORT: target artifact changed; frozen values and cells no longer apply.')
 
 manifest = json.load(open(MANIFEST))
