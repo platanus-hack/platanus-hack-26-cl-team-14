@@ -274,10 +274,11 @@ function puntaje() {
 
 // ---------- Evento: an extra hypothetical event at one of two reviewed sites (POST /api/event-scenario) ----------
 let ev = null, egen = 0, esite = 'estadio_nacional';
+const ecam = r => ({...VIEWS.e, longitude: r.longitude - 0.020, latitude: r.latitude + 0.004});  // the selected site sits right of the panels
 function eventScenario() {
   const g = ++egen, m = +$('mult').value;
   $('mv').textContent = fmt(m, 1);
-  post('event-scenario', {site_id: esite, multiplier: m}).then(r => { if (g == egen) { if (!ev || ev.site_id != r.site_id) deckgl.setProps({initialViewState: {...VIEWS.e, longitude: r.longitude - 0.020, latitude: r.latitude + 0.004, transitionDuration: 1200, transitionInterpolator: new FlyToInterpolator()}});
+  post('event-scenario', {site_id: esite, multiplier: m}).then(r => { if (g == egen && view == 'e') { if (!ev || ev.site_id != r.site_id) deckgl.setProps({initialViewState: {...ecam(r), transitionDuration: 1200, transitionInterpolator: new FlyToInterpolator()}});
     ev = r; if (r.elapsed_ms == null) delete ms.e; else engine('e', r); draw(); } }, () => { if (g == egen) engine('e'); });
 }
 const SITES = {estadio_nacional: 'Estadio Nacional', estadio_monumental: 'Estadio Monumental'};
@@ -327,7 +328,8 @@ function tick() {
 
 function show(v) {
   view = v; document.body.className = v;
-  deckgl.setProps({initialViewState: {...VIEWS[v], transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
+  if (v != 'e') egen++;  // an event answer that arrives after the user left the tab is dropped
+  deckgl.setProps({initialViewState: {...(v == 'e' && ev ? ecam(ev) : VIEWS[v]), transitionDuration: 1500, transitionInterpolator: new FlyToInterpolator()}});
   draw();
 }
 
