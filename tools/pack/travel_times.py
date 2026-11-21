@@ -34,6 +34,9 @@ WEEKDAY_SERVICES = {"L", "LJ"}
 DEPART = 8 * 3600
 ACCESS_M, TRANSFER_M, WALK_KMH = 1000.0, 300.0, 4.8
 WALK_MPS = WALK_KMH * 1000 / 3600
+# `metro` adds minutes_metro_only, the same search over the Metro patterns alone. It
+# waits for its own PR, so the default output stays byte-identical to the reviewed file.
+METRO_COLUMN = "metro" in sys.argv
 
 
 def seconds(text):
@@ -207,25 +210,26 @@ for origin in sorted(points):
     if not covered[origin]:
         continue
     best = search(graph, origin)
-    metro_best = search(metro_graph, origin)
+    metro_best = search(metro_graph, origin) if METRO_COLUMN else None
     for destination in sorted(points):
         if destination == origin or not covered[destination]:
             continue
         answer = arrival(best, destination)
-        metro_answer = arrival(metro_best, destination)
+        metro_answer = arrival(metro_best, destination) if METRO_COLUMN else None
         if answer:
             rows.append([origin, destination, round(answer[0] / 60, 1),
                          round(answer[1] / 60, 1), max(answer[2] - 1, 0),
-                         round(answer[3]), round(answer[4]),
-                         round(metro_answer[0] / 60, 1) if metro_answer else ""])
+                         round(answer[3]), round(answer[4])]
+                        + ([round(metro_answer[0] / 60, 1) if metro_answer else ""]
+                           if METRO_COLUMN else []))
     print(f"  {origin} {len(best)} nodes", end=" ", flush=True)
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 with OUT.open("w", newline="", encoding="utf-8") as fh:
     writer = csv.writer(fh)
     writer.writerow(["origin_cut", "destination_cut", "minutes_door_to_door",
-                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress",
-                     "minutes_metro_only"])
+                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress"]
+                    + (["minutes_metro_only"] if METRO_COLUMN else []))
     writer.writerows(rows)
 print(OUT, len(rows), "directed pairs over", len(served), "comunas")
 
@@ -281,7 +285,7 @@ def compare_with_eod():
     print(f"Pearson {correlation(survey, model):.3f} | "
           f"Spearman {correlation(ranks(survey), ranks(model)):.3f}")
     ties = len(survey) - len(set(survey))
-    print(f"tied survey medians: {ties} of {len(survey)} values share a value with another")
+    print(f"duplicate survey medians beyond the first occurrence: {ties} of {len(survey)}")
 
 
 def correlation(xs, ys):
