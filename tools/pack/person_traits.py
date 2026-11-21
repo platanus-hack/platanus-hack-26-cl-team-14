@@ -5,11 +5,12 @@ Workers use the same filters as mode_share.py, so the counts of one
 (origin_cut, destination_cut, mode) cell sum to that row of mode_od.csv.
 Students: RM residents who attend basic or secondary school
 (`asistencia_basica` or `asistencia_media` = 1), the blocks.csv population.
-Household size counts the persons who share `id_vivienda` and `id_hogar`.
+For private dwellings, household size counts the persons who share
+`id_vivienda` and `id_hogar`. Other census operations have unknown size.
 The file lists the persons of one household on consecutive rows.
 
 Age bands: 0 = under 15, 1 = 15-24, 2 = 25-44, 3 = 45-64, 4 = 65 or more.
-Household size: 1 to 5, where 5 means 5 or more.
+Household size: 1 to 5, where 5 means 5 or more. 255 means unknown.
 
 Output: data/mvp/person_traits_workers.csv   origin_cut,destination_cut,mode,age_band,household_size,commuters
         data/mvp/person_traits_students.csv  cut,age_band,household_size,students
@@ -18,6 +19,8 @@ import collections, csv, pathlib, subprocess, sys
 
 ZIP = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "data/raw/censo2024-personas/personas_censo2024.zip")
 MISSING = {"", "-99", "998", "999"}
+PRIVATE = "2"
+UNKNOWN = 255
 
 
 def band(age):
@@ -31,8 +34,10 @@ sizes = collections.Counter()
 
 
 def flush(household):
-    size = min(len(household), 5)
-    sizes[size] += 1
+    private = household[0]["tipo_operativo"] == PRIVATE
+    size = min(len(household), 5) if private else UNKNOWN
+    if private:
+        sizes[size] += 1
     for row in household:
         home = f"{int(row['comuna']):05d}"
         age = band(int(row["edad"]))
@@ -50,7 +55,7 @@ for row in reader:
     if not row["comuna"].startswith("13"):
         continue
     tipo[row["tipo_operativo"]] += 1
-    k = (row["comuna"], row["id_vivienda"], row["id_hogar"])
+    k = (row["comuna"], row["tipo_operativo"], row["id_vivienda"], row["id_hogar"])
     if k != key and household:
         flush(household)
         household = []
@@ -59,8 +64,8 @@ for row in reader:
 flush(household)
 
 print("persons by tipo_operativo:", dict(tipo))
-print("households by size (5 = 5+):", dict(sorted(sizes.items())))
-print("persons per household:", sum(tipo.values()) / sum(sizes.values()))
+print("private households by size (5 = 5+):", dict(sorted(sizes.items())))
+print("persons per private household:", tipo[PRIVATE] / sum(sizes.values()))
 
 with open("data/mvp/person_traits_workers.csv", "w", newline="") as f:
     w = csv.writer(f)

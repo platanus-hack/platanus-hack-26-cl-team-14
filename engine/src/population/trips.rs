@@ -21,7 +21,7 @@ pub struct TripGroup {
     pub origin_cut: String,
     pub destination_cut: String,
     /// Age band and household size of one synthetic member who lives at `origin` (see population.rs).
-    /// 255 = unknown (a worker that a residents change added).
+    /// 255 = unknown for the corresponding trait.
     pub age_band: u8,
     pub household_size: u8,
 }
