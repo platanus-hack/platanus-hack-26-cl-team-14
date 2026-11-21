@@ -9,8 +9,6 @@ type Color4 = [f32; 4];
 type GroundTiles = BTreeMap<(i32, i32), Surface>;
 
 // Half-widths are cartographic line widths in metres.
-const ROAD: Color4 = [0.25, 0.27, 0.28, 1.0];
-const SMALL_ROAD: Color4 = [0.31, 0.32, 0.32, 1.0];
 const GRASS: Color4 = [0.23, 0.38, 0.18, 1.0];
 const WATER: Color4 = [0.16, 0.41, 0.44, 1.0];
 const STONE: Color4 = [0.62, 0.59, 0.48, 1.0];
@@ -94,20 +92,6 @@ fn open_rings(shape: &Value) -> Vec<Vec<Vec3>> {
         .collect()
 }
 
-fn roads(tiles: &mut GroundTiles, path: &Path) {
-    let fc = read_geojson(path);
-    for feature in fc["features"].as_array().unwrap() {
-        let points = coordinates(&feature["geometry"]["coordinates"]);
-        let (half_width, color) = match feature["properties"]["kind"].as_str().unwrap() {
-            "motorway" => (6.5, ROAD),
-            "trunk" | "primary" => (5.0, ROAD),
-            "secondary" => (4.0, ROAD),
-            _ => (2.8, SMALL_ROAD),
-        };
-        ribbon(tile_for(tiles, points[0]), &points, half_width, 0.26, color);
-    }
-}
-
 fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     let data = read_geojson(path);
     for feature in data["features"].as_array().unwrap() {
@@ -170,16 +154,6 @@ fn landmarks(tiles: &mut GroundTiles, path: &Path) {
             continue;
         }
     }
-}
-
-pub(super) fn street_meshes(root: &Path) -> impl Iterator<Item = Mesh> {
-    let mut tiles = GroundTiles::new();
-    roads(
-        &mut tiles,
-        &root.join("web/data/residential_streets.geojson.gz"),
-    );
-    roads(&mut tiles, &root.join("data/mvp/roads.geojson"));
-    tiles.into_values().map(Surface::finish)
 }
 
 pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mesh)>) {
