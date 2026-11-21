@@ -8,7 +8,7 @@ Checked on 2026-11-21. “Below comuna” means that the published set has value
 - Granularity: comuna, city, urban area, manzana, and other indicator-specific geographies. It goes below comuna for several spatial indicators, but not for every series.
 - Year: Indicator-specific historical years. The page says the downloadable files were updated after methodological validation in 2025.
 - Access: direct download, XLSM, 516,275 bytes.
-- Check: VERIFIED-BYTES 2026-11-21, HTTP 200, 516,275 bytes; `file` identifies Microsoft Excel 2007+. VERIFIED-ROWS: a Santiago CUT 13101 row was parsed during independent review.
+- Check: VERIFIED-ROWS 2026-11-21: a Santiago CUT 13101 row was parsed during independent review. Download: HTTP 200, 516,275 bytes; `file` identifies Microsoft Excel 2007+.
 - Role: INPUT for comuna and indicator calibration. Below-comuna layers require a separate SIEDU cartographic download.
 - Limits: Different indicators use different denominators and geographies. The workbook is a publication matrix, not one harmonised time series. Raw sources include INE Census, MINVU, transport data, SII, SEC, CONAF and other public records, depending on the indicator.
 - Use in the simulation: access to services, travel time and transport coverage, green space, housing deficit, internet, land use, municipal capacity, and civic participation.
@@ -19,7 +19,7 @@ Checked on 2026-11-21. “Below comuna” means that the published set has value
 - Granularity: The platform states that it works at several geographic scales. For Santiago, use the downloadable geodatabase and workbook to determine the indicator-specific unit. It can go below comuna where a layer uses census microdata or a spatial grid.
 - Year: Initial release dated 2025-12-04; 75% of the first 27 indicators use Census 2024 microdata.
 - Access: direct download, XLSX. The page also lists a GDB ZIP and metadata PDFs.
-- Check: VERIFIED-BYTES 2026-11-21, HTTP 200, 152,606 bytes. VERIFIED-ROWS: independent review parsed 345 comuna rows and 56 province rows from the XLSX.
+- Check: VERIFIED-ROWS 2026-11-21: independent review parsed 345 comuna rows and 56 province rows from the XLSX. Download: HTTP 200, 152,606 bytes.
 - Role: INPUT for territorial access and exposure indicators. Below-comuna values require the separate geodatabase or spatial layers.
 - Limits: The site is new and still expanding to 92 indicators. The first release does not equal a complete historical series. Do not mix SIET values with older SIEDU values without reading the metadata.
 - Use in the simulation: baseline access, social and environmental exposure, and comuna-to-locality comparisons.
@@ -41,7 +41,7 @@ Checked on 2026-11-21. “Below comuna” means that the published set has value
 - Granularity: comuna and city. It does not publish a below-comuna score in the report.
 - Year: 2024 edition, published 2025; values are indicator-specific and may use earlier source years.
 - Access: direct download, PDF, 3,028,236 bytes.
-- Check: VERIFIED 2026-11-21, HTTP 200; `file` identifies PDF 1.3.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 200; `file` identifies PDF 1.3.
 - Role: INPUT for comuna-level quality-of-life calibration. Not a below-comuna target.
 - Limits: The index covers 99 Chilean comunas with more than 50,000 inhabitants. It is not a complete Santiago population surface and its dimensions combine data with different years.
 - Use in the simulation: comuna-level calibration for mobility, housing, work, health, and social opportunity.
@@ -52,7 +52,7 @@ Checked on 2026-11-21. “Below comuna” means that the published set has value
 - Granularity: city and metropolitan area in the 16-city report. The related Plataforma Municipal covers 95 comunas, but the report itself does not provide a below-comuna Santiago surface.
 - Year: report values use the latest available data at December 2020 and describe the pre-pandemic baseline.
 - Access: public web platform and report page; PDF download link is exposed by the page, but the historical PDF URL returned an HTML wrapper in this pass.
-- Check: VERIFIED 2026-11-21 for the official pages, HTTP 200; the page returned real HTML and the source describes Santiago coverage. Download file: UNVERIFIED as PDF because the server returned HTML for the discovered URL.
+- Check: UNVERIFIED for data rows, 2026-11-21. Official pages returned HTTP 200; the page returned real HTML and the source describes Santiago coverage. Download file: UNVERIFIED as PDF because the server returned HTML for the discovered URL.
 - Role: INPUT for city/metropolitan sustainability calibration. Not an hourly or person-level target.
 - Limits: The 30 indicators are not one synchronous year. City-level aggregation hides comuna and neighbourhood differences. Some measures are modelled or depend on administrative reporting.
 - Use in the simulation: sustainability score, travel behaviour, access to facilities, and environmental constraints.
@@ -74,7 +74,7 @@ Checked on 2026-11-21. “Below comuna” means that the published set has value
 - Granularity: manzana and territorial zones, as well as comuna and region views. It goes below comuna.
 - Year: The platform was built progressively from 2021 to 2022. Component years vary by source.
 - Access: public visualisation with a “Descargar datos” action; methodology manual is a direct PDF download, 1,998,405 bytes. The data export endpoint was not extracted.
-- Check: VERIFIED 2026-11-21, HTTP 200 for the visualisation page, 400,213 bytes; HTTP 200 for the official manual, PDF 1.7.
+- Check: VERIFIED-BYTES 2026-11-21 for the official manual, HTTP 200, PDF 1.7. The visualisation page returned HTTP 200, 400,213 bytes. Export rows are UNVERIFIED.
 - Role: INPUT for below-comuna opportunity and access surfaces. Export rows still require a separate download check.
 - Limits: Values are normalised from 0 to 1 within the analysed territory. They are not directly comparable across releases or territories without the method. Inputs include Census 2017, DEIS, MINEDUC, MINAGRI, crime records, OSM, satellite interpretation, and municipal or regional inputs.
 - Use in the simulation: fine-grained access and opportunity surfaces, especially for neighbourhood-level housing, services, safety, and amenity scenarios.
@@ -85,7 +85,7 @@ Checked on 2026-11-21. “Below comuna” means that the published set has value
 - Granularity: comuna and smaller mapped territorial units, depending on the map and indicator. The PDF is not a machine-readable point or person dataset.
 - Year: 2017 atlas and source-period-specific indicators.
 - Access: direct download, PDF, 31,751,664 bytes.
-- Check: VERIFIED 2026-11-21, HTTP 200; `file` identifies PDF 1.7.
+- Check: VERIFIED-BYTES 2026-11-21, HTTP 200; `file` identifies PDF 1.7.
 - Role: HISTORICAL INPUT and spatial-priority validation. Not a current person-level target.
 - Limits: The atlas is a static publication. RSH data are aggregated and protected. The 2017 snapshot is old for current migration, housing, and employment patterns. Map extraction requires georeferencing or a separate source file.
 - Use in the simulation: historical social disadvantage priors and validation of spatial targeting. Do not use as current person-level data.
@@ -96,7 +96,7 @@ Checked on 2026-11-21. “Below comuna” means that the published set has value
 - Granularity: Dataset-specific. The catalogue can include points, polygons, comuna, and smaller spatial units. The catalogue page does not guarantee below-comuna data for every indicator.
 - Year: Dataset-specific. Read each layer's metadata.
 - Access: public catalogue with dataset-level downloads. Direct file URL and format depend on the selected layer.
-- Check: VERIFIED 2026-11-21 at the web-source level: the official page opened and described 209 layers, including 10 indicator layers. Direct curl timed out after 20 seconds, so file bytes are UNVERIFIED.
+- Check: UNVERIFIED for data rows, 2026-11-21: the official page opened and described 209 layers, including 10 indicator layers. Direct curl timed out after 20 seconds, so file bytes are UNVERIFIED.
 - Role: CATALOGUE LEAD for finding finer-grained geospatial inputs. Each selected layer needs its own row or byte verification.
 - Limits: OCUC is a catalogue, not one harmonised indicator series. Licences, update dates, spatial units, and raw sources vary by layer. Do not treat the catalogue update date as the data year.
 - Use in the simulation: locate fine-grained urban layers and raw geospatial inputs for access, land use, housing, and mobility.

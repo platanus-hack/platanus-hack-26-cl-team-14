@@ -16,8 +16,8 @@ exists only inside academic agreements or government contracts. App vendors (Waz
 - Access: direct download. CSV, 7.1 MB, 71,553 rows, 345 comunas (13,171 rows in region 13).
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 71,553 rows. `tools/scrape/telefonica-udd-figshare.py`.
 - Limits: pandemic period only. Index (trips per device), not counts of trips and not OD pairs. Movistar share only (about 30 percent). CC BY 4.0. The MinCiencia copy (`Datos-COVID19/output/producto33`) is gone: HTTP 404. The UDD report pages `datascience.udd.cl/reports/` and `/movilidad/` redirect to the institute home page.
-- Use in the simulation: TARGET for the response of trip volume by comuna to a shock (quarantine as a natural experiment). Best open proxy for "how much does comuna X move when Y changes".
-- Role: TARGET
+- Use in the simulation: TARGET for the observed mobility index by comuna during quarantine. Match the trips-per-device index, not an absolute trip count.
+- Role: TARGET (mobility index, not trip count)
 
 ### Meta Movement Distribution Maps (HDX)
 - Link: https://data.humdata.org/dataset/movement-distribution
@@ -27,7 +27,7 @@ exists only inside academic agreements or government contracts. App vendors (Waz
 - Access: direct download. CSV, 174 MB per 2-week file (world), Chile rows 3,672 per file.
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 3,672 Chile rows. `tools/scrape/meta-movement-distribution.py`.
 - Limits: province, not comuna. Fraction of pings, not trips. Facebook users only. CC BY.
-- Use in the simulation: TARGET for the share of people who stay home or travel more than 10 km, by province, for the current year. Only live phone signal that is open.
+- Use in the simulation: TARGET for the fraction of recorded pings in each home-distance band, by province and day. This is not a fraction of people or a measure of who stayed home all day.
 - Role: TARGET
 
 ### Meta Movement Range Maps (HDX)

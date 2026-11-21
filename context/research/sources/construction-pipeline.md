@@ -89,23 +89,16 @@ FeatureServer counts as ROWS. Each entry also has a `Role:` line: INPUT, TARGET,
 - Use in the simulation: INPUT. Primary, current source to extend the 2010-2018 point mirror to
   recent years, at comuna resolution. UNVERIFIED for rows; needs the file-list endpoint.
 
-### INE georeferenced permits — official releases (geoarchivos + Geodatos Abiertos)
-- Link: https://www.ine.gob.cl/herramientas/portal-de-mapas/geodatos-abiertos
-- Contents: INE's own georeferenced permits and "Certificados de Recepción Final". Same point
-  schema as the UC mirror, but official and updated each semester.
-- Granularity: point, semester.
-- Year: 2010 to present (INE says it georeferenced 98% of 2021 permits).
-- Access: the old ArcGIS Hub (geoine-ine-chile.opendata.arcgis.com) is RETIRED (404). INE now
-  serves Shapefile/Geodatabase zips under "Documentos y descargas -> Cartografía". INE's own GIS
-  account (owner `gisine1`) hosts regional web apps "Sistema Permisos Edificación R13" (RM) etc.
-- Check: VERIFIED-BYTES 2026-11-21. geoarchivos.ine.cl guide PDF HTTP 200, 1.97 MB. The 4
-  permit/recepción Hub dataset URLs on the page are all HTTP 404 (hub retired). I did NOT find a
-  current direct zip URL or a clean public FeatureServer for the official data.
-- Limits: the public direct-download path is broken/moved; the UC mirror (above) is the working
-  substitute for 2010-2018. Recepción final is not directly downloadable per INE's own guide.
-- Role: INPUT
-- Use in the simulation: INPUT. Preferred over the UC mirror once the live zip URL is found,
-  because it reaches 2021+. Today UNVERIFIED for rows.
+### INE georeferenced permits — current official service
+- Link: https://services5.arcgis.com/hUyD8u3TeZLKPe4T/arcgis/rest/services/CRF_PE_v2/FeatureServer/1
+- Contents: permit destination points with `COD_REGION`, `COD_COMUNA`, `GLOSA_COMUNA`, `AÑO`, `CANTIDAD_UNIDAD`, `NUM_PISOS`, `GLOSA_DESTINO`, `USO_DESTINO`, `SUPERFICIE`, `PRECISION_`, and `OBJECTID`.
+- Granularity: permit destination point; annual data. Region 13 includes places outside Greater Santiago.
+- Year: queried RM year bounds are 2010–2025; the five sampled records are from 2025.
+- Access: public ArcGIS JSON, no login. The retired Hub links do not establish that current data are unavailable.
+- Check: VERIFIED-ROWS, 2026-11-21, from [the independent audit](verify-housing-land.md#ine-building-permits): five rows, HTTP 200, 3,756 bytes. The official INE page links the app and webmap that expose this service.
+- Limits: year bounds do not prove complete annual coverage. These are permit destination records, not completed or occupied buildings. Check record structure before summing units across destinations. Final-reception rows remain unverified.
+- Role: INPUT.
+- Use in the simulation: locate recent permitted housing supply. Use a separate completion and occupancy process before adding residents. The UC mirror remains a historical source for the reported 2010–2018 tower statistics.
 
 ### MINVU geoide — national PRC/PRI/PRMS MapServer
 - Link: https://geoide.minvu.cl/server/rest/services/IPT
@@ -199,18 +192,14 @@ FeatureServer counts as ROWS. Each entry also has a `Role:` line: INPUT, TARGET,
 
 My own 3 weakest points, and what I did not check:
 
-1. **The core point source stops in 2018.** The only permits data I pulled real rows from is the
-   UC mirror (2010-2018). I did NOT get INE's official 2019+ georeferenced zip or the monthly
-   economic Excel; the old INE ArcGIS Hub is dead (404) and the new file list is script-loaded.
-   So the "dwellings per tower" numbers are 2010-2018 only, and may not match today's unit mixes.
+1. **The tower statistics use the historical mirror.** They cover 2010–2018 and may not match current unit mixes. The independent audit now verifies five official 2025 permit points; it does not establish complete coverage or updated tower statistics.
 2. **Zoning coverage is thin and not machine-clean.** I verified PRC rows only for Estación Central
    and Cerro Navia, plus the PRMS intensity layer. Height is free text ("4 pisos") and density is
    often blank. I did not build or test a point-in-polygon lookup, and most RM comunas' PRC
    services are not confirmed here. The "legal cap" chain is shown feasible, not built.
 3. **SEIA and the per-permit DOM resolutions are unverified for rows.** SEIA needs a POST search I
    did not complete, and the DOM Ley 21.718 monthly resolutions are PDF per comuna, unsampled. So
-   the forward-looking and post-2018 pipeline is a lead, not data in hand.
+   these forward-looking sources remain leads. Official 2025 permit points are sampled above.
 
 Not checked: the "who moves in" join itself (permit points inside Census 2024 manzana polygons);
-whether CANTIDAD_U double-counts across permit revisions; the gisine1 R13 web app's backing
-service; geoide.minvu.cl RM comuna services; recepción final (built, not just permitted) rows.
+whether CANTIDAD_U double-counts across permit revisions; geoide.minvu.cl RM comuna services; recepción final (built, not just permitted) rows.

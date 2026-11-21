@@ -22,8 +22,8 @@ Answer to "public asking-price bulk data remains unverified" (clever-heron):
   - Santiago comuna appears as 3 units: `SANTIAGO CENTRO`, `SANTIAGO OESTE`, `SANTIAGO SUR`. Comuna names have no accents (`NUNOA`, `MAIPU`). COMUNA is an SII name, not an INE CUT code; SII numeric codes also differ from CUT (Providencia 15103 vs 13123, see `santiago-source-joins.md`). Build a name crosswalk before a census join.
   - Some inscription years are typos (3015, 3200, 9204). Filter to 1990–2026. Old rows often have no amount; recent rows have it (Providencia 2025: all rows).
   - To get a point, you need rol → location. See "SII public map" below. It is not verified.
-- Role: TARGET (sale price by place and year) and INPUT (turnover)
-- Use in the simulation: TARGET for housing price by place and year (sale price), and INPUT for move rates (transfers per rol per year = turnover). After a rol → manzana join, it gives price gradients and turnover at block level.
+- Role: TARGET candidate for residential sale values after property classification and multi-rol deed treatment.
+- Use in the simulation: retain rol-level transfer history. A location join alone does not resolve repeated full-deed prices or distinguish dwellings from other property. There is no deed identifier in this schema. Transfers do not observe household moves; do not use them as move rates. SII blocks also need a checked crosswalk before comparison with INE blocks.
 
 ### Chilepropiedades.cl: asking prices for sale and rent (scrape + geocode)
 - Link: https://chilepropiedades.cl/propiedades/venta/departamento/providencia/0 and detail pages `/ver-publicacion/...`. robots.txt: https://chilepropiedades.cl/robots.txt (allows these paths, `Crawl-delay: 2`).
@@ -31,10 +31,10 @@ Answer to "public asking-price bulk data remains unverified" (clever-heron):
 - Granularity: point (geocoded street address). Snapshot of listings online today.
 - Year: listings posted 2026 (dates seen 2026-10 to 2026-11-19).
 - Access: scrape, HTML with JSON-LD, 10 listings per list page. Script: `tools/scrape/chilepropiedades.py`. Output: `data/raw/chilepropiedades/listings.csv`.
-- Check: VERIFIED-ROWS 2026-11-21. CHILEPROP_COUNT
+- Check: VERIFIED-ROWS 2026-11-21, per the owner’s listing inspection. The completed sample count was not recorded; full scrape coverage is unverified.
 - Limits:
   - Small portal. It is not a census of the market. Most listings are departamentos from brokers.
-  - The `priceCurrency` label is wrong on some rows (UF values labeled CLP, for example `Moneda 1576, 3150, CLP`). Rule: if price < 100,000, the unit is UF.
+  - The owner reports ambiguous currency labels, for example `Moneda 1576, 3150, CLP`. Preserve the source label and mark the analytical currency unknown until the listing confirms it. Never infer UF from a numeric threshold. The scraper preserves `priceCurrency` as supplied.
   - Nominatim sometimes returns the street centroid, not the house number. Error up to a few hundred meters.
   - Asking price, not sale price. Duplicates are possible (same building, many units).
 - Role: INPUT (rent and asking price by point)
@@ -48,8 +48,8 @@ Answer to "public asking-price bulk data remains unverified" (clever-heron):
 - Access: direct download, CSV 3.5 MB. Licence CC BY 4.0.
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 3,494,306 bytes, 18,904 rows (18,006 with price). Santiago 7,354, Providencia 3,021, Las Condes 2,819, Ñuñoa 1,922. We removed the host name and host id columns from our copy.
 - Limits: nightly price for tourists, not monthly rent. No m². Does not meet the target "price, area, coordinates".
-- Role: INPUT (short-stay share of the stock)
-- Use in the simulation: INPUT for the short-stay share of the housing stock by zone (dwellings removed from long-term rent). Weak use for price.
+- Role: INPUT (short-stay listing intensity).
+- Use in the simulation: count listings by zone and room type. Listings can represent rooms, occasional home sharing, or duplicate units; activity and distinct dwelling counts are unverified. Do not subtract listing counts from the long-term housing stock. Weak use for price.
 
 ### SII statistics of property by comuna (avalúo fiscal)
 - Link: https://www.sii.cl/sobre_el_sii/estadisticas/csv/ebbrrc_16.csv (page: https://www.sii.cl/sobre_el_sii/estadisticas/estadisticas_bienes_raices_por_comuna.html, region 16 = RM)

@@ -2,6 +2,8 @@
 
 Topic: global raster and vector grids that give population, land cover, terrain, connectivity, or POIs for Santiago. Excludes local Chilean sources and building footprints (owned by clever-llama).
 
+Prefer Census 2024 block counts where available; modeled population grids are allocation fallbacks, not independent observed-count targets.
+
 Agent: claude-sonnet-4-6 (emersoftware@Emersons-MacBook-Air), 2026-11-21.
 
 ---
@@ -188,17 +190,17 @@ Agent: claude-sonnet-4-6 (emersoftware@Emersons-MacBook-Air), 2026-11-21.
 
 ---
 
-### Meta High Resolution Settlement Layer (HRSL) — NOT AVAILABLE for Chile
+### Meta High Resolution Settlement Layer (HRSL) — Chile 2020
 
-- Link: https://registry.opendata.aws/dataforgood-fb-hrsl/
-- Contents: Would be: 30 m population density grid from Maxar satellite imagery + census.
-- Granularity: point (30 m)
-- Year: 2019
-- Access: AWS S3 bucket dataforgood-fb-data
-- Check: UNVERIFIED — S3 key listing for `csv/month=2019-07/country=CHL` returns `KeyCount=0`. Chile is NOT in this dataset. Meta confirms coverage for 160+ countries; Chile is a high-income OECD country and is excluded.
-- Role: NONE
-- Limits: Dataset does not cover Chile.
-- Use in the simulation: NONE
+- Link: https://data.humdata.org/dataset/dd47e052-02cc-4a3f-972a-421d600b3d85/resource/bb560451-9c50-4d57-8ff3-872fa260c102/download/chl_general_2020_csv.zip
+- Contents: 30 m population cells; columns `longitude`, `latitude`, `chl_general_2020` (persons).
+- Granularity: grid-cell point, Chile. Static 2020 model.
+- Year: 2020; the peer report describes 2017 census counts allocated with satellite building detection.
+- Access: public CSV in ZIP, about 26 MB. Helper: `tools/scrape/meta-hrsl-chile.py`.
+- Check: VERIFIED-ROWS, 2026-11-21, per [the telco/mobility report](telco-app-mobility.md): 5,750,979 rows, HTTP 200. No new download for this reconciliation.
+- Role: INPUT.
+- Limits: modeled allocation, not a new population count or phone observation. The earlier empty 2019 S3 prefix did not prove Chile was absent. Bounding-box totals are not administrative city totals.
+- Use in the simulation: fallback home-location allocation where Census 2024 block counts are unavailable; preserve independently established population totals.
 
 ---
 
