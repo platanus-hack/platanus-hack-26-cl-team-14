@@ -191,7 +191,7 @@ over the person file and caches the tallies, then the join runs in 2 s).
   `commuters_all_per_resident` 0.3670, apartment share 0.7288,
   `persons_per_occupied_dwelling_apartment_blocks` **2.0847** with
   `occupied_share_apartment_blocks` **0.9251**, over 320 blocks and 160,457 persons.
-- **How a tower resident travels, measured.** In Las Condes the apartment blocks use
+- **Observed travel shares in the apartment-dominated blocks.** In Las Condes they use
   the car less than the comuna: `car_share_apartment_blocks` **0.4684** against
   `car_share_block_table` **0.5192**, and public transport **0.3219** against 0.3077.
   Walking rises from 9.2% to 12.0%. In Providencia the gap is small (0.3371 against
@@ -203,13 +203,15 @@ over the person file and caches the tallies, then the join runs in 2 s).
   columns instead. Las Condes, 298 dwellings: the comuna chain gives 242.5 commuters
   and 123.8 of them travel by car; × 0.9105 and × 0.8213 gives **220.8 commuters and
   101.7 travelling by car**. Call the result "ratio-adjusted, block-table subset".
-- **The apartment pair with a comuna commuter rate is a conservative estimate, not a
-  neutral one.** It carries the smaller flat (2.0847 against 2.4185) but not the higher
-  travel of the people in it, so it counts the discount one time too many. Measured
-  with the rate 0.3545: the apartment pair gives 0.6837 commuters for each dwelling and
-  the ratio method gives 0.7342, which is 6.9% higher. Either use the comuna pair with
-  `travellers_per_dwelling_ratio_apartment_blocks`, or use the apartment pair and label
-  it conservative. Do not call the apartment-pair result a neutral measurement.
+- **The apartment pair with a comuna commuter rate is one transfer assumption, and the
+  ratio method is another. Neither is a bound on a real tower.** The pair carries the
+  smaller flat (2.0847 against 2.4185) but not the higher travel of the people in it.
+  Measured with the rate 0.3545: the pair gives 0.6837 commuters for each dwelling and
+  the ratio method gives 0.7342, which is 6.9% higher. The difference is between two
+  models, not an error against a measurement, so **do not call either one conservative
+  or a lower bound**. Label the one you send "supuesto de transferencia" and name it.
+  The demo sends the apartment pair with 298 **physical** dwellings; do not fold a
+  ratio into `dwellings_added`, which is a count of dwellings.
 - Limit of the subset: most Las Condes flat blocks are on the Apoquindo and Metro
   corridor, so part of the lower car share comes from the place, not from the dwelling
   type. For a tower 122 m from Tobalaba that bias points the right way, but it is a
