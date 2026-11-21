@@ -477,7 +477,30 @@ fn rim_point(ring: &[Vec3], center: Vec3, dir: Vec3) -> Vec3 {
     center + dir * far
 }
 
-fn stadium_bowl(mesh: &mut Surface, rings: &[Vec<Vec3>], floor: f32, height: f32) {
+// `stands`: outline and height of each mapped stand; a rim segment takes the stand that contains it, else the nearest. None: one height and the Nacional roof.
+// Even-odd test of a point against a ring in the ground plane.
+fn inside(ring: &[Vec3], p: Vec2) -> bool {
+    let mut odd = false;
+    for (a, b) in ring
+        .iter()
+        .zip(ring.iter().cycle().skip(1))
+        .take(ring.len())
+    {
+        if (a.z > p.y) != (b.z > p.y) && p.x < a.x + (p.y - a.z) * (b.x - a.x) / (b.z - a.z) {
+            odd = !odd;
+        }
+    }
+    odd
+}
+
+fn stadium_bowl(
+    mesh: &mut Surface,
+    rings: &[Vec<Vec3>],
+    floor: f32,
+    height: f32,
+    stands: &[(Vec<Vec3>, f32)],
+) -> Vec<bool> {
+    let mut used = vec![false; stands.len()];
     let mut center = rings[1].iter().copied().sum::<Vec3>() / rings[1].len() as f32;
     center.y = floor;
     let concrete = [0.63, 0.64, 0.61, 1.];
@@ -503,6 +526,22 @@ fn stadium_bowl(mesh: &mut Surface, rings: &[Vec<Vec3>], floor: f32, height: f32
         let (outer, inner) = rim[i];
         let (next_outer, next_inner) = rim[(i + 1) % N];
         let facing = (outer + next_outer) * 0.5 - center;
+        let mid = ((outer + next_outer + inner + next_inner) * 0.25).xz();
+        let centroid = |r: &[Vec3]| (r.iter().copied().sum::<Vec3>() / r.len() as f32).xz();
+        let hit = stands.iter().position(|s| inside(&s.0, mid));
+        if let Some(k) = hit {
+            used[k] = true;
+        }
+        let height = hit
+            .map(|k| &stands[k])
+            .or_else(|| {
+                stands.iter().min_by(|a, b| {
+                    centroid(&a.0)
+                        .distance_squared(mid)
+                        .total_cmp(&centroid(&b.0).distance_squared(mid))
+                })
+            })
+            .map_or(height, |s| s.1);
         let bottom = |mut p: Vec3| {
             p.y = terrain_from_xz(p.x, p.z) - 0.05;
             p
@@ -558,7 +597,7 @@ fn stadium_bowl(mesh: &mut Surface, rings: &[Vec<Vec3>], floor: f32, height: f32
             );
         }
         // The covered western stand is visible in the MOP archive plan and aerial photo.
-        if facing.x < 0. && facing.z.abs() < -facing.x * 0.76 {
+        if stands.is_empty() && facing.x < 0. && facing.z.abs() < -facing.x * 0.76 {
             let roof = [0.76, 0.76, 0.71, 1.];
             face(
                 mesh,
@@ -573,6 +612,7 @@ fn stadium_bowl(mesh: &mut Surface, rings: &[Vec<Vec3>], floor: f32, height: f32
             );
         }
     }
+    used
 }
 
 fn field_line(mesh: &mut Surface, a: Vec3, b: Vec3, width: f32, color: Color4) {
@@ -692,12 +732,34 @@ fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
     // The 90 m DSM includes the stadium structure. Keep the surveyed infield level.
     let floor = rings[1].iter().map(|p| p.y).fold(f32::MIN, f32::max) + 0.30;
     let mesh = tile_for(tiles, center);
-    stadium_bowl(
+    let stands: Vec<(Vec<Vec3>, f32)> = parts
+        .iter()
+        .filter(|f| f["properties"]["kind"] == "stand")
+        .map(|f| {
+            (
+                open_rings(&f["geometry"]["coordinates"]).swap_remove(0),
+                f["properties"]["height_m"].as_f64().unwrap() as f32 * scale,
+            )
+        })
+        .collect();
+
+    let used = stadium_bowl(
         mesh,
         &rings,
         floor,
         shell["properties"]["height_m"].as_f64().unwrap() as f32 * scale,
+        &stands,
     );
+    // A stand that no bowl sector reaches (Monumental's outer Rapa Nui tier) is drawn as its own block.
+    for ((ring, h), _) in stands.iter().zip(&used).filter(|(_, u)| !**u) {
+        mesh.polygon(
+            &[ring.clone()],
+            0.,
+            *h,
+            [0.63, 0.64, 0.61, 1.],
+            [0.48, 0.060, 0.055, 1.],
+        );
+    }
     for part in parts {
         let p = &part["properties"];
         let coords = &part["geometry"]["coordinates"];
@@ -728,8 +790,22 @@ fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
     }
 }
 
-// These four tile-local identities match the named OSM footprints in SGBX and SGB1.
-pub(super) const NAMED: [(usize, usize); 4] = [(232, 2677), (209, 71), (189, 0), (191, 1)];
+// These tile-local identities match the named OSM footprints in SGBX and SGB1.
+pub(super) const NAMED: [(usize, usize); 5] =
+    [(232, 2677), (209, 71), (189, 0), (191, 1), (152, 317)];
+// The other Estadio Monumental footprints (stands); its parts mesh replaces them.
+pub(super) const HIDDEN: [(usize, usize); 10] = [
+    (152, 316),
+    (152, 1173),
+    (152, 1174),
+    (152, 1175),
+    (152, 1176),
+    (152, 1177),
+    (152, 1178),
+    (152, 1179),
+    (152, 1180),
+    (152, 1181),
+];
 pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
     let fc = read_geojson(&root.join("web/data/santiago_landmarks.geojson"));
     let mut objects = Vec::new();
@@ -778,5 +854,22 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
         }
         objects.push((NAMED[index], base, shape.finish()));
     }
+    // Estadio Monumental, from tools/pack/pitch_sites.py; it replaces the footprints in NAMED[4] and HIDDEN.
+    let path = root.join("web/data/estadio_monumental_parts.geojson");
+    let fc = read_geojson(&path);
+    let shell = fc["features"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["properties"]["kind"] == "stadium_shell")
+        .unwrap();
+    let base = open_rings(&shell["geometry"]["coordinates"])[0][0].y;
+    let mut tiles = GroundTiles::new();
+    estadio_nacional(&mut tiles, &path, 1.0);
+    let mut shape = tiles.into_values().next().unwrap();
+    for pos in &mut shape.positions {
+        pos[1] -= base;
+    }
+    objects.push((NAMED[4], base, shape.finish()));
     objects
 }
