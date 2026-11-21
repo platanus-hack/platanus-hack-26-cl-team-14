@@ -480,13 +480,13 @@ async function pollDiscord() {
     const roots = channels.filter((c) => c.type === 0 && c.name !== "secrets" && (c.name === "general" || (category && c.parent_id === category.id)));
     const { threads } = await discord(`/guilds/${guild.id}/threads/active`);
     for (const general of roots) {
-      const watched = new Map([[general.id, general], ...threads.filter((t) => t.parent_id === general.id).map((t) => [t.id, t])]);
+      const watched = new Map([[general.id, general], ...threads.filter((t) => t.type !== 12 && t.name !== "secrets" && t.parent_id === general.id).map((t) => [t.id, t])]);
       // Include threads closed between polls, so their last messages still arrive.
       let before;
       while (true) {
         const query = new URLSearchParams({ limit: "100", ...(before && { before }) });
         const page = await discord(`/channels/${general.id}/threads/archived/public?${query}`);
-        for (const thread of page.threads) watched.set(thread.id, thread);
+        for (const thread of page.threads) if (thread.name !== "secrets") watched.set(thread.id, thread);
         const last = page.threads.at(-1)?.thread_metadata.archive_timestamp;
         if (!page.has_more || !last || Date.parse(last) < connectedAt) break;
         before = last;

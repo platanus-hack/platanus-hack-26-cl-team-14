@@ -1,6 +1,6 @@
 // One Gateway writer per laptop. MCP readers use the same bot's private temp directory.
 import { createHash } from "node:crypto";
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,9 +16,12 @@ export function snapshot() {
   if (!directory) return;
   try {
     if (Date.now() - statSync(join(directory, "alive")).mtimeMs > 3 * heartbeatMs) return;
-    return JSON.parse(readFileSync(join(directory, "channels.json"), "utf8"));
+    const state = JSON.parse(readFileSync(join(directory, "channels.json"), "utf8"));
+    if (!state.pid) return;
+    process.kill(state.pid, 0);
+    return state;
   } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+    if (!["ENOENT", "ESRCH"].includes(error.code)) throw error;
   }
 }
 
@@ -41,23 +44,29 @@ function messagesIn(state, channel) {
   }
   const file = join(state.session, channel.id + ".jsonl");
   const size = statSync(file, { throwIfNoEntry: false })?.size ?? 0;
-  const cached = pages.get(channel.id);
-  if (cached?.size === size) return cached.messages;
-  const rows = new Map();
-  if (size) {
-    const data = readFileSync(file, "utf8");
-    for (const line of data.slice(0, data.lastIndexOf("\n")).split("\n")) {
-      if (!line) continue;
-      const [type, m] = JSON.parse(line);
-      if (type === "MESSAGE_CREATE") rows.set(m.id, m);
-      if (type === "MESSAGE_UPDATE" && rows.has(m.id)) Object.assign(rows.get(m.id), m);
-      if (type === "MESSAGE_DELETE") rows.delete(m.id);
-      if (type === "MESSAGE_DELETE_BULK") for (const id of m.ids) rows.delete(id);
-    }
+  const page = pages.get(channel.id) ?? { rows: new Map(), messages: [], offset: 0 };
+  if (page.offset >= size) return page.messages;
+  const bytes = Buffer.alloc(size - page.offset);
+  const fd = openSync(file, "r");
+  let n;
+  try {
+    n = readSync(fd, bytes, 0, bytes.length, page.offset);
+  } finally {
+    closeSync(fd);
   }
-  const messages = [...rows.values()].sort((a, b) => a.id.length - b.id.length || a.id.localeCompare(b.id));
-  pages.set(channel.id, { size, messages });
-  return messages;
+  const end = bytes.subarray(0, n).lastIndexOf(10) + 1;
+  for (const line of bytes.toString("utf8", 0, end).trimEnd().split("\n")) {
+    if (!line) continue;
+    const [type, m] = JSON.parse(line);
+    if (type === "MESSAGE_CREATE") page.rows.set(m.id, m);
+    if (type === "MESSAGE_UPDATE" && page.rows.has(m.id)) Object.assign(page.rows.get(m.id), m);
+    if (type === "MESSAGE_DELETE") page.rows.delete(m.id);
+    if (type === "MESSAGE_DELETE_BULK") for (const id of m.ids) page.rows.delete(id);
+  }
+  page.offset += end;
+  page.messages = [...page.rows.values()].sort((a, b) => a.id.length - b.id.length || a.id.localeCompare(b.id));
+  pages.set(channel.id, page);
+  return page.messages;
 }
 
 // Undefined means Discord has older history that could change this page.
@@ -72,7 +81,8 @@ export function localPage(state, channel, { before, after, around, limit }) {
     const pos = messages.findIndex(m => m.id === around);
     if (pos < Math.floor(limit / 2)) return;
     const start = pos - Math.floor(limit / 2);
-    return messages.slice(start, start + limit);
+    if (start + limit <= messages.length) return messages.slice(start, start + limit);
+    return;
   }
   const page = before ? messages.filter(m => BigInt(m.id) < BigInt(before)) : messages;
   if (page.length >= limit) return page.slice(-limit);
@@ -103,6 +113,7 @@ export async function startInbox(token, discord) {
   const alive = join(directory, "alive");
   const offline = () => rmSync(alive, { force: true });
   offline();
+  process.on("exit", offline);
   const { url } = await discord("/gateway/bot");
   function connect() {
     // Heartbeat and Identify follow the listener in PR 110.
@@ -124,7 +135,7 @@ export async function startInbox(token, discord) {
         return;
       }
       const next = join(directory, "channels.next");
-      writeFileSync(next, JSON.stringify({ session, since, guilds: [...guilds.values()] }), { mode: 0o600 });
+      writeFileSync(next, JSON.stringify({ pid: process.pid, session, since, guilds: [...guilds.values()] }), { mode: 0o600 });
       renameSync(next, join(directory, "channels.json"));
       writeFileSync(alive, "", { mode: 0o600 });
     }
@@ -157,12 +168,14 @@ export async function startInbox(token, discord) {
       }
       if (t === "GUILD_CREATE") {
         since = Date.now();
+        if (!expected.includes(d.id)) expected.push(d.id);
         guilds.set(d.id, { id: d.id, name: d.name, channels: d.channels.map(channelInfo), threads: d.threads.map(channelInfo) });
         publish();
       }
       if (t === "GUILD_DELETE") {
         guilds.delete(d.id);
-        if (!d.unavailable) expected = expected.filter(id => id !== d.id);
+        if (d.unavailable) { offline(); socket.close(4000); return; }
+        expected = expected.filter(id => id !== d.id);
         publish();
       }
       const guild = guilds.get(d?.guild_id);
