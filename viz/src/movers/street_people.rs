@@ -47,7 +47,7 @@ impl WalkRoutes {
 
 struct Origin {
     until: f64,
-    route: Option<(Arc<Path>, usize)>,
+    path: Option<Arc<Path>>,
 }
 
 pub(super) struct StreetPeople {
@@ -73,7 +73,7 @@ impl StreetPeople {
                         origin[0].as_f64().unwrap().to_bits(),
                         origin[1].as_f64().unwrap().to_bits(),
                     );
-                    let route = (origin[2] == "walk")
+                    let path = (origin[2] == "walk")
                         .then(|| paths?.get(&key))
                         .flatten()
                         .and_then(|(path, entrance)| {
@@ -81,18 +81,18 @@ impl StreetPeople {
                                 .entrances
                                 .get(id)?
                                 .iter()
-                                .position(|gate| gate.gtfs.as_deref() == Some(entrance.as_str()))
-                                .map(|gate| (path.clone(), gate))
+                                .any(|gate| gate.gtfs.as_deref() == Some(entrance.as_str()))
+                                .then(|| path.clone())
                         });
-                    Origin { until, route }
+                    Origin { until, path }
                 })
                 .collect::<Vec<_>>()
         });
         let longest = origins
             .iter()
             .flatten()
-            .filter_map(|origin| origin.route.as_ref())
-            .map(|(path, _)| *path.seconds.last().unwrap())
+            .filter_map(|origin| origin.path.as_ref())
+            .map(|path| *path.seconds.last().unwrap())
             .fold(0., f32::max);
         let mut entries = vec![0.];
         for count in row["scenario_half_hour"].as_array().unwrap() {
@@ -109,24 +109,14 @@ impl StreetPeople {
         }
     }
 
-    fn sampled_route(&self, bin: usize, entry_index: usize) -> Option<&(Arc<Path>, usize)> {
-        if entry_index % ENTRIES_PER_STREET_FIGURE as usize != 24 {
-            return None;
-        }
-        let count = self.entries[bin + 1] - self.entries[bin];
-        if count <= 0. {
-            return None;
-        }
-        let share = (entry_index as f64 + 0.5 - self.entries[bin]) / count;
+    fn route_for_entry(&self, bin: usize, entry_index: usize) -> Option<&Arc<Path>> {
+        // Spread each origin's weighted entries across the half hour.
+        let share = ((entry_index as f64 + 0.5) * 0.7548776662466927).fract();
         self.origins[usize::from(bin >= 24)]
             .iter()
             .find(|origin| share < origin.until)?
-            .route
+            .path
             .as_ref()
-    }
-
-    pub(super) fn gate_index(&self, bin: usize, entry_index: usize) -> Option<usize> {
-        self.sampled_route(bin, entry_index).map(|(_, gate)| *gate)
     }
 
     pub(super) fn draw(
@@ -138,7 +128,13 @@ impl StreetPeople {
     ) {
         let first_slot = (now / BIN) as i32;
         let last_slot = ((now + self.longest) / BIN) as i32;
-        let size = (eye.distance(self.centre) * 0.003).clamp(1.8, 3.6);
+        let distance = eye.distance(self.centre);
+        let size = (distance * 0.003).clamp(1.8, 3.6);
+        let stride = if distance <= 2_000. {
+            1
+        } else {
+            ENTRIES_PER_STREET_FIGURE as usize
+        };
         for slot in first_slot..=last_slot {
             let bin = slot.rem_euclid(48) as usize;
             let count = self.entries[bin + 1] - self.entries[bin];
@@ -147,12 +143,9 @@ impl StreetPeople {
             }
             let first = (self.entries[bin] - 0.5).ceil() as usize;
             let end = (self.entries[bin + 1] - 0.5).ceil() as usize;
-            let first = first
-                + (24 + ENTRIES_PER_STREET_FIGURE as usize
-                    - first % ENTRIES_PER_STREET_FIGURE as usize)
-                    % ENTRIES_PER_STREET_FIGURE as usize;
-            for index in (first..end).step_by(ENTRIES_PER_STREET_FIGURE as usize) {
-                let Some((path, _)) = self.sampled_route(bin, index) else {
+            let first = first + (stride / 2 + stride - first % stride) % stride;
+            for index in (first..end).step_by(stride) {
+                let Some(path) = self.route_for_entry(bin, index) else {
                     continue;
                 };
                 let entry = slot as f32 * BIN
@@ -171,6 +164,5 @@ impl StreetPeople {
                 }
             }
         }
-        // The station renderer draws gate figures for all other entries.
     }
 }
