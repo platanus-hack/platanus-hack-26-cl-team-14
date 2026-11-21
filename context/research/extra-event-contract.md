@@ -42,6 +42,8 @@ coverage differs; do not normalize again across the window or available peers.
 The window is **19:00–23:30 on April 11**, not a wrap to that morning.
 PQ has 9 observed bins in this ten-bin window; 23:30 is null. The known
 contrast mass is `sum(non-null E_t)`, not a complete event attendance or total.
+Derive from full-precision source observations and frozen peer IDs, not the
+six-decimal comparison CSV. The reviewed template must preserve that precision.
 
 ## Exact proposed interface and geography
 
@@ -50,11 +52,18 @@ Add `POST /api/event-scenario` with request `{"site_id":"<approved id>",
 parameters. Multiplier is explicit, finite and nonnegative: 1 copies the known
 contrast; 0 means no extra contribution. No hidden parameter defaults.
 
-A versioned site table must contain **two or three coordinator-approved venue
-points**, each with stable ID, name, reviewed WGS84 coordinates and source.
-The API accepts only those IDs, not arbitrary coordinates. Exact points are
-an internal data task and a **required pre-implementation gate**, not a choice
-left to the implementer. The comparison stations are not venue coordinates.
+Use only the two entries in reviewed `data/mvp/event_venues.json`:
+
+| `site_id` | Longitude, latitude | Coordinate source |
+| --- | --- | --- |
+| `estadio_nacional` | -70.6106404880707, -33.4644707146861 | OSM venue way 28092600, version 27 |
+| `estadio_monumental` | -70.60596628713479, -33.50653677377368 | OSM venue way 297163434, version 7 |
+
+These are venue-polygon centroids, not entrances or station coordinates.
+The table records primary URLs, source hashes, retrieval date and centroid method.
+Its review is a **pre-implementation gate**. Accept only these IDs, not arbitrary
+coordinates. The audited geometry expects ESN alone for Nacional, and PE plus
+MA for Monumental; calculate distances and weights from the pinned parent data.
 
 Use L4b's unchanged flat distance and parent points. Parents within 1,000 m
 receive weights proportional to `1/max(distance_m,50)`. This is geometric
