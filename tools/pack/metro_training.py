@@ -1,17 +1,21 @@
 """Write data/mvp/metro_training.json: all Metro parents with coordinates, LABORAL bins only for training stations.
 
 Usage: python3 -I tools/pack/metro_training.py
-The held-out split is calm-condor's frozen rule (tools/pack/check_score.py): sort the normalized
-names, drop TOBALABA, LOS LEONES, EL GOLF, take every 4th from index 0. Held-out stations keep
-their coordinates but get "laboral": null, so their counts never reach the Rust binary.
+Held-out stations: the 31 frozen GTFS parent IDs of calm-condor's scorer (tools/pack/check_score.py).
+They keep their coordinates but get "laboral": null, so their counts never reach the Rust binary.
 """
-import json
+import hashlib, json
 
-USED = {"TOBALABA", "LOS LEONES", "EL GOLF"}
-st = json.load(open("data/mvp/metro_observations.json"))["stations"]
-holdout = set(sorted({s["source_name"] for s in st} - USED)[::4])
+SRC = "data/mvp/metro_observations.json"
+SHA256 = "ecd8131fac2bfcf401bb5700dda7a7a0a31534990b8b962134d31449651ef5a3"  # PR #35 bytes
+HOLDOUT = {"AL", "LF", "AG", "CER", "CCH", "DS", "EI", "ECO", "FCV", "RGR", "HSR", "LC-LCI", "LME", "LCR", "LV",
+           "LOR", "MQ", "MEY", "NUN-NUO", "PB", "PE", "PPA", "PDG", "QN", "RO", "SJE", "AN-NA", "SRO", "TRI", "US", "VFR"}
+raw = open(SRC, "rb").read()
+assert hashlib.sha256(raw).hexdigest() == SHA256, "metro_observations.json changed; the frozen split may move"
+st = json.loads(raw)["stations"]
+assert {s["station"]["id"] for s in st} >= HOLDOUT
 out = [{"name": s["source_name"], "id": s["station"]["id"], "longitude": s["station"]["longitude"],
-        "latitude": s["station"]["latitude"], "holdout": s["source_name"] in holdout,
-        "laboral": None if s["source_name"] in holdout else s["half_hour_bins"]["LABORAL"]} for s in st]
+        "latitude": s["station"]["latitude"], "holdout": s["station"]["id"] in HOLDOUT,
+        "laboral": None if s["station"]["id"] in HOLDOUT else s["half_hour_bins"]["LABORAL"]} for s in st]
 json.dump(out, open("data/mvp/metro_training.json", "w"), separators=(",", ":"))
-print(len(out), "stations,", len(holdout), "held out")
+print(len(out), "stations,", sum(o["holdout"] for o in out), "held out")
