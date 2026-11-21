@@ -64,7 +64,7 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
     // is cyan-blue, distinct from the violet building ink under both lights.
     var color = base;
     // The unlit actor marks carry their own palette through the print pass.
-    if distance(rgb, vec3<f32>(.1651, .0595, .1779)) < .008 {
+    if distance(rgb, vec3<f32>(.85, .13, .09)) < .008 || distance(rgb, vec3<f32>(.1651, .0595, .1779)) < .008 {
         color = rgb;
     } else if distance(rgb, vec3<f32>(.0080, .0704, .0931)) < .008 {
         color = rgb;
