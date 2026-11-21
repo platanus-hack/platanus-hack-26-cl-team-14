@@ -508,3 +508,17 @@ printf '%s\n' '[{"kind":"residents","target":{"type":"permits","id":"2023-2025"}
 ```
 
 The existing resident-change model distributes each comuna's additional residents across its home points and derives additional workers from its baseline commuter ratio. The single permit entry in `applied` records authorized dwellings, modeled additional residents and the assumptions. Unsupported years and shares appear in `not_modeled`. Other changes in the same request run in their original order. [Permit data](../data/mvp/building_permits.md)
+
+## Household car access and commuting
+
+Use `kind: "cars"` with a home comuna and `op: "set"` to set the share of households with access to a passenger vehicle. For example, a value of 0.4 means 40% of households. Use `multiply` for a change relative to the current scenario share. The resulting share must be between zero and one. Each request starts from the survey baseline.
+
+```sh
+printf '%s\n' '[{"kind":"cars","target":{"type":"comuna","id":"13114"},"op":"set","value":0.4}]' |
+  cargo run --locked --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - |
+  jq '{applied, not_modeled, car_mode_changes, summary}'
+```
+
+The 2012 Santiago travel survey links household access to a passenger vehicle with the modes its members use for work trips. The model accounts for the two household groups making different numbers of work trips. It adjusts public, car and other mode choices for each home–work comuna pair. Read the final counts from the scenario to see the realized change. The factors describe a survey association. The estimate includes households with access to borrowed, rented or company vehicles.
+
+Three comunas have enough household data to estimate local access to a car, but use regional travel rates and mode shares because one trip group has fewer than 30 observations. Seven comunas have no survey rows and use regional estimates for both. The station projection keeps its baseline public-transport weights for this experiment. [Survey groups, sources and coverage](../data/mvp/eod_car_mode.md)
