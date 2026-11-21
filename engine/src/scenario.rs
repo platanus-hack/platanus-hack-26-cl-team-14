@@ -9,7 +9,7 @@ use santiago_scenario_core::{buildings::Buildings, editable_transit::LineCatalog
 use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 #[path = "car_ownership.rs"]
@@ -287,9 +287,11 @@ impl Scenario {
             self.lines.get_or_init(|| self.data_dir.join("editable_transit.json").is_file()
                 .then(|| LineCatalog::load(&self.data_dir))).as_ref().map(LineCatalog::edits)
         } else { None };
+        // Keep the graph before the first temporary edit for permanent job effects.
+        let mut job_line_edits = None;
         // For an outage keep the last finite graph time. None means this pair had no graph baseline.
         let mut transit_reference: HashMap<usize, Option<f64>> = HashMap::new();
-        let mut permanent_transit_pairs = HashSet::new();
+        let mut job_transit_reference = HashMap::new();
         let mut resident_stock_edits = 0;
         let mut city_edits = Vec::new();
         let mut car_shares = BTreeMap::new();
@@ -301,25 +303,47 @@ impl Scenario {
             let raw = &change;
             if raw["kind"] == "road" || raw["kind"] == "line" {
                 let is_line = raw["kind"] == "line";
+                let temporary = raw["temporary"] == true;
                 let edit = if is_line {
                     line_edits.as_mut().ok_or_else(|| "Line edits need editable_transit.json.".to_owned())
-                        .and_then(|edits| edits.apply(raw))
+                        .and_then(|edits| {
+                            let snapshot = (temporary && job_line_edits.is_none()).then(|| edits.clone());
+                            let result = edits.apply(raw)?;
+                            if snapshot.is_some() { job_line_edits = snapshot; }
+                            Ok(result)
+                        })
                 } else { road_edits.apply(raw) };
                 let mut note = raw.clone();
                 match edit {
                     Ok(mut edit) => {
                         if is_line {
-                            let temporary = raw["temporary"] == true;
+                            if !temporary {
+                                let job_edit = job_line_edits.as_mut().map(|edits| edits.apply(raw));
+                                let job_edit = match &job_edit {
+                                    None => Some(&edit),
+                                    Some(Ok(edit)) => Some(edit),
+                                    Some(Err(_)) => None,
+                                };
+                                if let Some(job_edit) = job_edit {
+                                    for pair in job_edit["effects"]["pairs"].as_array().unwrap() {
+                                        let index = self.ix(pair["origin_cut"].as_str().unwrap()) * n
+                                            + self.ix(pair["destination_cut"].as_str().unwrap());
+                                        let reference = job_transit_reference.entry(index).or_insert(pair["before_minutes"].as_f64());
+                                        if let (Some(last), Some(next)) = (*reference, pair["after_minutes"].as_f64()) {
+                                            job_minutes[index] += next - last;
+                                            *reference = Some(next);
+                                        }
+                                    }
+                                }
+                            }
                             for pair in edit["effects"]["pairs"].as_array_mut().unwrap() {
                                 let index = self.ix(pair["origin_cut"].as_str().unwrap()) * n
                                     + self.ix(pair["destination_cut"].as_str().unwrap());
-                                if !temporary { permanent_transit_pairs.insert(index); }
                                 let reference = transit_reference.entry(index).or_insert(pair["before_minutes"].as_f64());
                                 match (*reference, pair["after_minutes"].as_f64()) {
                                     (Some(last), Some(next)) => {
                                         let before = minutes[index].max(1.0);
                                         minutes[index] += next - last;
-                                        if !temporary { job_minutes[index] += next - last; }
                                         pair["choice_minutes_delta"] = json!(minutes[index].max(1.0) - before);
                                         *reference = Some(next);
                                     }
@@ -558,7 +582,7 @@ impl Scenario {
                     let before: f64 = cells.iter().map(|&i| if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).sum();
                     for &i in &cells {
                         minutes[i] = op(if transit_reference.contains_key(&i) { minutes[i].max(1.0) } else { minutes[i] }).max(1.0);
-                        job_minutes[i] = op(if permanent_transit_pairs.contains(&i) { job_minutes[i].max(1.0) } else { job_minutes[i] }).max(1.0);
+                        job_minutes[i] = op(if job_transit_reference.contains_key(&i) { job_minutes[i].max(1.0) } else { job_minutes[i] }).max(1.0);
                     }
                     let after: f64 = cells.iter().map(|&i| minutes[i]).sum();
                     note["understood"] = json!({ "pairs": cells.len(), "mean_minutes_before": r1(before / cells.len() as f64), "mean_minutes_after": r1(after / cells.len() as f64) });
@@ -581,8 +605,8 @@ impl Scenario {
         for index in transit_reference.keys() {
             minutes[*index] = minutes[*index].max(1.0);
         }
-        for index in permanent_transit_pairs {
-            job_minutes[index] = job_minutes[index].max(1.0);
+        for index in job_transit_reference.keys() {
+            job_minutes[*index] = job_minutes[*index].max(1.0);
         }
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
         let mut car_choice = None;

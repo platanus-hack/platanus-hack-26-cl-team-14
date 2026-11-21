@@ -41,7 +41,7 @@ pub(super) fn active_services(calendar: &[Calendar], exceptions: &[Exception]) -
     active
 }
 
-#[derive(Default, Deserialize)]
+#[derive(Clone, Default, Deserialize)]
 pub(super) struct EncodedSchedule {
     #[serde(default)]
     fixed_departures: Vec<(String, String, String)>,

@@ -16,7 +16,7 @@ struct Stop {
     parent_id: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct Pattern {
     mode: String,
     route_id: Option<String>,
@@ -232,6 +232,7 @@ impl LineCatalog {
     }
 }
 
+#[derive(Clone)]
 pub struct LineEdits<'a> {
     catalog: &'a LineCatalog,
     changes: BTreeMap<String, Option<Pattern>>,
