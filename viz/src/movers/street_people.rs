@@ -1,7 +1,6 @@
 use super::*;
 
 const ENTRIES_PER_STREET_FIGURE: f64 = 48.;
-const GATE_APPROACH: f32 = 18. / 1.4;
 
 type OriginKey = (u64, u64);
 type WalkRoute = (Arc<Path>, String);
@@ -95,17 +94,16 @@ impl StreetPeople {
             .filter_map(|origin| origin.route.as_ref())
             .map(|(path, _)| *path.seconds.last().unwrap())
             .fold(0., f32::max);
+        let mut entries = vec![0.];
+        for count in row["scenario_half_hour"].as_array().unwrap() {
+            entries.push(entries.last().unwrap() + count.as_f64().unwrap());
+        }
         Self {
             centre: world(
                 row["longitude"].as_f64().unwrap(),
                 row["latitude"].as_f64().unwrap(),
             ),
-            entries: row["scenario_half_hour"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|v| v.as_f64().unwrap())
-                .collect(),
+            entries,
             origins,
             longest,
         }
@@ -139,7 +137,7 @@ impl StreetPeople {
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
         let first_slot = (now / BIN) as i32;
-        let last_slot = ((now + self.longest + GATE_APPROACH) / BIN) as i32;
+        let last_slot = ((now + self.longest) / BIN) as i32;
         let size = (eye.distance(self.centre) * 0.003).clamp(1.8, 3.6);
         for slot in first_slot..=last_slot {
             let bin = slot.rem_euclid(48) as usize;
@@ -160,7 +158,7 @@ impl StreetPeople {
                 let entry = slot as f32 * BIN
                     + ((index as f64 + 0.5 - self.entries[bin]) / count) as f32 * BIN;
                 let duration = *path.seconds.last().unwrap();
-                let age = now - (entry - GATE_APPROACH - duration);
+                let age = now - (entry - duration);
                 if let Some((position, direction, _)) = path.at(age, &path.seconds)
                     && visible(position, 100.)
                 {
@@ -173,6 +171,6 @@ impl StreetPeople {
                 }
             }
         }
-        // The existing station renderer owns the final 18 m and all bus or unrouted entries.
+        // The station renderer draws gate figures for all other entries.
     }
 }
