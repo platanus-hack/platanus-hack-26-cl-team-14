@@ -286,7 +286,7 @@ function evento() {
     new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 30}),
     ev && new deck.ScatterplotLayer({id: 'site', data: [ev], getPosition: v => [v.longitude, v.latitude], getRadius: 160, getFillColor: [255, 255, 255]}),
     col('eobs', 'observed', -0.0012, [0, 229, 255]), col('escn', 'scenario', 0.0012, [255, 122, 26]),
-    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude], getPixelOffset: [0, 46], getText: s => s.name,
+    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude, (at(s.scenario, t) || at(s.observed, t) || 0) * 0.8], getPixelOffset: [0, -34], getText: s => s.name, updateTriggers: {getPosition: t},
       getSize: 34, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255]}),
   ];
 }
