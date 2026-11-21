@@ -156,7 +156,7 @@ function siteScenario() {
     parameters: {
       occupied_share: P(0.9251, 'observed_aggregate', 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; its use for the tower is an assumption'),
       persons_per_occupied_dwelling: P(2.0847, 'observed_aggregate', 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; its use for the tower is an assumption'),
-      known_commuters_per_resident: P(104980 / 296134, 'observed_aggregate', 'Las Condes RM-to-RM commuters / residents, Census 2024; its use for new households is an assumption'),
+      known_commuters_per_resident: P(0.3577, 'observed_aggregate', 'commuters_rm_per_resident, data/mvp/site_inputs.csv, Census 2024; private dwellings; transfer to new households is an assumption'),
       attendance_home: P(0.8, u, 'not measured daily attendance'),
       attendance_work: P(0.8, u, 'not measured MUT attendance'),
       filled_job_share: P(0.9, u, 'not measured vacancy'),
