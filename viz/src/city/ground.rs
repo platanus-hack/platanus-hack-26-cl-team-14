@@ -132,26 +132,35 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     }
 }
 
-fn landmarks(tiles: &mut GroundTiles, path: &Path) {
+fn mapocho(tiles: &mut GroundTiles, path: &Path) {
     let fc = read_geojson(path);
     for feature in fc["features"].as_array().unwrap() {
         let props = &feature["properties"];
         let shape = &feature["geometry"]["coordinates"];
         let kind = props["kind"].as_str().unwrap();
-        if kind == "peak" {
-            // These are summit points. Terrain supplies their surfaces.
-            continue;
-        }
-        if kind == "river" {
+        if kind == "water" {
+            for polygon in shape.as_array().unwrap() {
+                let rings = open_rings(polygon);
+                super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, 0.08, WATER);
+            }
+        } else if kind == "bridge" {
             let points = coordinates(shape);
+            // Widths and the terrain offset are display symbols, not measured bridge dimensions.
+            // OSM layer gives crossing order, not metres of clearance.
+            let half_width = match props["highway"].as_str().unwrap() {
+                "motorway" | "motorway_link" => 6.5,
+                "trunk" | "trunk_link" | "primary" | "primary_link" => 5.0,
+                "secondary" | "secondary_link" => 4.0,
+                "footway" | "cycleway" | "path" | "steps" | "pedestrian" => 1.0,
+                _ => 2.8,
+            };
             ribbon(
                 tile_for(tiles, points[points.len() / 2]),
                 &points,
-                15.0,
-                0.08,
-                WATER,
+                half_width,
+                0.34,
+                [0.38, 0.38, 0.36, 1.0],
             );
-            continue;
         }
     }
 }
@@ -169,9 +178,9 @@ pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mes
         &mut terrain,
         &root.join("web/data/open_surfaces.geojson.gz"),
     );
-    landmarks(
+    mapocho(
         &mut tiles,
-        &root.join("web/data/santiago_landmarks.geojson"),
+        &root.join("web/data/mapocho_detail.geojson"),
     );
     mapped_trees(&mut tiles, &root.join("web/data/city_trees.bin.gz"));
     let scenery = tiles
