@@ -1,0 +1,70 @@
+{
+  "sources": {
+    "gtfs": {
+      "name": "gtfs.zip",
+      "bytes": 10701870,
+      "sha256": "f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b"
+    },
+    "exported_boardings": {
+      "name": "boardings.csv",
+      "bytes": 84979065,
+      "sha256": "24da85944374d1b07ac2b8c5bf696279370e2ecd9d6dd1d76daca84b5dd26ec4"
+    }
+  },
+  "upstream_command": "python3 tools/scrape/export_april_boardings.py GTFS_ZIP BOARDING_XLSX OUTPUT_DIR",
+  "source_rows": 13015,
+  "source_station_names": 126,
+  "matched_station_names": 126,
+  "unique_parent_ids": 126,
+  "matching_counts": {
+    "unique_normalized_name": 120,
+    "reviewed_alias": 6,
+    "unresolved": 0
+  },
+  "alias_review": "https://discord.com/channels/1573514576400752640/1573579088684253235/1573591251574587474",
+  "unresolved_names": [],
+  "totals": {
+    "LABORAL": "2469425.3999999999998447",
+    "SABADO": "1409869",
+    "DOMINGO": "778745"
+  },
+  "totals_by_match_status": [
+    {
+      "match_status": "reviewed_alias",
+      "day_type": "DOMINGO",
+      "boardings": "46022"
+    },
+    {
+      "match_status": "reviewed_alias",
+      "day_type": "LABORAL",
+      "boardings": "134153.800000000000850"
+    },
+    {
+      "match_status": "reviewed_alias",
+      "day_type": "SABADO",
+      "boardings": "90914"
+    },
+    {
+      "match_status": "unique_normalized_name",
+      "day_type": "DOMINGO",
+      "boardings": "732723"
+    },
+    {
+      "match_status": "unique_normalized_name",
+      "day_type": "LABORAL",
+      "boardings": "2335271.5999999999989947"
+    },
+    {
+      "match_status": "unique_normalized_name",
+      "day_type": "SABADO",
+      "boardings": "1318955"
+    }
+  ],
+  "observed_bins": 13015,
+  "missing_bins": 5129,
+  "output": {
+    "name": "metro_observations.json",
+    "bytes": 264515,
+    "sha256": "ecd8131fac2bfcf401bb5700dda7a7a0a31534990b8b962134d31449651ef5a3"
+  }
+}

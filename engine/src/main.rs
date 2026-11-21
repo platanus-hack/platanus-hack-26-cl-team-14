@@ -28,6 +28,43 @@ struct WorkOd {
     workers: f64,
 }
 
+#[derive(Deserialize)]
+struct ModeShare {
+    cut: String,
+    mode: i32,
+    commuters: f64,
+}
+
+#[derive(Serialize)]
+struct ResidentMode {
+    mode_code: i32,
+    mode_name: &'static str,
+    source_commuters: f64,
+    share: f64,
+    resident_commuters: f64,
+    daily_home_departures: f64,
+}
+
+#[derive(Serialize)]
+struct ModeSource {
+    source_kind: &'static str,
+    source: &'static str,
+    comuna_cut: &'static str,
+    source_total_commuters: f64,
+    source_universe: &'static str,
+    modeled_universe: &'static str,
+    output_kind: &'static str,
+    assumption: &'static str,
+}
+
+#[derive(Serialize)]
+struct SiteHttpResponse {
+    #[serde(flatten)]
+    site: site::SiteResponse,
+    resident_commuters_by_mode: Vec<ResidentMode>,
+    resident_commuters_by_mode_source: ModeSource,
+}
+
 #[derive(Clone, Serialize)]
 struct Zone {
     id: String,
@@ -79,6 +116,8 @@ struct Core {
     pairs: Vec<(usize, usize)>,
     site: site::SiteModel,
     site_destinations: Vec<(String, f64)>,
+    site_modes: Vec<ModeShare>,
+    site_mode_total: f64,
 }
 
 #[derive(Deserialize)]
@@ -173,6 +212,13 @@ impl Core {
             std::fs::File::open(directory.join("tobalaba_observations.json")).unwrap(),
         )
         .unwrap();
+        let mut modes = csv::Reader::from_path(directory.join("mode_share.csv")).unwrap();
+        let site_modes: Vec<ModeShare> = modes
+            .deserialize::<ModeShare>()
+            .map(Result::unwrap)
+            .filter(|row| row.cut == "13114")
+            .collect();
+        let site_mode_total = site_modes.iter().map(|row| row.commuters).sum();
         Self {
             baseline: World {
                 metadata: Metadata {
@@ -214,6 +260,8 @@ impl Core {
             pairs,
             site: site::SiteModel::new(observations).unwrap(),
             site_destinations,
+            site_modes,
+            site_mode_total,
         }
     }
 
@@ -283,10 +331,48 @@ impl Core {
 async fn site_scenario(
     State(core): State<Arc<Core>>,
     Json(request): Json<site::SiteRequest>,
-) -> Result<Json<site::SiteResponse>, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<Json<SiteHttpResponse>, (StatusCode, Json<serde_json::Value>)> {
     core.site
         .simulate(request, &core.site_destinations)
-        .map(Json)
+        .map(|site| {
+            let commuters = site.scenario_residents
+                * site.request.parameters.known_commuters_per_resident.value;
+            let resident_commuters_by_mode = core.site_modes.iter().map(|row| {
+                let share = row.commuters / core.site_mode_total;
+                ResidentMode {
+                    mode_code: row.mode,
+                    mode_name: match row.mode {
+                        1 => "Auto particular",
+                        2 => "Transporte público (bus, micro, metro, tren, taxi, colectivo)",
+                        3 => "Caminando",
+                        4 => "Bicicleta (incluye scooter)",
+                        5 => "Motocicleta",
+                        6 => "Caballo, lancha o bote",
+                        7 => "Otro",
+                        -99 => "No respuesta",
+                        _ => unreachable!("Unknown Census mode code"),
+                    },
+                    source_commuters: row.commuters,
+                    share,
+                    resident_commuters: commuters * share,
+                    daily_home_departures: site.scenario_home_departures * share,
+                }
+            }).collect();
+            Json(SiteHttpResponse {
+                site,
+                resident_commuters_by_mode,
+                resident_commuters_by_mode_source: ModeSource {
+                    source_kind: "observed_aggregate",
+                    source: "INE Census 2024 p45_medio_transporte; data/mvp/mode_share.csv",
+                    comuna_cut: "13114",
+                    source_total_commuters: core.site_mode_total,
+                    source_universe: "Las Condes usual commuters, all dwelling kinds, all known national work destinations; work-location codes 2/3; no-response mode retained",
+                    modeled_universe: "Scenario resident commuters under the supplied RM-internal known-commuter ratio; daily departures include supplied attendance",
+                    output_kind: "transfer_assumption",
+                    assumption: "Transfer all-dwelling, national-destination mode shares to site residents with RM-internal commuter assumptions. Not observed new-apartment modes. Code 2 combines public transport and cannot identify a Metro share.",
+                },
+            })
+        })
         .map_err(|error| {
             (
                 StatusCode::UNPROCESSABLE_ENTITY,

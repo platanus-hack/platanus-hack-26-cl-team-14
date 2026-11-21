@@ -1,6 +1,6 @@
 # Data pack
 
-Some sections describe builder outputs that are not on `main` yet: `blocks.csv`, `communes_urban.geojson`, `site_inputs.csv`, `jobs.csv`. They arrive in later PRs.
+Some sections describe builder outputs that are not on `main` yet: `site_inputs.csv`, `jobs.csv`. They arrive in later PRs.
 
 ## blocks.csv
 
@@ -36,7 +36,7 @@ The 52 comunas of the RM. Same builder as `blocks.csv`: `python3 -I tools/pack/z
 | `population` | sum of `n_per` over the comuna's block-table rows (containers included) |
 | `households` | sum of `n_hog` |
 | `dwellings` | sum of `n_vp`, private dwellings |
-| `longitude`, `latitude` | area-weighted centroid of the `Comunal_CPV24` polygon |
+| `longitude`, `latitude` | person-weighted mean of the block centroids of the comuna (`blocks.csv`, containers excluded). Not the polygon centroid: that one is 5.2 km off in Las Condes (-70.5007), 14.9 km in Lo Barnechea and 25.9 km in San José de Maipo, in the Andes. Median gap over the 52 comunas: 1.3 km. All 52 points are inside their own polygon |
 
 - Totals: population 7,400,741, households 2,599,621, dwellings 2,763,387. Providencia `13123`: 143,974 / 69,157 / 76,376.
 - Check: all origins of `work_od.csv` are in this file. RM to RM workers in `work_od.csv`: 2,688,814.
