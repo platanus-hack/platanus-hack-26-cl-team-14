@@ -26,8 +26,11 @@ impl Plugin for MiniatureCamera {
             .insert_resource(WinitSettings::continuous())
             .insert_resource(ClearColor(DAY_SKY))
             .add_systems(Startup, setup)
-            .add_systems(Update, (navigate, aim).chain())
+            .add_systems(Update, aim)
             .add_systems(Last, measure);
+        if env::var("SANTIAGO_FREE_CAMERA").as_deref() == Ok("1") {
+            app.add_systems(Update, navigate.before(aim));
+        }
     }
 }
 
