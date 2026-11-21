@@ -38,3 +38,38 @@ python3 -I tools/pack/building_fill.py data/raw/verify-people-work/cartography-r
 ```
 
 The builder writes the real shape assignments, generated shape stream and coverage table in the raw directory. Only the packed mesh and the comuna coverage table belong in the release. Geometry processing uses DuckDB Spatial and GEOS. [DuckDB Spatial functions](https://duckdb.org/docs/stable/core_extensions/spatial/functions.html) · [INE RM cartography](https://storage.googleapis.com/bktdescargascenso2024/Cartografia/GPKG/Cartografia_censo2024_R13.zip) · [INE Census block data](https://storage.googleapis.com/bktdescargascenso2024/Datos_agregados/Base_manzana_entidad_CPV24.zip) · [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
+## Building-to-block lookup for the Rust viewer
+
+`web/data/city_building_block_ids.bin.gz` maps a mesh tile and its local building index to the INE block ID and comuna CUT. The near and far meshes use the same index. The sidecar has 654,666 entries and 45,282 distinct assigned blocks. It covers all 375,281 generated shapes and 279,342 mapped shapes. The other 43 mapped shapes have no block assignment. A separate dictionary preserves 1,039 assigned polygon IDs absent from the home-block list in `city_blocks.json`.
+
+Gunzip the file once. It is 286,069 bytes compressed and 1,763,612 bytes inflated. All integers are little-endian. Arrays are packed without padding.
+
+| Byte offset | Contents |
+| ---: | --- |
+| 0 | ASCII magic `SGBI` |
+| 4 | Column count `u16`, then row count `u16` |
+| 8 | Dictionary length `D: u32`, then building count `N: u32` |
+| 16 | `cols × rows + 1` consecutive `u32` offsets, in **building entries** |
+| After offsets | `D` dictionary records of 10 bytes each, containing `block_id: u64` then `cut: u16` |
+| After dictionary | `N` dictionary indexes (`u16`). Value `65535` means unassigned. |
+
+Tiles run west to east within each row, starting at the south. Use the same tile and zero-based building index passed to the mesh decoder. Render a shape with an unassigned entry at its baseline. The function below accepts the inflated bytes and a valid tile-local index. Use byte reads because the dictionary's 10-byte records can be unaligned.
+
+```rust
+fn building_block(bytes: &[u8], col: usize, row: usize, i: usize) -> Option<(u64, u16)> {
+    let u16_at = |p: usize| u16::from_le_bytes(bytes[p..p+2].try_into().unwrap());
+    let u32_at = |p: usize| u32::from_le_bytes(bytes[p..p+4].try_into().unwrap()) as usize;
+    let cols = usize::from(u16_at(4));
+    let rows = usize::from(u16_at(6));
+    let dict = 16 + 4 * (cols * rows + 1);
+    let entries = dict + 10 * u32_at(8);
+    let start = u32_at(16 + 4 * (row * cols + col));
+    let key = u16_at(entries + 2 * (start + i));
+    if key == u16::MAX { return None; }
+    let p = dict + 10 * usize::from(key);
+    Some((u64::from_le_bytes(bytes[p..p+8].try_into().unwrap()), u16_at(p+8)))
+}
+```
+
+Rebuild after the mesh preparation and fill steps with `python3 -B tools/pack/building_block_ids.py`. Its optional argument specifies another raw fill directory. It matches source assignments to the exact quantized exterior and hole coordinates of each published polygon. Mapped and generated shapes have separate lookup keys. All 654,666 source and mesh records match. Six identical source geometries have duplicate records, each with the same block assignment. Within-tile raw feature order can differ from the published order. Use the sidecar and both meshes from the same build.
