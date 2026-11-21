@@ -45,6 +45,9 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 - **No tests.** It is a hackathon. All the effort goes into the product.
   Before a release, run the demo by hand and make sure that it works.
+- **No defensive code.** Write only the happy path that the demo uses.
+  Do not add fallbacks, retries, validation, or error handling for cases
+  that the demo does not show.
 - **Research first.** Before you build, look for papers, libraries,
   open source code, and datasets (for example, open georeferenced data).
   Use what exists. Use the skill `research-first`.
