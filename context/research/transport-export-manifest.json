@@ -1,0 +1,194 @@
+{
+  "sources": {
+    "gtfs": {
+      "name": "gtfs.zip",
+      "bytes": 10701870,
+      "sha256": "f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b",
+      "url": "https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip"
+    },
+    "boardings": {
+      "name": "boarding.xlsx",
+      "bytes": 29342772,
+      "sha256": "2982459cbe71d139000be6535a24534a68f53162a2550f1aba4b72cc61c2e90d",
+      "url": "https://www.dtpm.cl/descargas/modelos_y_matrices/Subidas_Paradero_Estacion_2026.04_v3.xlsx"
+    }
+  },
+  "period": {
+    "LABORAL": "average of 2026-04-13 through 2026-04-17",
+    "SABADO": "2026-04-11",
+    "DOMINGO": "2026-04-12"
+  },
+  "timezone": "America/Santiago",
+  "unit": "validation-derived boardings; excludes estimated fare evasion",
+  "join": "BUS Paradero Usuario = GTFS stop_id, exact; other modes unresolved",
+  "gtfs_stop_count": 18364,
+  "rows_read": 761557,
+  "observed_zero_rows": 0,
+  "duplicate_source_keys": 0,
+  "duplicate_policy": "preserve source rows; never sum duplicate keys implicitly",
+  "missing_row_policy": "not zero demand",
+  "unmatched_stop_day_keys": 411,
+  "totals": [
+    {
+      "day_type": "DOMINGO",
+      "mode": "BUS",
+      "join_status": "bus_user_code_not_in_gtfs",
+      "rows": 25,
+      "boardings": "253"
+    },
+    {
+      "day_type": "DOMINGO",
+      "mode": "BUS",
+      "join_status": "matched",
+      "rows": 174594,
+      "boardings": "778431"
+    },
+    {
+      "day_type": "DOMINGO",
+      "mode": "Metro",
+      "join_status": "non_bus_unresolved",
+      "rows": 4083,
+      "boardings": "778745"
+    },
+    {
+      "day_type": "DOMINGO",
+      "mode": "Tren",
+      "join_status": "non_bus_unresolved",
+      "rows": 313,
+      "boardings": "28115"
+    },
+    {
+      "day_type": "LABORAL",
+      "mode": "BUS",
+      "join_status": "bus_user_code_not_in_gtfs",
+      "rows": 38,
+      "boardings": "790.399999999999997"
+    },
+    {
+      "day_type": "LABORAL",
+      "mode": "BUS",
+      "join_status": "matched",
+      "rows": 354229,
+      "boardings": "2511380.00000000000360194"
+    },
+    {
+      "day_type": "LABORAL",
+      "mode": "Metro",
+      "join_status": "non_bus_unresolved",
+      "rows": 4553,
+      "boardings": "2469425.3999999999998447"
+    },
+    {
+      "day_type": "LABORAL",
+      "mode": "Tren",
+      "join_status": "non_bus_unresolved",
+      "rows": 358,
+      "boardings": "82233.600000000000563"
+    },
+    {
+      "day_type": "SABADO",
+      "mode": "BUS",
+      "join_status": "bus_user_code_not_in_gtfs",
+      "rows": 38,
+      "boardings": "777"
+    },
+    {
+      "day_type": "SABADO",
+      "mode": "BUS",
+      "join_status": "matched",
+      "rows": 218611,
+      "boardings": "1307332"
+    },
+    {
+      "day_type": "SABADO",
+      "mode": "Metro",
+      "join_status": "non_bus_unresolved",
+      "rows": 4379,
+      "boardings": "1409869"
+    },
+    {
+      "day_type": "SABADO",
+      "mode": "Tren",
+      "join_status": "non_bus_unresolved",
+      "rows": 336,
+      "boardings": "48886"
+    }
+  ],
+  "summary_comparison": [
+    {
+      "day_type": "LABORAL",
+      "mode": "BUS",
+      "computed_boardings": "2512170.40000000000359894",
+      "publisher_cached_boardings": "2512170.3999991948",
+      "difference": "8.0520359894E-7"
+    },
+    {
+      "day_type": "SABADO",
+      "mode": "BUS",
+      "computed_boardings": "1308109",
+      "publisher_cached_boardings": "1308109",
+      "difference": "0"
+    },
+    {
+      "day_type": "DOMINGO",
+      "mode": "BUS",
+      "computed_boardings": "778684",
+      "publisher_cached_boardings": "778684",
+      "difference": "0"
+    },
+    {
+      "day_type": "LABORAL",
+      "mode": "Metro",
+      "computed_boardings": "2469425.3999999999998447",
+      "publisher_cached_boardings": "2469425.4000000018",
+      "difference": "-1.8001553E-9"
+    },
+    {
+      "day_type": "SABADO",
+      "mode": "Metro",
+      "computed_boardings": "1409869",
+      "publisher_cached_boardings": "1409869",
+      "difference": "0"
+    },
+    {
+      "day_type": "DOMINGO",
+      "mode": "Metro",
+      "computed_boardings": "778745",
+      "publisher_cached_boardings": "778745",
+      "difference": "0"
+    },
+    {
+      "day_type": "LABORAL",
+      "mode": "Tren",
+      "computed_boardings": "82233.600000000000563",
+      "publisher_cached_boardings": "82233.599999999919",
+      "difference": "8.1563E-11"
+    },
+    {
+      "day_type": "SABADO",
+      "mode": "Tren",
+      "computed_boardings": "48886",
+      "publisher_cached_boardings": "48886",
+      "difference": "0"
+    },
+    {
+      "day_type": "DOMINGO",
+      "mode": "Tren",
+      "computed_boardings": "28115",
+      "publisher_cached_boardings": "28115",
+      "difference": "0"
+    }
+  ],
+  "outputs": {
+    "boardings.csv": {
+      "name": "boardings.csv",
+      "bytes": 84979065,
+      "sha256": "24da85944374d1b07ac2b8c5bf696279370e2ecd9d6dd1d76daca84b5dd26ec4"
+    },
+    "unmatched_stops.csv": {
+      "name": "unmatched_stops.csv",
+      "bytes": 30297,
+      "sha256": "96c8d0d6ad869f8c105df85112ed83e3be264f09669afec926b8955e150dad6f"
+    }
+  }
+}
