@@ -1,6 +1,6 @@
 # Data pack
 
-Some sections describe builder outputs that are not on `main` yet: `site_inputs.csv`, `jobs.csv`. They arrive in later PRs.
+Some sections describe builder outputs that are not on `main` yet: `site_inputs.csv`. They arrive in later PRs.
 
 ## blocks.csv
 
@@ -357,6 +357,7 @@ Work destinations of the simulation. One row per Census 2024 manzana that has jo
   - `floor_area`: 2 sites of the demo (Costanera Center, the MUT) get a fixed number from published floor area. See the sections below. The other manzanas of the comuna share the rest, so the comuna total does not change.
   - `persons_fallback`: 7 rural comunas have fewer than 50 sampled workers (Paine, Curacaví, Tiltil, San José de Maipo, Alhué, María Pinto, San Pedro). Their jobs spread by resident persons. 50,857 jobs, 1.9%.
 - The airport: the terminal point has 126 sampled workers (14,859 expanded) and is rural land with no manzana. The first version dropped it and spread its jobs over the other manzanas of Pudahuel. Now it is the row `13124_airport`, 27,070 jobs, the largest row of the file. No published count was checked against it.
+- **Check against independent data.** Jobs within 500 m of a Metro station against the observed weekday boardings from 16:00 to 21:00 (`metro_observations.json`, April 2026), on the 95 stations that are not in the held-out set of `tools/pack/check_score.py`: Pearson 0.76, Spearman 0.79. Within 800 m: 0.69, 0.79. Jobs of the nearest station with no distance limit: 0.33, 0.50, because the last stations of each line take the far jobs (the airport row goes to Plaza Quilicura, 6.9 km away). Use a radius, not the nearest station. Against the morning boardings the correlation is 0, as expected for work places.
 - Why these signals: they are the only ones on disk with coordinates. SII addresses have no coordinates and follow the head office. OSM and Overture places have no worker counts.
 - What the method gets wrong:
   - The base is from 2012. A place that lost jobs after 2012 keeps them.
