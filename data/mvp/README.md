@@ -168,7 +168,7 @@ over the person file and caches the tallies, then the join runs in 2 s).
 | `commuters_all` | the same, with a work comuna anywhere in Chile | observed |
 | `commuters_rm_per_resident`, `commuters_all_per_resident` | that count / `persons` | observed |
 | `apartment_share_of_dwellings` | `n_tipo_viv_depto / n_vp` | observed |
-| `persons_per_occupied_dwelling_apartment_blocks` | the same ratio, over the blocks of the comuna where 90% or more of the private dwellings are apartments and `n_vp` is 10 or more | observed, subset |
+| `persons_per_occupied_dwelling_apartment_blocks` | block-table `n_per` (all dwelling kinds) / `n_vp_ocupada`, over blocks where 90% or more of the private dwellings are apartments and `n_vp` is 10 or more. Its numerator differs from the private-person microdata numerator of the comuna ratio | observed, subset |
 | `occupied_share_apartment_blocks` | `n_vp_ocupada / n_vp` over that same subset. Use it together with the column above, so the chain stays closed inside the subset | observed, subset |
 | `car_share_block_table`, `public_share_block_table` | `n_transporte_auto` and `n_transporte_publico` over the 7 travel columns of the comuna | observed |
 | `car_share_apartment_blocks`, `public_share_apartment_blocks` | the same two shares over the apartment-block subset | observed, subset |
@@ -232,7 +232,7 @@ over the person file and caches the tallies, then the join runs in 2 s).
   ratio method is another. Neither is a bound on a real tower.** The pair carries the
   smaller flat (2.0847 against 2.4185) but not the higher travel of the people in it.
   Measured with the rate 0.3545: the pair gives 0.6837 commuters for each dwelling and
-  the ratio method gives 0.7342, which is 6.9% higher. The difference is between two
+  the ratio method gives 0.7342, which is 7.4% higher. The difference is between two
   models, not an error against a measurement, so **do not call either one conservative
   or a lower bound**. Label the one you send "supuesto de transferencia" and name it.
   The demo sends the apartment pair with 298 **physical** dwellings; do not fold a
