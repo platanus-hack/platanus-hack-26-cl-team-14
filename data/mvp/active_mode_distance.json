@@ -1,0 +1,57 @@
+{
+  "source": "Santiago EOD 2012",
+  "registration": "1573676569355092079",
+  "outcome": "bicycle conditional on walk or bicycle",
+  "excluded": {
+    "imputed": 845,
+    "nonpositive": 113
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "walk": 148,
+      "bicycle": 103,
+      "weight": 75470.4182701074,
+      "distance_loss": 0.47958882691731164,
+      "constant_loss": 0.6278335884863363
+    },
+    {
+      "fold": 1,
+      "walk": 160,
+      "bicycle": 135,
+      "weight": 68735.4741929593,
+      "distance_loss": 0.5467540835549288,
+      "constant_loss": 0.6999116847872215
+    },
+    {
+      "fold": 2,
+      "walk": 165,
+      "bicycle": 113,
+      "weight": 65637.20531178456,
+      "distance_loss": 0.663964735199096,
+      "constant_loss": 0.6450019523503149
+    },
+    {
+      "fold": 3,
+      "walk": 157,
+      "bicycle": 102,
+      "weight": 61615.04496747621,
+      "distance_loss": 0.4674472254758633,
+      "constant_loss": 0.6626422915602102
+    },
+    {
+      "fold": 4,
+      "walk": 150,
+      "bicycle": 107,
+      "weight": 62292.74501806758,
+      "distance_loss": 0.5291012397845762,
+      "constant_loss": 0.6732265952891879
+    }
+  ],
+  "weight": 333750.88776039507,
+  "distance_loss": 0.5366814507894438,
+  "constant_loss": 0.660952902204656,
+  "accepted": true,
+  "intercept": -2.4730621653028564,
+  "slope_log1p_km": 2.2592973650678037
+}
