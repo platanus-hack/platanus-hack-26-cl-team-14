@@ -15,12 +15,12 @@ Consensus: a new mode changes choices only through **time, cost and a mode const
 
 ## Santiago values to use
 
-- Social value of time 2025 (MDSF, Table 2.1): **3,126 CLP/h in vehicle, 6,252 CLP/h waiting, 6,252 CLP/h walking**. Waiting and walking count double ([Precios Sociales 2025](https://sni.gob.cl/wp-content/uploads/Precios_Sociales_2025.pdf)).
-- Ferry constant from a comparable case: Brisbane ferry users valued ferry over bus at about 17 in-vehicle minutes in the peak ([Daniels & Streeting 2002](https://australasiantransportresearchforum.org.au/wp-content/uploads/2022/03/2002_Daniels_Streeting.pdf)). Stated preference from current users: an upper bound.
+- Social value of time for appraisal, CLP per passenger-hour (MDSF): 2025 table **3,126 in vehicle, 6,252 waiting, 6,252 walking** ([Precios Sociales 2025](https://sni.gob.cl/wp-content/uploads/Precios_Sociales_2025.pdf)); 2026 table **3,338 and 6,676** ([Precios Sociales 2026](https://sni.gob.cl/wp-content/uploads/Precios-Sociales-2026.pdf)). These are appraisal prices, not estimated choice parameters; the 2× weight on waiting and walking is a scenario assumption.
+- Ferry preference from a comparable case: existing Sydney Ferries riders valued ferry over bus at about 17 in-vehicle minutes in the peak (stated preference, [Daniels & Streeting 2002](https://australasiantransportresearchforum.org.au/wp-content/uploads/2022/03/2002_Daniels_Streeting.pdf)). Use it only as a sensitivity input; it gives no Santiago value or bound.
 
 ## What our engine already does
 
-`engine/src/choice.rs`: per comuna pair, gravity for the work place (jobs × e^(−β·minutes)) and a 3-way logit for mode (public / car / other). Residual factors reproduce the Census 2024 flows at baseline. A `minutes` change moves both choices. This is the same mechanism as the models above, at comuna scale, without a separate constant per new mode and without separate wait and walk weights.
+`engine/src/choice.rs`: per comuna pair, gravity for the work place (jobs × e^(−β·minutes)) and a 3-way logit for mode (public / car / other). Residual factors reproduce the Census 2024 flows at baseline. A `minutes` change moves both choices: `choice.rs:41–53` uses the same comuna-pair public-transport minutes in job gravity and in the public-mode utility. Car is the reference mode and "other" uses distance. So `minutes` changes the existing public mode; there is no separate alternative for a new mode, no mode constant for it, and no separate wait and walk weights.
 
 ## Limits that matter for the pitch cases
 
@@ -30,4 +30,4 @@ Consensus: a new mode changes choices only through **time, cost and a mode const
 
 ## Smallest next step (proposal, not built)
 
-Add an optional per-mode constant and a wait/walk weight to the `minutes` change, so a `minutes` change can say "a slower mode that people like" (ASC) or "a faster mode with long waits". This reuses the logit already in `choice.rs`. Owner: the `scenario.rs` writer (Lucila-42), if the team wants case 2 in the engine.
+A separate new-mode choice needs a fourth alternative, available only for eligible trips (for a river line: trips near piers), with its own time, constant and wait/walk weights. This extends the logit already in `choice.rs`. Owner: the `scenario.rs` writer (Lucila-42), if the team wants case 2 in the engine.
