@@ -49,6 +49,10 @@ The JSON output maps each of 126 GTFS parent IDs to 48 half-hour counts. Each cl
 
 On the local release build, loading and fitting took 148 ms. Projecting all points took 44 ms for each network. These timings cover the Rust station projection. HTTP, MCP and the city view have separate owners.
 
+## Sensitivity to the access-time cap
+
+An independent reviewer held both scales and the blend fixed and changed the time cap during projection. The modeled increase at Los Libertadores was 3,046.52 boardings per weekday at 20 minutes, 12,113.15 at 30 minutes, and 18,019.98 at 40 minutes. The sign persisted across all three caps. The magnitude depended strongly on the assumed cap. This range is a sensitivity check, not a confidence interval. [Independent run](https://discord.com/channels/1573514576400752640/1573579088684253235/1573679525907136543)
+
 ## Person-level projection
 
 The city caller also ran on 3,966,150 synthetic records. It assigned the L4b public transport share to each of the 2,688,814 workers. Students did not enter the station projection. Closing the extension added 12,114.45 weekday boardings at Los Libertadores. Reopening restored all 6,048 original station-bin values. Each projection took 42 ms on this host.
