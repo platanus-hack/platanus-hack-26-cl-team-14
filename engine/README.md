@@ -50,6 +50,7 @@ Both inputs use INE Census 2024. Work OD records the usual work location, not ob
 Commune coordinates are polygon centroids; they do not locate individual homes or workplaces.
 `tobalaba_observations.json` supplies the station and weekday observation rows for the site model.
 The canonical file contains DTPM April 2026 boardings and a reviewed GTFS station crosswalk.
+`mode_share.csv` has `cut,mode,commuters` headers. The core caches all eight Las Condes (`13114`) mode rows at startup.
 
 ## HTTP contract
 
@@ -131,7 +132,27 @@ and 48-bin arrays: `observed`, `base`, `scenario`, `delta`, `site_base`, `site_s
 Bins are local half-hours. Missing observations stay `null` across these arrays.
 `flows` contains expected resident work departures by destination commune, not observed point OD or routed train loads.
 The response reports baseline/scenario residents and home departures separately.
-Its `elapsed_ms` measures module computation and response-data allocation, excluding HTTP parsing and serialization.
+Its `elapsed_ms` measures the site module computation and allocation only. It excludes the added mode breakdown, HTTP parsing, and serialization.
+
+The response also includes `resident_commuters_by_mode`:
+
+```text
+[{ mode_code: integer, mode_name: string, source_commuters: number, share: number,
+   resident_commuters: number, daily_home_departures: number }]
+```
+
+`source_commuters` is an observed count from Census 2024 `p45_medio_transporte`.
+Shares divide each source row by the computed Las Condes total, 107,707. All categories remain, including `-99` no response.
+Official labels remain unchanged: car; combined public transport; walking; bicycle/scooter; motorcycle; horse/boat; other; no response.
+Code 2 includes bus, micro, Metro, train, taxi, and colectivo. It cannot provide a Metro-specific share.
+
+`resident_commuters` splits `scenario_residents × known_commuters_per_resident`, before attendance.
+`daily_home_departures` splits `scenario_home_departures`, after attendance. Zero attendance preserves stock and gives zero daily flow.
+Both are modeled transfers of observed mode shares, not observed modes of new apartment residents.
+`resident_commuters_by_mode_source` names the source, comuna, computed source total, source/model universes,
+`source_kind=observed_aggregate`, `output_kind=transfer_assumption`, and the assumption.
+The source covers all dwelling kinds and all known national work destinations; the site applies its supplied RM-internal commuter assumption.
+The wrapper preserves the existing site fields and request/error contract.
 
 Model errors return HTTP 422 with `{"error":"reason"}`. Missing or malformed JSON fields use Axum's standard parser response.
 Only the reviewed MUT point, weekday profile, and local increment policy are supported.
@@ -238,3 +259,15 @@ The response says `global_conservation_claim=false` and `validation=accounting_o
 Unsupported comuna, negative job removal, removal above the assumed baseline, and an excessive baseline contribution
 each returned HTTP 422 with a specific JSON reason. No negative residual was silently clamped.
 Server PID 12176 stopped after the run. These are single manual requests, not a load test, causal validation, or scene review.
+
+## Mode output manual run
+
+The release rebuild passed in 2.59 seconds with two jobs. Canonical source checkout: `24a0a623`, plus this change.
+Saved real-data requests and responses: `/private/tmp/mvp-mode-http-run`.
+Baseline, changed, reset, and attendance-zero requests returned HTTP 200; unsupported geography and negative removal returned JSON HTTP 422.
+The eight returned source counts match Las Condes CSV rows and sum to 107,707, including 19 no-response commuters.
+For the same illustrative changed request above, mode stock sums to 134.00163439524 and daily departures to 107.201307516192.
+Car stock is 68.43841074812. At zero attendance, stock stays unchanged and daily departures sum to zero.
+Manual JSON comparisons found baseline/reset identical apart from timing, and existing site fields unchanged from the prior response.
+Local HTTP times were 1.043/0.677/0.408/0.381 ms for baseline/change/reset/attendance-zero, respectively, for single requests.
+The existing `elapsed_ms` still covers only `site.rs`, not mode allocation. Server PID 12891 stopped after the run.
