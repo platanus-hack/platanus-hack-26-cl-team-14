@@ -1,4 +1,4 @@
-"""Aggregate colours for passenger vehicles with Pudahuel permits."""
+"""Aggregate colours and body classes for passenger vehicles with Pudahuel permits."""
 import csv
 import re
 import sys
@@ -37,14 +37,18 @@ def colour_family(label):
 
 def main(path):
     vehicles = defaultdict(set)
+    body_types = defaultdict(set)
     payments = 0
     with path.open(encoding="latin-1") as f:
         for row in csv.DictReader(f, delimiter=";"):
-            if row["ANIO_DEL_PERMISO"] == "2023" and row["TIPO_VEHICULO"] in PASSENGER_TYPES:
-                plate = row["PLACA"].strip().upper()
-                if plate:
-                    payments += 1
-                    vehicles[plate].add(colour_family(row["COLOR"]))
+            plate = row["PLACA"].strip().upper()
+            if row["ANIO_DEL_PERMISO"] != "2023" or not plate:
+                continue
+            body = row["TIPO_VEHICULO"]
+            body_types[plate].add(body)
+            if body in PASSENGER_TYPES:
+                payments += 1
+                vehicles[plate].add(colour_family(row["COLOR"]))
 
     counts = Counter()
     conflicts = 0
@@ -58,6 +62,18 @@ def main(path):
         writer.writerow(["cut", "colour", "share", "source"])
         for colour, count in sorted(counts.items()):
             writer.writerow(["13124", colour, f"{count / len(vehicles):.9f}", SOURCE])
+    bodies = Counter()
+    for plate in vehicles:
+        recorded = body_types[plate]
+        body = next(iter(recorded)) if len(recorded) == 1 else "unknown"
+        bodies[body] += 1
+    with Path("data/mvp/car_bodies.csv").open("w", newline="") as out:
+        writer = csv.writer(out, lineterminator="\n")
+        writer.writerow(["cut", "year", "source", "class", "share"])
+        for body, count in sorted(bodies.items()):
+            label = unicodedata.normalize("NFKD", body).encode("ascii", "ignore").decode()
+            writer.writerow(["13124", 2023, SOURCE, label.lower().replace(" ", "_"),
+                             f"{count / len(vehicles):.12f}"])
     print(f"{payments} eligible payments; {len(vehicles)} distinct plates; "
           f"{counts['unknown']} unknown including {conflicts} conflicting families")
     print(dict(counts))

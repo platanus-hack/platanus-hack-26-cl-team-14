@@ -12,6 +12,23 @@ The issuing municipality does not establish where the owner lives or where the c
 - Puente Alto publishes an INE dashboard by vehicle type and year. The Providencia transparency page covers a permit-processing contract. Santiago provides a payment interface. None supplied a verified passenger-car colour distribution. [Puente Alto](https://datos.mpuentealto.cl/dashboards/21823/permisos-de-circulacion/) · [Providencia](https://transparencia.providencia.cl/Carpeta/VerTabla/22338) · [Santiago](https://pagos.munistgo.cl/pagopci/)
 - The search also covered the Las Condes open-data portal, Lo Barnechea's geographic portal and Vitacura's municipal service portal. A usable permit register with colour remains unverified for these comunas. [Las Condes](https://datos.lascondes.cl/datos) · [Lo Barnechea](https://opendata-vecinos-sitmlb.hub.arcgis.com/) · [Vitacura](https://portalmivita.vitacura.cl/terminos)
 
+## Passenger body classes in Pudahuel
+
+Use `car_bodies.csv` only after drawing `automovil_station_wagon_todoterreno` in Pudahuel's INE mix. This uses the 2023 municipal composition as an approximation for the INE combined 2024 class. It covers the same 29,670 vehicles as the colour shares. The builder checks every 2023 payment class for each eligible plate. A plate with conflicting classes contributes once to `unknown`. None had a conflict.
+
+| Municipal class | Distinct vehicles |
+| --- | ---: |
+| Automóvil, body unspecified | 10,330 |
+| Station wagon | 5,344 |
+| SUV | 5,014 |
+| Hatchback | 4,414 |
+| Sedán | 4,100 |
+| Todo terreno | 356 |
+| Jeep | 109 |
+| Cabriolet | 3 |
+
+The generic automóvil records stay generic. The municipality supplies each class label. The split applies only to Pudahuel. [Municipal permit register](https://datos.gob.cl/dataset/permisos-de-circulacion-2020-2026/resource/3eb7c5f3-dbd2-40f2-9fdf-49fc42e68fd2)
+
 ## Rebuild
 
 From the repository root, download the original CSV into the ignored raw directory. The 12,045,164-byte file has SHA-256 `c6e4657a1bfc1de069c84fad34cb9e9e2874d60192d2fc6b49963b4fe026e0b9`.
