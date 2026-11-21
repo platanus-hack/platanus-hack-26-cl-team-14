@@ -7,7 +7,7 @@
   html, body { margin: 0; height: 100%; background: #0a0f24; color: #fff; overflow: hidden;
     font: 700 28px/1.1 -apple-system, "Helvetica Neue", Arial, sans-serif; }
   #map { position: absolute; inset: 0; } canvas { background: none !important; }
-  .box { position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; font-variant-numeric: tabular-nums; }
+  .box { zoom: var(--k); position: absolute; padding: 20px 28px; background: rgba(10, 15, 36, .78); border-radius: 20px; font-variant-numeric: tabular-nums; }
   small { display: block; font-size: 30px; color: #9fb0d8; }
   body:not(.s) .s, body:not(.t) .t, body:not(.p) .p { display: none !important; }
   #switch { top: 28px; right: 28px; padding: 10px; display: flex; gap: 10px; } #switch button { font-size: 36px; padding: 16px 22px; }
@@ -89,6 +89,8 @@ const VIEWS = {
   s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15},
   p: {longitude: -70.77, latitude: -33.45, zoom: 11.1, pitch: 55, bearing: -15}};
 const $ = id => document.getElementById(id);
+// the panels were laid out at 1600 px of width; they grow with the window so a 1920 projector keeps the same proportions
+(onresize = () => document.documentElement.style.setProperty('--k', innerWidth / 1600))();
 const fmt = (n, d = 0) => n.toLocaleString('es-CL', {maximumFractionDigits: d, minimumFractionDigits: d});
 const height = v => 15 + 4 * Math.sqrt(v);  // square root with a 15 m floor: a bus stop stays visible
 const at = (a, t) => { const i = Math.floor(t), x = a[i], y = a[Math.min(i + 1, 47)]; return x == null || y == null ? x : x + (y - x) * (t - i); };
