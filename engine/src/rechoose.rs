@@ -108,12 +108,16 @@ pub fn rechoose(c: &Choice, pop: &mut Population, job_weights: &[f64], job_minut
         }
     }
     // Who keeps a shrinking mode: a weighted draw without replacement (Efraimidis and Spirakis, 2006), the weight
-    // being the share of that mode in the worker's group. Key u^(1/w), largest first. u is the golden-ratio
-    // sequence of the person index, so the draw is deterministic.
+    // being the share of that mode in the worker's group. Key u^(1/w), largest first. u is a SplitMix64 hash of
+    // the person index: deterministic, and not tied to the golden-ratio order of the home and job samplers.
     let key = |i: usize| {
         let p = &pop.persons[i];
         let w = f64::from(base.stay[group(home[p.home as usize], p)][class(p.mode)]);
-        ((i as f64 + 0.5) * 0.618_033_988_749_894_9).fract().powf(1.0 / w)
+        let mut z = (i as u64).wrapping_add(1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        let u = ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64;
+        u.powf(1.0 / w)
     };
     let mut kept: Vec<(f64, usize)> = kept.into_iter().map(|i| (key(i), i)).collect();
     kept.sort_by(|a, b| b.0.total_cmp(&a.0));

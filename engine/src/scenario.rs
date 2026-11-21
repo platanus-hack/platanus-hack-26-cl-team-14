@@ -589,11 +589,14 @@ impl Scenario {
         let modes_before: Vec<i8> = pop.persons.iter().map(|p| p.mode).collect();
         let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &job_minutes, &minutes, &self.placed);
         // Workers and mode changes by age band and household size (rechoose changes `mode` only for a new mode class).
-        let mut by_trait = [[[0_u32; 2]; 5]; 2];
+        // Per group: workers, changed mode, public transport (mode 2) before, left public transport.
+        let mut by_trait = [[[0_u32; 4]; 5]; 2];
         for (p, &before) in pop.persons.iter().zip(&modes_before).filter(|(p, _)| !p.student && p.age_band != UNKNOWN) {
             for (t, v) in [(0, p.age_band), (1, p.household_size - 1)] {
                 by_trait[t][v as usize][0] += 1;
                 by_trait[t][v as usize][1] += u32::from(p.mode != before);
+                by_trait[t][v as usize][2] += u32::from(before == 2);
+                by_trait[t][v as usize][3] += u32::from(before == 2 && p.mode != 2);
             }
         }
         self.fine_modes.apply(&mut pop);
@@ -700,7 +703,8 @@ impl Scenario {
         });
         if by_trait[0].iter().any(|b| b[1] > 0) {
             let rows = |t: usize, labels: [&str; 5]| -> Vec<Value> { labels.iter().zip(by_trait[t])
-                .map(|(l, [workers, changed])| json!({ "group": l, "workers": workers, "changed_mode": changed })).collect() };
+                .map(|(l, [workers, changed, public, left])| json!({ "group": l, "workers": workers, "changed_mode": changed,
+                    "public_base": public, "left_public": left })).collect() };
             result["mode_change_by_person"] = json!({
                 "age_band": rows(0, ["0-14", "15-24", "25-44", "45-64", "65+"]),
                 "household_size": rows(1, ["1", "2", "3", "4", "5+"]),
