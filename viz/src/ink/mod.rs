@@ -1,4 +1,5 @@
-//! Static Ink Studio splats. See LICENSE for the upstream MIT notice.
+//! Ink Studio splats. See LICENSE for the upstream MIT notice.
+pub mod animation;
 pub mod raster;
 pub mod sculpt;
 
