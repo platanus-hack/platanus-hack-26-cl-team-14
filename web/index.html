@@ -232,7 +232,7 @@ function santiago() {
 // ---------- Puntaje: the station model against 31 stations that it did not see ----------
 function puntaje() {
   const col = (id, key, dx, color) => new ColumnLayer({id, data: score.stations.filter(s => at(s.observed, t) != null),
-    getPosition: s => [s.lon + dx, s.lat], diskResolution: 16, radius: 220, getElevation: s => at(s[key], t) * 1.5,  // 1.5 m for each boarding, same scale for both
+    getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 220, getElevation: s => at(s[key], t) * 1.5,  // 1.5 m for each boarding, same scale for both
     getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
   return [
     new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 60}),
@@ -282,9 +282,9 @@ $('jobs').oninput = $('housing').oninput = simulate;
 $('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
 
 const get = u => fetch(u).then(r => r.json());
-Promise.all(['score.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
-    .map(u => get((/^(score|stops|ground)/.test(u) ? 'data/' : '../data/mvp/') + u))).then(([sc, bus, ...r]) => {
-  score = sc; $('wape').textContent = fmt(sc.wape_bins * 100) + '%'; $('layer').textContent = sc.layer;  // the number of tools/pack/check_score.py
+Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
+    .map(u => get((/^(stops|ground)/.test(u) ? 'data/' : '../data/mvp/') + u))).then(([sc, bus, ...r]) => {
+  score = sc; $('wape').textContent = fmt(sc.wape_bins * 100) + '%'; $('layer').textContent = sc.layer;  // one reviewed run of the station model, from tools/pack/station_score_run.py
   [ground, communes] = r.splice(-2);
   // the diorama tile: keep the buildings inside the frame of the ground extract
   buildings = r.pop().features.filter(f => { const [x, y] = f.geometry.coordinates.flat(3); return x > -70.6105 && x < -70.5915 && y > -33.4255 && y < -33.4105; });
