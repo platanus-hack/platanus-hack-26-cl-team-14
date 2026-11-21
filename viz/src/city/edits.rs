@@ -159,16 +159,33 @@ fn landmark_offset(before: &Value, after: &Value) -> Option<Vec3> {
     }
     let source = rings(&before["geometry"]["coordinates"]);
     let target = rings(&after["geometry"]["coordinates"]);
-    let offset = *target.first()?.first()? - *source.first()?.first()?;
-    let translated = source.len() == target.len()
-        && source.iter().zip(&target).all(|(a, b)| {
-            a.len() == b.len()
-                && a.iter().zip(b).all(|(&p, &q)| {
-                    // Positions are metres in f32; ignore centimetre-scale rounding.
-                    (q - p - offset).xz().length_squared() < 0.01
-                })
-        });
-    translated.then_some(offset)
+    if source.len() != target.len() {
+        return None;
+    }
+    let anchor = |ring: &[Vec3]| {
+        let center = ring.iter().copied().sum::<Vec3>() / ring.len() as f32;
+        Vec3::new(
+            center.x,
+            super::terrain_from_xz(center.x, center.z),
+            center.z,
+        )
+    };
+    let offset = anchor(target.first()?) - anchor(source.first()?);
+    // A closed ring may start at any vertex and run in either direction.
+    let same_ring = |a: &[Vec3], b: &[Vec3]| {
+        let close = |i: usize, j: usize| (b[j] - a[i] - offset).xz().length_squared() < 0.01;
+        let n = a.len();
+        n == b.len()
+            && (0..n).filter(|&start| close(0, start)).any(|start| {
+                (0..n).all(|i| close(i, (start + i) % n))
+                    || (0..n).all(|i| close(i, (start + n - i) % n))
+            })
+    };
+    (same_ring(&source[0], &target[0])
+        && source[1..]
+            .iter()
+            .all(|hole| target[1..].iter().any(|other| same_ring(hole, other))))
+    .then_some(offset)
 }
 
 // Every result is a full scenario. Keep only the last state of each edited object.
@@ -180,13 +197,8 @@ pub(crate) fn refresh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     old: Query<Entity, With<EditMesh>>,
-    mut named: Query<(
-        &NamedBuilding,
-        &Mesh3d,
-        &MeshMaterial3d<StandardMaterial>,
-        &Transform,
-        &mut Visibility,
-    )>,
+    mut named: Query<(Entity, &NamedBuilding, &mut Transform, &mut Visibility)>,
+    mut origins: Local<std::collections::HashMap<Entity, Vec3>>,
     mut material: Local<Option<Handle<StandardMaterial>>>,
 ) {
     for entity in &old {
@@ -222,25 +234,21 @@ pub(crate) fn refresh(
     }
     buildings.hidden = hidden;
     let mut moved_landmarks = HashSet::new();
-    for (key, mesh, material, transform, mut visibility) in &mut named {
-        *visibility = if buildings.hidden.contains(&(key.0, key.1)) {
+    for (entity, key, mut transform, mut visibility) in &mut named {
+        let original = *origins.entry(entity).or_insert(transform.translation);
+        let id = format!("mesh:{}:{}", key.0, key.1);
+        let offset = final_state
+            .get(&("building".to_owned(), id.clone()))
+            .and_then(|(before, after)| landmark_offset(before, after));
+        transform.translation = original + offset.unwrap_or_default();
+        *visibility = if offset.is_some() {
+            moved_landmarks.insert(id);
+            Visibility::Inherited
+        } else if buildings.hidden.contains(&(key.0, key.1)) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
         };
-        let id = format!("mesh:{}:{}", key.0, key.1);
-        let Some((before, after)) = final_state.get(&("building".to_owned(), id.clone())) else {
-            continue;
-        };
-        if let Some(offset) = landmark_offset(before, after) {
-            commands.spawn((
-                EditMesh,
-                mesh.clone(),
-                material.clone(),
-                Transform::from_translation(transform.translation + offset),
-            ));
-            moved_landmarks.insert(id);
-        }
     }
     let path_material = material
         .get_or_insert_with(|| {
