@@ -154,14 +154,23 @@ COPY (
 
 COPY (
     WITH by_block AS (SELECT block_id,count(*) n FROM generated GROUP BY block_id),
-         mapped AS (SELECT c.cut,count(*) n FROM assigned a JOIN census c USING(block_id) GROUP BY c.cut)
-    SELECT c.cut,count(*) AS populated_blocks,
-           count(*) FILTER (WHERE c.real_shapes>0) AS with_real_osm,
-           count(*) FILTER (WHERE c.real_shapes=0) AS without_real_osm,
-           count(*) FILTER (WHERE g.n>0) AS with_generated,
-           coalesce(sum(g.n),0)::BIGINT AS generated_shapes, coalesce(max(m.n),0) AS assigned_real_shapes
-    FROM coverage c LEFT JOIN by_block g USING(block_id) LEFT JOIN mapped m ON c.cut=m.cut
-    WHERE c.pop>0 GROUP BY c.cut ORDER BY c.cut
+         mapped AS (SELECT c.cut,count(*) n FROM assigned a JOIN census c USING(block_id) GROUP BY c.cut),
+         counts AS (
+             SELECT c.cut,count(*) AS populated_blocks,
+                    count(*) FILTER (WHERE c.real_shapes>0) AS with_real_osm,
+                    count(*) FILTER (WHERE c.real_shapes=0) AS without_real_osm,
+                    count(*) FILTER (WHERE g.n>0) AS with_generated,
+                    coalesce(sum(g.n),0)::BIGINT AS generated_shapes
+             FROM coverage c LEFT JOIN by_block g USING(block_id)
+             WHERE c.pop>0 GROUP BY c.cut
+         )
+    SELECT cuts.cut, coalesce(populated_blocks,0) AS populated_blocks,
+           coalesce(with_real_osm,0) AS with_real_osm, coalesce(without_real_osm,0) AS without_real_osm,
+           coalesce(with_generated,0) AS with_generated, coalesce(generated_shapes,0) AS generated_shapes,
+           coalesce(mapped.n,0) AS assigned_real_shapes,
+           round(counts.with_real_osm::DOUBLE/nullif(counts.populated_blocks,0),6) AS real_share
+    FROM (SELECT DISTINCT cut FROM home) cuts
+    LEFT JOIN counts USING(cut) LEFT JOIN mapped USING(cut) ORDER BY cuts.cut
 ) TO @coverage@ (HEADER);
 
 SELECT * FROM grain;

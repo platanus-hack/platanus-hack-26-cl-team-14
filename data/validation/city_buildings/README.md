@@ -12,7 +12,7 @@ The view extends from −70.85 to −70.45 longitude and −33.65 to −33.30 la
 | With no rendered OSM intersection | 25,472 |
 | With generated buildings | 25,471 |
 
-One zero-OSM polygon in Padre Hurtado (`13605022006052`) enters the box as a narrow strip of 182 m². No footprint fits inside its 2 m setback. The [comuna table](coverage_by_comuna.csv) records all 43 comunas with populated polygons that intersect the view. Its real-shape count includes both populated and unpopulated blocks. It excludes 43 OSM shapes without a positive-area assignment to INE. Of those, one has a tagged height or floor count. The other 42 receive a separate neutral 3 m height source.
+One zero-OSM polygon in Padre Hurtado (`13605022006052`) enters the box as a narrow strip of 182 m². No footprint fits inside its 2 m setback. The [comuna table](coverage_by_comuna.csv) lists all 52 RM comunas. The `real_share` column divides populated polygons with any rendered OSM intersection by the number of populated polygons in the view, rounded to six decimals. Nine comunas have no such populated polygon in the view. Their share is blank. A share of zero means the view contains populated polygons but none touch a mapped building. Its real-shape count includes both populated and unpopulated blocks. It excludes 43 OSM shapes without a positive-area assignment to INE. Of those, one has a tagged height or floor count. The other 42 receive a separate neutral 3 m height source.
 
 ## How the geometry is built
 
