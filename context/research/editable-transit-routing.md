@@ -1,0 +1,9 @@
+# Travel times for an edited transit pattern
+
+GTFS and Conveyal represent each direction as a sequence of stop calls. Times between calls control travel. Stops control boarding, alighting, and dwell. Removing one pattern leaves parallel patterns available. [GTFS Schedule Reference](https://gtfs.org/documentation/schedule/reference/) · [Conveyal modifications](https://docs.conveyal.com/edit-scenario/modifications) · [R5 AddTrips](https://github.com/conveyal/r5/blob/dev/src/main/java/com/conveyal/r5/analyst/scenario/AddTrips.java)
+
+The engine compares trips that leave comuna population points at 08:00 and arrive by 11:00 on Monday 13 April 2026. It uses the next fixed departure at the boarding stop. For frequency service, it shifts the service window by the stop offset and estimates a half-headway wait. Straight-line access and egress extend up to 1 km. Walking links between stops are at most 300 m each and can chain. The model requires at least one transit segment. Null means the graph found no transit trip within the time window.
+
+Adding a service or changing a headway assumes first-stop departures from 08:00 to 09:00. Changes to stops or ride times retain published service starts unless the headway changes. A geometry-only move keeps the same service. A short pattern draws the span between its ordered calls on the source shape.
+
+I checked the module with the March GTFS catalog in #243. The L1 trip that starts at 07:57:57 is eligible at Universidad de Chile at 08:00:38. Removing an outbound bus 101 pattern changed three comuna pairs. Adding the same pattern reversed all three changes. Adding a hypothetical 14-minute directional service from Plaza de Maipú to Tobalaba, every five minutes, changed 26 pairs. Moving its drawing changed zero pairs. Removing a call from a short L1 pattern kept La Moneda's dwell. The short pattern used 38 of its shared shape's 69 vertices. This check did not run HTTP, MCP, or the viewer.
