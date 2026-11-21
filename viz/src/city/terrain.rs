@@ -24,6 +24,45 @@ fn heights() -> &'static [i16] {
     })
 }
 
+pub fn cursor_ground(ray: Ray3d) -> Option<Vec3> {
+    let hit = ground_on_line(ray.origin, ray.direction, ray.origin.y);
+    let east = WEST + (W - 1) as f32 * DX;
+    let south = NORTH + (H - 1) as f32 * DZ;
+    ((WEST..=east).contains(&hit.x) && (NORTH..=south).contains(&hit.z)).then_some(hit)
+}
+
+/// Find the ground on a downward line. Both the cursor and the camera target use
+/// this intersection so scrolling on a slope keeps the target on the terrain.
+pub fn ground_on_line(point: Vec3, direction: Dir3, ceiling: f32) -> Vec3 {
+    static RANGE: OnceLock<(f32, f32)> = OnceLock::new();
+    let &(floor, top) = RANGE.get_or_init(|| {
+        let h = heights();
+        (
+            *h.iter().min().unwrap() as f32 - DATUM,
+            *h.iter().max().unwrap() as f32 - DATUM,
+        )
+    });
+    let at_height = |y| point + *direction * ((y - point.y) / direction.y);
+    let mut above = at_height(top.min(ceiling));
+    // Walk from the camera side to pick the foreground hillside at a ridge.
+    while above.y > floor {
+        let mut below = at_height((above.y - 16.).max(floor));
+        if below.y <= terrain_from_xz(below.x, below.z) || below.y <= floor + 0.01 {
+            for _ in 0..12 {
+                let middle = above.midpoint(below);
+                if middle.y > terrain_from_xz(middle.x, middle.z) {
+                    above = middle;
+                } else {
+                    below = middle;
+                }
+            }
+            return above.midpoint(below);
+        }
+        above = below;
+    }
+    above
+}
+
 // Interpolate the same two triangles used by the mesh. Roads and movers stay on it.
 pub fn terrain_from_xz(x: f32, z: f32) -> f32 {
     let col = ((x - WEST) / DX).clamp(0., (W - 1) as f32);

@@ -180,6 +180,8 @@ fn navigate(
     mut motion: MessageReader<MouseMotion>,
     mut wheel: MessageReader<MouseWheel>,
     window: Single<&Window, With<PrimaryWindow>>,
+    camera: Single<&Camera, With<Camera3d>>,
+    canvas: Query<&Sprite, With<pixels::CityCanvas>>,
 ) {
     if rig.fixed {
         return;
@@ -197,7 +199,29 @@ fn navigate(
     if scroll != 0.0 {
         rig.flight = None;
         rig.event_focus = None;
-        rig.distance = (rig.distance * (-scroll).exp()).clamp(55.0, 95_000.0);
+        let distance = (rig.distance * (-scroll).exp()).clamp(55.0, 95_000.0);
+        if distance != rig.distance
+            && let Some(cursor) = window.cursor_position()
+            && let Some(viewport) = camera.logical_viewport_size()
+        {
+            let transform = pose(&rig);
+            // Pixel mode centers a canvas rounded up to whole output pixels.
+            let size = canvas
+                .single()
+                .ok()
+                .and_then(|s| s.custom_size)
+                .unwrap_or(window.size());
+            let pixel = ((cursor - window.size() * 0.5) / size + Vec2::splat(0.5)) * viewport;
+            if let Ok(ray) = camera.viewport_to_world(&transform.into(), pixel)
+                && let Some(anchor) = city::cursor_ground(ray)
+            {
+                let offset = -(*transform.forward()) * distance;
+                // The eye can slide along the cursor ray. Its target follows a
+                // parallel line one camera offset away, until it meets the terrain.
+                rig.target = city::ground_on_line(anchor - offset, ray.direction, f32::INFINITY);
+            }
+        }
+        rig.distance = distance;
     }
     let delta: Vec2 = motion.read().map(|ev| ev.delta).sum();
     if mouse.pressed(MouseButton::Left) && delta != Vec2::ZERO {
