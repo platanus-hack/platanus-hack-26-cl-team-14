@@ -990,3 +990,22 @@ Tagged dimensions are map attributes. The remaining heights and all generated sh
 - In either file, `flags[i] & 4` marks a generated shape and `flags[i] & 3` gives the height source in the table above.
 
 **Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Preparing the rounded OSM geometry took 3.19 s. Packing both binaries from the completed spatial join took 8.20 s on an Apple Silicon Mac. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
+## Santiago landmarks
+
+`web/data/santiago_landmarks.geojson` contains eight public landmarks (14,810 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
+
+| ID | City-view geometry | Official reference |
+| --- | --- | --- |
+| `gran_torre_costanera` | Exterior tower footprint. OSM tags 300 m height and 64 levels. | [Sky Costanera names the tower and gives the viewpoint height of 300 m](https://www.skycostanera.cl/es) |
+| `estadio_nacional` | Mapped stadium perimeter in Ñuñoa. | [Law 20.264 gives the name Estadio Nacional Julio Martínez Prádanos](https://www.bcn.cl/leychile/navegar?idNorma=273588) |
+| `la_moneda` | Palace footprint with four courtyard holes. OSM tags three levels. | [National Heritage Service entry for Palacio de La Moneda](https://ide.patrimoniocultural.gob.cl/patrimonio/909) |
+| `san_cristobal` | Summit point. OSM elevation 880 m above sea level. | [Parquemet visitor map identifies the summit at 880 m](https://mapas.parquemet.gob.cl/doc/MAP_ParqueMet_es.pdf) |
+| `santa_lucia` | Summit point. OSM elevation 629 m above sea level. | [Municipal tourism office identifies Cerro Santa Lucía](https://www.santiagoturismo.cl/es/cerro-santa-lucia/) |
+| `parque_forestal` | Mapped park boundary. | [Municipal tourism office identifies Parque Forestal](https://www.santiagoturismo.cl/es/parque-forestal/) |
+| `parque_ohiggins` | Mapped park boundary. | [Municipal tourism office identifies Parque O’Higgins](https://www.santiagoturismo.cl/es/parque-ohiggins/) |
+| `rio_mapocho` | Main river centreline inside the Santiago roads view. | [Environment Ministry record for Río Mapocho](https://sistemahumedales.mma.gob.cl/HumedalesUrbanos/DetailsPublico/114) |
+
+The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
+
+Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
