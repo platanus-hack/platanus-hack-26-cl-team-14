@@ -39,6 +39,12 @@ pub(super) fn ribbon(
     elevation: f32,
     color: Color4,
 ) {
+    ribbon_faces(points, half_width, |ring| {
+        super::terrain::drape_land(mesh, &[ring], elevation, color)
+    });
+}
+
+fn ribbon_faces(points: &[Vec3], half_width: f32, mut face: impl FnMut(Vec<Vec3>)) {
     let mut draped = Vec::with_capacity(points.len());
     for pair in points.windows(2) {
         let horizontal = Vec2::new(pair[1].x - pair[0].x, pair[1].z - pair[0].z).length();
@@ -69,8 +75,7 @@ pub(super) fn ribbon(
             edge
         });
         if let Some(previous) = previous_edges {
-            let ring = vec![previous[0], previous[1], edges[1], edges[0]];
-            super::terrain::drape_land(mesh, &[ring], elevation, color);
+            face(vec![previous[0], previous[1], edges[1], edges[0]]);
         }
         previous_edges = Some(edges);
     }
@@ -141,6 +146,7 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
 fn mapocho(tiles: &mut GroundTiles, root: &Path) {
     let fc = read_geojson(&root.join("web/data/mapocho_detail.geojson"));
     let mut banks = Vec::new();
+    let mut water = super::water::Map::default();
     for feature in fc["features"].as_array().unwrap() {
         let props = &feature["properties"];
         let shape = &feature["geometry"]["coordinates"];
@@ -149,6 +155,7 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
             for polygon in shape.as_array().unwrap() {
                 let rings = open_rings(polygon);
                 super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, 0.08, WATER);
+                water.add_polygon(&rings);
                 banks.push(rings[0].clone());
             }
         } else if kind == "bridge" {
@@ -179,6 +186,7 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
             continue;
         }
         let mut points = coordinates(&feature["geometry"]["coordinates"]);
+        water.add_channel(&points);
         for _ in 0..2 {
             let mut reach = vec![points[0]];
             for pair in points.windows(2) {
@@ -187,7 +195,11 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
                 let step = Vec2::new(b.x - a.x, b.z - a.z);
                 let mut meeting = f32::INFINITY;
                 for bank in &banks {
-                    for (c, d) in bank.iter().zip(bank.iter().cycle().skip(1)).take(bank.len()) {
+                    for (c, d) in bank
+                        .iter()
+                        .zip(bank.iter().cycle().skip(1))
+                        .take(bank.len())
+                    {
                         let edge = Vec2::new(d.x - c.x, d.z - c.z);
                         let denominator = step.perp_dot(edge);
                         if denominator == 0.0 {
@@ -207,10 +219,27 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
                 }
                 reach.push(b);
             }
-            ribbon(tile_for(tiles, reach[0]), &reach, 15.0, 0.08, WATER);
+            let tile = tile_for(tiles, reach[0]);
+            ribbon_faces(&reach, 15., |ring| {
+                let polygon = [ring];
+                water.add_polygon(&polygon);
+                super::terrain::drape_land(tile, &polygon, 0.08, WATER);
+            });
             points.reverse();
         }
     }
+    let route: Value = serde_json::from_str(include_str!(
+        "../../../context/research/mapocho/water-route.geojson"
+    ))
+    .unwrap();
+    let detailed: Vec<_> = route["features"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|leg| coordinates(&leg["geometry"]["coordinates"]))
+        .collect();
+    water.add_channel(&detailed);
+    water.install();
 }
 
 pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mesh)>) {

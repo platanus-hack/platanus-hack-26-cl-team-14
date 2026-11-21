@@ -105,13 +105,18 @@ impl Line {
     fn parse(id: &str, feature: &Value, resolved: &Value) -> Option<Self> {
         let props = &feature["properties"];
         let headway = props["headway_minutes"].as_f64()? as f32 * 60.;
-        let mut points: Vec<_> = feature["geometry"]["coordinates"]
+        let points: Vec<_> = feature["geometry"]["coordinates"]
             .as_array()?
             .iter()
             .map(flat)
             .collect::<Option<_>>()?;
-        points.dedup();
-        if points.len() < 2 || headway <= 0. {
+        let raw_count = points.len();
+        let Some(points) = crate::city::water::route(points) else {
+            warn!("Ferry {id}: no continuous route on mapped water; skipping native service");
+            return None;
+        };
+        info!("Ferry {id}: {raw_count} input vertices, {} on mapped water", points.len());
+        if headway <= 0. {
             return None;
         }
         let mut distances = vec![0.];
