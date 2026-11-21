@@ -50,9 +50,11 @@ SII worker counts, FONASA, Servel, Censo 2017.
   one household. `rbd_admitido` is the offer, not the enrolment; use Matrícula for the
   enrolment. `calidad_georef` marks weak geocodes and this check did not filter on it.
   **Privacy.** One row is a child: a home point plus the school that admitted that child.
-  The script drops the `mrun` key and writes only the point pair, the output stays in
-  git-ignored `data/raw/`, and nothing below the comuna goes into a commit or the demo.
-  Use the pairs for distributions, never for one household.
+  Review of PR #15 removed the point export, so this repository holds no script and no
+  output for it. I deleted the downloaded person rows on 2026-11-21: `data/raw/mineduc-sae/`
+  and `data/raw/mineduc-od/{sae.rar,od_school_points_rm.csv}`. Nothing below the comuna
+  goes into a commit or the demo. If anyone rebuilds it, use the pairs for distributions,
+  never for one household, and delete the rows afterwards.
 - Use in the simulation: the only public administrative source that gives a trip below
   the comuna. It calibrates the distance-decay term of destination choice, which the
   comuna-level sources cannot do.
@@ -80,14 +82,18 @@ SII worker counts, FONASA, Servel, Censo 2017.
   `Microdatos_Redatam_Censo2024.zip` and the aggregated manzana bases.
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 355,253,274 bytes. 7,400,741 persons with a
   home comuna in region 13. 3,588,582 of them have a work-place answer, and the code
-  counts above sum to exactly that. The built matrix has 9,723 (home, destination, code)
-  rows and 13,527 migration pairs for the RM. `13101 -> 13114` holds 28,583 people, the
-  same value that the INE visualizer publishes.
+  counts above sum to exactly that. The script on `main` builds 9,619 known-destination
+  work pairs and 13,527 migration pairs for the RM, and writes the dropped codes to
+  `excluded_destinations.csv`. `13101 -> 13114` holds 28,583 people, the same value that
+  the INE visualizer publishes.
 - Role: INPUT and TARGET.
 - Limits: the destination stops at the comuna, so it cannot place a job inside a comuna.
-  **Filter on `p44_lug_trab` before you count trips.** Code 1 (517,018 people) works at
-  home and is not a trip, but its destination repeats the home comuna, so it inflates the
-  diagonal by 14% if you keep it. Code 4 puts a country code in the destination column.
+  **Filter on `p44_lug_trab` before you count trips. The script on `main` does not.**
+  It drops only `998`, `999`, `-99` and blank, so two problems survive in
+  `od_work_rm.csv`. Code 1 (517,018 people) works at home and is not a trip, but its
+  destination repeats the home comuna, so it inflates the diagonal by 14%. Code 4 (3,793
+  people) puts a **country** code in the `work_comuna` column. Add `p44_lug_trab` to the
+  output key, or filter to codes 2 and 3, before you feed the matrix to the engine.
   Code 5, "no fixed place", is 313,358 people, 8.7% of all employed RM residents with an
   answer, and it is concentrated: 12.9% in Peñalolén (13122) and La Pintana (13112)
   against 3.2% in Melipilla (13501). Those people travel and the matrix cannot say where.

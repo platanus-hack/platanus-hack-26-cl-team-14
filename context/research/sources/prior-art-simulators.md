@@ -83,7 +83,7 @@ What we can say:
 - Granularity: person-trip, stop, zone (777 zones). One week for each release.
 - Year: 16 releases on the page, from March 2020 to April 2026. Daily estimates from April 2017.
 - Access: direct download. ZIP of CSV. `Zona777_ADATRAP.rar` is 1,660,725 bytes.
-- Check: VERIFIED-BYTES 2026-11-21. Page HTTP 200, 40 file links read. Zone file: HEAD 200 only. We did not download the trip files. Agent clever-koala does that in `context/research/santiago-transport-verified.md`.
+- Check: UNVERIFIED for the trip and stage files: we read only the index page (HTTP 200, 40 file links) and did not request the ZIP files. VERIFIED-BYTES for the zone file only (HEAD 200, 1,660,725 bytes). The row evidence for the April 2026 files is in `context/research/santiago-transport-verified.md`.
 - Role: TARGET (boardings) and INPUT (transit OD)
 - Limits: DTPM says the tables do not include fare evasion and that the method changes between versions. The alighting stop is an estimate, not a measurement. Only public transport.
 - Use in the simulation: TARGET (boardings for each station and half hour) and INPUT (transit OD). This is the modern replacement for the 2013 counts in MATSim Santiago.

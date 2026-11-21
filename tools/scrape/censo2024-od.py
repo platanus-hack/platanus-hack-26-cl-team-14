@@ -1,6 +1,6 @@
 """Censo 2024 person microdata -> two known-destination comuna OD matrices for the RM.
 
-work.csv      home comuna (`comuna`) -> work comuna (`p44_lug_trab_esp`)
+work.csv      home comuna (`comuna`) -> work comuna (`p44_lug_trab_esp`), only for `p44_lug_trab` 2 or 3
 migration.csv comuna of residence in 2019 (`p24_lug_resid5_esp`) -> comuna in 2024
 
 Output: data/raw/censo2024-personas/od_work_rm.csv, od_migration_rm.csv
@@ -28,7 +28,10 @@ for row in reader:
     if not home.startswith("13"):
         continue
     dest = row["p44_lug_trab_esp"]
-    if dest not in MISSING:
+    place = row["p44_lug_trab"]  # 2 and 3 are a comuna; 1 is at home, 4 is another country, 5 is no fixed place
+    if place not in ("2", "3"):
+        excluded[("work", "p44_lug_trab=" + place)] += 1
+    elif dest not in MISSING:
         work[(home, dest)] += 1
     else:
         excluded[("work", dest)] += 1
