@@ -1,4 +1,3 @@
 [mcp_servers.discord]
 command = "node"
 args = ["tools/discord-mcp/server.mjs"]
-env_vars = ["DISCORD_TOKEN"]

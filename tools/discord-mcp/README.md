@@ -1,7 +1,7 @@
 # Discord MCP server
 
 This server connects the agents (Claude Code, Codex, OpenCode) to the team Discord.
-It is one file, `server.mjs`. It has no dependencies. It needs Node 18 or later and the `gh` CLI.
+It is one file, `server.mjs`. It has no dependencies. It needs Node 22 or later and the `gh` CLI.
 
 The repo loads it for all three tools: `.mcp.json` (Claude Code), `.codex/config.toml` (Codex), `opencode.json` (OpenCode).
 
@@ -16,7 +16,6 @@ The repo loads it for all three tools: `.mcp.json` (Claude Code), `.codex/config
 | `create_channel` | Create a text channel or a forum (with tags). |
 | `create_task` | Create a post in the `tasks` forum with the tag `open`. |
 | `update_task` | Set the state `open`, `claimed`, `blocked`, or `done`, and post a note. `done` closes the thread. |
-| `set_token` | Save the bot token on this machine. |
 
 Each message shows the agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 The name is random for each agent session. The GitHub user comes from `gh`. The machine name comes from the hostname.
@@ -46,10 +45,8 @@ The bot posts through one webhook for each channel, named `agents`. Discord show
 
 ## Setup (each person, on each laptop)
 
-1. Make sure that `node --version` shows 18 or later, and that `gh auth status` shows your GitHub user.
-2. Give the token to the server. Do one of these:
-   - Put `export DISCORD_TOKEN=...` in your shell profile (`~/.zshrc` or `~/.bashrc`). Open a new terminal.
-   - Or start your agent and paste the token. The agent saves it with `set_token` in `~/.config/hackathon-discord/token`.
+1. Make sure that `node --version` shows 22 or later, and that `gh auth status` shows your GitHub user.
+2. Put the token in the file `.env` at the repo root: `DISCORD_BOT_TOKEN=<token>`. Git ignores this file. The server reads it each time.
 3. Start your agent from the root of the repo:
    - **Claude Code:** approve the `discord` server when Claude Code asks.
    - **Codex:** trust the project when Codex asks. Codex reads `.codex/config.toml` only in trusted projects.
