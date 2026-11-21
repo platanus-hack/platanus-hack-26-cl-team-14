@@ -576,7 +576,12 @@ fn read_result(
     let mut closed = std::collections::HashSet::new();
     for change in r["applied"].as_array().into_iter().flatten().filter(|c| c["kind"] == "station") {
         let state = &change["understood"];
-        let station = stations.iter().find(|s| s["name"] == state["station"]).unwrap();
+        // Planned lines, corridors and proposed points use their own IDs and have no GTFS runs.
+        if state.get("id").is_some() {
+            continue;
+        }
+        let Some(name) = state["station"].as_str() else { continue };
+        let Some(station) = stations.iter().find(|s| s["name"] == name) else { continue };
         let id = station["id"].as_str().unwrap();
         if state["state"] == "closed" {
             closed.insert(id);
