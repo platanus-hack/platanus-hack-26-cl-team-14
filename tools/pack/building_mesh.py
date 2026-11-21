@@ -43,8 +43,8 @@ def lonlat(ring):
 def prepare():
     """Use the same rounded polygons for the census intersection and the final mesh."""
     RAW.mkdir(parents=True, exist_ok=True)
-    count = 0
-    with SOURCE.open() as src, (RAW / "real_rendered.geojsonseq").open("w") as dst:
+    records = []
+    with SOURCE.open() as src:
         for row in src:
             feature = json.loads(row.lstrip("\x1e"))
             tags = feature["properties"]
@@ -59,9 +59,13 @@ def prepare():
                 geom = {"type": "Polygon", "coordinates": [lonlat(ring) for ring in [shell, *holes] if ring]}
                 props = {"osm_id": feature["id"], "part": part, "height_m": numeric(tags.get("height", ""), units=True),
                          "levels": numeric(tags.get("building:levels", ""))}
-                dst.write(json.dumps({"type": "Feature", "geometry": geom, "properties": props}, separators=(",", ":")) + "\n")
-                count += 1
-    print(f"Prepared {count:,} OSM components")
+                record = json.dumps({"type": "Feature", "geometry": geom, "properties": props}, separators=(",", ":"))
+                records.append((int(feature["id"][1:]), part, record))
+    # Osmium can emit completed relations between ways. The wire order uses explicit IDs.
+    with (RAW / "real_rendered.geojsonseq").open("w") as dst:
+        for _, _, record in sorted(records):
+            dst.write(record + "\n")
+    print(f"Prepared {len(records):,} OSM components")
 
 
 def cross(o, a, b):

@@ -43,7 +43,7 @@ The builder writes the real shape assignments, generated shape stream and covera
 
 `web/data/city_building_block_ids.bin.gz` maps a mesh tile and its local building index to the INE block ID and comuna CUT. The near and far meshes use the same index. The sidecar has 654,666 entries and 45,282 distinct assigned blocks. It covers all 375,281 generated shapes and 279,342 mapped shapes. The other 43 mapped shapes have no block assignment. A separate dictionary preserves 1,039 assigned polygon IDs absent from the home-block list in `city_blocks.json`.
 
-Gunzip the file once. It is 286,069 bytes compressed and 1,763,612 bytes inflated. All integers are little-endian. Arrays are packed without padding.
+Gunzip the file once. It is 286,762 bytes compressed and 1,763,612 bytes inflated. All integers are little-endian. Arrays are packed without padding.
 
 | Byte offset | Contents |
 | ---: | --- |
@@ -72,4 +72,4 @@ fn building_block(bytes: &[u8], col: usize, row: usize, i: usize) -> Option<(u64
 }
 ```
 
-Rebuild after the mesh preparation and fill steps with `python3 -B tools/pack/building_block_ids.py`. Its optional argument specifies another raw fill directory. It matches source assignments to the exact quantized exterior and hole coordinates of each published polygon. Mapped and generated shapes have separate lookup keys. All 654,666 source and mesh records match. Six identical source geometries have duplicate records, each with the same block assignment. Within-tile raw feature order can differ from the published order. Use the sidecar and both meshes from the same build.
+Rebuild after the mesh preparation and fill steps with `python3 -B tools/pack/building_block_ids.py`. Its optional argument specifies another raw fill directory. It matches source assignments to the exact quantized exterior and hole coordinates of each published polygon. Mapped and generated shapes have separate lookup keys. All 654,666 source and mesh records match. Six identical source geometries have duplicate records, each with the same block assignment. Use the sidecar and both meshes from one run of `tools/pack/build_city_mesh.py`.

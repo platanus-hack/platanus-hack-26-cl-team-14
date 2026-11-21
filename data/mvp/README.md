@@ -876,8 +876,8 @@ The two files in `web/data/` describe the same **654,666 building shapes** in th
 
 | File | Use | Gzip bytes | Inflated bytes |
 | --- | --- | ---: | ---: |
-| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 4,555,215 | 8,513,964 |
-| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 11,161,265 | 19,401,272 |
+| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 4,555,330 | 8,513,964 |
+| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 11,159,951 | 19,401,272 |
 
 The polygon file has 655,715 rings and 3,046,816 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 326 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 27,915,236 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
 
@@ -900,4 +900,10 @@ Tagged dimensions are map attributes. The remaining heights and all generated sh
 - Box tile: `boxes.subarray(6*i,6*i+6)` gives center X, center Y, width in decimetres, depth in decimetres, rotation in hundredths of a degree, and height in decimetres. Rotation follows the width axis counterclockwise from east, in [0°, 180°).
 - In either file, `flags[i] & 4` marks a generated shape and `flags[i] & 3` gives the height source in the table above.
 
-**Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Preparing the rounded OSM geometry took 3.19 s. Packing both binaries from the completed spatial join took 8.20 s on an Apple Silicon Mac. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+**Rebuild all three files together.** Run the following command with an existing urban OSM extract, the INE cartography, and a new output directory. Its parent directory must exist. The script builds each intermediate in private storage and renames the completed result into place after it writes the block-ID sidecar. Deploy all three gzip files from that directory.
+
+```sh
+python3 tools/pack/build_city_mesh.py data/raw/osm-buildings-city/urban.osm.pbf data/raw/verify-people-work/cartography-rm.gpkg data/raw/buildings-release
+```
+
+The pack visits tiles by row and column. Within each tile, it writes mapped polygons in numeric OSM area ID and component order, then generated polygons in Census block ID and seed order. All 279,385 mapped keys and 375,281 generated keys are unique for this extract. Gzip uses a fixed timestamp. Two isolated builds from the urban PBF and the INE GeoPackage produced byte-identical polygons, boxes, and block IDs in 60 and 76 seconds on an Apple Silicon Mac. See [census assignment and fill](../validation/city_buildings/README.md). The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
