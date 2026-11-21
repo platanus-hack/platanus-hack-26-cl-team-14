@@ -10,7 +10,7 @@ Propuesta de los agentes; `context/pitch.md` sigue siendo de ustedes. Fuentes: `
   2. **Santiago**: 52 comunas y flujos casa→trabajo; control de empleo y vivienda por comuna, totales conservados. Etiqueta: "reconstrucción del Censo 2024 + sensibilidad, sin validar".
   3. **Puntaje**: 31 estaciones reservadas, columnas observadas y predichas, error agregado 45% (L4b). Puntaje de desarrollo; no valida el cambio del MUT.
   4. **Evento**: dos botones (Estadio Nacional, Monumental) y un control de 0 a 3. Añade, como supuesto, el patrón de subidas de la noche del sábado 11 de abril de 2026 en Parque O'Higgins (día de un evento agotado en el Movistar Arena) a las estaciones a menos de 1 km del sitio; con 0 no cambia nada. Límites: solo 19:00–23:30, la llegada no se modela; dos supuestos en pantalla; sin validar.
-- **No construido**: la Variante B (Estación Central 2017→2024).
+- **No construido**: Variante B (Estación Central 2017→2024).
 
 ## Cómo verlo (requiere Rust y Python 3; una compilación medida tomó 75 s)
 
@@ -32,7 +32,7 @@ A las 12:30 UTC (09:30 en Santiago) los agentes eligen **una versión revisada**
 | 7.516 | subidas a las 18:00 en Tobalaba, día laboral promedio de abril 2026 | observado, DTPM |
 | −513 | cambio de subidas al día al cambiar el MUT por 298 viviendas | contabilidad del sitio, supuestos visibles |
 | −2.781 | mismo cambio según el modelo de estaciones L4b, en Tobalaba | sensibilidad, sin validar; su base es 51% de lo observado |
-| 84 / 52 | nuevos residentes que salen en auto / en transporte público al día (flujo diario, después del supuesto de asistencia 0,8; stock 105 / 65; tasa de ocupados 0,3577 de `site_inputs.csv`, viviendas particulares) | Censo 2024 Las Condes, supuesto de transferencia |
+| 84 / 52 | nuevos residentes que salen en auto / en transporte público al día (flujo diario tras el supuesto de asistencia 0,8; stock 105 / 65; tasa 0,3577 de `site_inputs.csv`, viviendas particulares) | Censo 2024 Las Condes, supuesto de transferencia |
 | 45% | error agregado del modelo en 31 estaciones reservadas | puntaje de desarrollo |
 | 0,1 ms | tiempo del cálculo por comuna, medido en el portátil de Emerson (no es el tiempo del navegador ni del modelo de estaciones) | medido |
 
