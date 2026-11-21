@@ -1,0 +1,21 @@
+# Compare the same spectators at two venues
+
+The main pitch moves a Colo-Colo match between the Monumental and the MUT. Hold the spectator count, origin distribution, and event schedule fixed. Change the venue and recalculate travel options. This comparison answers how the same crowd would travel under the model.
+
+## Prior work
+
+- ActivitySim models whether people make non-work tours, where they go, when they travel, and how they travel in separate steps. Its destination code assigns a destination to a tour that already has a person. For a fixed match, supply the destination and attendance as scenario inputs. [ActivitySim frequency](https://activitysim.github.io/activitysim/v1.5.1/dev-guide/components/non_mandatory_tour_frequency.html) · [ActivitySim destination code](https://raw.githubusercontent.com/ActivitySim/activitysim/main/activitysim/abm/models/non_mandatory_destination.py) · [ActivitySim mode choice](https://activitysim.github.io/activitysim/v1.4.0/dev-guide/components/tour_mode_choice.html)
+- MATSim can change the mode and route of an existing person's trip. A stadium application in Miami-Dade builds plans from event travel data. Its abstract describes an ongoing deployment. [MATSim replanning code](https://raw.githubusercontent.com/matsim-org/matsim-libs/main/matsim/src/main/java/org/matsim/core/replanning/strategies/ChangeTripMode.java) · [MATSim User Meeting 2026](https://matsim.org/conferences/mum2026/abstracts/MUM2026_paper_35.pdf)
+- A Lisbon study used 15-minute counts from three Metro stations for 186 football events. It compared event and regular demand. This gives a precedent for measuring the station and time effects around matches. [Metro de Lisboa study](https://www.sciencedirect.com/science/article/pii/S2352146525002674)
+
+## Smallest change for the pitch
+
+Use one aggregate origin vector for the match. Prefer an event travel survey or aggregate ticket-holder origins. With population weights, call the origins an assumption. Preserve the same vector in both runs. Apply the available origin-to-venue mode and travel-time model, and state that it uses commuter preferences until event mode shares are available. Report differences by mode and comuna under those assumptions. [SECTRA Santiago EOD](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) · [Current event contract](extra-event-contract.md)
+
+For a check, first freeze the real match, the station set, the window around kick-off or the final whistle, and comparable dates without a match. Compare observed extra boardings with the model for the original venue. Report the observation coverage and error. The existing Parque O’Higgins check uses a different event and an assumed end time. It can guide the method. It does not validate the Monumental. [Project event comparison](event-attendance-april-2026.md)
+
+## Show how the crowd leaves
+
+Studies observed bottlenecks at pedestrian bridges and on rail platforms. The Tottenham assessment compared departures across five fixtures and tracked changes in train service. FHWA guidance also separates event travel demand from the capacity of roads, venues and transit. Use these sources to choose what to measure in Santiago. Their departure rates reflect their own venues. [Stadium tracer study](https://onlinelibrary.wiley.com/doi/full/10.1002/2475-8876.12358) · [Tottenham observations](https://gat04-live-1517c8a4486c41609369c68f30c8-aa81074.divio-media.org/filer_public/4a/6d/4a6d7d46-8fa0-4f98-802b-764a1fb88a5f/cd_914_-_appendices_to_crowd_flow_of_evidence.pdf) · [FHWA event guidance](https://ops-dr.fhwa.dot.gov/publications/fhwahop07108/event_char.htm)
+
+The current event payload reports totals for the whole return period. An animation of those totals can illustrate the direction and mode of trips. To estimate queues or their duration, first measure departures by time from the venue and available capacity at the affected station entrances and services. With those inputs, a time-bin queue can carry the unserved arrivals into the next bin. Check the baseline against boarding counts and, where available, observed queues before using it to compare venues. [Current event contract](extra-event-contract.md)

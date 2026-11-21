@@ -1,4 +1,6 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
+#[path = "events.rs"]
+pub(crate) mod events;
 mod fleet;
 mod levels;
 mod riders;
@@ -21,7 +23,8 @@ use bevy::{
 use serde_json::Value;
 use std::{collections::HashMap, fs, io::Read, sync::Arc};
 
-// One moving figure represents 96 workers. The engine's counts stay in persons.
+// Street walkers use one figure per 48 workers. Other modes and station entries use one per 96.
+const PERSONS_PER_STREET_WALKER: f64 = 48.0;
 const PERSONS_PER_MOVER: f64 = 96.0;
 const BIN: f32 = 1800.0;
 const DAY: f32 = 48.0 * BIN;
@@ -570,6 +573,7 @@ struct Replay {
     departures: Vec<Vec<Group>>,
     platforms: Vec<Station>,
     longest: f32,
+    clock_offset: Option<f32>,
     revision_started: f32,
 }
 
@@ -584,6 +588,22 @@ fn read_result(
         return;
     }
     let r = &result.0;
+    replay.clock_offset.get_or_insert_with(|| {
+        let mut boardings = [0.; 48];
+        for station in r["stations"].as_array().unwrap() {
+            for (total, count) in boardings
+                .iter_mut()
+                .zip(station["base_half_hour"].as_array().unwrap())
+            {
+                *total += count.as_f64().unwrap();
+            }
+        }
+        let peak = (0..boardings.len())
+            .rev()
+            .max_by(|&a, &b| boardings[a].total_cmp(&boardings[b]))
+            .unwrap();
+        peak as f32 * BIN - time.elapsed_secs()
+    });
     let mut deltas = HashMap::new();
     for d in r["trips_delta"].as_array().into_iter().flatten() {
         deltas.insert(
@@ -607,7 +627,12 @@ fn read_result(
         let id = row["id"].as_u64().unwrap();
         // Stable fractional rounding keeps the same represented people at the same phase on revision.
         let seed = (id as u32).wrapping_mul(2654435761) as f64 / 4294967296.;
-        let copies = (row["count"].as_f64().unwrap() / PERSONS_PER_MOVER + seed).floor() as usize;
+        let scale = if row["mode"] == "walk" {
+            PERSONS_PER_STREET_WALKER
+        } else {
+            PERSONS_PER_MOVER
+        };
+        let copies = (row["count"].as_f64().unwrap() / scale + seed).floor() as usize;
         let (delta, flags) = deltas.get(&id).copied().unwrap_or_default();
         let tint = if flags & 8 != 0 || delta > 0. {
             Paint::Gain
@@ -621,7 +646,7 @@ fn read_result(
         let changed = if flags != 0 {
             copies
         } else {
-            (delta.abs() / PERSONS_PER_MOVER).ceil() as usize
+            (delta.abs() / scale).ceil() as usize
         };
         let bin = row["half_hour"].as_u64().unwrap() as usize;
         let itineraries: Vec<_> = if row["mode"] == "public" {
@@ -991,7 +1016,7 @@ fn draw(
     // The city clock runs in real time from the morning peak and survives scenario revisions.
     let now = clock
         .0
-        .unwrap_or(8. * 3600. + 10. * 60. + time.elapsed_secs())
+        .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs())
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);

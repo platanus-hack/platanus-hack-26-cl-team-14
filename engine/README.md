@@ -491,8 +491,44 @@ Half-hour WAPE fell from 0.4178865487 to 0.4114838095.
 For Tobalaba, the two models predicted 39,823.55 and 53,720.26 entries
 in the observed weekday half-hours. DTPM recorded 81,612.80.
 
-A scenario caller can opt in with
-`StationAccess::load_with_april_transport_jobs(data)?`. For each projection,
-call `weight_job_masses` on the freshly aggregated public commuter masses
-in job-point order before calling `project_points`. The default constructor
-uses the census job stocks.
+The scenario CLI and HTTP server use L9 by default. Set
+`SANTIAGO_STATION_JOB_WEIGHTS=april-transport` on the engine process at startup
+to use the April projection for its baseline and subsequent scenarios.
+`summary.station_job_weights_file` reports `jobs.csv` for L9 and
+`jobs_2026.csv` for April. Worker counts, job stocks and job choices use the
+same Census inputs in both runs. The April constructor checks both job file hashes.
+
+To score the scenario CLI output, run these commands from the repository root.
+The scenario JSON rounds each half-hour estimate to one decimal place.
+
+```sh
+printf '[]\n' | SANTIAGO_STATION_JOB_WEIGHTS=april-transport cargo run --locked --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - |
+  jq '[.stations[] | {key: .id, value: .base_half_hour}] | from_entries' > /tmp/scenario-april-bins.json
+python3 -I tools/pack/check_score.py /tmp/scenario-april-bins.json
+```
+
+## Residents from housing permits
+
+A permit scenario combines MINVU authorized dwellings with the 2024 Census occupancy and household size of each comuna. Use a single permit year or a year range. The value is the assumed share of authorized dwellings that are both completed and additional to the starting population. The engine applies Census occupancy separately. It sums the selected years before rounding the additional residents once per comuna. The 2025 permit figures are preliminary.
+
+```sh
+printf '%s\n' '[{"kind":"residents","target":{"type":"permits","id":"2023-2025"},"op":"multiply","value":0.5}]' |
+  cargo run --locked --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - |
+  jq '{applied, not_modeled, workers_new:.summary.workers_new, boardings_base:.summary.boardings_base, boardings_scenario:.summary.boardings_scenario}'
+```
+
+The existing resident-change model distributes each comuna's additional residents across its home points and derives additional workers from its baseline commuter ratio. The single permit entry in `applied` records authorized dwellings, modeled additional residents and the assumptions. Unsupported years and shares appear in `not_modeled`. Other changes in the same request run in their original order. [Permit data](../data/mvp/building_permits.md)
+
+## Household car access and commuting
+
+Use `kind: "cars"` with a home comuna and `op: "set"` to set the share of households with access to a passenger vehicle. For example, a value of 0.4 means 40% of households. Use `multiply` for a change relative to the current scenario share. The resulting share must be between zero and one. Each request starts from the survey baseline.
+
+```sh
+printf '%s\n' '[{"kind":"cars","target":{"type":"comuna","id":"13114"},"op":"set","value":0.4}]' |
+  cargo run --locked --release --manifest-path engine/Cargo.toml --bin scenario -- data/mvp - |
+  jq '{applied, not_modeled, car_mode_changes, summary}'
+```
+
+The 2012 Santiago travel survey links household access to a passenger vehicle with the modes its members use for work trips. The model accounts for the two household groups making different numbers of work trips. It adjusts public, car and other mode choices for each home–work comuna pair. Read the final counts from the scenario to see the realized change. The factors describe a survey association. The estimate includes households with access to borrowed, rented or company vehicles.
+
+Three comunas have enough household data to estimate local access to a car, but use regional travel rates and mode shares because one trip group has fewer than 30 observations. Seven comunas have no survey rows and use regional estimates for both. The station projection keeps its baseline public-transport weights for this experiment. [Survey groups, sources and coverage](../data/mvp/eod_car_mode.md)

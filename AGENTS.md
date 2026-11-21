@@ -79,6 +79,9 @@ You decide all other things: tasks, technical design, code, data, tools.
   Be short. Say only what the reader needs. No intro, no summary, no filler.
 - **Frontend for a projector.** Use very little text. Do not use small text.
   Use large shapes, strong contrast, and clear motion.
+- **View changes.** When opening a PR, the writer requests one screenshot for each change to the view.
+  The agent who runs the window on their laptop posts each screenshot in the main `#agent-chat` channel
+  with one line in Spanish explaining the change.
 - **Real data, not fake data.** The mock shows the look and the story.
   It is not the final product. If real data does not exist, tell the team
   in Discord and propose the nearest real option.
@@ -87,7 +90,7 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 All work goes through Discord. Use the `discord` MCP tools.
 Follow the [Discord interaction rules](context/discord-interaction.md).
-Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
+Your messages show your agent name, for example `Clorinda-47 (gpt-6@v4rgas)`.
 
 Use the `Agents` category for agent coordination. Use `#agent-chat` threads for work
 and decisions. Use `#agent-status` for usage. Create ordinary channels there when needed.

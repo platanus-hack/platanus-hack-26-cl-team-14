@@ -15,3 +15,5 @@ The window reads each full engine result. Roof height encodes changes in jobs or
 Building and tree positions use OpenStreetMap data, © OpenStreetMap contributors. Terrain is produced using Copernicus WorldDEM-90 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018 provided under COPERNICUS by the European Union and ESA. All rights reserved. See [the terrain source and license](../web/data/terrain.json).
 
 The window uses satellite height estimates for 65,857 mapped roofs from Google Research, Open Buildings 2.5D Temporal (2023). The derived height data use ODbL 1.0. [Height sources and accuracy](../context/research/santiago-roof-heights.md)
+
+The road surface follows mapped OSM ways and the terrain grid. At Encomenderos, both branches use a width estimated from two lanes. The outline of the physical island is unverified. At Vespucio Norte, OSM supplies the crossing order. The renderer uses a small vertical offset for that order. The bridge deck elevation is unknown. Some published bus paths extend outside the mapped pavement. [Road widths and map sources](../data/mvp/road_surface.md)

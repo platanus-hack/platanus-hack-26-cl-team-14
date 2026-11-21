@@ -20,6 +20,7 @@ PLACES = [
     ("uchile_casa_central", "Casa Central Universidad de Chile", "way/25018684", -70.6509537, -33.4445568, (-33.4448965, -33.4442215, -70.6514443, -70.6504662)),
     ("la_moneda", "Palacio de La Moneda", "relation/394238", None, None, None),
     ("estadio_nacional", "Estadio Nacional", "way/28092600", None, None, None),
+    ("monumental", "Estadio Monumental David Arellano (Colo-Colo)", "relation/14111047", -70.6059663, -33.5065368, (-33.5077331, -33.5052764, -70.6072014, -70.6047607)),
     ("movistar_arena", "Movistar Arena (Santander Arena)", "way/32864171", None, None, None),
 ]
 
