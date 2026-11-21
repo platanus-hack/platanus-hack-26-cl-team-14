@@ -1,5 +1,9 @@
+mod choice;
 mod city;
 mod event;
+mod population;
+mod rechoose;
+mod scenario;
 mod site;
 mod stations;
 
@@ -73,6 +77,7 @@ struct SiteHttpResponse {
 struct Core {
     latest: std::sync::Mutex<(u64, serde_json::Value)>,
     scenario_events: tokio::sync::watch::Sender<serde_json::Value>,
+    scenario: scenario::Scenario,
     baseline: World,
     pairs: Vec<(usize, usize)>,
     site: site::SiteModel,
@@ -90,6 +95,11 @@ struct Core {
 enum ScenarioRequest {
     Shared { changes: Vec<ZoneChange> },
     Legacy(ZoneChange),
+}
+
+#[derive(Deserialize)]
+struct GeneralScenarioRequest {
+    changes: Vec<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -255,6 +265,7 @@ impl Core {
             event_model: event::EventModel::new(directory),
             latest: std::sync::Mutex::new((0, serde_json::Value::Null)),
             scenario_events: tokio::sync::watch::channel(serde_json::Value::Null).0,
+            scenario: scenario::Scenario::load(directory),
         }
     }
 
@@ -291,14 +302,24 @@ impl Core {
             })
             .unwrap())
         } else {
-            let mut latest = self.latest.lock().unwrap();
-            let mut result = serde_json::to_value(result).unwrap();
-            result["revision"] = serde_json::json!(latest.0 + 1);
-            *latest = (latest.0 + 1, result.clone());
-            self.scenario_events.send_replace(result.clone());
-            Ok(result)
+            Ok(self.publish(serde_json::to_value(result).unwrap()))
         }
     }
+
+    fn publish(&self, mut result: serde_json::Value) -> serde_json::Value {
+        let mut latest = self.latest.lock().unwrap();
+        result["revision"] = serde_json::json!(latest.0 + 1);
+        *latest = (latest.0 + 1, result.clone());
+        self.scenario_events.send_replace(result.clone());
+        result
+    }
+}
+
+async fn general_scenario(
+    State(core): State<Arc<Core>>,
+    Json(request): Json<GeneralScenarioRequest>,
+) -> Json<serde_json::Value> {
+    Json(core.publish(core.scenario.run(&request.changes)))
 }
 
 async fn scenario_events(
@@ -468,6 +489,7 @@ async fn main() {
         .route("/api/station-scenario", post(station_scenario))
         .route("/api/event-scenario", post(event_scenario))
         .route("/api/scenario-events", get(scenario_events))
+        .route("/api/scenario", post(general_scenario))
         .layer(CorsLayer::permissive())
         .with_state(core);
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
