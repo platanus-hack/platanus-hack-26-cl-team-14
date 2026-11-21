@@ -153,6 +153,19 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
 /// The frozen parts of a fit that a scenario reuses: baseline classes, profiles, scale, radius, mode shares.
 pub struct Fit { class: Vec<usize>, p: Vec<Vec<f64>>, a: f64, radius: f64, share: HashMap<String, (f64, f64)>, public_share: bool, split: bool, inverse: bool }
 
+/// Block-level stocks of a scenario for `StationModel::project`.
+#[derive(Deserialize, Default)]
+pub struct BlockStock {
+    #[serde(default)] pub population: HashMap<String, f64>,
+    #[serde(default)] pub jobs: HashMap<String, f64>,
+    /// (cut, longitude, latitude, population)
+    #[serde(default)] pub new_homes: Vec<(String, f64, f64, f64)>,
+}
+#[derive(Deserialize)]
+struct BlockId { block_id: String, cut: String, longitude: f64, latitude: f64, population: f64 }
+#[derive(Deserialize)]
+struct JobId { block_id: String, cut: String, longitude: f64, latitude: f64, jobs: f64 }
+
 const MUT_BLOCK: &str = "13114131009033";
 const MUT_CUT: &str = "13114";
 
@@ -194,6 +207,7 @@ struct JobRow { block_id: String, longitude: f64, latitude: f64, jobs: f64 }
 /// The accepted station model, fitted once with the arguments of `station_score_run.json`.
 pub struct StationModel {
     st: Vec<Station>, base: Vec<Vec<f64>>, fit: Fit, layer: String, args: Vec<String>, wape_bins: Option<f64>,
+    blocks: Vec<(String, String, f64, f64, f64)>, jobs: Vec<(String, String, f64, f64, f64)>,
     mut_point: (f64, f64), mut_jobs: f64, commuters_per_resident: f64, home_public_share: f64, job_public_factor: f64,
 }
 
@@ -239,12 +253,65 @@ impl StationModel {
         }
         let pop = rows::<Commune>(&data.join("communes.csv")).into_iter().find(|c| c.cut == MUT_CUT).unwrap().population;
         let row = rows::<JobRow>(&data.join("jobs.csv")).into_iter().find(|j| j.block_id == MUT_BLOCK).unwrap();
+        let blocks = rows::<BlockId>(&data.join("blocks.csv")).into_iter().map(|b| (b.block_id, b.cut, b.longitude, b.latitude, b.population)).collect();
+        let jobs = rows::<JobId>(&data.join("jobs.csv")).into_iter().map(|j| (j.block_id, j.cut, j.longitude, j.latitude, j.jobs)).collect();
         StationModel {
-            layer: art.layer, args: art.stations_args, wape_bins: same.then_some(art.wape_bins),
+            layer: art.layer, args: art.stations_args, wape_bins: same.then_some(art.wape_bins), blocks, jobs,
             mut_point: (row.longitude, row.latitude), mut_jobs: row.jobs, commuters_per_resident: out / pop,
             home_public_share: m(MUT_CUT), job_public_factor: inb_w / inb, st, base, fit,
         }
     }
+
+    /// Station boardings for any RM-internal OD flows `(origin_cut, destination_cut, workers)`, through the frozen
+    /// fit: only the home and job masses are recomputed (same public share, point split and 1/d shares); scale,
+    /// classes and profiles stay those of the baseline fit. With the baseline `work_od.csv` flows, in file order,
+    /// it returns the baseline predictions exactly. On changed flows it is a projection, not a validated forecast.
+    /// `stock` holds the block-level state of the same scenario: a block's new population or jobs replaces the file
+    /// value (the weight that splits its comuna's mass), and `new_homes` adds home points (e.g. new dwellings on a
+    /// block with no residents). Empty stock = the file weights.
+    pub fn project(&self, flows: &[(String, String, f64)], stock: &BlockStock) -> Vec<(String, String, Vec<f64>)> {
+        let (mut home, mut work) = (HashMap::new(), HashMap::new());
+        for (o, d, w) in flows {
+            if !d.starts_with("13") { continue; }
+            let m = if self.fit.public_share { let (p, t) = self.fit.share[o]; p / t } else { 1.0 };
+            *home.entry(o.clone()).or_insert(0.0) += w * m;
+            *work.entry(d.clone()).or_insert(0.0) += w * m;
+        }
+        let pts = |v: &[(String, String, f64, f64, f64)], o: &HashMap<String, f64>| -> Vec<(String, f64, f64, f64)> {
+            v.iter().map(|(id, c, x, y, w)| (c.clone(), *x, *y, *o.get(id).unwrap_or(w))).collect()
+        };
+        let mut homes = pts(&self.blocks, &stock.population);
+        homes.extend(stock.new_homes.iter().cloned());
+        let mut dist = Vec::new();
+        let (h, _) = mass(&self.st, &home, &homes, self.fit.radius, self.fit.split, self.fit.inverse, &mut dist);
+        let (j, _) = mass(&self.st, &work, &pts(&self.jobs, &stock.jobs), self.fit.radius, self.fit.split, self.fit.inverse, &mut dist);
+        self.st.iter().enumerate().map(|(i, s)| {
+            let p = &self.fit.p[self.fit.class[i]];
+            (s.id.clone(), s.name.clone(), (0..48).map(|t| p[t] * if t < 24 { h[i] } else { j[i] } * self.fit.a).collect())
+        }).collect()
+    }
+
+    /// Station boardings from home and job masses already placed on points `(longitude, latitude, mass)`, e.g.
+    /// aggregated from a person-level state, through the same 1/d shares and the frozen scale, classes and profiles.
+    pub fn project_points(&self, homes: &[(f64, f64, f64)], jobs: &[(f64, f64, f64)]) -> Vec<(String, String, Vec<f64>)> {
+        let place = |pts: &[(f64, f64, f64)]| {
+            let mut m = vec![0.0; self.st.len()];
+            for &(x, y, v) in pts {
+                if v == 0.0 { continue; }
+                let (near, tot) = parents_in_reach(&self.st, x, y, self.fit.radius, self.fit.inverse);
+                for (k, w) in near { m[k] += v * w / tot; }
+            }
+            m
+        };
+        let (h, j) = (place(homes), place(jobs));
+        self.st.iter().enumerate().map(|(i, s)| {
+            let p = &self.fit.p[self.fit.class[i]];
+            (s.id.clone(), s.name.clone(), (0..48).map(|t| p[t] * if t < 24 { h[i] } else { j[i] } * self.fit.a).collect())
+        }).collect()
+    }
+
+    /// The mode-2 share of a home comuna in the fit (L2), for weighting persons the way the fit weighted flows.
+    pub fn public_share(&self, cut: &str) -> f64 { if self.fit.public_share { let (p, t) = self.fit.share[cut]; p / t } else { 1.0 } }
 
     /// MUT only: new dwellings become home mass, removed jobs leave job mass, both at the MUT jobs row,
     /// through the frozen fit. The MUT parent is always returned; at zero change both arrays are equal.
