@@ -24,9 +24,11 @@ pub(super) fn canopies() -> Image {
             let noise = (hash.wrapping_mul(hash ^ 0x85ebca6b) >> 24) as f32 / 255.;
             let density = 0.25 + 0.38 * (0.5 * u + 0.5) + 0.15 * (v + 0.4).max(0.);
             let texel = if radius < edge && noise < density {
-                [72, 78, 145, 255]
+                [48, 111, 69, 255]
+            } else if radius < edge - 0.08 {
+                [128, 177, 137, 255]
             } else if u.abs() < 0.045 && y > SIDE / 2 {
-                [66, 72, 116, 255]
+                [68, 92, 80, 255]
             } else {
                 [0, 0, 0, 0]
             };

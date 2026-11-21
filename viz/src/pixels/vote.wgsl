@@ -1,4 +1,4 @@
-// Print the opaque scene in blue ink. Scenario edits draw over the print.
+// Print the opaque scene in categorical inks. Scenario edits draw over the print.
 @group(0) @binding(0) var scene: texture_2d<f32>;
 @group(0) @binding(1) var depth: texture_depth_2d;
 
@@ -41,7 +41,8 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
     let dx = vec2<i32>(1,0);
     let dy = vec2<i32>(0,1);
     let crease = depth_line(z, z_at(p-dx), z_at(p+dx)) || depth_line(z, z_at(p-dy), z_at(p+dy));
-    let l = light(p);
+    let rgb = textureLoad(scene, p, 0).rgb;
+    let l = dot(rgb, vec3<f32>(.30,.55,.15));
     // One-sided contrast also traces coplanar material boundaries such as curbs.
     let boundary = max(light(p+dx), light(p+dy)) - l > .09;
     let grid = vec2<u32>(p) / 2u;
@@ -56,7 +57,25 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
         level = u32(clamp(7. + value*6.2 + rank, 0., 13.));
         outline = select(5u, 3u, crease);
     }
-    return vec4<f32>(ink(select(level, outline, crease || boundary)), 1.);
+    let shade = select(level, outline, crease || boundary);
+    let base = ink(shade);
+    let v = dot(base, vec3<f32>(.30,.55,.15));
+    // Preserve material hue through the lightness quantization. The source water
+    // is cyan-blue, distinct from the violet building ink under both lights.
+    var color = base;
+    // The unlit actor marks carry their own palette through the print pass.
+    if distance(rgb, vec3<f32>(.1651, .0595, .1779)) < .008 {
+        color = rgb;
+    } else if distance(rgb, vec3<f32>(.0080, .0704, .0931)) < .008 {
+        color = rgb;
+    } else if rgb.g > 1.18*rgb.r && rgb.g > 1.05*rgb.b {
+        color = select(vec3<f32>(.48,.74,.53), vec3<f32>(.65,1.25,.80), dark) * v;
+    } else if rgb.g > 1.9*rgb.r && rgb.b > 1.25*rgb.g {
+        color = vec3<f32>(.32, .67, .95) * v;
+    } else if max(max(rgb.r,rgb.g),rgb.b) - min(min(rgb.r,rgb.g),rgb.b) < .20*max(l,.001) {
+        color = vec3<f32>(.90, .92, .94) * v;
+    }
+    return vec4<f32>(color, 1.);
 }
 
 @fragment fn day(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {

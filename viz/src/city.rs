@@ -487,17 +487,17 @@ pub(crate) fn paper_light(
     };
     let dark = night.0 && !mode.0;
     sun.illuminance = if dark { 1700. } else { 12_000. };
-    sun.color = if dark { Color::srgb_u8(157, 181, 255) } else { Color::srgb_u8(255, 245, 231) };
+    sun.color = if dark { Color::srgb_u8(184, 184, 190) } else { Color::srgb_u8(255, 245, 231) };
     ambient.brightness = if dark { 300. } else { 950. };
-    ambient.color = if dark { Color::srgb_u8(147, 161, 223) } else { Color::srgb_u8(226, 228, 255) };
+    ambient.color = if dark { Color::srgb_u8(164, 164, 173) } else { Color::srgb_u8(226, 228, 255) };
     let (street, _) = &layers.materials[2];
     materials.get_mut(street).unwrap().emissive = if dark {
-        LinearRgba::rgb(0.07, 0.09, 0.15)
+        LinearRgba::rgb(0.13, 0.14, 0.15)
     } else {
         LinearRgba::BLACK
     };
     materials.get_mut(&buildings.facade_material).unwrap().emissive = if dark {
-        LinearRgba::rgb(2.6, 1.65, 0.55)
+        LinearRgba::rgb(1.4, 1.15, 0.84)
     } else {
         LinearRgba::BLACK
     };

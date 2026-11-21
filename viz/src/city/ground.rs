@@ -10,8 +10,8 @@ type GroundTiles = BTreeMap<(i32, i32), Surface>;
 
 // Half-widths are cartographic line widths in metres.
 // Ink on paper: blue-violet ink, light paper, strong blue water (Emerson, V2 thread).
-const GRASS: Color4 = [0.485, 0.651, 0.624, 1.];
-const WATER: Color4 = [0.047, 0.159, 0.672, 1.];
+const GRASS: Color4 = [0.24, 0.54, 0.29, 1.];
+const WATER: Color4 = [0.025, 0.36, 0.77, 1.];
 const STONE: Color4 = [0.584, 0.558, 0.791, 1.];
 const ROOF: Color4 = [0.270, 0.238, 0.584, 1.];
 
@@ -108,10 +108,10 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
             "surface_parking" => [0.434, 0.423, 0.631, 1.],
             "parking_unspecified" => [0.497, 0.485, 0.687, 1.],
             "brownfield" => [0.651, 0.624, 0.768, 1.],
-            "greenfield" => [0.558, 0.687, 0.644, 1.],
-            "wood" => [0.275, 0.434, 0.402, 1.],
-            "scrub" | "heath" | "nature_reserve" => [0.392, 0.539, 0.515, 1.],
-            "grass" | "meadow" | "grassland" => [0.445, 0.617, 0.578, 1.],
+            "greenfield" => [0.32, 0.61, 0.36, 1.],
+            "wood" => [0.12, 0.34, 0.17, 1.],
+            "scrub" | "heath" | "nature_reserve" => [0.19, 0.42, 0.24, 1.],
+            "grass" | "meadow" | "grassland" => [0.22, 0.50, 0.27, 1.],
             _ => GRASS,
         };
         let rings = open_rings(&feature["geometry"]["coordinates"]);
@@ -167,7 +167,7 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
                 &points,
                 half_width,
                 crate::city::road_surface_lift(props["layer"].as_i64().unwrap() as i32) + 0.08,
-                [0.235, 0.223, 0.462, 1.],
+                [0.18, 0.19, 0.20, 1.],
             );
         }
     }

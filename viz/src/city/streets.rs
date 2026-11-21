@@ -39,10 +39,10 @@ pub(super) fn load(path: &Path) -> impl Iterator<Item = Mesh> {
             continue;
         }
         let (color, extra_lift) = match p.road_use.as_str() {
-            "sidewalk" => ([0.694, 0.680, 0.855, 1.], 0.03),
-            "foot" => ([0.565, 0.546, 0.791, 1.], 0.02),
-            "cycle" => ([0.397, 0.381, 0.672, 1.], 0.01),
-            _ => ([0.323, 0.309, 0.584, 1.], 0.),
+            "sidewalk" => ([0.66, 0.67, 0.68, 1.], 0.03),
+            "foot" => ([0.47, 0.48, 0.49, 1.], 0.02),
+            "cycle" => ([0.30, 0.31, 0.32, 1.], 0.01),
+            _ => ([0.18, 0.19, 0.20, 1.], 0.),
         };
         let rings = road
             .geometry
