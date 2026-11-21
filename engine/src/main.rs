@@ -1,6 +1,9 @@
+mod site;
+
 use axum::{
     Json, Router,
     extract::State,
+    http::StatusCode,
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
@@ -74,6 +77,8 @@ struct World {
 struct Core {
     baseline: World,
     pairs: Vec<(usize, usize)>,
+    site: site::SiteModel,
+    site_destinations: Vec<(String, f64)>,
 }
 
 #[derive(Deserialize)]
@@ -159,6 +164,15 @@ impl Core {
                 workers: f.workers,
             });
         }
+        let site_destinations = flows
+            .iter()
+            .filter(|flow| flow.origin == "13114")
+            .map(|flow| (flow.destination.clone(), flow.workers))
+            .collect();
+        let observations: site::ObservationData = serde_json::from_reader(
+            std::fs::File::open(directory.join("tobalaba_observations.json")).unwrap(),
+        )
+        .unwrap();
         Self {
             baseline: World {
                 metadata: Metadata {
@@ -198,6 +212,8 @@ impl Core {
                 flows,
             },
             pairs,
+            site: site::SiteModel::new(observations).unwrap(),
+            site_destinations,
         }
     }
 
@@ -264,6 +280,21 @@ impl Core {
     }
 }
 
+async fn site_scenario(
+    State(core): State<Arc<Core>>,
+    Json(request): Json<site::SiteRequest>,
+) -> Result<Json<site::SiteResponse>, (StatusCode, Json<serde_json::Value>)> {
+    core.site
+        .simulate(request, &core.site_destinations)
+        .map(Json)
+        .map_err(|error| {
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(serde_json::json!({ "error": error })),
+            )
+        })
+}
+
 #[tokio::main]
 async fn main() {
     let mut args = std::env::args().skip(1);
@@ -283,6 +314,7 @@ async fn main() {
                 },
             ),
         )
+        .route("/api/site-scenario", post(site_scenario))
         .layer(CorsLayer::permissive())
         .with_state(core);
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))

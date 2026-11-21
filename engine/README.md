@@ -22,7 +22,7 @@ An optional second argument changes the port for an independent run:
 cargo run --release --manifest-path engine/Cargo.toml -- /path/to/real-data 8788
 ```
 
-It reads both CSV files once at startup. Each scenario starts from the observed baseline.
+It reads the CSV files and `tobalaba_observations.json` once at startup. Each scenario starts from the observed baseline.
 
 ## Inputs
 
@@ -48,6 +48,8 @@ No personal records enter the core.
 
 Both inputs use INE Census 2024. Work OD records the usual work location, not observed trips on a specific day.
 Commune coordinates are polygon centroids; they do not locate individual homes or workplaces.
+`tobalaba_observations.json` supplies the station and weekday observation rows for the site model.
+The canonical file contains DTPM April 2026 boardings and a reviewed GTFS station crosswalk.
 
 ## HTTP contract
 
@@ -97,6 +99,47 @@ Coverage stays fixed across scenarios because it describes the observed source, 
 `workers`, `jobs`, and `summary.total_workers` count included RM-to-RM commuters only.
 They do not count all employed residents. The first model omits external commuting; it does not assert that external commuting is zero.
 
+## Site scenario route
+
+`POST /api/site-scenario` calls the existing `site.rs` accounting model.
+It uses only the included Las Condes origin row (`13114`) for resident work destinations.
+It leaves the commune API response shapes unchanged.
+
+The exact request shape is below. `P` means an explicit parameter object; there are no numeric defaults.
+
+```text
+P = { value: number,
+      source_kind: "observed_aggregate" | "historical_proxy" | "user_assumption",
+      source: nonempty string }
+{
+  station_id: "TB-TOB", comuna_cut: "13114",
+  longitude: -70.6009, latitude: -33.4180,
+  baseline_jobs: P, baseline_dwellings: P, jobs_removed: P, dwellings_added: P,
+  parameters: {
+    occupied_share: P, persons_per_occupied_dwelling: P,
+    known_commuters_per_resident: P, attendance_home: P, attendance_work: P,
+    filled_job_share: P, metro_entry_share_home: P, metro_entry_share_work: P,
+    access_share_home: P, access_share_work: P, maximum_access_distance_m: P
+  },
+  time_profile: "observed_am_06_10_pm_16_21",
+  population_policy: "local_increment_unbalanced"
+}
+```
+
+Successful responses contain the station, parameter provenance in `request`, scope labels, entrance distance,
+and 48-bin arrays: `observed`, `base`, `scenario`, `delta`, `site_base`, `site_scenario`, `home_delta`, and `work_delta`.
+Bins are local half-hours. Missing observations stay `null` across these arrays.
+`flows` contains expected resident work departures by destination commune, not observed point OD or routed train loads.
+The response reports baseline/scenario residents and home departures separately.
+Its `elapsed_ms` measures module computation and response-data allocation, excluding HTTP parsing and serialization.
+
+Model errors return HTTP 422 with `{"error":"reason"}`. Missing or malformed JSON fields use Axum's standard parser response.
+Only the reviewed MUT point, weekday profile, and local increment policy are supported.
+This layer makes no global conservation claim. It does not scale the full observed station total by a housing or job multiplier.
+With scalar Metro/access shares, destination redistribution alone cannot change the station total.
+Occupancy, attendance, Metro use, and access shares need explicit evidence or visible assumption labels.
+Actual MUT jobs remain unverified. Comuna public-transport share is not a measured Metro share.
+
 ## Model
 
 Let `h` and `j` be the housing and job multipliers for the selected commune.
@@ -126,7 +169,7 @@ uses housing and job capacity along with prices, access, and household attribute
 Those choice inputs are absent from this contract. This core therefore uses an explicit proportional scenario assumption.
 It does not claim to implement or validate UrbanSim.
 
-## Manual check status
+## Earlier commune-only manual run
 
 Release compilation passed with Rust 1.100.0 on 2026-11-21. The latest offline rebuild took 2.02 seconds with two build jobs.
 The manual run used an Apple M4 with 16 GiB RAM, on `127.0.0.1:8788`.
@@ -155,7 +198,43 @@ Providencia population changed from 143,974 to 172,099.1965; inbound commuters c
 Those changes follow scenario assumptions; they are not observed relocation or employment changes.
 Dwelling stock increased by 15,275.2, as requested by the housing input; dwelling stock is not a conserved total.
 
-Run command: `engine/target/release/santiago-scenario-core /private/tmp/mvp-real-core-inputs 8788`.
-The manual server was PID 11794 and stopped after the run.
-The canonical owner's commune pack still needs comparison. The scene and model have not received end-to-end validation.
+This earlier run preceded site integration and used the temporary inputs noted above.
+The manual server was PID 11794 and stopped after that run.
 No fixture data or automated tests are included, as required by the repository rules.
+
+## Canonical site HTTP run
+
+The integrated release build passed in 3.06 seconds with two jobs on the same M4 host.
+Run command: `engine/target/release/santiago-scenario-core data/mvp 8788`.
+Source checkout: `9015f2deef0236edd56185a9b8afbe3200b9f12f`, with this integration change.
+Inputs are the canonical committed files. Observation SHA256:
+`218ab6f2bd4a532d329e02925312473be97cd1cb85739962e5c77e79a54ba7ea`.
+
+The illustrative request files and saved responses remain under `/private/tmp/mvp-site-http-run`.
+Every parameter is labeled `user_assumption`, with a description that it is not measured at MUT.
+Baseline jobs are an illustrative 1,000; baseline dwellings are zero.
+The changed request removes 500 of those assumed jobs and adds 200 assumed dwellings.
+Other assumed values: occupancy 0.9, persons per occupied dwelling 2.1, both attendance shares 0.8,
+filled-job share 1, both Metro shares 0.3, both access shares 0.8, and maximum distance 500 metres.
+The commuter ratio uses actual internal Las Condes origin commuters / residents:
+104,980 / 296,134 = 0.3545016782942857. Applying that aggregate ratio to new site residents is explicitly an assumption.
+
+| Request | HTTP | Module time, ms | Local HTTP time, ms |
+| --- | --- | --- | --- |
+| World | 200 | not measured | 1.659 |
+| Commune reset | 200 | separate commune computation | 1.035 |
+| Site baseline | 200 | 0.004708 | 0.397 |
+| Site changed | 200 | 0.007209 | 0.351 |
+| Site reset | 200 | 0.004125 | 0.383 |
+
+Manual JSON comparisons found identical world/reset commune data, identical site baseline/reset apart from timing,
+and unchanged observed arrays that match the canonical file. All 11 unobserved bins (00:00 through 05:00) stayed null.
+Observed boardings sum to 81,612.8. The assumed changed run gives 81,542.5283:
+home contribution +25.7283, work contribution −96, net −70.2717 boardings.
+It gives 378 added residents and 107.2013 expected resident work departures across 52 destination weights.
+The nearest eligible entrance is `TB-TOB:F`, at 37.9098 metres by straight-line distance.
+The response says `global_conservation_claim=false` and `validation=accounting_only`.
+
+Unsupported comuna, negative job removal, removal above the assumed baseline, and an excessive baseline contribution
+each returned HTTP 422 with a specific JSON reason. No negative residual was silently clamped.
+Server PID 12176 stopped after the run. These are single manual requests, not a load test, causal validation, or scene review.

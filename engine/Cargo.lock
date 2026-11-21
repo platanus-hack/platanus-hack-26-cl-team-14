@@ -301,6 +301,7 @@ dependencies = [
  "axum",
  "csv",
  "serde",
+ "serde_json",
  "tokio",
  "tower-http",
 ]
