@@ -11,6 +11,7 @@ mod stations;
 mod street_people;
 use riders::{RideKey, RiderNetwork, RiderPlan, RiderState};
 use stations::Station;
+use riders::bus_load;
 
 use crate::{
     city::{Surface, terrain_from_xz, world},
@@ -587,6 +588,7 @@ enum Paint {
 
 #[derive(Resource, Default)]
 struct Replay {
+    base_bus_loads: Option<bus_load::BaseBusLoads>,
     departures: Vec<Vec<Group>>,
     platforms: Vec<Station>,
     longest: f32,
@@ -596,7 +598,8 @@ struct Replay {
 
 fn read_result(
     mut commands: Commands,
-    signs: Query<Entity, With<stations::ClosedSign>>,
+    signs: Query<Entity, With<stations::StationPin>>,
+    mut base_access: Local<Option<Value>>,
     time: Res<Time>,
     rate: Res<PlaybackRate>,
     result: Res<Scenario>,
@@ -651,6 +654,9 @@ fn read_result(
     for station in stations.iter().filter(|s| closed.contains(s["id"].as_str().unwrap())) {
         stations::spawn_closed_sign(&mut commands, station);
     }
+    for row in stations.iter().filter(|s| matches!(s["id"].as_str(), Some("TB-TOB" | "GO" | "LE-LEN"))) {
+        stations::spawn_name(&mut commands, row);
+    }
     let mut deltas = HashMap::new();
     for d in r["trips_delta"].as_array().into_iter().flatten() {
         deltas.insert(
@@ -658,6 +664,7 @@ fn read_result(
             (d[1].as_f64().unwrap(), d[2].as_u64().unwrap()),
         );
     }
+    replay.base_bus_loads = (!deltas.is_empty()).then(|| bus_load::BaseBusLoads::new(r["trips_base"].as_array().unwrap(), &routes));
     replay.departures = (0..48).map(|_| Vec::new()).collect();
     replay.longest = 0.;
     replay.revision_started = time.elapsed_secs();
@@ -739,10 +746,22 @@ fn read_result(
             },
         });
     }
+    // Old cached replays contain scenario shares only. Use the matching engine baseline
+    // when the client opens directly on a closure. A live baseline supersedes the pack.
+    let reference = base_access.get_or_insert_with(|| gzip_json("web/data/station_access_baseline.json.gz"));
+    if r["applied"].as_array().is_some_and(Vec::is_empty) {
+        for row in stations.iter().filter(|s| matches!(s["id"].as_str(), Some("GO" | "LE-LEN" | "TB-TOB"))) {
+            reference[row["id"].as_str().unwrap()] = serde_json::json!({"bins": row["base_half_hour"], "origins": row["access_origins"]});
+        }
+    }
     replay.platforms = stations
         .iter()
         .filter(|station| routes.entrances.contains_key(station["id"].as_str().unwrap()))
-        .map(|station| Station::new(station, &routes))
+        .map(|row| {
+            let packed = &reference[row["id"].as_str().unwrap()];
+            let origins = row.get("base_access_origins").or_else(|| (packed["bins"] == row["base_half_hour"]).then(|| &packed["origins"]));
+            Station::new(row, origins, &routes)
+        })
         .collect();
 }
 
@@ -753,6 +772,9 @@ enum Model {
     Bus,
     BusTail,
     BusJoint,
+    BusInterior,
+    BusPassenger,
+    StationEntries,
     Bike,
     Person,
     Walking(u8),
@@ -887,6 +909,9 @@ fn setup(
         (Model::Bike, include_bytes!("../assets/bicycle.png"), 16),
     ];
     let models = [
+        (Model::BusInterior, bus_load::interior_mesh(), None),
+        (Model::BusPassenger, bus_load::passenger_mesh(), None),
+        (Model::StationEntries, street_people::entry_disc(), None),
         (Model::Person, motion::pedestrian(None, ink), None),
         (Model::BusJoint, shape((-2..=2).map(|i| {
             block([0.22, 2.45, 2.45], [i as f32 * 0.21, 1.5, 0.], if i % 2 == 0 { GLASS } else { [70, 78, 82] })
@@ -934,7 +959,7 @@ fn setup(
             (Paint::Rerouted, [144, 217, 255]),
         ] {
             let sprite = texture.is_some();
-            let person_ink = ink && matches!(model, Model::Person | Model::Walking(_));
+            let person_ink = (ink && matches!(model, Model::Person | Model::Walking(_))) || matches!(model, Model::StationEntries | Model::BusPassenger);
             let accent = ink && tint != Paint::Plain;
             let color = if accent {
                 Color::linear_rgb(0.85, 0.13, 0.09)
@@ -948,7 +973,7 @@ fn setup(
                 mats.add(StandardMaterial {
                     base_color: color,
                     base_color_texture: texture.clone(),
-                    unlit: sprite || person_ink || accent || model == Model::CarChange,
+                    unlit: sprite || person_ink || accent || matches!(model, Model::CarChange | Model::BusInterior),
                     alpha_mode: if person_ink || accent {
                         AlphaMode::Blend
                     } else if sprite {
@@ -1178,7 +1203,8 @@ fn draw(
                         }
                         Some(RiderState::Riding(RideKey::Surface { template, start })) => {
                             let key = (template, start + bin.div_euclid(48) * DAY as i32);
-                            let applied = surface_load.entry(key).or_insert(Paint::Plain);
+                            let (applied, count) = surface_load.entry(key).or_insert((Paint::Plain, 0));
+                            if !matches!(g.lifecycle, Life::Leave) { *count += 1; }
                             if paint != Paint::Plain {
                                 *applied = paint;
                             }
@@ -1258,7 +1284,7 @@ fn draw(
             }
         }
     }
-    for ((template, start), paint) in surface_load {
+    for ((template, start), (paint, count)) in surface_load {
         if let Some((p, dir, kind)) = routes.riders.surface_pose(template, start, now) {
             if visible(p, 100.) {
                 let model = if kind == Vehicle::Rail {
@@ -1269,6 +1295,10 @@ fn draw(
                 let scale = size_at(p);
                 let front = p + right(dir) * 1.6 + Vec3::Y * 0.25;
                 place(model, paint, pose(front, dir, Vec3::splat(scale)));
+                if kind == Vehicle::Bus && count > 0 {
+                    let base = replay.base_bus_loads.as_ref().map_or(count, |loads| loads.count(template, start, now));
+                    bus_load::draw(count, base, front, dir, scale, &mut place);
+                }
                 if let Some((rear, rear_dir)) = routes.riders.bus_rear(template, start, now, p, dir) {
                     let hinge = front - dir * BUS_FRONT_TO_HINGE * scale;
                     place(Model::BusTail, paint, pose(front + (rear - p) * scale, rear_dir, Vec3::splat(scale)));
@@ -1306,7 +1336,7 @@ fn draw(
         }
     }
     for station in &replay.platforms {
-        station.draw(now, subway.0, eye, &visible, &mut place);
+        station.draw(now, subway.0, eye, rig.distance, &visible, &mut place);
     }
     for batch in pool.0.values() {
         for &id in &batch.entities[batch.used..] {
