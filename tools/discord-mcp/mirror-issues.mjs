@@ -16,9 +16,9 @@ const lock = createServer(socket => socket.destroy());
 await new Promise((resolve, reject) => lock.once("error", reject).listen(43872, "127.0.0.1", resolve));
 
 mkdirSync(directory, { recursive: true, mode: 0o700 });
-const start = Date.now();
+const start = Math.floor(Date.now() / 1000) * 1000;
 const state = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {
-  start, cursor: start, seen: {}, threads: {}, batches: [], sending: null,
+  start, cursor: start, seen: {}, threads: {}, batches: [],
 };
 function save() {
   writeFileSync(file + ".next", JSON.stringify(state), { mode: 0o600 });
@@ -54,10 +54,10 @@ function makeBatches(events) {
 }
 
 // After an uncertain send, check Discord history before repeating the saved batch.
-async function send(channel, content, key) {
+async function send(batch, channel, content, key) {
   const nonce = createHash("sha256").update(key).digest("hex").slice(0, 24);
-  if (state.sending) {
-    let after = state.sending;
+  if (batch.sending) {
+    let after = batch.sending;
     for (;;) {
       const page = await discord(`/channels/${channel}/messages?after=${after}&limit=100`);
       const found = page.find(m => m.author.id === botId && m.content === content);
@@ -66,7 +66,7 @@ async function send(channel, content, key) {
       after = page.reduce((id, m) => BigInt(m.id) > BigInt(id) ? m.id : id, after);
     }
   } else {
-    state.sending = ((BigInt(Date.now() - 60_000) - 1420070400000n) << 22n).toString();
+    batch.sending = ((BigInt(Date.now() - 60_000) - 1420070400000n) << 22n).toString();
     save();
   }
   const message = await discord(`/channels/${channel}/messages`, {
@@ -78,9 +78,9 @@ async function send(channel, content, key) {
 async function deliver(batch) {
   let thread = state.threads[batch.number];
   if (!thread) {
-    const anchor = await send(parent, `GitHub · <${issueBase}${batch.number}>`, `issue:${batch.number}`);
+    const anchor = await send(batch, parent, `GitHub · <${issueBase}${batch.number}>`, `issue:${batch.number}`);
     thread = state.threads[batch.number] = { id: anchor, ready: false };
-    state.sending = null;
+    batch.sending = null;
     save();
   }
   if (!thread.ready) {
@@ -92,9 +92,8 @@ async function deliver(batch) {
     thread.ready = true;
     save();
   }
-  await send(thread.id, batch.content, batch.keys.join(","));
-  state.batches.shift();
-  state.sending = null;
+  await send(batch, thread.id, batch.content, batch.keys.join(","));
+  state.batches.splice(state.batches.indexOf(batch), 1);
   save();
 }
 
@@ -102,17 +101,24 @@ let botId;
 for (;;) {
   try {
     botId ??= (await discord("/users/@me")).id;
-    if (!state.batches.length) {
-      const since = Math.max(state.start, state.cursor - minute);
-      const until = Date.now();
-      const events = await issueActivity(new Date(since).toISOString(), new Date(until).toISOString());
-      state.seen = Object.fromEntries(Object.entries(state.seen).filter(([, at]) => at >= since));
-      state.batches = makeBatches(events);
-      state.cursor = until;
-      save();
-    }
-    while (state.batches.length) {
-      await deliver(state.batches[0]);
+    const since = Math.max(state.start, state.cursor - minute);
+    const until = Date.now();
+    const events = await issueActivity(new Date(since).toISOString(), new Date(until).toISOString());
+    state.seen = Object.fromEntries(Object.entries(state.seen).filter(([, at]) => at >= since));
+    state.batches.push(...makeBatches(events));
+    state.cursor = until;
+    save();
+
+    const blocked = new Set();
+    for (const batch of [...state.batches]) {
+      if (blocked.has(batch.number)) continue;
+      try {
+        await deliver(batch);
+      } catch (error) {
+        if (!error.discordCode) throw error;
+        blocked.add(batch.number);
+        console.error(`Issue #${batch.number} will retry: Discord ${error.discordCode}`);
+      }
       await sleep(1000);
     }
   } catch (error) {
