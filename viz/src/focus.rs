@@ -39,12 +39,27 @@ pub(super) fn select(
     scenario: Res<Scenario>,
     mut rig: ResMut<Rig>,
     mut previous_scene: Local<Option<u64>>,
+    mut previous_requests: Local<Vec<Value>>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
     if rig.fixed {
         return;
     }
     let result = &scenario.0;
+    rig.event_focus = None;
+    // Snapshots contain every applied request, including requests from the previous revision.
+    let mut retained = std::mem::take(&mut *previous_requests);
+    let mut added = Vec::new();
+    for change in result["applied"].as_array().into_iter().flatten() {
+        let mut request = change.clone();
+        request.as_object_mut().unwrap().remove("understood");
+        if let Some(index) = retained.iter().position(|old| *old == request) {
+            retained.swap_remove(index);
+        } else {
+            added.push(change);
+        }
+        previous_requests.push(request);
+    }
     let scene = &result["scene"];
     if let Some(revision) = scene["revision"].as_u64() {
         if *previous_scene != Some(revision) {
@@ -67,20 +82,22 @@ pub(super) fn select(
     }
     *previous_scene = None;
     let aspect = window.width() / window.height().max(1.);
-    if let Some((target, distance)) = result["applied"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .rev()
-        .find_map(|change| change_shot(result, change, aspect))
-    {
-        rig.fly_to(target, distance);
-        info!(
-            "Camera scenario {} at {:?}, distance {distance} m",
-            result["revision"], target
-        );
-    } else {
-        rig.flight = None;
+    for change in added.into_iter().rev() {
+        if change["kind"] == "event"
+            && let Some(venue) = shot_position(&change["target"])
+        {
+            // The event renderer has the mapped exit needed to frame the crowd.
+            rig.event_focus = Some(venue);
+            return;
+        }
+        if let Some((target, distance)) = change_shot(result, change, aspect) {
+            rig.fly_to(target, distance);
+            info!(
+                "Camera scenario {} at {:?}, distance {distance} m",
+                result["revision"], target
+            );
+            return;
+        }
     }
 }
 
