@@ -1,22 +1,23 @@
 //! Match attendance from a fixed fan base. The fans live where they live, whatever the venue:
-//! a comuna sends attendees in proportion to its Census 2024 population. Moving the venue changes
+//! a comuna sends attendees in proportion to its Census 2024 population × its Colo-Colo share (fan_base.csv). Moving the venue changes
 //! how they travel (the commute mode logit of choice.rs for the pair home comuna → venue comuna), not who they are.
 use crate::choice::{Choice, shares};
 use serde_json::{Value, json};
 use std::path::Path;
 
 pub const ASSUMPTIONS: [&str; 3] = [
-    "Fan base: attendees come from every comuna in proportion to its Census 2024 population. Colo-Colo has about 45–49% of fans in Greater Santiago (GfK Adimark 2017–2018); the share by socioeconomic group (Cadem 2024: 24% C1 to 49% D/E) is not applied yet.",
+    "Fan base: a comuna sends attendees in proportion to population × Colo-Colo share. The share mixes Cadem 2024 support by group (C1 24%, C2 38%, C3 39%, D/E 49%) with the education of Census 2024 household heads as the group proxy (fan_base.csv).",
     "The same fans go to the match at any venue; the attendance does not fall with travel time.",
     "Mode to the match = the commute mode shares of the pair home comuna → venue comuna (Census 2024 calibration). Weekend service and parking at the venue are not modeled.",
 ];
 
-pub struct Fans { population: Vec<f64> }
+pub struct Fans { population: Vec<f64> } // fans by comuna
 
 impl Fans {
     pub fn load(dir: &Path) -> Self {
-        let population = csv::Reader::from_path(dir.join("communes.csv")).unwrap().records()
-            .map(|r| r.unwrap()[2].parse().unwrap()).collect();
+        let col = |file: &str, i: usize| -> Vec<f64> { csv::Reader::from_path(dir.join(file)).unwrap().records().map(|r| r.unwrap()[i].parse().unwrap()).collect() };
+        // Both files list the comunas in the order of communes.csv.
+        let population = col("communes.csv", 2).iter().zip(col("fan_base.csv", 6)).map(|(p, s)| p * s).collect();
         Fans { population }
     }
 
