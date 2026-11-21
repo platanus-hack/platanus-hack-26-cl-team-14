@@ -1,7 +1,10 @@
 //! Weighted groups travel between a venue and the general direction of their comuna.
 //! The geometry and playback duration are schematic. The result supplies the counts.
 use super::*;
-use crate::{Rig, city::SubwayView};
+use crate::{
+    Rig,
+    city::{StadiumSeating, SubwayView},
+};
 use bevy::{text::FontSize, time::Real};
 
 const PHASE_SECONDS: f32 = 10.;
@@ -42,13 +45,26 @@ struct Caption;
 struct Group {
     venue: usize,
     mode: usize,
-    from: Vec3,
-    to: Vec3,
+    path: GroupPath,
     delay: f32,
+}
+
+enum GroupPath {
+    Local {
+        from: Vec3,
+        to: Vec3,
+    },
+    Stadium {
+        entrance: f32,
+        seat_turn: f32,
+        row: f32,
+        approach: f32,
+    },
 }
 
 struct Event {
     center: Vec3,
+    stadium: Option<Entity>,
     end: f32,
     started: f32,
     captions: [String; 2],
@@ -160,6 +176,7 @@ fn spawn_groups(
     event: &Value,
     center: Vec3,
     venue: usize,
+    at_stadium: bool,
 ) -> [String; 2] {
     let fan = &event["fan_base"];
     let fans = fan["by_home"].is_array();
@@ -224,14 +241,29 @@ fn spawn_groups(
                 })
                 + scatter;
             let direction = Vec3::new(theta.sin(), 0., theta.cos());
-            let from = center + direction * (122. + 47. * (q as f32 * 23.).fract());
-            let to = center + direction * (18. + 24. * (q as f32 * 13.).fract());
+            let path = if at_stadium {
+                // Each group enters at a schematic point on the outer rim. Seats are
+                // distributed independently of home and mode; the engine supplies no seating plan.
+                let entrance = direction.z.atan2(direction.x) / std::f32::consts::TAU;
+                let rank = (boundary - n + i) as f32;
+                let seat = (rank + 0.5) * 0.618034;
+                GroupPath::Stadium {
+                    entrance,
+                    seat_turn: (seat - entrance + 0.5).rem_euclid(1.) - 0.5,
+                    row: 0.32 + 0.50 * (rank * 0.414214).fract(),
+                    approach: 34. + 37. * (q as f32 * 23.).fract(),
+                }
+            } else {
+                GroupPath::Local {
+                    from: center + direction * (122. + 47. * (q as f32 * 23.).fract()),
+                    to: center + direction * (18. + 24. * (q as f32 * 13.).fract()),
+                }
+            };
             commands.spawn((
                 Group {
                     venue,
                     mode,
-                    from,
-                    to,
+                    path,
                     delay: (i as f32 * 0.414214 + mode as f32 * 0.15).fract() * 0.49,
                 },
                 Mesh3d(art.figure.clone()),
@@ -265,6 +297,7 @@ fn refresh(
     time: Res<Time<Real>>,
     mut rig: ResMut<Rig>,
     old: Query<Entity, With<Group>>,
+    bowls: Query<(Entity, &StadiumSeating, &Transform, &Visibility)>,
 ) {
     for e in &old {
         commands.entity(e).despawn();
@@ -288,6 +321,13 @@ fn refresh(
             rig.event_focus = None;
             rig.fly_to(center, 650.);
         }
+        let stadium = bowls.iter().find_map(|(id, bowl, transform, visibility)| {
+            let local = transform
+                .compute_affine()
+                .inverse()
+                .transform_point3(center);
+            (*visibility != Visibility::Hidden && bowl.contains(local)).then_some(id)
+        });
         let captions = spawn_groups(
             &mut commands,
             &art,
@@ -295,6 +335,7 @@ fn refresh(
             row,
             center,
             playback.events.len(),
+            stadium.is_some(),
         );
         let started = previous
             .iter()
@@ -302,6 +343,7 @@ fn refresh(
             .map_or(time.elapsed_secs(), |e| e.started);
         playback.events.push(Event {
             center,
+            stadium,
             end,
             started,
             captions,
@@ -318,6 +360,7 @@ fn animate(
     subway: Res<SubwayView>,
     rig: Res<Rig>,
     mut groups: Query<(&Group, &mut Transform, &mut Visibility, &mut Mesh3d), Without<Key>>,
+    bowls: Query<(&StadiumSeating, &Transform), Without<Group>>,
     mut panel: Single<&mut Visibility, With<Key>>,
     mut caption: Single<&mut Text, With<Caption>>,
 ) {
@@ -359,22 +402,67 @@ fn animate(
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
-        let p = (t - group.delay) / 0.51;
-        if !(0.0..=1.).contains(&p) {
-            visibility.set_if_neq(Visibility::Hidden);
-            continue;
-        }
-        let u = if phase == 0 { p } else { 1. - p };
-        let mut point = group.from.lerp(group.to, u);
-        point.y = terrain_from_xz(point.x, point.z) + 21. + 20. * (u * std::f32::consts::PI).sin();
-        let scale = (rig.distance * 0.0035).clamp(1.1, 3.8);
-        let glyph = if u < 0.56 {
+        let time = if phase == 0 { t } else { 1. - t };
+        let map_scale = (rig.distance * 0.0035).clamp(1.1, 3.8);
+        let (point, heading, transit, scale) = match group.path {
+            GroupPath::Stadium {
+                entrance,
+                seat_turn,
+                row,
+                approach,
+            } => {
+                let u = ((time - group.delay) / 0.40).min(1.);
+                if u < 0. {
+                    visibility.set_if_neq(Visibility::Hidden);
+                    continue;
+                }
+                let (bowl, landmark) = bowls
+                    .get(playback.events[group.venue].stadium.unwrap())
+                    .unwrap();
+                let (z, x) = (entrance * std::f32::consts::TAU).sin_cos();
+                let outward = Vec3::new(x, 0., z);
+                let rim = landmark.transform_point(bowl.terrace(entrance, 1.));
+                let point = if u < 0.50 {
+                    let walk = u / 0.50;
+                    let mut p = rim + outward * approach * (1. - walk);
+                    let ground = terrain_from_xz(p.x, p.z) + 0.3;
+                    p.y = ground + (rim.y - ground) * walk.powi(4);
+                    p
+                } else {
+                    // Follow the curved terrace, not a chord between stands. Keep
+                    // each group in its seat until its turn to leave on the return.
+                    let seated = (u - 0.50) * 2.;
+                    landmark.transform_point(
+                        bowl.terrace(entrance + seat_turn * seated, 1. + (row - 1.) * seated),
+                    )
+                };
+                let size = if u < 0.35 {
+                    map_scale
+                } else {
+                    map_scale.min(1.15)
+                };
+                (point, -outward, u < 0.35, size)
+            }
+            GroupPath::Local { from, to } => {
+                let p = (t - group.delay) / 0.51;
+                if !(0.0..=1.).contains(&p) {
+                    visibility.set_if_neq(Visibility::Hidden);
+                    continue;
+                }
+                let u = if phase == 0 { p } else { 1. - p };
+                let mut point = from.lerp(to, u);
+                point.y = terrain_from_xz(point.x, point.z)
+                    + 21.
+                    + 20. * (u * std::f32::consts::PI).sin();
+                (point, to - from, u < 0.56, map_scale)
+            }
+        };
+        let glyph = if transit {
             &art.modes[group.mode]
         } else {
             &art.figure
         };
         mesh.set_if_neq(Mesh3d(glyph.clone()));
-        let heading = group.to - group.from;
         transform.rotation = Quat::from_rotation_y(heading.x.atan2(heading.z));
         transform.translation = point;
         transform.scale = Vec3::splat(scale);
