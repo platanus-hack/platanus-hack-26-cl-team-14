@@ -1,6 +1,6 @@
 //! Frame the place that the engine selected. A saved scene takes precedence over an edit.
 use crate::{FOV, Rig, city, net::Scenario};
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, time::Real, window::PrimaryWindow};
 use serde_json::Value;
 
 #[derive(Clone, Copy)]
@@ -24,7 +24,7 @@ impl Rig {
     }
 }
 
-pub(super) fn advance(time: Res<Time>, mut rig: ResMut<Rig>) {
+pub(super) fn advance(time: Res<Time<Real>>, mut rig: ResMut<Rig>) {
     let Some(mut flight) = rig.flight else { return };
     flight.elapsed += time.delta_secs();
     let t = flight.elapsed.min(1.);
@@ -112,7 +112,7 @@ fn frame(mut points: impl Iterator<Item = Vec3>, minimum: f32, aspect: f32) -> O
 
 // Camera cues of a cached replay: fly to each place at its time after the scene starts.
 pub(super) fn cue(
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     scenario: Res<Scenario>,
     mut rig: ResMut<Rig>,
     mut scene_revision: Local<Option<u64>>,
