@@ -139,58 +139,61 @@ impl Scenario {
         });
         let mut cumulative = vec![0.0_f64; self.choice.n];
         let mut deltas = vec![0_i64; pop.homes.len()];
-        let mut losing_homes = vec![Vec::new(); self.choice.n];
+        let mut by_cut = vec![[Vec::new(), Vec::new()]; self.choice.n];
         for (home, point) in pop.homes.iter().enumerate() {
             let before = self.pop.homes.get(home).map_or(0.0, |p| p.weight);
             if point.weight == before { continue; }
             let cut = self.ix(&point.cut);
-            if point.weight < before { losing_homes[cut].push(home); }
+            by_cut[cut][usize::from(point.weight > before)].push(home);
             let previous = cumulative[cut];
             cumulative[cut] += (point.weight - before) * self.ratio[cut];
             deltas[home] = (cumulative[cut].round() - previous.round()) as i64;
         }
-        if losing_homes.iter().any(|homes| !homes.is_empty()) {
-            let mut counts = vec![0_u64; deltas.len()];
-            let mut seen = vec![0_u64; deltas.len()];
-            for p in pop.persons.iter().filter(|p| !p.student) {
-                counts[p.home as usize] += 1;
-            }
-            // An empty block loses every worker. On the other declining blocks, keep the
-            // comuna reduction as close to its target as the available workers allow.
-            for homes in losing_homes {
-                let mut target = 0_u64;
-                let mut removed = 0_u64;
-                let mut adjustable = 0_u64;
-                let mut spare = 0_u64;
+        let mut counts = vec![0_u64; deltas.len()];
+        for person in pop.persons.iter().filter(|p| !p.student) {
+            counts[person.home as usize] += 1;
+        }
+        // Allocate gains and losses on their respective blocks. A home can retain at
+        // most one worker per final resident, and it can lose at most its current workers.
+        for groups in by_cut {
+            for (direction, homes) in groups.into_iter().enumerate() {
+                let gaining = direction == 1;
+                let sign = if gaining { 1 } else { -1 };
+                let bounds = |h: usize| {
+                    let residents = pop.homes[h].weight.floor() as u64;
+                    if gaining { (0, residents.saturating_sub(counts[h])) }
+                    else { (counts[h].saturating_sub(residents), counts[h]) }
+                };
+                let (mut target, mut assigned, mut slack_up, mut slack_down) = (0_u64, 0_u64, 0_u64, 0_u64);
                 for &h in &homes {
                     let requested = deltas[h].unsigned_abs();
-                    let gone = if pop.homes[h].weight == 0.0 {
-                        counts[h]
-                    } else {
-                        let gone = requested.min(counts[h]);
-                        adjustable += gone;
-                        spare += counts[h] - gone;
-                        gone
-                    };
+                    let (min, max) = bounds(h);
+                    let allocated = requested.clamp(min, max);
                     target += requested;
-                    removed += gone;
-                    deltas[h] = -(gone as i64);
+                    assigned += allocated;
+                    slack_up += max - allocated;
+                    slack_down += allocated - min;
+                    deltas[h] = sign * allocated as i64;
                 }
-                let increase = target > removed;
-                let capacity = if increase { spare } else { adjustable };
-                let correction = target.abs_diff(removed).min(capacity);
+                let increase = target > assigned;
+                let capacity = if increase { slack_up } else { slack_down };
+                let correction = target.abs_diff(assigned).min(capacity);
                 if correction == 0 { continue; }
-                let mut cumulative_capacity = 0_u64;
+                let mut available = 0_u64;
                 let mut allocated = 0_u64;
-                for h in homes.into_iter().filter(|&h| pop.homes[h].weight > 0.0) {
-                    let gone = deltas[h].unsigned_abs();
-                    cumulative_capacity += if increase { counts[h] - gone } else { gone };
-                    let next = cumulative_capacity * correction / capacity;
-                    let change = (next - allocated) as i64;
-                    if increase { deltas[h] -= change; } else { deltas[h] += change; }
+                for h in homes {
+                    let current = deltas[h].unsigned_abs();
+                    let (min, max) = bounds(h);
+                    available += if increase { max - current } else { current - min };
+                    let next = (u128::from(available) * u128::from(correction) / u128::from(capacity)) as u64;
+                    let adjustment = sign * (next - allocated) as i64;
+                    if increase { deltas[h] += adjustment; } else { deltas[h] -= adjustment; }
                     allocated = next;
                 }
             }
+        }
+        if deltas.iter().any(|&d| d < 0) {
+            let mut seen = vec![0_u64; deltas.len()];
             pop.persons.retain(|p| {
                 let h = p.home as usize;
                 if p.student || deltas[h] >= 0 { return true; }
