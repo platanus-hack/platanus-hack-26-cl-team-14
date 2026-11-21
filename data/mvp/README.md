@@ -343,6 +343,72 @@ block. Show the 75.95% as evidence that this place is Metro-first, not as a coef
     It is newer than EOD 2012 and local, and that is why it is worth more than a 2012
     weighted share, but it does not measure how a new resident of the tower travels.
 
+## travel_times.csv
+
+Public-transport travel time between the comunas of the RM at 08:00 on a weekday
+(depth layer B). Built so a station model can weight a flow by its cost, not only by
+its distance. Builder: `python3 -I tools/pack/travel_times.py` (7 s).
+
+| Column | Meaning |
+| --- | --- |
+| `origin_cut`, `destination_cut` | 5-digit INE comuna codes. **Directed**: A→B and B→A are two rows and they differ |
+| `minutes_door_to_door` | walk to the stop + wait + ride + transfers + walk to the destination point |
+| `minutes_in_vehicle` | only the time on board. Free of the headway assumption below |
+| `transfers` | number of boardings minus 1 |
+| `walk_m_access`, `walk_m_egress` | straight-line metres walked at each end |
+| `coverage` | `in_feed` when both comuna points have a stop within 1,000 m, else `outside_feed` |
+
+- Source: DTPM `GTFS_20260321_v3.zip` (`data/raw/dtpm-gtfs-march/`, sha256
+  `f10945e8…b77b`, equal to the hash that `tobalaba_observations.json` publishes). It is
+  the release that `context/mvp.md` names. Points: the population-weighted comuna points
+  of `communes.csv`.
+- Rows: 2,454 of the 2,652 directed pairs. **1,190 have `coverage` `in_feed`**; use those.
+  Median 45.5 minutes, from 12.8 to 114.7, median 58% of the time on board.
+  Transfers: 79 pairs need none, 319 need one, 487 need two, 254 three, 51 four or five.
+- Check against trips a person from Santiago knows: Santiago → Las Condes 27.4 min
+  (14.6 on board, 0 transfers); Las Condes → Santiago 25.1; Providencia → Las Condes
+  23.0; Puente Alto → Santiago 44.5 (26.4 on board, 2 transfers); La Pintana → Santiago
+  48.9. The matrix is **not symmetric**: the median gap between A→B and B→A is 1.7
+  minutes and the largest is 74.7.
+
+### What the model is
+
+- Weekday = Wednesday 2026-04-15, inside the period of the April boardings. Services `L`
+  (Monday to Friday) and `LJ` (Monday to Thursday) are active; `V` is Friday only; no
+  `calendar_dates` exception falls on that date.
+- **It is a headway model, not a timetable search, and the feed forces that.** All 14,436
+  bus trips (`route_type` 3) are in `frequencies.txt`, so their `stop_times` start at
+  `0:00:00` and are offsets from an unknown trip start. 11,528 Metro trips have absolute
+  times. A timetable search would have to invent a departure clock for 55.5% of the trips.
+- So the 10,601 weekday trips collapse to **891 stop patterns** (46,668 pattern edges).
+  The ride time on an edge is the exact offset difference. One boarding costs
+  **headway / 2 at 08:00**: from `frequencies.txt` for a bus, and from the count of trips
+  that depart between 08:00 and 09:00 for Metro. **702 of the 891 patterns run at 08:00**;
+  the other 189 have no service then and are excluded, not given an invented headway.
+- Access and egress: straight line to a stop within 1,000 m at 4.8 km/h. A transfer is a
+  walk under 300 m, or 0 m between a platform and its `parent_station` (this feed has no
+  `transfers.txt`). One Dijkstra for each of the 52 origins, 49,874 nodes, 208,089 edges.
+
+### Limits
+
+- **The feed covers Gran Santiago, not the whole region. 17 of the 52 comuna points have
+  no stop within 1,000 m**: Pirque 5.3 km, San José de Maipo 14.4, Colina 10.3, Lampa
+  6.5, Tiltil 24.9, Buin 1.5, Calera de Tango 3.9, Paine 2.1, Melipilla 38.5, Alhué 36.9,
+  Curacaví 20.3, María Pinto 24.9, San Pedro 67.6, Talagante 13.5, El Monte 21.3, Isla de
+  Maipo 14.5, Peñaflor 6.4. Their rural services are not in this GTFS. Those rows keep
+  their nearest stop so nothing is hidden, but the walk becomes the whole trip (San Pedro
+  to Alhué reads 1,353 minutes). **Filter on `coverage = in_feed`.** Alhué reaches nothing
+  at all and has no row as an origin, which is why there are 2,454 rows and not 2,652.
+- The headway gives an **expected** wait, not a real 08:00 timetable. A pattern that runs
+  every 90 minutes reads as a 45-minute wait. `minutes_in_vehicle` has none of that, which
+  is why it is a separate column.
+- Walking is a straight line, not a network, so every walk is shorter than the real one.
+- 08:00 only. No fare, no crowding, no capacity, no delay, no car, no bicycle, and no
+  diagonal (a comuna to itself).
+- **A comuna point is not a trip end.** These are times between two population centres.
+  Nothing here is calibrated against an observed travel time; EOD 2012 reported trip
+  durations and could later check them.
+
 ## jobs.csv
 
 Work destinations of the simulation. One row per Census 2024 manzana that has jobs, plus one row for the airport. Builder: `python3 -I tools/pack/jobs.py [PACK_DIR]` (15 s).
