@@ -1,4 +1,4 @@
-use super::{ArcEdge, Road};
+use super::{ArcEdge, Road, Segment, metres};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, HashMap};
@@ -71,6 +71,9 @@ fn display_roads(dir: &Path) -> BTreeMap<String, Road> {
         if props.get("class").is_none() {
             props["class"] = props["kind"].clone();
         }
+        // A displayed line alone provides no directed car access.
+        props["car_access_forward"] = false.into();
+        props["car_access_backward"] = false.into();
         feature["id"] = json!(key);
         let line = feature["geometry"]["coordinates"].take();
         let (_, lines) = grouped.entry(key).or_insert_with(|| (feature, Vec::new()));
@@ -84,6 +87,7 @@ fn display_roads(dir: &Path) -> BTreeMap<String, Road> {
                 id,
                 Road {
                     feature,
+                    segments: Vec::new(),
                     edges: Vec::new(),
                 },
             )
@@ -114,7 +118,7 @@ pub(super) fn load(dir: &Path) -> Loaded {
             } else {
                 json!({"type":"Feature","properties":{"id":id,"kind":way.properties["class"]},"geometry":geometry(lines)})
             };
-            Road { feature, edges: Vec::new() }
+            Road { feature, segments: Vec::new(), edges: Vec::new() }
         });
 
         let mut speeds = Map::new();
@@ -138,9 +142,47 @@ pub(super) fn load(dir: &Path) -> Loaded {
                 }
             })
             .collect();
+        // Keep the pack's exact segment length when a directed arc exists.
+        let lengths: HashMap<_, _> = road
+            .edges
+            .iter()
+            .map(|edge| {
+                let pair = if edge.forward {
+                    (edge.from, edge.to)
+                } else {
+                    (edge.to, edge.from)
+                };
+                (pair, edge.metres)
+            })
+            .collect();
+        for part in &way.parts {
+            for pair in part.windows(2) {
+                let (from, to) = (indices[&pair[0]], indices[&pair[1]]);
+                let length = lengths.get(&(from, to)).copied().unwrap_or_else(|| {
+                    (metres(nodes[from], nodes[to]) * 1000.0).round_ties_even() / 1000.0
+                });
+                road.segments.push(Segment {
+                    from,
+                    to,
+                    metres: length,
+                });
+            }
+        }
         if !road.feature.is_null() {
             let props = road.feature["properties"].as_object_mut().unwrap();
-            props.extend(way.properties);
+            let mut source = way.properties;
+            // Older packs record only directions that were legal at import.
+            for (key, direction) in [
+                ("car_access_forward", "forward"),
+                ("car_access_backward", "backward"),
+            ] {
+                source
+                    .entry(key)
+                    .or_insert_with(|| json!(speeds.contains_key(direction)));
+            }
+            props.extend(source);
+            let class = props.get("highway").unwrap_or(&props["class"]).clone();
+            props.insert("routing_class".into(), class);
             if !speeds.is_empty() {
                 props.insert("source_speed_by_direction".into(), Value::Object(speeds));
             }
