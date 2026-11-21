@@ -266,7 +266,7 @@ async function discord(path, { auth = true, token = auth ? savedToken() : undefi
 }
 
 async function listChannels() {
-  const local = snapshot();
+  const local = await snapshot();
   const guilds = local?.guilds ?? await discord("/users/@me/guilds");
   const sections = await Promise.all(
     guilds.map(async (guild) => {
@@ -307,7 +307,7 @@ function formatMessage(message) {
 async function readMessages({ channel_id, limit = 50, before, after, around }) {
   checkIds([channel_id, before, after, around]);
   limit = Math.min(Math.max(limit, 1), 100);
-  const state = snapshot();
+  const state = await snapshot();
   const channel = state?.guilds.flatMap(watched).find(c => c.id === channel_id);
   if (channel && [before, after, around].filter(Boolean).length <= 1) {
     const page = localPage(state, channel, { limit, before, after, around });
@@ -462,7 +462,7 @@ let coveredThrough = connectedAt;
 
 async function pollDiscord() {
   const started = Date.now();
-  const local = snapshot();
+  const local = await snapshot();
   if (local && coveredThrough >= local.since) {
     for (const channel of local.guilds.flatMap(watched)) {
       for (const message of newMessages(local, channel, cursors.get(channel.id) ?? initialCursor)) {

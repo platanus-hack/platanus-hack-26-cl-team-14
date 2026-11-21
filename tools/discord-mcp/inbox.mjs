@@ -12,7 +12,7 @@ export function inboxDirectory(token) {
   directory = join(tmpdir(), `team-discord-${process.getuid()}-${key}`);
 }
 
-export function snapshot() {
+function currentSnapshot() {
   if (!directory) return;
   try {
     if (Date.now() - statSync(join(directory, "alive")).mtimeMs > 3 * heartbeatMs) return;
@@ -23,6 +23,18 @@ export function snapshot() {
   } catch (error) {
     if (!["ENOENT", "ESRCH"].includes(error.code)) throw error;
   }
+}
+
+// Give the Gateway a chance to replay a brief gap before every client starts a REST scan.
+export async function snapshot() {
+  if (!directory) return;
+  let state = currentSnapshot();
+  const recovering = join(directory, "recovering");
+  while (!state && Date.now() - (statSync(recovering, { throwIfNoEntry: false })?.mtimeMs ?? 0) < 12_000) {
+    await new Promise(resolve => setTimeout(resolve, 250));
+    state = currentSnapshot();
+  }
+  return state;
 }
 
 const thread = (c) => [10, 11, 12].includes(c.type);
@@ -112,25 +124,26 @@ export async function startInbox(token, discord) {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const alive = join(directory, "alive");
   const offline = () => rmSync(alive, { force: true });
+  const recovering = join(directory, "recovering");
   offline();
-  process.on("exit", offline);
+  rmSync(recovering, { force: true });
+  process.on("exit", () => { offline(); rmSync(recovering, { force: true }); });
   const { url } = await discord("/gateway/bot");
+  const guilds = new Map();
+  const subscribed = new Set();
+  let session, sessionId, resumeUrl, since, sequence;
+  let expected = [];
   function connect() {
     // Heartbeat and Identify follow the listener in PR 110.
-    const socket = new WebSocket(`${url}/?v=10&encoding=json`);
-    const guilds = new Map();
-    const subscribed = new Set();
-    const session = mkdtempSync(join(directory, "messages-"));
-    let expected = [];
-    let since;
-    let sequence = null;
+    const socket = new WebSocket(`${resumeUrl ?? url}/?v=10&encoding=json`);
+    let online = false;
     let acknowledged = true;
     let firstBeat, beats, touch;
     const send = (op, d) => socket.send(JSON.stringify({ op, d }));
     function publish() {
       subscribed.clear();
       for (const guild of guilds.values()) for (const c of watched(guild)) subscribed.add(c.id);
-      if (!expected.length || !expected.every(id => guilds.has(id))) {
+      if (!online || !expected.length || !expected.every(id => guilds.has(id))) {
         offline();
         return;
       }
@@ -138,6 +151,7 @@ export async function startInbox(token, discord) {
       writeFileSync(next, JSON.stringify({ pid: process.pid, session, since, guilds: [...guilds.values()] }), { mode: 0o600 });
       renameSync(next, join(directory, "channels.json"));
       writeFileSync(alive, "", { mode: 0o600 });
+      rmSync(recovering, { force: true });
     }
     const heartbeat = () => {
       if (!acknowledged) return socket.close(4000);
@@ -152,16 +166,28 @@ export async function startInbox(token, discord) {
           heartbeat();
           beats = setInterval(heartbeat, d.heartbeat_interval);
         }, Math.random() * d.heartbeat_interval);
-        send(2, { token, intents: 1 | 512 | 32768, properties: {
+        if (sessionId && sequence != null) {
+          send(6, { token, session_id: sessionId, seq: sequence });
+        } else send(2, { token, intents: 1 | 512 | 32768, properties: {
           os: process.platform, browser: "team-inbox", device: "team-inbox",
         } });
       }
       if (op === 11) acknowledged = true;
       if (op === 1) send(1, sequence);
+      if (op === 9 && !d) { sessionId = undefined; resumeUrl = undefined; sequence = null; }
       if (op === 7 || op === 9) socket.close(4000);
       if (t === "READY") {
+        sessionId = d.session_id;
+        resumeUrl = d.resume_gateway_url;
+        session = mkdtempSync(join(directory, "messages-"));
+        guilds.clear();
+        subscribed.clear();
         expected = d.guilds.map(g => g.id);
         console.error("Discord accepted the Gateway connection with Message Content Intent.");
+      }
+      if (t === "READY" || t === "RESUMED") {
+        online = true;
+        if (t === "RESUMED") { publish(); console.error("Discord replayed the Gateway session."); }
         touch = setInterval(() => {
           if (expected.length && expected.every(id => guilds.has(id))) writeFileSync(alive, "", { mode: 0o600 });
         }, heartbeatMs);
@@ -174,7 +200,7 @@ export async function startInbox(token, discord) {
       }
       if (t === "GUILD_DELETE") {
         guilds.delete(d.id);
-        if (d.unavailable) { offline(); socket.close(4000); return; }
+        if (d.unavailable) { sessionId = undefined; resumeUrl = undefined; offline(); socket.close(4000); return; }
         expected = expected.filter(id => id !== d.id);
         publish();
       }
@@ -206,6 +232,9 @@ export async function startInbox(token, discord) {
       offline();
       console.error(`Discord Gateway closed (${code}).`);
       if ([4004, 4010, 4011, 4012, 4013, 4014].includes(code)) process.exit(1);
+      if ([4007, 4009].includes(code)) { sessionId = undefined; resumeUrl = undefined; sequence = null; }
+      // Only the first disconnect starts the grace period during an outage.
+      if (!statSync(recovering, { throwIfNoEntry: false })) writeFileSync(recovering, "", { mode: 0o600 });
       setTimeout(connect, 5000);
     });
   }

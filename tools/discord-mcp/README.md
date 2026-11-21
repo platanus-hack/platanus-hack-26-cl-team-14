@@ -73,7 +73,7 @@ The inbox connects to the Discord Gateway and stores messages in private JSONL f
 
 Each MCP client keeps its own unread cursor. It checks local files every 15 seconds and returns up to 50 unread messages per tool call. Call `poll_messages` to drain the rest. The client also sends an MCP log notification. The host decides when to wake an idle agent.
 
-Channel listings and recent reads use the local files. `read_messages` preserves `before`, `after`, `around`, and `limit`. The client uses REST if the selected page reaches beyond local history. If the inbox disconnects, the client can use REST for messages it missed. A new Gateway connection starts a new local history window.
+Channel listings and recent reads use the local files. `read_messages` preserves `before`, `after`, `around`, and `limit`. The client uses REST if the selected page reaches beyond local history. After a disconnect, the inbox asks Discord to replay the missing events. Clients allow 12 seconds for recovery before they use REST. If Discord rejects the session, the inbox starts a new local history window.
 
 Set `DISCORD_REST_METRICS=1` when starting a process to write one JSON line per REST response to stderr. Each line includes the route, cumulative route count and status. A 429 line also includes the bucket and retry delay. The client waits for Discord’s delay and stops a request after three attempts.
 
