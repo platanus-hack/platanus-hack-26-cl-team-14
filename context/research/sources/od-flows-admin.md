@@ -82,9 +82,11 @@ SII worker counts, FONASA, Servel, Censo 2017.
   `Microdatos_Redatam_Censo2024.zip` and the aggregated manzana bases.
 - Check: VERIFIED-ROWS 2026-11-21, HTTP 200, 355,253,274 bytes. 7,400,741 persons with a
   home comuna in region 13. 3,588,582 of them have a work-place answer, and the code
-  counts above sum to exactly that. The script on `main` builds 9,619 known-destination
-  work pairs and 13,527 migration pairs for the RM, and writes the dropped codes to
-  `excluded_destinations.csv`. `13101 -> 13114` holds 28,583 people, the same value that
+  counts above sum to exactly that. The script `tools/scrape/censo2024-od.py` keeps only
+  `p44_lug_trab` 2 or 3 with a comuna code: 2,740,454 commuters in 9,128 work pairs, and 13,234
+  migration pairs. It writes the excluded counts to `excluded_destinations.csv`: 517,018 work at
+  home, 313,358 have no fixed place, 3,793 work in another country, and 8,495 have a region
+  but no comuna (8,250 of them in the RM). `13101 -> 13114` holds 28,583 people, the same value that
   the INE visualizer publishes.
 - Role: INPUT and TARGET.
 - Limits: the destination stops at the comuna, so it cannot place a job inside a comuna.
@@ -397,7 +399,7 @@ The three weakest points of this catalog:
    supplies it, and the gap must be filled by the transport sources that other agents own
    (DTPM stage data, EOD) or by a model, not by administrative data.
 2. **The best work matrix is one snapshot and 8.7% of its workers have no destination.**
-   Censo 2024 gives the usual workplace on one day in March 2024, not trips. Code 5, "no
+   Censo 2024 gives the usual workplace at the time of the interview (field work from March to July 2024), not trips. Code 5, "no
    fixed place", covers 313,358 employed RM residents and it is not spread evenly: 12.9%
    in Peñalolén and La Pintana against 3.2% in Melipilla. So the matrix systematically
    loses the mobile and informal workers of the poorer comunas, which is exactly the group
