@@ -71,9 +71,9 @@ The launcher starts the engine on port 8787, waits for it to answer, and opens t
 
 ### Start the presentation on macOS
 
-Run `./run.sh --presentation` from the checkout with Swift installed. The launcher
-builds the city and starts the engine before showing the day/night loop.
-Click **Comenzar** or press **Return** to open the city overview and the connected
+Run `./run.sh --presentation` from the checkout with Swift installed. The wordmark
+appears during startup. The day/night loop starts when the engine and viewer are
+ready. Click **Comenzar** or press **Return** to open the city overview and the connected
 LLM terminal. [Video credits](pitch/santiago-dia-noche-credits.txt).
 
 For a prepared run, set `SANTIAGO_ENGINE_BIN` and `SANTIAGO_VIEWER_BIN` to the

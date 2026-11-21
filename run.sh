@@ -27,6 +27,35 @@ fi
 target=${CARGO_TARGET_DIR:-engine/target}
 engine="$target/release/santiago-scenario-core"
 viewer=(cargo run --locked --release --manifest-path viz/Cargo.toml)
+
+# Separate process groups let cleanup stop Cargo and its window together.
+set -m
+engine_pid=
+window_pid=
+welcome_pid=
+terminal_pid=
+terminal_layout_pid=
+runtime=$(mktemp -d "${TMPDIR:-/tmp}/santiago-launch.XXXXXX")
+engine_log="$runtime/engine.log"
+cleanup() {
+    trap - EXIT INT TERM
+    for pid in $terminal_layout_pid $terminal_pid $window_pid $welcome_pid $engine_pid; do
+        kill -TERM -- "-$pid" 2>/dev/null || true
+    done
+    if declare -F cleanup_city_terminal_mac >/dev/null; then cleanup_city_terminal_mac || true; fi
+    wait 2>/dev/null || true
+    rm -f "$engine_log" "$runtime/engine-starting" "$runtime/ready"
+    rmdir "$runtime"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if [[ $presentation == --presentation ]]; then
+    swift tools/presentation-welcome.swift pitch/santiago-dia-noche-web.mp4 "$runtime" &
+    welcome_pid=$!
+fi
+
 if [[ $presentation == --presentation && ( -n ${SANTIAGO_ENGINE_BIN:-} || -n ${SANTIAGO_VIEWER_BIN:-} ) ]]; then
     if [[ ! -x ${SANTIAGO_ENGINE_BIN:-} || ! -x ${SANTIAGO_VIEWER_BIN:-} ]]; then
         echo 'Indica el motor y el visor ejecutables para esta presentación.' >&2
@@ -42,27 +71,10 @@ else
     fi
 fi
 
-# Separate process groups let cleanup stop Cargo and its window together.
-set -m
-engine_pid=
-window_pid=
-welcome_pid=
-terminal_pid=
-terminal_layout_pid=
-engine_log=$(mktemp "${TMPDIR:-/tmp}/santiago-engine.XXXXXX")
-cleanup() {
-    trap - EXIT INT TERM
-    for pid in $terminal_layout_pid $terminal_pid $window_pid $welcome_pid $engine_pid; do
-        kill -TERM -- "-$pid" 2>/dev/null || true
-    done
-    if declare -F cleanup_city_terminal_mac >/dev/null; then cleanup_city_terminal_mac || true; fi
-    wait 2>/dev/null || true
-    rm -f "$engine_log"
-}
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-
+if [[ $presentation == --presentation ]]; then
+    touch "$runtime/engine-starting"
+fi
+touch "$engine_log"
 "$engine" data/mvp "$port" 2> >(tee "$engine_log" >&2) &
 engine_pid=$!
 until grep -Fxq "Scenario core listening on $api" "$engine_log"; do
@@ -74,8 +86,7 @@ curl --fail --silent --show-error --output /dev/null \
 echo "SANTIAGO_API_URL=$api"
 export SANTIAGO_ENGINE="$api"
 if [[ $presentation == --presentation ]]; then
-    swift tools/presentation-welcome.swift pitch/santiago-dia-noche-web.mp4 &
-    welcome_pid=$!
+    touch "$runtime/ready"
     wait "$welcome_pid"
     welcome_pid=
     export SANTIAGO_DISTANCE="${SANTIAGO_DISTANCE:-38000}"

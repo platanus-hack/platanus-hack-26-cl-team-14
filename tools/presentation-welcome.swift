@@ -30,6 +30,7 @@ content.layer!.backgroundColor = NSColor.black.cgColor
 
 let player = AVQueuePlayer()
 let video = AVPlayerItem(url: URL(fileURLWithPath: CommandLine.arguments[1]))
+let runtime = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
 let looper = AVPlayerLooper(player: player, templateItem: video)
 let background = AVPlayerLayer(player: player)
 background.frame = content.bounds
@@ -58,18 +59,43 @@ start.bezelStyle = .rounded
 start.controlSize = .large
 start.font = NSFont.systemFont(ofSize: 25, weight: .semibold)
 start.keyEquivalent = "\r"
+start.isEnabled = false
 
 let controls = NSStackView(views: [title, start])
 controls.orientation = .vertical
-controls.alignment = .leading
+controls.alignment = .centerX
 controls.spacing = 23
 controls.translatesAutoresizingMaskIntoConstraints = false
 content.addSubview(controls)
 NSLayoutConstraint.activate([
-    controls.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: screen.frame.width * 0.08),
-    controls.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: screen.frame.height * 0.12),
+    controls.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+    controls.centerYAnchor.constraint(equalTo: content.centerYAnchor, constant: -screen.frame.height * 0.10),
     start.widthAnchor.constraint(equalToConstant: 180),
     start.heightAnchor.constraint(greaterThanOrEqualToConstant: 47)
+])
+
+let splash = NSView(frame: content.bounds)
+splash.autoresizingMask = [.width, .height]
+splash.wantsLayer = true
+splash.layer!.backgroundColor = NSColor(srgbRed: 0.05, green: 0.08, blue: 0.10, alpha: 1).cgColor
+let wordmark = NSTextField(labelWithString: title.stringValue)
+wordmark.font = NSFont.monospacedSystemFont(ofSize: 34, weight: .semibold)
+wordmark.textColor = .white
+let progress = NSProgressIndicator()
+progress.style = .bar
+progress.isIndeterminate = false
+progress.maxValue = 2
+let loading = NSStackView(views: [wordmark, progress])
+loading.orientation = .vertical
+loading.alignment = .centerX
+loading.spacing = 14
+loading.translatesAutoresizingMaskIntoConstraints = false
+splash.addSubview(loading)
+content.addSubview(splash)
+NSLayoutConstraint.activate([
+    loading.centerXAnchor.constraint(equalTo: splash.centerXAnchor),
+    loading.centerYAnchor.constraint(equalTo: splash.centerYAnchor),
+    progress.widthAnchor.constraint(equalTo: wordmark.widthAnchor)
 ])
 
 window.defaultButtonCell = start.cell as? NSButtonCell
@@ -80,6 +106,17 @@ let escape = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
 window.makeKeyAndOrderFront(nil)
 app.activate(ignoringOtherApps: true)
 player.play()
+Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { timer in
+    if FileManager.default.fileExists(atPath: runtime.appendingPathComponent("engine-starting").path) {
+        progress.doubleValue = 1
+    }
+    if background.isReadyForDisplay && FileManager.default.fileExists(atPath: runtime.appendingPathComponent("ready").path) {
+        splash.removeFromSuperview()
+        start.isEnabled = true
+        window.makeFirstResponder(start)
+        timer.invalidate()
+    }
+}
 withExtendedLifetime((window, looper, actions, escape)) {
     app.run()
 }
