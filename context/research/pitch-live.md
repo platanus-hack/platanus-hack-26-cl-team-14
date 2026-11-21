@@ -1,4 +1,4 @@
-# Santiago en vivo
+# santiaguito.cl en vivo
 
 Guion de tres minutos para la simulación nativa. El intercambio MUT ↔ Monumental es el caso principal. El Mapocho es el segundo caso. Mac define el tercero. [Dirección del pitch](https://discord.com/channels/1573514576400752640/1573688250797658172/1573733563491291157).
 
