@@ -17,7 +17,7 @@ No public transport study for boats on the Mapocho was found. Every built or stu
 ## 2. Water and seasons (Belarmino-11)
 
 - Without barriers the river is not navigable in any month: about 9 to 27 cm of water (own Manning estimate, 40 m wide, 1 % slope). **Assumption.**
-- With a chain of barriers (like the six inflatable barriers of Parque de la Familia), boats could run **September to April** (an assumed operating season from 1975–99 DGA monthly flows, not a measured schedule). May to August has closures on rain flood days. July is the worst month: mean instantaneous maximum 155 m³/s (DGA, Rinconada de Maipú 1975–99).
+- With a chain of barriers (like the six inflatable barriers of Parque de la Familia), boats could run **September to April** (an assumed operating season from 1975–99 DGA monthly flows, not a measured schedule). The scenario assumes rain-related closures from May to August. July is the worst month: mean instantaneous maximum 155 m³/s (DGA, Rinconada de Maipú 1975–99).
 - Rule for the engine (**assumption**): service runs when flow is 5 to 80 m³/s. 80 m³/s is the design flow of the Costanera works that failed in the April 2016 flood (120–150 m³/s).
 - Current flows are low: the DGA 2025/26 snowmelt forecast at Los Almendros is 53 % below the 1991–2020 mean ([DGA](https://dga.mop.gob.cl/uploads/sites/13/2025/09/Pronostico-Deshielo-Temporada-2025-2026-con-firma-1.pdf)).
 
@@ -31,7 +31,7 @@ Command: `python3 -I tools/pack/mapocho_corridor.py <EOD_STGO> <nominatim.json>`
 | Measure | Value |
 | --- | --- |
 | Weekday trips in the corridor (EOD 2012) | **88,962** (0.61 % of the 14.58 M weekday trips with origin and destination coordinates; 0.48 % of all 18.46 M weekday trips) |
-| Mode in 2012 | bus 40.2 %, car 31.2 %, bus+Metro 9.2 %, Metro only 8.5 %, bicycle 3.0 %, colectivo 2.7 %, other mixed Metro trips 0.6 % |
+| Mode in 2012 | bus 40.2 %, car 31.2 %, bus+Metro 9.2 %, Metro only 8.5 %, bicycle 3.0 %, colectivo 2.7 %, car, colectivo or taxi + Metro 0.7 % (codes 8, 11, 12), other + bus 0.6 % (code 14) |
 | Median reported trip time | 43 min |
 | Busiest start hours | 17:00, 08:00, 12:00, 07:00 |
 | Largest comuna pairs | Providencia–Santiago 12,592 · Providencia–Vitacura 8,578 · Cerro Navia–Santiago 8,160 · Recoleta–Renca 6,639 · Santiago–Vitacura 6,098 · Providencia–Renca 6,075 |
@@ -61,7 +61,7 @@ Command: `target/release/scenario data/mvp - < context/research/mapocho/piers.js
 | Change at existing Metro stations | −59,771 (Pedro de Valdivia −7,206, Los Leones −6,478, Cal y Canto −5,887) |
 | Busiest piers | MAP02 20,051 · MAP05 19,951 · MAP06 19,686 · MAP08 18,924 |
 
-**Do not quote this as boat passengers.** The pier entries are larger than the whole corridor market (88,962 trips). The model treats each pier like a Metro station on the full network, with no boat speed, capacity, headway or season. It shows where river access would compete with Metro, not how many people would take a boat.
+**Do not quote this as boat passengers.** The model treats each pier like a Metro station on the full network, with no boat speed, capacity, headway or season. It shows where river access would compete with Metro, not how many people would take a boat.
 
 ## 7. Second engine test: the boat as faster travel minutes
 
