@@ -8,8 +8,8 @@ Propuesta de los agentes; `context/pitch.md` sigue siendo de ustedes. Fuentes: `
 - **Cuatro vistas en el navegador**, para proyector:
   1. **Tobalaba**: edificios reales y la estación con sus 48 medias horas (37 con dato, 11 sin dato; 7.516 a las 18:00). Un control: sacar el MUT (4.679 empleos modelados) y poner una torre de N viviendas. Al correr, dos estimaciones etiquetadas (−513 y −2.781 al día con 298 viviendas, ver tabla) y "84 salen en auto al día · 52 en transporte público".
   2. **Santiago**: 52 comunas y flujos casa→trabajo; control de empleo y vivienda por comuna, totales conservados. Etiqueta: "reconstrucción del Censo 2024 + sensibilidad, sin validar".
-  3. **Puntaje**: 31 estaciones reservadas, columnas observadas y predichas, error agregado 45% (L4b). Puntaje de desarrollo; no valida el cambio del MUT.
-  4. **Evento**: dos botones (Estadio Nacional, Monumental) y un control de 0 a 3. Añade, como supuesto, el exceso de subidas de la tarde del sábado 11 de abril de 2026 en Parque O'Higgins sobre su línea (día de un evento agotado en el Movistar Arena) a las estaciones a menos de 1 km del sitio, sobre lo observado; con 0 no cambia nada. Límites: solo 19:00–23:30 (23:30 sin dato), la llegada no se modela; dos supuestos en pantalla; sin validar. La pantalla dice "patrón" y quiere decir ese exceso.
+  3. **Puntaje**: 31 estaciones reservadas, columnas observadas y predichas, error agregado 45% (L4b). De desarrollo; no valida el cambio del MUT.
+  4. **Evento**: dos botones (Estadio Nacional, Monumental) y un control de 0 a 3. Añade, como supuesto, el exceso de subidas de la tarde del sábado 11 de abril de 2026 en Parque O'Higgins sobre su línea (día de un evento agotado en el Movistar Arena) a las estaciones a menos de 1 km del sitio; con 0 no cambia nada. Límites: solo 19:00–23:30 (23:30 sin dato), la llegada no se modela; dos supuestos en pantalla; sin validar. Donde la pantalla dice "patrón", quiere decir ese exceso.
 - **No construido**: Variante B (Estación Central 2017→2024).
 
 ## Cómo verlo (requiere Rust y Python 3; una compilación medida tomó 75 s)
@@ -43,7 +43,7 @@ Nada cambia después de las 12:30 hasta que ustedes lo digan.
 - Cuántos trabajadores del MUT entran al Metro: el 0,2 es un supuesto; el modelo de estaciones usa otra vía. −513 y −2.781 son dos estimaciones, no un rango.
 - El Censo no separa Metro de bus: digan "transporte público", no "Metro".
 - Los 4.679 empleos del MUT son modelados (superficie publicada, 88% y 75% arrendada, 10 y 46 m² por puesto); el operador declara 4.000.
-- Datos de 2023 (PR #77 a #79): entre abril y agosto, Tobalaba en Línea 4 subió 20,4% y la mediana de las otras 18 estaciones bajó 1,5%. Dos semanas, por línea, conteo no documentado. Descriptivo: no mide el efecto del MUT ni se compara con 2026 ni los modelos.
+- Datos de 2023 (PR #77 a #79): entre abril y agosto, Tobalaba en Línea 4 subió 20,4% y la mediana de las otras 18 estaciones bajó 1,5%. Dos semanas, por línea, conteo no documentado. Descriptivo: no mide el efecto del MUT ni se compara con 2026 ni con los modelos.
 - Los modelos mueven residentes y trabajadores; no incorporamos una fuente verificada de visitantes.
 - Tobalaba no está entre las 31 estaciones reservadas: el 45% nunca la midió. El total base del modelo en las 37 medias horas con dato equivale al 51% del observado en Tobalaba (41.702 contra 81.613); el escenario usa una escala global, no ajustada a esta estación.
 
@@ -53,6 +53,6 @@ Nada cambia después de las 12:30 hasta que ustedes lo digan.
 2. **La sorpresa del MUT**: ¿las dos estimaciones etiquetadas, el cambio pequeño en la estación y los residentes que salen en auto? Recomendación: todo visible, con la brecha de la base.
 3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre hoy en la vista Santiago) como caso 2. El evento está construido y revisado. Recomendación: tercera pregunta, con sus dos supuestos en voz alta: "qué pasaría si ese exceso se repite".
 4. **Los datos de 2023**: ¿dos frases de contexto ("no sabemos cuánto es del MUT; nuestros modelos no cuentan visitantes") o se dejan para el jurado? Recomendación: para el jurado.
-5. **Tiempo y cierre**: 296 palabras habladas con el evento, apertura incluida (~136 s a 130 por minuto, antes de clics y del jurado). El cierre puede decir "tres preguntas". Si el ensayo pasa de 3 minutos, cortar en este orden: el evento, el contexto 2023, la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
+5. **Tiempo y cierre**: 296 palabras habladas, apertura incluida (~136 s a 130 por minuto, antes de clics y del jurado). El cierre puede decir "tres preguntas". Si el ensayo pasa de 3 minutos, cortar en este orden: el evento, el contexto 2023, la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
 
 Respondan en `#agent-chat` o editen `context/pitch.md`.
