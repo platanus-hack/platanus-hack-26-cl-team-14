@@ -13,11 +13,11 @@ html,body{height:100%;background:var(--midnight);color:var(--vellum);font:600 16
 .panel svg{position:absolute;inset:0;width:100%;height:100%}
 .com{fill:#1d3159;stroke:#5a78b0;stroke-width:2}
 .hot{fill:#3f68b0}
-.title{position:absolute;top:2.6vh;left:0;right:0;text-align:center;font-size:clamp(26px,2.4vw,48px);font-weight:800;letter-spacing:-.01em}
+.title{position:absolute;top:4.6vh;left:0;right:0;text-align:center;font-size:clamp(26px,2.4vw,48px);font-weight:800;letter-spacing:-.01em}
 .big{position:absolute;bottom:3vh;left:0;right:0;text-align:center}
 .num{display:block;font-size:clamp(64px,6.4vw,128px);font-weight:900;font-variant-numeric:tabular-nums;color:var(--yellow);letter-spacing:-.03em}
 .unit{display:block;font-size:clamp(20px,1.6vw,32px);opacity:.9;margin-top:.6vh}
-.tag{position:absolute;top:2.6vh;right:2vh;font-size:14px;padding:4px 10px;border-radius:999px;background:#ffffff1a;opacity:.7}
+.tag{position:absolute;top:1.2vh;left:50%;transform:translateX(-50%);font-size:18px;padding:4px 10px;border-radius:999px;background:#ffffff1a;opacity:.7}
 #tagline{position:fixed;left:0;right:0;bottom:5vh;text-align:center;font-size:clamp(34px,3.6vw,72px);font-weight:900;opacity:0;transform:translateY(3vh)}
 #tagline b{color:var(--yellow)}
 .ask{position:absolute;left:8%;right:8%;bottom:6vh;padding:2.2vh 1.6vw;border-radius:20px;background:var(--vellum);color:var(--midnight);font-size:clamp(22px,1.9vw,38px);font-weight:800;min-height:1.4em}
@@ -45,7 +45,7 @@ html,body{height:100%;background:var(--midnight);color:var(--vellum);font:600 16
       <circle cx="636" cy="291" r="13" fill="var(--yellow)"/>
       <text class="label" x="660" y="270">MUT</text>
     </svg>
-    <div class="title">Estadio en el MUT</div>
+    <div class="title">Estadio en el MUT</div><div class="tag">ensayo</div>
     <div class="big"><span class="num" data-to="-2548">0</span><span class="unit">subidas / día laboral<br>Metro Tobalaba</span></div>
   </section>
   <section class="panel" id="p2">
@@ -56,7 +56,7 @@ html,body{height:100%;background:var(--midnight);color:var(--vellum);font:600 16
       <circle class="station" cx="493" cy="381" r="16"/>
       <text class="label" x="493" y="350" text-anchor="middle">U. de Chile</text>
     </svg>
-    <div class="title">Est. Central → Las Condes</div>
+    <div class="title">Est. Central → Las Condes</div><div class="tag">ensayo</div>
     <div class="big"><span class="num" data-to="-1284">0</span><span class="unit">subidas / día laboral<br>Metro U. de Chile</span></div>
   </section>
   <section class="panel" id="p3">
@@ -119,7 +119,12 @@ function play() {
   later(7600, () => tagline.classList.add('in'));
 }
 requestAnimationFrame(crowdFrame);
-play();
+if (location.hash === '#end') { // still frame for captures and a static slide
+  document.body.insertAdjacentHTML('beforeend', '<style>*{transition:none!important}.arc{animation:none!important;stroke-dashoffset:0!important}</style>');
+  [p1, p2, p3, tagline].forEach(e => e.classList.add('in')); p2.classList.add('go');
+  document.querySelectorAll('.num').forEach(e => e.textContent = '−' + Math.abs(+e.dataset.to).toLocaleString('es-CL'));
+  typed.textContent = QS[0]; t0 = -1e5;
+} else play();
 addEventListener('keydown', e => e.key === ' ' && play());
 addEventListener('click', play);
 </script>
