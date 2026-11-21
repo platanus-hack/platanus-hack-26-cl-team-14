@@ -205,7 +205,10 @@ impl Station {
             for j in first_index(now)..first_index(now + approach) {
                 let fraction = ((j as f64 + 0.5) * scale - self.entries[i]) / total;
                 let remaining = (start + fraction as f32 * BIN - now) * speed;
-                // DTPM measures the station total. Alternate between its mapped gates.
+                // A sampled walker stays on its mapped path through the boarding time.
+                if scale == 1. && self.street_people.gate_index(i, j).is_some() {
+                    continue;
+                }
                 let gate = &self.entrances[j % self.entrances.len()];
                 // Leave one shoulder width between lanes at the 3.2 m entrance.
                 let lane = ((j / self.entrances.len() % 3) as f32 - 1.) * 1.35;
