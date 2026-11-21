@@ -274,6 +274,8 @@ impl Scenario {
         let copy = |v: &[Point]| v.iter().map(|p| Point { id: p.id.clone(), cut: p.cut.clone(), ..*p }).collect::<Vec<_>>();
         let mut pop = Population { homes: copy(&self.pop.homes), jobs: copy(&self.pop.jobs), schools: vec![], persons: self.pop.persons.clone() };
         let mut minutes = c.minutes.clone();
+        // Minute changes of temporary edits (`"temporary": true`): they move mode choice, not job choice.
+        let mut temporary = vec![0.0; n * n];
         let (mut applied, mut not_modeled) = (vec![], vec![]);
         let mut network = Network::new(&self.access);
         let mut building_edits = self.buildings.as_ref().map(Buildings::edits);
@@ -311,6 +313,7 @@ impl Scenario {
                                     (Some(last), Some(next)) => {
                                         let before = minutes[index].max(1.0);
                                         minutes[index] += next - last;
+                                        if raw["temporary"] == true { temporary[index] += next - last; }
                                         pair["choice_minutes_delta"] = json!(minutes[index].max(1.0) - before);
                                         *reference = Some(next);
                                     }
@@ -581,7 +584,8 @@ impl Scenario {
                 }
             }
         }
-        let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &minutes, &self.placed);
+        let job_minutes: Vec<f64> = minutes.iter().zip(&temporary).map(|(&m, &t)| if t == 0.0 { m } else { (m - t).max(1.0) }).collect();
+        let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &job_minutes, &minutes, &self.placed);
         self.fine_modes.apply(&mut pop);
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));

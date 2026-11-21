@@ -161,6 +161,14 @@ struct Pack {
     calendar_dates: Vec<Exception>,
 }
 
+const ASSUMPTIONS: [&str; 5] = [
+    "Depart comuna points at 08:00 on Monday 13 April 2026 and count arrivals by 11:00. Fixed trips use scheduled boarding calls. Frequency trips use half a headway after arrival while the shifted window permits it.",
+    "New or explicitly changed frequency runs at the first stop from 08:00 to 09:00. Changes to stops or ride times reuse the published service starts unless headway changes.",
+    "Access and egress use straight-line walks up to 1 km. Stop transfers use straight-line walks up to 300 m.",
+    "The graph measures travel between comuna population points. A route must include at least one transit segment. Null means no such route in this graph.",
+    "A geometry-only move keeps service times and the stop order. For added stop calls, omitted dwell is zero and boarding and alighting are allowed. The shape follows the selected calls in order."
+];
+
 pub struct LineCatalog {
     pack: Pack,
     cuts: Vec<String>,
@@ -220,6 +228,9 @@ pub struct LineEdits<'a> {
 
 impl LineEdits<'_> {
     pub fn apply(&mut self, raw: &Value) -> Result<Value, String> {
+        if raw["target"]["type"] == "mode" {
+            return self.remove_mode(raw);
+        }
         let id = raw["target"]["id"]
             .as_str()
             .filter(|id| !id.is_empty())
@@ -249,47 +260,75 @@ impl LineEdits<'_> {
             .as_ref()
             .map(|pattern| pattern.feature(id, self.catalog));
         self.changes.insert(id.to_owned(), after);
-        let mut pairs = Vec::new();
-        if changed_service {
-            let patterns = self
-                .catalog
-                .pack
-                .lines
-                .iter()
-                .filter(|(id, _)| !self.changes.contains_key(*id))
-                .map(|(_, pattern)| pattern)
-                .chain(self.changes.values().filter_map(Option::as_ref));
-            let next = self.catalog.routing.minutes(patterns);
-            let previous = self
-                .minutes
-                .as_deref()
-                .unwrap_or_else(|| self.catalog.baseline());
-            let cuts = &self.catalog.cuts;
-            for (i, (&before, &after)) in previous.iter().zip(&next).enumerate() {
-                if match (before, after) {
-                    (Some(before), Some(after)) => (before - after).abs() >= 0.000001,
-                    _ => before != after,
-                } {
-                    pairs.push(json!({
-                        "origin_cut": cuts[i / cuts.len()], "destination_cut": cuts[i % cuts.len()],
-                        "before_minutes": before, "after_minutes": after
-                    }));
-                }
-            }
-            self.minutes = Some(next);
-        }
-
+        let pairs = if changed_service { self.reroute() } else { Vec::new() };
         Ok(json!({
             "kind": "line", "op": op, "id": id, "before": before, "after": after_feature,
             "effects": {"pairs": pairs},
-            "assumptions": [
-                "Depart comuna points at 08:00 on Monday 13 April 2026 and count arrivals by 11:00. Fixed trips use scheduled boarding calls. Frequency trips use half a headway after arrival while the shifted window permits it.",
-                "New or explicitly changed frequency runs at the first stop from 08:00 to 09:00. Changes to stops or ride times reuse the published service starts unless headway changes.",
-                "Access and egress use straight-line walks up to 1 km. Stop transfers use straight-line walks up to 300 m.",
-                "The graph measures travel between comuna population points. A route must include at least one transit segment. Null means no such route in this graph.",
-                "A geometry-only move keeps service times and the stop order. For added stop calls, omitted dwell is zero and boarding and alighting are allowed. The shape follows the selected calls in order."
-            ]
+            "assumptions": ASSUMPTIONS
         }))
+    }
+
+    /// Remove every pattern of one mode (for example all Metro service) with one reroute.
+    fn remove_mode(&mut self, raw: &Value) -> Result<Value, String> {
+        let mode = raw["target"]["id"].as_str().unwrap_or("");
+        if raw["op"] != "remove" {
+            return Err("A mode target supports only op remove.".into());
+        }
+        let ids: Vec<String> = self
+            .catalog
+            .pack
+            .lines
+            .iter()
+            .filter(|(id, _)| !self.changes.contains_key(*id))
+            .chain(self.changes.iter().filter_map(|(id, p)| p.as_ref().map(|p| (id, p))))
+            .filter(|(_, p)| p.mode == mode)
+            .map(|(id, _)| id.clone())
+            .collect();
+        if ids.is_empty() {
+            return Err(format!("No active line has mode {mode}."));
+        }
+        for id in &ids {
+            self.changes.insert(id.clone(), None);
+        }
+        let pairs = self.reroute();
+        Ok(json!({
+            "kind": "line", "op": "remove", "id": format!("mode:{mode}"), "mode": mode,
+            "patterns_removed": ids.len(), "before": null, "after": null,
+            "effects": {"pairs": pairs},
+            "assumptions": ASSUMPTIONS
+        }))
+    }
+
+    /// Route the current edited network and return the comuna pairs whose minutes changed.
+    fn reroute(&mut self) -> Vec<Value> {
+        let mut pairs = Vec::new();
+        let patterns = self
+            .catalog
+            .pack
+            .lines
+            .iter()
+            .filter(|(id, _)| !self.changes.contains_key(*id))
+            .map(|(_, pattern)| pattern)
+            .chain(self.changes.values().filter_map(Option::as_ref));
+        let next = self.catalog.routing.minutes(patterns);
+        let previous = self
+            .minutes
+            .as_deref()
+            .unwrap_or_else(|| self.catalog.baseline());
+        let cuts = &self.catalog.cuts;
+        for (i, (&before, &after)) in previous.iter().zip(&next).enumerate() {
+            if match (before, after) {
+                (Some(before), Some(after)) => (before - after).abs() >= 0.000001,
+                _ => before != after,
+            } {
+                pairs.push(json!({
+                    "origin_cut": cuts[i / cuts.len()], "destination_cut": cuts[i % cuts.len()],
+                    "before_minutes": before, "after_minutes": after
+                }));
+            }
+        }
+        self.minutes = Some(next);
+        pairs
     }
 
     fn updated(
