@@ -167,11 +167,16 @@ A person who stays inside the comuna walks 23 times more often than one who leav
 So **a model that sends a cross-comuna flow must use the `work_place` 3 share**, never the
 comuna average.
 
-- Measured effect on the number the engine uses today. The inbound public-transport
-  factor for Las Condes, `Σ_c F_c,13114 · m_c / Σ_c F_c,13114`, is **0.4900** with the
-  blended shares and **0.5387** with workplace-consistent shares (code 3 for the other
-  origins, code 2 for Las Condes itself). That is 10% higher, and it raises the station
+- Effect on the number the engine uses today. The inbound public-transport factor for
+  Las Condes, `Σ_c F_c,13114 · m_c / Σ_c F_c,13114`, is **0.4900** with the blended
+  shares and **0.5387** with workplace-consistent shares (code 3 for the other origins,
+  code 2 for Las Condes itself). That is 10% higher, and it would move the station
   model's ΔJ for 4,679 jobs from −2,292.5 to −2,520.5.
+- **0.5387 is a more specific transfer estimate, not a measured correction.** Both
+  numbers transfer a home-comuna share to one destination. The split removes **one
+  aggregation assumption** — that a commuter who stays inside their comuna travels like
+  one who leaves it — and nothing more. It does not reduce destination-specific
+  uncertainty, and it is not evidence that 0.5387 is nearer the truth than 0.4900.
 - Las Condes residents: **0.2504** public transport when they work in Las Condes,
   **0.3607** when they work in another comuna. The single 0.3141 of `mode_share.csv` is
   the blend of the two.
@@ -180,8 +185,8 @@ comuna average.
 - **Limit that does not go away.** This is still the mode of the **home** comuna's
   cross-comuna commuters, transferred to one destination. The Census publishes no mode by
   comuna of work, so no file here observes how people arriving at a Las Condes workplace
-  travel. The refinement removes the own-comuna blend; it does not make the number an
-  observation.
+  travel. Use the split only inside a refinement that is registered and reviewed before
+  it is scored. It is not a drop-in fix for a number already inside a fitted model.
 
 ## site_inputs.csv
 
