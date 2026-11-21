@@ -27,7 +27,11 @@ the tower footprint center and the existing terrain elevation.
 
 The viewer casts only the local placement matrix to rendering precision.
 It preserves each GLB node hierarchy and disables additional axis rotation.
-GLB node translations must also remain local. Capture must remove Draco
+GLB node translations must also remain local. The capture implementation bakes
+the composed placement into scene-root matrices in double precision and writes
+an identity outer manifest matrix. It keeps the hierarchy below those roots.
+This avoids cancellation of Earth-scale translations after Bevy loads the nodes.
+Capture must remove Draco
 compression and keep geometry, materials, textures, and external resources local.
 The logo path is relative to the bundle. Attribution strings appear together
 on a persistent white bar. The viewer makes no network requests and reads no API key.
