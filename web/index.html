@@ -70,12 +70,13 @@
 </div>
 
 <div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
-<div id="delta" class="box t"><span id="dv"></span><small>Cambio de subidas al día, modelo</small>
-  <div style="display:flex;justify-content:flex-end;gap:32px;margin-top:14px;font-size:64px">
-    <div><span id="car"></span><small>en auto</small></div>
-    <div><span id="public"></span><small>en transporte público</small></div>
-  </div>
-  <small>Nuevos residentes: personas que salen al día<br>Supuesto: reparto modal de Las Condes</small></div>
+<div id="delta" class="box t" style="width:770px;font-size:76px"><span id="dv"></span>
+  <small>Cambio de subidas al día en Tobalaba</small><small>contabilidad del sitio, supuestos visibles</small>
+  <div style="margin-top:10px"><small>sensibilidad del modelo de estaciones <span id="stl"></span>, sin validar</small>
+    <small>cambio al día · base del modelo / observado</small>
+    <div id="st" style="font-size:44px"></div></div>
+  <div style="font-size:44px;margin-top:10px"><span id="car"></span> <small style="display:inline">en auto ·</small> <span id="public"></span> <small style="display:inline">en transp. público</small></div>
+  <small>nuevos residentes que salen al día</small><small>supuesto: reparto modal de Las Condes</small></div>
 <script>
 const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
 const API = 'http://localhost:8787/api/';
@@ -84,7 +85,7 @@ const FIRST = 11, LAST = 47;  // 05:30 to 23:30
 const HOMES = 298;            // average dwellings of an RM tower of 15 floors or more
 const KZ = 0.02;              // metres of comuna height for each person who works there
 const VIEWS = {
-  t: {longitude: -70.6040, latitude: -33.4205, zoom: 15.2, pitch: 55, bearing: -28},
+  t: {longitude: -70.6040, latitude: -33.4218, zoom: 15.2, pitch: 55, bearing: -28},
   s: {longitude: -70.69, latitude: -33.47, zoom: 10.9, pitch: 50, bearing: -15},
   p: {longitude: -70.77, latitude: -33.45, zoom: 11.1, pitch: 55, bearing: -15}};
 const $ = id => document.getElementById(id);
@@ -94,7 +95,7 @@ const at = (a, t) => { const i = Math.floor(t), x = a[i], y = a[Math.min(i + 1, 
 const post = (path, body) => fetch(API + path, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.ok ? r.json() : Promise.reject());
 
 let view = 't', score, stops, tob, buildings, ground, communes, t = FIRST, playing = true, active = false, homes = HOMES;
-let site = null;                         // last answer of POST /api/site-scenario
+let site = null, gen = 0;                // last answer of POST /api/site-scenario; number of the newest scenario request
 let world = null, sim = null, sel = '13123', seq = 0;  // GET /api/world, last POST /api/simulate, selected comuna
 
 // footprint of the new tower: a 44 m square on the MUT site
@@ -121,7 +122,8 @@ function siteScenario() {
   // every parameter is explicit; the engine has no defaults. P = value, kind, source.
   const P = (value, source_kind, source) => ({value, source_kind, source});
   const u = 'user_assumption';
-  post('site-scenario', {
+  const g = ++gen;
+  Promise.all([post('site-scenario', {
     station_id: 'TB-TOB', comuna_cut: '13114', longitude: MUT[0], latitude: MUT[1],
     // values of clever-heron's reviewed manual run of site.rs (PR #30): illustrative, not a measured preset
     baseline_jobs: P(4679, u, 'modeled MUT jobs from floor area, data/mvp/jobs.csv; not observed site employment'),
@@ -142,18 +144,25 @@ function siteScenario() {
       maximum_access_distance_m: P(500, u, 'straight line to a Tobalaba entrance; not a walking route'),
     },
     time_profile: 'observed_am_06_10_pm_16_21', population_policy: 'local_increment_unbalanced',
-  }).then(r => { site = r; engine('t', r); }, () => engine('t'))  // a failed call keeps the last valid answer
-  .then(() => {
-    const dd = site && site.delta.reduce((a, x) => a + (x || 0), 0);
-    $('dv').textContent = site ? (dd > 0 ? '+' : '') + fmt(dd) : '';
+  }), post('station-scenario', {site_id: 'MUT', dwellings_added: homes, jobs_removed: 4679, occupied_share: 0.9251, persons_per_occupied_dwelling: 2.0847,
+    occupancy_source: 'Las Condes apartment blocks, data/mvp/site_inputs.csv, Census 2024; transfer assumption'}).catch(() => null),
+  ]).then(([r, st]) => {
+    if (g != gen) return;  // a newer slider value or "Volver" replaced this request
+    site = r; engine('t', r);
+    const dd = r.delta.reduce((a, x) => a + (x || 0), 0);
+    $('dv').textContent = (dd > 0 ? '+' : '') + fmt(dd);
     $('dv').className = dd > 0 ? 'more' : 'less';
-    $('delta').style.display = site ? 'block' : 'none';
-    const car = site && site.resident_commuters_by_mode && site.resident_commuters_by_mode.find(m => m.mode_code == 1);
-    const publicTransport = site && site.resident_commuters_by_mode && site.resident_commuters_by_mode.find(m => m.mode_code == 2);
-    $('car').textContent = car ? fmt(car.daily_home_departures) : '';
-    $('public').textContent = publicTransport ? fmt(publicTransport.daily_home_departures) : '';
+    const mode = c => fmt(r.resident_commuters_by_mode.find(m => m.mode_code == c).daily_home_departures);
+    $('car').textContent = mode(1); $('public').textContent = mode(2);
+    // second estimate of the same change, from the scored station model: its own label, the Tobalaba station only
+    const x = st && st.stations.find(y => y.id == 'TB-TOB');
+    $('stl').textContent = st ? st.layer : '';
+    $('st').innerHTML = x ? `<span class="model">${x.delta_daily > 0 ? '+' : ''}${fmt(x.delta_daily)}</span> <small style="display:inline">Tobalaba · ${fmt(x.predicted_base_daily)} / ${fmt(x.observed_daily)}</small>`
+      + (st.layer == 'L4' ? `<small>reparto igual entre ${st.stations.length} estaciones a menos de 1 km</small>` : '')
+      : '<small>sin respuesta</small>';
+    $('delta').style.display = 'block';
     draw();
-  });
+  }, () => { if (g == gen) engine('t'); });  // a failed call keeps the last valid answer
 }
 
 function tobalaba() {
@@ -276,7 +285,7 @@ $('go').onclick = () => {
   $('go').textContent = active ? 'Volver al MUT' : 'Sacar el MUT';
   $('go').className = active ? 'on' : '';
   if (active) return siteScenario();
-  site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
+  gen++; site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
 };
 $('jobs').oninput = $('housing').oninput = simulate;
 $('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
