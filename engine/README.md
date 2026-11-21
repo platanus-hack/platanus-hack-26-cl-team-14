@@ -304,6 +304,8 @@ L7 (formula frozen 07:31, cleared by clever-heron 07:32): add `classes`. r_s = j
 
 L2b, **rejected** (registered 07:17, run 07:31 UTC): homes 1,000 m, jobs 500 m, else L2. Code `5288e37` on branch `feat/station-l2b` (not merged), args `1000/500 public`, `jobs.csv` of main `ef34915`, predictions SHA256 `657736c0993c425151592db99e44c2d4f393a241873ebfba7cd267f1075a5a64`. WAPE_bins 0.5202, WAPE_daily 0.3808: worse than L2, so not kept.
 
+L3, **rejected** (formula frozen 08:06, cleared by clever-heron 08:09, run 08:15 UTC): L7 plus β × nearby bus-boarding activity (`bus_activity.csv`, stops ≤ 300 m in `bus_metro_300m.csv`, a stop with 2 parents split equally; B is the sum of reported boardings, empty bins add nothing). Args `1000 public classes bus`, code on branch `feat/station-l3` (not merged). β = 0.3465 (training-only non-negative least squares), 1,172 linked stops, B mass 988,443, 27.5% of linked stop-bins empty. Predictions SHA256 76ee03a929cd7d4f…. WAPE_bins 0.4884 (worse than L7 0.4669), WAPE_daily 0.2890 (better than 0.3421). Kept only if WAPE_bins falls, so not kept.
+
 Known weakness of L0: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
 
 ### Score artifact for the page
