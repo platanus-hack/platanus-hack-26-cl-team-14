@@ -1,8 +1,13 @@
+mod activity;
+mod ground;
+mod terrain;
+use std::path::Path;
+pub use terrain::terrain_from_xz;
 use bevy::prelude::*;
 
 /// Local Santiago coordinates in meters. East is +X and south is +Z.
 pub fn world(lon: f64, lat: f64) -> Vec3 {
-    Vec3::new(((lon + 70.65) * 92_915.0) as f32, 0.0, (-(lat + 33.45) * 110_905.0) as f32)
+    let x=((lon + 70.65) * 92_915.0) as f32; let z=(-(lat + 33.45) * 110_905.0) as f32; Vec3::new(x,terrain_from_xz(x,z),z)
 }
 
 use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
@@ -95,7 +100,7 @@ impl Pack {
         Self{bytes,offsets,cols,origin,step}
     }
 
-    fn position(&self,x:f32,y:f32)->Vec3 { self.origin + Vec3::new(x*0.92915, 0., -y*1.10905) }
+    fn position(&self,x:f32,y:f32)->Vec3 { let x=self.origin.x + x*0.92915; let z=self.origin.z - y*1.10905; Vec3::new(x,terrain_from_xz(x,z),z) }
 
     fn center(&self, tile: usize) -> Vec3 {
         self.position(((tile%self.cols) as f32+0.5)*self.step as f32, ((tile/self.cols) as f32+0.5)*self.step as f32)
@@ -124,6 +129,7 @@ pub(crate) struct Buildings {
     polygons: Pack,
     tiles: Vec<Option<(Detail, Entity)>>,
     material: Handle<StandardMaterial>,
+    heights:activity::HeightScales,
 }
 
 fn box_mesh(pack:&Pack,tile:usize,scale:&impl Fn(usize)->f32)->Surface {
@@ -184,10 +190,14 @@ pub fn load_buildings(mut commands:Commands, mut materials:ResMut<Assets<Standar
     let count:usize=(0..tiles.len()).map(|i|boxes.slice(i)).filter(|s|!s.is_empty()).map(|s|integer(s,0)).sum();
     println!("Loaded {count} buildings from {} tiles",tiles.len());
     let material=materials.add(StandardMaterial{cull_mode:None,double_sided:false,perceptual_roughness:0.94,..default()});
-    commands.insert_resource(Buildings{boxes,polygons,tiles,material});
+    commands.insert_resource(Buildings{boxes,polygons,tiles,material, heights:activity::HeightScales::load(Path::new("web/data/city_building_block_ids.bin.gz"))});
 }
 
-pub(crate) fn draw_buildings(mut commands:Commands, mut buildings:ResMut<Buildings>, mut meshes:ResMut<Assets<Mesh>>, rig:Res<crate::Rig>) {
+pub(crate) fn draw_buildings(mut commands:Commands, mut buildings:ResMut<Buildings>, mut meshes:ResMut<Assets<Mesh>>, mut rig:ResMut<crate::Rig>,scenario:Res<crate::net::Scenario>) {
+    if scenario.is_changed() && let Some(focus)=buildings.heights.update(&scenario.0) {
+        for tile in &mut buildings.tiles {if let Some((_,e))=tile.take(){commands.entity(e).despawn();}}
+        if let Some([lon,lat])=focus {rig.target=world(lon,lat);}
+    }
     let mut jobs=Vec::new();
     for tile in 0..buildings.tiles.len() {
         if buildings.boxes.slice(tile).is_empty() {continue;}
@@ -204,8 +214,8 @@ pub(crate) fn draw_buildings(mut commands:Commands, mut buildings:ResMut<Buildin
         if let Some((_,entity))=buildings.tiles[tile].take() {commands.entity(entity).despawn();}
         if let Some(detail)=detail {
             let mesh=match detail {
-                Detail::Far=>box_mesh(&buildings.boxes,tile,&|_|1.),
-                Detail::Near=>polygon_mesh(&buildings.boxes,&buildings.polygons,tile,&|_|1.)
+                Detail::Far=>box_mesh(&buildings.boxes,tile,&|i|buildings.heights.scale(tile,i)),
+                Detail::Near=>polygon_mesh(&buildings.boxes,&buildings.polygons,tile,&|i|buildings.heights.scale(tile,i))
             };
             let entity=commands.spawn((Mesh3d(meshes.add(mesh.finish())),MeshMaterial3d(buildings.material.clone()))).id();
             buildings.tiles[tile]=Some((detail,entity));
@@ -213,124 +223,9 @@ pub(crate) fn draw_buildings(mut commands:Commands, mut buildings:ResMut<Buildin
     }
 }
 
-use std::{collections::BTreeMap, io::BufReader, path::Path};
-
-use serde_json::Value;
-
-
-type Color4 = [f32; 4];
-type GroundTiles = BTreeMap<(i32, i32), Surface>;
-
-// Half-widths are cartographic line widths in metres.
-const ROAD: Color4 = [0.48, 0.49, 0.48, 1.0];
-const SMALL_ROAD: Color4 = [0.60, 0.60, 0.56, 1.0];
-const GRASS: Color4 = [0.23, 0.38, 0.18, 1.0];
-const WATER: Color4 = [0.16, 0.41, 0.44, 1.0];
-const STONE: Color4 = [0.62, 0.59, 0.48, 1.0];
-const ROOF: Color4 = [0.33, 0.40, 0.37, 1.0];
-const GLASS: Color4 = [0.13, 0.32, 0.37, 1.0];
-
-fn coordinates(line: &Value) -> Vec<Vec3> {
-    line.as_array().unwrap().iter().map(|pair| {
-        world(pair[0].as_f64().unwrap(), pair[1].as_f64().unwrap())
-    }).collect()
-}
-
-fn tile_for(tiles: &mut GroundTiles, point: Vec3) -> &mut Surface {
-    let tile = ((point.x / 1700.0).floor() as i32, (point.z / 1700.0).floor() as i32);
-    tiles.entry(tile).or_default()
-}
-
-// One shared pair of vertices at each join keeps streets continuous on bends.
-fn ribbon(mesh: &mut Surface, points: &[Vec3], half_width: f32, elevation: f32, color: Color4) {
-    let mut points = points.to_vec();
-    points.dedup();
-    if points.len() < 2 { return; }
-    let normal = |a: Vec3, b: Vec3| Vec3::new(a.z - b.z, 0.0, b.x - a.x).normalize_or_zero();
-    let first_vertex = mesh.positions.len() as u32;
-    let last = points.len() - 1;
-    for (i, &p) in points.iter().enumerate() {
-        let previous = normal(points[i.saturating_sub(1)], p);
-        let next = normal(p, points[(i + 1).min(last)]);
-        let join = (previous + next).normalize_or_zero();
-        let reference = if i == last { previous } else { next };
-        let offset = join * (half_width / join.dot(reference).max(0.5));
-        let center = p + Vec3::Y * elevation;
-        mesh.positions.extend([(center + offset).to_array(), (center - offset).to_array()]);
-        mesh.normals.extend([[0.0, 1.0, 0.0]; 2]);
-        mesh.colors.extend([color; 2]);
-        if i != last {
-            let a = first_vertex + i as u32 * 2;
-            mesh.indices.extend([a, a + 2, a + 1, a + 1, a + 2, a + 3]);
-        }
-    }
-}
-
-fn roads(tiles: &mut GroundTiles, path: &Path) {
-    let fc: Value = serde_json::from_reader(BufReader::new(File::open(path).unwrap())).unwrap();
-    for feature in fc["features"].as_array().unwrap() {
-        let points = coordinates(&feature["geometry"]["coordinates"]);
-        let (half_width, color) = match feature["properties"]["kind"].as_str().unwrap() {
-            "motorway" => (6.5, ROAD),
-            "trunk" | "primary" => (5.0, ROAD),
-            "secondary" => (4.0, ROAD),
-            _ => (2.8, SMALL_ROAD),
-        };
-        ribbon(tile_for(tiles, points[0]), &points, half_width, 0.13, color);
-    }
-}
-
-fn landmarks(tiles: &mut GroundTiles, path: &Path) {
-    let fc: Value = serde_json::from_reader(BufReader::new(File::open(path).unwrap())).unwrap();
-    for feature in fc["features"].as_array().unwrap() {
-        let props = &feature["properties"];
-        let shape = &feature["geometry"]["coordinates"];
-        let kind = props["kind"].as_str().unwrap();
-        if kind == "peak" {
-            // These are summit points. Terrain supplies their surfaces.
-            continue;
-        }
-        if kind == "river" {
-            let points = coordinates(shape);
-            ribbon(tile_for(tiles, points[points.len() / 2]), &points, 15.0, 0.08, WATER);
-            continue;
-        }
-        let rings: Vec<Vec<Vec3>> = shape.as_array().unwrap().iter().map(|ring| {
-            let mut points = coordinates(ring);
-            points.pop(); // GeoJSON repeats its closing coordinate.
-            points
-        }).collect();
-        let tile = tile_for(tiles, rings[0][0]);
-        match kind {
-            "park" => tile.polygon(&rings, 0.03, 0.0, GRASS, GRASS),
-            "tower" => tile.polygon(&rings, 0.0, props["height_m"].as_f64().unwrap() as f32 + 0.05, GLASS, GLASS),
-            "palace" => tile.polygon(&rings, 0.0, props["levels"].as_f64().unwrap() as f32 * 3.5 + 0.05, STONE, ROOF),
-            "stadium" => {
-                // Mark the surveyed stadium perimeter. The source has no structure height.
-                let mut perimeter = rings[0].clone();
-                perimeter.push(perimeter[0]);
-                ribbon(tile, &perimeter, 4.5, 0.18, STONE);
-            }
-            _ => (),
-        }
-    }
-}
-
-pub(crate) fn load_ground(root: &Path) -> Vec<(String, Mesh)> {
-    let mut tiles = GroundTiles::new();
-    roads(&mut tiles, &root.join("data/mvp/roads.geojson"));
-    landmarks(&mut tiles, &root.join("web/data/santiago_landmarks.geojson"));
-    tiles.into_iter().map(|((x,z), surface)| (format!("City ground {x} {z}"), surface.finish())).collect()
-}
-
 pub(crate) fn setup_ground(mut commands:Commands, mut meshes:ResMut<Assets<Mesh>>,mut materials:ResMut<Assets<StandardMaterial>>) {
     let mat=materials.add(StandardMaterial{cull_mode:None,perceptual_roughness:1.,..default()});
-    for (name,mesh) in load_ground(Path::new(".")) {
+    for (name,mesh) in ground::load_ground(Path::new(".")) {
         commands.spawn((Name::new(name),Mesh3d(meshes.add(mesh)),MeshMaterial3d(mat.clone())));
     }
-    commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(190000.,190000.))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(179,171,150))),
-        Transform::from_xyz(0.,-0.2,0.)
-    ));
 }

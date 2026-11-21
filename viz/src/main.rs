@@ -1,5 +1,6 @@
 mod city;
 mod net;
+mod movers;
 use std::{env, time::Instant};
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
@@ -92,15 +93,15 @@ fn setup(mut commands: Commands, rig: Res<Rig>) {
         lens(rig.distance),
         Tonemapping::ReinhardLuminance,
         AmbientLight {
-            color: Color::srgb_u8(180, 209, 255),
-            brightness: 560.0,
+            color: Color::srgb_u8(195, 218, 255),
+            brightness: 950.0,
             ..default()
         },
     ));
     commands.spawn((
         DirectionalLight {
-            color: Color::srgb_u8(255, 234, 205),
-            illuminance: 24_000.0,
+            color: Color::srgb_u8(255, 245, 231),
+            illuminance: 12_000.0,
             shadow_maps_enabled: true,
             ..default()
         },
@@ -137,6 +138,7 @@ fn navigate(
         let forward = Vec3::new(-0.32, 0., -0.51).normalize();
         let meters_per_pixel = 2.0 * rig.distance * (FOV * 0.5).tan() / window.height();
         rig.target += (-right * delta.x + forward * delta.y / camera.forward().y.abs()) * meters_per_pixel;
+        rig.target.y=city::terrain_from_xz(rig.target.x,rig.target.z);
     }
 }
 
@@ -204,7 +206,7 @@ fn measure(
 fn main() -> AppExit {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {primary_window: Some(window()), ..default()}))
-        .add_plugins((MiniatureCamera,net::NetPlugin))
+        .add_plugins((MiniatureCamera,net::NetPlugin,movers::MoversPlugin))
         .add_systems(Startup,(city::load_buildings,city::setup_ground))
         .add_systems(Update,city::draw_buildings)
         .run()
