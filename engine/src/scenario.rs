@@ -2,7 +2,7 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
-use crate::population::{Person, Point, Population, sample_trips};
+use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, sample_trips};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::StationModel;
 use crate::stations::access::StationAccess;
@@ -43,6 +43,7 @@ pub struct Scenario {
     base: State,
     /// Display groups of the baseline workers (population/trips.rs), for the map.
     trips: Value,
+    fine_modes: FineModes,
     placed: Base,
     /// Per station and per comuna: id, name, longitude, latitude.
     stations: Vec<(String, String, f64, f64)>,
@@ -51,7 +52,7 @@ pub struct Scenario {
     ratio: Vec<f64>,
 }
 
-const ASSUMPTIONS: [&str; 9] = [
+const ASSUMPTIONS: [&str; 10] = [
     "Persons are synthetic and consistent with the Census 2024 margins. They are not microdata.",
     "The station model (L9) is fitted on the baseline. Its scale, classes and profiles do not change.",
     "Travel times are comuna to comuna and lower than survey times. The effect of a time change is an unvalidated sensitivity; the size and direction of its error are unknown.",
@@ -60,6 +61,7 @@ const ASSUMPTIONS: [&str; 9] = [
     "Station access (L9): a walk within 1,000 m, or else one bus. A closed station does not change the travel minutes between comunas or the job choice.",
     "Students do not choose again.",
     "Trips are display groups of workers, not persons. Departure half hours come from the EOD 2012 survey. Students are not included.",
+    "The Census sets walking and cycling totals inside each comuna pair. The 2012 survey distance rule allocates workers within those totals. The engine has no measured response for cycling uptake after a new cycleway.",
     "All values are model values, not measured values.",
 ];
 
@@ -77,7 +79,7 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: json!(sample_trips(&pop, 300)), choice, pop, model, access, stations, comunas };
+        let mut sc = Scenario { placed, base: State { od: vec![], public: vec![], day: vec![] }, ratio: vec![], trips: json!(sample_trips(&pop, 300)), fine_modes: FineModes::from_baseline(&pop), choice, pop, model, access, stations, comunas };
         sc.base = sc.state(&sc.pop, &sc.access.all_parent_ids());
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -129,7 +131,8 @@ impl Scenario {
         for raw in changes {
             let kind = raw["kind"].as_str().unwrap_or("");
             let key = raw["target"]["id"].as_str().unwrap_or("");
-            if let Some((id, name, ..)) = self.stations.iter().find(|s| kind == "station" && (s.0 == key || s.1 == key.to_uppercase())) {
+            if let Some((id, name, ..)) = self.stations.iter().find(|s| kind == "station" && raw["target"]["type"] == "station" && raw["op"] == "set"
+                && [Some(0.0), Some(1.0)].contains(&raw["value"].as_f64()) && (s.0 == key || s.1 == key.to_uppercase())) {
                 let closed = raw["value"].as_f64() == Some(0.0);
                 if closed { open.remove(id); } else { open.insert(id.clone()); }
                 let mut v = raw.clone();
@@ -140,7 +143,7 @@ impl Scenario {
             if !["jobs", "residents", "minutes"].contains(&kind) {
                 let mut v = raw.clone();
                 v["reason"] = json!(match kind {
-                    "station" => "Only existing stations can be closed or reopened. The engine does not model new stations or lines.",
+                    "station" => "A station change needs target type station, op set and value 0 or 1. Only existing stations can be closed or reopened. The engine does not model new stations or lines.",
                     "event" => "The engine does not model events yet. It models one usual work day.",
                     _ => "The engine does not know this kind of change.",
                 });
@@ -187,7 +190,7 @@ impl Scenario {
                             cum += k * pop.homes[i].weight / after;
                             let q = cum.round() - done;
                             done += q;
-                            pop.persons.extend((0..q as u32).map(|_| Person { home: i as u32, dest: u32::MAX, student: false, mode: 7 }));
+                            pop.persons.extend((0..q as u32).map(|_| Person { home: i as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE }));
                         }
                         k
                     } else {
@@ -219,6 +222,18 @@ impl Scenario {
 
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
         let moved = rechoose(c, &mut pop, &weights, &minutes, &self.placed);
+        self.fine_modes.apply(&mut pop);
+        // The points whose jobs or residents changed, for the map. A new point has no id.
+        let changed = |v: &[Point], old: &[Point], key: &str| v.iter().enumerate().filter_map(|(i, p)| {
+            let d = p.weight - old.get(i).map_or(0.0, |q| q.weight);
+            (d.abs() > 1e-9).then(|| (d, json!({ "id": old.get(i).map(|q| &q.id), "cut": p.cut, "longitude": p.longitude, "latitude": p.latitude,
+                "jobs_delta": if key == "jobs" { d } else { 0.0 }, "residents_delta": if key == "jobs" { 0.0 } else { d } })))
+        }).collect::<Vec<_>>();
+        let mut blocks = changed(&pop.jobs, &self.pop.jobs, "jobs");
+        blocks.extend(changed(&pop.homes, &self.pop.homes, "residents"));
+        blocks.sort_by(|a, b| b.0.abs().total_cmp(&a.0.abs()));
+        let blocks_total = blocks.len();
+        let blocks: Vec<Value> = blocks.into_iter().take(300).map(|x| x.1).collect();
         let (b, s) = (&self.base, &self.state(&pop, &open));
 
         let daily = |d: &State, i: usize| d.day[i].iter().sum::<f64>();
@@ -261,6 +276,7 @@ impl Scenario {
                 "top_station_gains": gains, "top_station_losses": losses,
             },
             "stations": stations, "zones": zones, "flows": flows,
+            "blocks_changed": blocks, "blocks_changed_total": blocks_total,
             "trips_base": self.trips, "trips_scenario": sample_trips(&pop, 300),
             "assumptions": ASSUMPTIONS,
             "elapsed_ms": t.elapsed().as_millis() as u64,

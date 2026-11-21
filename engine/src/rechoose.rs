@@ -2,7 +2,7 @@
 //! The rules of choice.rs give quotas: workers by comuna pair, by job point and by mode of each pair. A worker
 //! keeps its job point and its mode while their quotas have room. Only the surplus moves. No random numbers.
 use crate::choice::Choice;
-use crate::population::Population;
+use crate::population::{NEW_OTHER_MODE, Population};
 use std::collections::HashMap;
 
 /// Integers near `total × share` that sum to `total` (rounding of the cumulative sum).
@@ -115,8 +115,8 @@ pub fn rechoose(c: &Choice, pop: &mut Population, job_weights: &[f64], minutes: 
         let m = &mut mode[home[p.home as usize] * n + work[p.dest as usize]];
         let j = if m[class(p.mode)] > 0 { class(p.mode) } else { m.iter().position(|&q| q > 0).unwrap() };
         m[j] -= 1;
-        // shortcut: a new "other" worker gets census code 7, upgrade if a consumer needs the split of codes 3 to 7.
-        if j != class(p.mode) { p.mode = [2, 1, 7][j]; }
+        // FineModes::apply (population/fine_modes.rs) gives a new "other" worker its census code.
+        if j != class(p.mode) { p.mode = [2, 1, NEW_OTHER_MODE][j]; }
     }
     moved
 }
