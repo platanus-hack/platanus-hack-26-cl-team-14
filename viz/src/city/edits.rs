@@ -11,6 +11,26 @@ pub(crate) struct EditMesh;
 pub(crate) struct SurfaceEdit;
 
 #[derive(Component)]
+pub(crate) struct FerryRoute;
+
+// The wide replay introduces the new service with a route line. At the pier,
+// the vessel, gangway and passengers identify the intervention at street scale.
+pub(crate) fn ferry_routes(
+    rig: Res<crate::Rig>,
+    mode: Res<SubwayView>,
+    mut lines: Query<&mut Visibility, With<FerryRoute>>,
+) {
+    let visible = if mode.0 || rig.distance < 1_200. {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    for mut line in &mut lines {
+        line.set_if_neq(visible);
+    }
+}
+
+#[derive(Component)]
 pub(crate) struct ClosureEnd(Vec3);
 
 fn closure_ends(commands: &mut Commands, geometry: &Value) {
@@ -249,6 +269,9 @@ pub(crate) fn refresh(
                         path_material.clone()
                     }),
                 ));
+                if kind == "line" && after["properties"]["mode"] == "boat" {
+                    entity.insert(FerryRoute);
+                }
                 if kind == "road" || (kind == "line" && after["properties"]["mode"] != "metro") {
                     entity.insert((
                         SurfaceEdit,
