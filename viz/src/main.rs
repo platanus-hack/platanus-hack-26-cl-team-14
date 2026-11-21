@@ -1,3 +1,4 @@
+mod chart;
 mod city;
 mod focus;
 mod movers;
@@ -335,6 +336,7 @@ fn main() -> AppExit {
         .add_plugins((
             MiniatureCamera,
             net::NetPlugin,
+            chart::ChartPlugin,
             movers::MoversPlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,
