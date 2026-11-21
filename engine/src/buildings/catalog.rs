@@ -1,4 +1,5 @@
 //! Read the same quantized footprint and block-key packs as the native city.
+use geo::{Area, BooleanOps, LineString, Polygon};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -450,7 +451,7 @@ impl Catalog {
             "The INE block boundary pack is unavailable. Cannot assign this building to a block.".into())
     }
 
-    pub(super) fn block(&self, geometry: &Value) -> Result<(String, String, f64, f64), String> {
+    pub(super) fn block(&self, geometry: &Value) -> Result<Value, String> {
         let rings: Rings = serde_json::from_value(geometry["coordinates"].clone())
             .map_err(|_| "Invalid building coordinates.")?;
         let bbox = rings
@@ -469,9 +470,63 @@ impl Catalog {
                 selected = Some(&block.info);
             }
         }
-        let b = selected.ok_or(
-            "The footprint crosses census block boundaries or falls outside the block pack.",
-        )?;
-        Ok((b.block_id.clone(), b.cut.clone(), b.longitude, b.latitude))
+        let row = |b: &Block, share: f64| {
+            json!({"block_id":b.block_id,"cut":b.cut,
+            "longitude":b.longitude,"latitude":b.latitude,"share":share})
+        };
+        let (shares, coverage) = if let Some(b) = selected {
+            (vec![row(b, 1.0)], 1.0)
+        } else {
+            // Use one local plane for the footprint and every intersection. Holes remain holes.
+            let origin = rings[0][0];
+            let polygon = |rings: &Rings| {
+                let line = |ring: &Vec<Point>| -> LineString<f64> {
+                    ring.iter()
+                        .map(|p| (p[0] - origin[0], p[1] - origin[1]))
+                        .collect()
+                };
+                Polygon::new(line(&rings[0]), rings[1..].iter().map(line).collect())
+            };
+            let footprint = polygon(&rings);
+            let mut areas = Vec::new();
+            for block in self.boundaries()? {
+                if (0..2).any(|i| {
+                    block.bounds.max[i] <= bbox.min[i] || block.bounds.min[i] >= bbox.max[i]
+                }) {
+                    continue;
+                }
+                let area: f64 = block
+                    .polygons
+                    .iter()
+                    .map(|p| footprint.intersection(&polygon(p)).unsigned_area())
+                    .sum();
+                if area > 0.0 {
+                    areas.push((&block.info, area));
+                }
+            }
+            let total: f64 = areas.iter().map(|(_, area)| area).sum();
+            if areas.is_empty() {
+                return Err("The footprint has no positive area inside the block pack.".into());
+            }
+            (
+                areas
+                    .into_iter()
+                    .map(|(b, area)| row(b, area / total))
+                    .collect(),
+                total / footprint.unsigned_area(),
+            )
+        };
+        let primary = shares
+            .iter()
+            .max_by(|a, b| {
+                a["share"]
+                    .as_f64()
+                    .unwrap()
+                    .total_cmp(&b["share"].as_f64().unwrap())
+            })
+            .unwrap();
+        Ok(json!({"block_id":primary["block_id"],"cut":primary["cut"],
+            "block_longitude":primary["longitude"],"block_latitude":primary["latitude"],
+            "block_shares":shares,"block_covered_fraction":coverage}))
     }
 }
