@@ -15,7 +15,9 @@ impl Plugin for EventsPlugin {
         )
         .add_systems(
             Update,
-            animate.after(refresh).run_if(resource_exists::<EventClock>),
+            animate
+                .after(refresh)
+                .run_if(resource_exists::<EventPlayback>),
         );
     }
 }
@@ -27,11 +29,7 @@ struct Slot {
 }
 
 #[derive(Resource)]
-struct EventClock {
-    slots: Vec<Slot>,
-    anchor: Slot,
-    offset: f32,
-}
+struct EventPlayback(Vec<(Slot, f32)>);
 
 #[derive(Component)]
 struct Venue;
@@ -40,6 +38,7 @@ struct Venue;
 struct Attendee {
     path: Arc<Path>,
     bin_start: f32,
+    playback_start: f32,
     delay: f32,
     car: Model,
 }
@@ -80,7 +79,7 @@ fn refresh(
     mut commands: Commands,
     scenario: Res<Scenario>,
     time: Res<Time>,
-    previous: Option<Res<EventClock>>,
+    previous: Option<Res<EventPlayback>>,
     routes: Res<Routes>,
     models: Res<Models>,
     fleet: Res<fleet::Fleet>,
@@ -100,7 +99,7 @@ fn refresh(
         .unwrap_or_default();
     if events.is_empty() {
         if previous.is_some() {
-            commands.remove_resource::<EventClock>();
+            commands.remove_resource::<EventPlayback>();
         }
         return;
     }
@@ -115,23 +114,28 @@ fn refresh(
             bin: e["assumed_end_half_hour"].as_u64().unwrap() as u8,
         })
         .collect();
-    let previous = previous.as_deref();
+    let previous = previous
+        .as_deref()
+        .map(|p| p.0.as_slice())
+        .unwrap_or_default();
     let focus = slots
         .iter()
         .rev()
-        .find(|s| !previous.is_some_and(|p| p.slots.iter().any(|old| old.venue == s.venue)))
+        .find(|s| !previous.iter().any(|(old, _)| old.venue == s.venue))
         .copied();
-    let anchor = slots
-        .iter()
-        .rev()
-        .find(|s| !previous.is_some_and(|p| p.slots.contains(s)))
-        .copied()
-        .or_else(|| previous.map(|p| p.anchor).filter(|s| slots.contains(s)))
-        .unwrap_or(slots[0]);
-    // Start the event replay one minute into its end bin. Scheduled city traffic keeps its own time.
-    let offset = previous.filter(|p| p.anchor == anchor).map_or_else(
-        || f32::from(anchor.bin) * BIN + 60. - time.elapsed_secs(),
-        |p| p.offset,
+    // Each new event opens one minute into its own replay. Retained events keep
+    // their start times across edits, even when a second venue joins the scenario.
+    let playback = EventPlayback(
+        slots
+            .into_iter()
+            .map(|slot| {
+                let start = previous
+                    .iter()
+                    .find(|(old, _)| *old == slot)
+                    .map_or(time.elapsed_secs() - 60., |&(_, start)| start);
+                (slot, start)
+            })
+            .collect(),
     );
     let mut station_states = HashMap::new();
     for change in result["applied"]
@@ -158,7 +162,7 @@ fn refresh(
             )
         })
         .collect();
-    for (event, &slot) in events.iter().zip(&slots) {
+    for (event, &(slot, playback_start)) in events.iter().zip(&playback.0) {
         commands.spawn((
             Venue,
             Mesh3d(assets.ring.clone()),
@@ -176,6 +180,7 @@ fn refresh(
             event,
             result,
             slot,
+            playback_start,
             &open,
             assets,
             &frontage,
@@ -183,11 +188,7 @@ fn refresh(
             &fleet,
         );
     }
-    commands.insert_resource(EventClock {
-        slots,
-        anchor,
-        offset,
-    });
+    commands.insert_resource(playback);
 }
 
 fn nearest(points: &[Vec3], p: Vec3) -> Option<Vec3> {
@@ -227,6 +228,7 @@ fn spawn_crowd(
     event: &Value,
     result: &Value,
     slot: Slot,
+    playback_start: f32,
     stations: &[Vec3],
     assets: &EventAssets,
     frontage: &Path,
@@ -327,6 +329,7 @@ fn spawn_crowd(
             Attendee {
                 path,
                 bin_start: f32::from(slot.bin) * BIN,
+                playback_start,
                 delay: departure_offset(0., i),
                 car: model,
             },
@@ -341,7 +344,7 @@ fn spawn_crowd(
 fn animate(
     time: Res<Time>,
     clock: Res<FixedClock>,
-    event: Res<EventClock>,
+    event: Res<EventPlayback>,
     subway: Res<SubwayView>,
     models: Res<Models>,
     rig: Res<Rig>,
@@ -359,7 +362,6 @@ fn animate(
         return;
     }
     *next = time.elapsed_secs() + 1. / 30.;
-    let now = clock.0.unwrap_or(event.offset + time.elapsed_secs());
     for mut visible in &mut venues {
         visible.set_if_neq(if subway.0 {
             Visibility::Hidden
@@ -368,7 +370,11 @@ fn animate(
         });
     }
     for (person, mut transform, mut visible, mut mesh, mut material) in &mut people {
-        let age = now - person.bin_start;
+        let age = clock
+            .0
+            .map_or(time.elapsed_secs() - person.playback_start, |now| {
+                now - person.bin_start
+            });
         let position = if subway.0 || age < 0. {
             None
         } else if age < person.delay {
