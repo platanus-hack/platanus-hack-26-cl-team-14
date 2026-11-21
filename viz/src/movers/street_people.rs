@@ -112,9 +112,9 @@ impl StreetPeople {
     fn route_for_entry(&self, bin: usize, entry_index: usize) -> Option<&Arc<Path>> {
         // Spread each origin's weighted entries across the half hour.
         let share = ((entry_index as f64 + 0.5) * 0.7548776662466927).fract();
-        self.origins[usize::from(bin >= 24)]
-            .iter()
-            .find(|origin| share < origin.until)?
+        let origins = &self.origins[usize::from(bin >= 24)];
+        origins
+            .get(origins.partition_point(|origin| origin.until <= share))?
             .path
             .as_ref()
     }
@@ -126,6 +126,9 @@ impl StreetPeople {
         visible: &impl Fn(Vec3, f32) -> bool,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
+        if self.longest == 0. {
+            return;
+        }
         let first_slot = (now / BIN) as i32;
         let last_slot = ((now + self.longest) / BIN) as i32;
         let distance = eye.distance(self.centre);
