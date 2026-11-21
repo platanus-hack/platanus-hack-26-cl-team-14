@@ -148,6 +148,49 @@ How the commuters of `work_od.csv` travel to work, by comuna of residence. Built
 - **Limit that matters for the station layer: code 2 puts metro, bus, train, taxi and colectivo in one answer.** The census does not separate them, so this file cannot give a metro share. Any split of code 2 between metro and bus is an assumption, and the page must label it.
 - The universe is a person who works away from the dwelling, so "works at home" is `NA` and is not in this file. It is the main mode, not every leg of the trip, and it is the usual mode, not a trip on a given day.
 
+### mode_share_by_workplace.csv
+
+`cut,work_place,mode,commuters`. The same counts split by `p44_lug_trab`: **2** works in
+this comuna, **3** works in another comuna. 781 rows, 2,740,454 commuters. Same builder.
+**Summing this file over `work_place` reproduces `mode_share.csv` exactly**, all 410 rows,
+so it is a strict refinement and nothing that reads `mode_share.csv` needs to change.
+
+**Why it exists: one share for each comuna blends two populations that travel very
+differently.** Over the RM:
+
+| | public transport | car | walking |
+| --- | --- | --- | --- |
+| works in own comuna (835,484) | 0.3218 | 0.2866 | **0.2663** |
+| works in another comuna (1,904,970) | **0.6122** | 0.3017 | 0.0116 |
+
+A person who stays inside the comuna walks 23 times more often than one who leaves it.
+So the `work_place` 3 share is a **candidate** for a cross-comuna flow in place of the
+comuna average. It is a refinement to preregister and score, not a rule that this file
+imposes on an existing fit.
+
+- Effect on the number the engine uses today. The inbound public-transport factor for
+  Las Condes, `Σ_c F_c,13114 · m_c / Σ_c F_c,13114`, is **0.4900** with the blended
+  shares and **0.5387** with workplace-consistent shares (code 3 for the other origins,
+  code 2 for Las Condes itself). That is 10% higher, and it would move the station
+  model's ΔJ for 4,679 jobs from −2,292.5 to −2,520.5.
+- **0.5387 is a more specific transfer estimate, not a measured correction.** Both
+  numbers transfer a home-comuna share to one destination. The split removes **one
+  aggregation assumption** — that a commuter who stays inside their comuna travels like
+  one who leaves it — and nothing more. It does not reduce destination-specific
+  uncertainty, and it is not evidence that 0.5387 is nearer the truth than 0.4900.
+- Las Condes residents: **0.2504** public transport when they work in Las Condes,
+  **0.3607** when they work in another comuna. The single 0.3141 of `mode_share.csv` is
+  the blend of the two.
+- Largest origins, blended against cross-comuna: Santiago 0.617 → 0.755, Puente Alto
+  0.600 → 0.680, La Florida 0.585 → 0.643, Ñuñoa 0.500 → 0.531.
+- **This file is still a transfer, and it does not have to be.** A person row carries
+  `p44_lug_trab_esp` and `p45_medio_transporte` together, so the mode of a single
+  origin-destination pair can be aggregated in a separate export. This file does not
+  contain those pair-specific counts. Use this split for an outbound question about
+  a comuna's residents; review a joint mode/OD export before using it for inbound flows.
+  Either way, replacing a coefficient inside a fitted model is a refinement to register
+  and review before it is scored, not a drop-in fix.
+
 ## site_inputs.csv
 
 The comuna inputs that the site model of `context/research/tobalaba-scenario-contract.md`

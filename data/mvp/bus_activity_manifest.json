@@ -1,0 +1,58 @@
+{
+  "sources": {
+    "gtfs": {
+      "name": "gtfs.zip",
+      "bytes": 10701870,
+      "sha256": "f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b",
+      "url": "https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip"
+    },
+    "boardings": {
+      "name": "boarding.xlsx",
+      "bytes": 29342772,
+      "sha256": "2982459cbe71d139000be6535a24534a68f53162a2550f1aba4b72cc61c2e90d",
+      "url": "https://www.dtpm.cl/descargas/modelos_y_matrices/Subidas_Paradero_Estacion_2026.04_v3.xlsx"
+    }
+  },
+  "input_export": {
+    "name": "boardings.csv",
+    "bytes": 84979065,
+    "sha256": "24da85944374d1b07ac2b8c5bf696279370e2ecd9d6dd1d76daca84b5dd26ec4"
+  },
+  "period": "average of 2026-04-13 through 2026-04-17",
+  "day_type": "LABORAL",
+  "mode": "BUS",
+  "timezone": "America/Santiago",
+  "unit": "validation-derived boardings; excludes estimated fare evasion",
+  "bins": "b00=00:00, b01=00:30, ..., b47=23:30; average boardings per half hour",
+  "missing": "Empty bin = no source observation, not zero. Empty coordinates = unresolved stop.",
+  "join": "BUS Paradero Usuario = GTFS stop_id, exact; other modes unresolved",
+  "source_observations": 354267,
+  "stop_rows": 11932,
+  "empty_bins": 218469,
+  "observed_total": "2512170.40000000000359894",
+  "unmatched_observations": 38,
+  "unmatched_total": "790.399999999999997",
+  "unmatched_stop_rows": 1,
+  "scope": "Nearby bus boarding activity proxy, not feeder alightings or observed transfers. Metro and Tren excluded.",
+  "output": {
+    "name": "bus_activity.csv",
+    "bytes": 3263141,
+    "sha256": "f14dfe0d81547fa3d07dbf94bbfd340b5bfdac7ed12177a6393d73a25493fd63"
+  },
+  "metro_source": {
+    "name": "metro_observations.json",
+    "bytes": 264515,
+    "sha256": "ecd8131fac2bfcf401bb5700dda7a7a0a31534990b8b962134d31449651ef5a3"
+  },
+  "nearby_join": {
+    "output": {
+      "name": "bus_metro_300m.csv",
+      "bytes": 34845,
+      "sha256": "af0e1359760aa41f5026b304a3938e334d197bc667eec64736f731b87820ff0b"
+    },
+    "rows": 1180,
+    "bus_stops": 1172,
+    "metro_parents": 126,
+    "rule": "Haversine <=300m, radius 6371000m, BUS GTFS point to verified Metro parent. All overlaps retained; no mass split or transfer inference."
+  }
+}
