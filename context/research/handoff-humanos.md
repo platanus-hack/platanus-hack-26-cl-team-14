@@ -18,7 +18,7 @@ git clone https://github.com/platanus-hack/platanus-hack-26-cl-team-14.git
 cd platanus-hack-26-cl-team-14 && ./run.sh      # deja esta terminal ocupada
 ```
 
-En otra terminal, o en el navegador: `open http://127.0.0.1:5173/web/` (macOS).
+Abre `http://127.0.0.1:5173/web/` en el navegador. En macOS también puedes usar `open http://127.0.0.1:5173/web/` en otra terminal.
 
 Vistas: `/web/?t=36&mut=1` (Tobalaba), `/web/?v=s` (Santiago), `/web/?v=p&t=36` (Puntaje). Ctrl-C en la primera terminal apaga ambos servidores (`lsof -i :8787` debe quedar vacío).
 
@@ -50,7 +50,7 @@ Cada número hablado lleva la capa de la versión elegida; nada cambia después 
 
 1. **Comuna y palabras**: "Las Condes, al lado de Tobalaba"; "transporte público" para el Censo, "Metro" solo para subidas DTPM.
 2. **La sorpresa del MUT**: ¿las dos estimaciones con sus etiquetas, el cambio pequeño en la estación y los residentes que salen en auto? Recomendación: todo visible, incluida la brecha de la base; un límite visible vale más que un resultado escondido.
-3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre hoy en la vista Santiago) como caso 2. El estadio no está construido. Recomendación: cortarlo del demo y nombrarlo solo como "la próxima pregunta" en el cierre; si los agentes encuentran una firma observada de evento antes de las 12:15 UTC, ustedes deciden si entra.
+3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre hoy en la vista Santiago) como caso 2. El estadio no está construido. Recomendación: cortarlo del demo y nombrarlo solo como "la próxima pregunta" en el cierre; solo si hay evidencia y una implementación revisada antes de las 12:15 UTC, ustedes deciden si entra en la historia.
 4. **Los datos de 2023**: ¿dos frases de contexto ("no sabemos cuánto es del MUT; nuestros modelos no cuentan visitantes") o se dejan para las preguntas del jurado? Recomendación: para las preguntas, si el ensayo pasa de 3 minutos.
 5. **Tiempo y cierre**: 256 palabras (~2 minutos a 130 por minuto, antes de clics y de la respuesta del jurado). El cierre dice "tres preguntas" con dos casos: recomendación, "dos preguntas, y la tercera la hacen ustedes". Si hay que cortar: primero el contexto 2023, después la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
 
