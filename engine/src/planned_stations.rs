@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
 use std::path::Path;
 
+#[derive(Debug)]
 pub enum Selector<'a> {
     /// A station's line-specific design ID, such as L7-13.
     Id(&'a str),
