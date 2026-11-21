@@ -1,6 +1,6 @@
 # V1 engine scale on an M2
 
-A release build evaluated the current worker and student model on Francisco's MacBook Air (Apple M2, 16 GiB). The population inputs represent **3,966,150 synthetic people**: 2,688,814 workers and 1,277,336 students with a home and destination inside the Metropolitan Region. The closure edits model worker mode changes.
+A release build evaluated the current worker and student model on Francisco's MacBook Air (Apple M2, 16 GiB). The population inputs represent **3,966,150 synthetic records**: 2,688,814 workers and 1,277,336 students with a home and destination inside the Metropolitan Region. The worker and student roles can overlap in the real population. The closure edits recalculate worker mode choice.
 
 | Request | Wall time | Peak resident memory |
 | --- | ---: | ---: |
@@ -11,4 +11,4 @@ One run per request, measured with macOS `/usr/bin/time -l`. Times include engin
 
 The viewer mesh has 739,230 footprint records. Of these, 279,385 are mapped and 459,845 are generated infill. The separate [activity pack](../../data/mvp/activity_points.csv) has 16,697 mapped points, including 15,605 classified as shop, supermarket or mall. The footprint count measures drawn geometry. The activity count measures records that can supply candidate destinations.
 
-A full optional-visit run still needs a benchmark. Select candidates by service and location before evaluating individual preferences. A scan of all 16,697 activity points for each of the 3.97 million current people would require about 66.2 billion comparisons before route checks. Measure the candidate lookup, travel costs, and choices together on the real pack.
+A full optional-visit run still needs a benchmark. Select candidates by service and location before evaluating individual preferences. A scan of all 16,697 activity points for each of the 3.97 million current records would require about 66.2 billion comparisons before route checks. Measure the candidate lookup, travel costs, and choices together on the real pack.
