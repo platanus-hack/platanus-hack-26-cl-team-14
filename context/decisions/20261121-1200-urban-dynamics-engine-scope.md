@@ -20,3 +20,18 @@ The team agreed in the meeting. If the engine accepts physical events (earthquak
 - The 3D model is only the UI. The engine models housing units and people, not buildings as physical structures.
 - The output is structured data that supports a real decision (example: where to put a stadium).
 - The pitch shows three very different use cases with the same engine.
+
+
+## User experience and implementation priority
+
+Juan clarified the interaction on November 21. A user asks a free-form what-if question. The question agent maps it to structured changes, calls the Rust engine, and explains the returned result. The city view animates from that same result while the answer appears. [Team direction](https://discord.com/channels/1573514576400752640/1573561159955648553/1573664688812851221)
+
+The engine applies changes together against shared city state and returns structured outcomes. The question agent and manual controls use the same scenario interface. The renderer consumes the engine result and owns camera, animation, and overlays. Keep one dense, lively isometric city view across questions, with TinyRJ as the visual reference.
+
+Start with an end-to-end slice that applies housing and jobs changes together and renders the resulting zone and flow changes in that view. In parallel, prioritize comparable before-and-after observations of a documented change so we can evaluate the response. The overnight demo documents the starting point. Keep the pinned rehearsal checkout available while this work proceeds on branches.
+
+## Local agent connection
+
+Expose the scenario interface through a local MCP server. A user asks their own agent a question and the agent calls the MCP simulation tool with structured changes. The tool calls the Rust core and returns its result for the agent to explain. The same successful run publishes that result to the local city view, which animates the change without a second request or a manual refresh. Manual controls use the same core and result contract.
+
+Verify the full loop with a local MCP client and the city view already open. Apply housing and jobs changes in one tool call, then confirm that the tool response and the visible city update describe the same run.

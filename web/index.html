@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="es">
 <meta charset="utf-8">
-<title>Santiago · Tobalaba</title>
+<title>Santiago</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
 <style>
   html, body { margin: 0; height: 100%; background: #0a0f24; color: #fff; overflow: hidden;
@@ -24,9 +25,24 @@
   #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; }
   .more { color: #ff4d6d; } .less { color: #3ddc97; } .model { color: #ffb47a; }
   i { display: inline-block; width: 26px; height: 26px; border-radius: 50%; margin: 0 8px 0 18px; }
+  html.city-only .box { display: none !important; }
+  html:not(.city-only) .city-hud { display: none; }
+  .city-hud { position: absolute; z-index: 1; pointer-events: none; }
+  .city-heading { top: 24px; left: 24px; }
+  .city-heading h1 { margin: 0; font-size: clamp(24px, 5vw, 44px); letter-spacing: -.04em; }
+  .city-card { bottom: 24px; left: 24px; max-width: min(340px, calc(100vw - 80px)); padding: 14px 16px;
+    border: 1px solid #364865; border-radius: 14px; background: #0c162bd9;
+    font: 400 14px/1.5 system-ui, sans-serif; color: #c6d3e8; }
+  .city-card strong { display: block; color: white; font-size: 16px; }
+  .city-card p { margin: 4px 0 0; }
 </style>
 <body class="t">
 <div id="map"></div>
+<header class="city-hud city-heading"><h1>Santiago</h1></header>
+<aside class="city-hud city-card" aria-live="polite">
+  <strong id="city-title">Censo 2024</strong>
+  <p id="city-result">Haz una pregunta en Codex o Claude para simular un cambio.</p>
+</aside>
 <div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button><button id="vp">Puntaje</button><button id="ve">Evento</button></div>
 
 <div class="box tl t" id="clock">
@@ -100,6 +116,9 @@
 <script>
 const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
 const API = 'http://localhost:8787/api/';
+const q = new URLSearchParams(location.search);
+const demo = ['demo', 'v', 't', 'mut', 'j', 'h', 'site', 'm'].some(key => q.has(key));
+document.documentElement.classList.toggle('city-only', !demo);
 const MUT = [-70.6009, -33.4180];
 const FIRST = 11, LAST = 47;  // 05:30 to 23:30
 const HOMES = 298;            // average dwellings of an RM tower of 15 floors or more
@@ -219,11 +238,74 @@ function tobalaba() {
 }
 
 // ---------- Santiago ----------
+let changes = new Map(), revision = 0, submitting = false, cityResult = null;
+function syncControls() {
+  const change = changes.get(sel);
+  for (const [control, field, label] of [['jobs', 'jobs_multiplier', 'jv'], ['housing', 'housing_multiplier', 'hv']]) {
+    const value = change?.[field] ?? 1;
+    $(control).value = value;
+    $(label).textContent = fmt(value, 1);
+  }
+}
+
+function applyCityResult(result, external) {
+  if (!result || result.revision <= revision) return;
+  revision = result.revision;
+  cityResult = result;
+  world = result.baseline;
+  sim = result.scenario;
+  changes = new Map(result.summary.changes.map(change => [change.zone_id, change]));
+  if (external && result.summary.changes.length) sel = result.summary.changes[0].zone_id;
+  syncControls();
+  engine('s', result);
+  if (view !== 's') show('s');
+  else draw();
+}
+
+async function runCityScenario() {
+  seq++;
+  if (submitting) return;
+  submitting = true;
+  let submitted;
+  do {
+    submitted = seq;
+    try {
+      const result = await post('simulate', {changes: [...changes.values()]});
+      if (submitted === seq) applyCityResult(result, false);
+    } catch {
+      if (submitted === seq) engine('s');
+    }
+  } while (submitted !== seq);
+  submitting = false;
+}
+
 function simulate() {
-  const n = ++seq, j = +$('jobs').value, h = +$('housing').value;
-  $('jv').textContent = fmt(j, 1); $('hv').textContent = fmt(h, 1);
-  post('simulate', {zone_id: sel, jobs_multiplier: j, housing_multiplier: h})
-    .then(r => { if (n == seq) { sim = r; engine('s', r); } }, () => engine('s'));
+  const j = +$('jobs').value, h = +$('housing').value;
+  if (j === 1 && h === 1) changes.delete(sel);
+  else changes.set(sel, {zone_id: sel, jobs_multiplier: j, housing_multiplier: h});
+  syncControls();
+  runCityScenario();
+}
+
+async function watchCity() {
+  try {
+    const result = await get(API + 'scenario-latest');
+    if (!submitting) applyCityResult(result, true);
+  } catch {
+    // The local engine can start after the browser.
+  } finally {
+    setTimeout(watchCity, 500);
+  }
+}
+
+function updateCityCard(zone) {
+  const delta = cityResult?.zone_deltas.find(row => row.id === zone.id);
+  const modeled = Boolean(cityResult?.summary.changes.length && delta);
+  const signed = value => (Math.round(value) > 0 ? '+' : '') + fmt(value);
+  $('city-title').textContent = modeled ? zone.name + ' · escenario' : 'Censo 2024';
+  $('city-result').textContent = modeled
+    ? `${signed(delta.population)} residentes · ${signed(delta.jobs)} personas que trabajan aquí`
+    : 'Haz una pregunta en Codex o Claude para simular un cambio.';
 }
 
 function santiago() {
@@ -232,6 +314,7 @@ function santiago() {
   const pos = id => [zs[id].longitude, zs[id].latitude, zs[id].jobs * KZ];
   const z = zs[sel];
   if (z) {
+    if (!demo) updateCityCard(z);
     const model = sim.metadata.state != 'observed_baseline';
     $('zname').textContent = z.name; $('zjobs').textContent = fmt(z.jobs); $('zpop').textContent = fmt(z.population);
     $('zjobs').className = $('zpop').className = model ? 'mid model' : 'mid';
@@ -248,7 +331,7 @@ function santiago() {
         return blue.map((x, i) => x + (to[i] - x) * m);
       },
       material: {ambient: .5, diffuse: .7, shininess: 8},
-      onClick: ({object}) => { sel = String(object.properties.cut); $('jobs').value = $('housing').value = 1; simulate(); },
+      onClick: ({object}) => { if (object) { sel = String(object.properties.cut); syncControls(); draw(); } },
       updateTriggers: {getElevation: sim, getFillColor: [sim, sel]}, transitions: {getElevation: 600}}),
     // modeled work flows: the selected comuna in full, the rest only when large
     sim && new ArcLayer({id: 'flows', data: sim.flows.filter(f => f.origin != f.destination && (f.origin == sel || f.destination == sel || f.workers > 6000)),
@@ -346,7 +429,7 @@ $('go').onclick = () => {
   gen++; site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
 };
 $('jobs').oninput = $('housing').oninput = simulate;
-$('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
+$('reset').onclick = () => { changes.clear(); syncControls(); runCityScenario(); };
 
 const get = u => fetch(u).then(r => r.json());
 Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json', 'los_leones_observations.json', 'el_golf_observations.json', 'buildings.geojson', 'ground.geojson', 'communes.geojson']
@@ -358,15 +441,15 @@ Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json
   // Metro: three reviewed station files (PR #29), 48 bins, null where there is no observation
   stops = [...r.map(o => ({name: o.station.name, lon: o.station.longitude, lat: o.station.latitude, observed: o.half_hour_bins.LABORAL})), ...bus];
   tob = stops[0];
-  const q = new URLSearchParams(location.search);  // ?v=s, or ?t=36&mut=1, gives a fixed frame for screenshots
   if (q.has('t')) { t = +q.get('t'); playing = false; }
   if (q.has('mut')) $('go').onclick();
   if (q.has('j')) $('jobs').value = q.get('j');
   if (q.has('site')) document.querySelector(`.site[data-id=${q.get('site')}]`).onclick();
   if (q.has('m')) $('mult').value = q.get('m');
-  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || 't');
+  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || (demo ? 't' : 's'));
   tick();
-  get(API + 'world').then(w => { world = sim = w; simulate(); }, () => engine('s'));
+  get(API + 'world').then(w => { world ??= w; sim ??= w; syncControls(); draw(); }, () => engine('s'));
+  watchCity();
 });
 </script>
 </html>

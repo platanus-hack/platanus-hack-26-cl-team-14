@@ -1,3 +1,4 @@
+mod city;
 mod event;
 mod site;
 mod stations;
@@ -8,8 +9,9 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
+use city::{Coverage, Flow, Metadata, World, Zone, ZoneChange};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::Path, sync::Arc, time::Instant};
+use std::{collections::HashMap, path::Path, sync::Arc};
 use tower_http::cors::CorsLayer;
 
 #[derive(Deserialize)]
@@ -67,53 +69,8 @@ struct SiteHttpResponse {
     resident_commuters_by_mode_source: ModeSource,
 }
 
-#[derive(Clone, Serialize)]
-struct Zone {
-    id: String,
-    name: String,
-    longitude: f64,
-    latitude: f64,
-    population: f64,
-    households: f64,
-    dwellings: f64,
-    workers: f64,
-    jobs: f64,
-}
-
-#[derive(Clone, Serialize)]
-struct Flow {
-    origin: String,
-    destination: String,
-    workers: f64,
-}
-
-#[derive(Clone, Serialize)]
-struct Coverage {
-    source_total_workers: f64,
-    included_workers: f64,
-    external_destination_workers: f64,
-    external_destination_pairs: usize,
-}
-
-#[derive(Clone, Serialize)]
-struct Metadata {
-    model: &'static str,
-    state: &'static str,
-    data_vintages: HashMap<&'static str, String>,
-    coverage: Coverage,
-    observed_fields: Vec<&'static str>,
-    modeled_fields: Vec<&'static str>,
-    assumptions: Vec<&'static str>,
-}
-
-#[derive(Clone, Serialize)]
-struct World {
-    metadata: Metadata,
-    zones: Vec<Zone>,
-    flows: Vec<Flow>,
-}
-
 struct Core {
+    latest: std::sync::Mutex<(u64, serde_json::Value)>,
     baseline: World,
     pairs: Vec<(usize, usize)>,
     site: site::SiteModel,
@@ -127,10 +84,10 @@ struct Core {
 }
 
 #[derive(Deserialize)]
-struct Scenario {
-    zone_id: String,
-    jobs_multiplier: f64,
-    housing_multiplier: f64,
+#[serde(untagged)]
+enum ScenarioRequest {
+    Shared { changes: Vec<ZoneChange> },
+    Legacy(ZoneChange),
 }
 
 #[derive(Serialize)]
@@ -250,7 +207,7 @@ impl Core {
         Self {
             baseline: World {
                 metadata: Metadata {
-                    model: "empirical-od-relative-capacity-v1",
+                    model: "empirical-od-shared-relative-capacity-v2",
                     state: "observed_baseline",
                     data_vintages: HashMap::from([
                         ("communes", "INE Census 2024 commune aggregates".to_owned()),
@@ -275,9 +232,9 @@ impl Core {
                         "Work OD includes work-location codes 2/3 only. Work-at-home, foreign, unknown and no-fixed destinations are excluded.",
                         "Only RM-to-RM pairs enter the model. Source CSV rows to destinations outside RM remain unchanged but are omitted from model flows; metadata.coverage reports them.",
                         "Workers and jobs count included internal commuters only, not all employed residents. External commuting is not modeled.",
-                        "Housing scales selected-zone dwelling stock and its relative residential weight. It is not a hard occupancy cap.",
+                        "All housing changes jointly scale dwelling stocks and relative residential weights from the fixed baseline; they are not hard occupancy caps.",
                         "Population, households and outbound workers are separately renormalized to preserve their area totals.",
-                        "Jobs scale the selected destination's observed odds within each origin. Each origin's scenario worker total is preserved.",
+                        "All jobs changes jointly scale destination odds within each origin. Housing changes that origin's worker total; jobs redistribute it. Reduced job attraction does not destroy workers or commute totals.",
                         "Unobserved OD pairs stay zero. There is no new route, price, vacancy, travel-time or migration-rate model.",
                         "Scenario multipliers must be finite and greater than zero. Counts are fractional expected values, not individual agents.",
                     ],
@@ -294,68 +251,48 @@ impl Core {
             station_observed,
             station_observation_metadata,
             event_model: event::EventModel::new(directory),
+            latest: std::sync::Mutex::new((0, serde_json::Value::Null)),
         }
     }
 
-    fn simulate(&self, scenario: Scenario) -> Simulation {
-        let start = Instant::now();
-        let mut world = self.baseline.clone();
-        let selected = world
-            .zones
-            .iter()
-            .position(|z| z.id == scenario.zone_id)
-            .unwrap();
-        let before = &self.baseline.zones[selected];
-        let h = scenario.housing_multiplier;
-        let j = scenario.jobs_multiplier;
-        let population: f64 = world.zones.iter().map(|z| z.population).sum();
-        let households: f64 = world.zones.iter().map(|z| z.households).sum();
-        let workers: f64 = world.zones.iter().map(|z| z.workers).sum();
-        if h != 1.0 || j != 1.0 {
-            world.metadata.state = "modeled_scenario";
-            let population_scale = population / (population + before.population * (h - 1.0));
-            let households_scale = households / (households + before.households * (h - 1.0));
-            let workers_scale = workers / (workers + before.workers * (h - 1.0));
-            for (i, zone) in world.zones.iter_mut().enumerate() {
-                let weight = if i == selected { h } else { 1.0 };
-                zone.population *= weight * population_scale;
-                zone.households *= weight * households_scale;
-                zone.workers *= weight * workers_scale;
-                zone.jobs = 0.0;
-            }
-            world.zones[selected].dwellings *= h;
-
-            // The empirical row sum is the normalizer; only the selected destination changes its odds.
-            let mut row_weights: Vec<f64> = self.baseline.zones.iter().map(|z| z.workers).collect();
-            for (flow, &(origin, destination)) in self.baseline.flows.iter().zip(&self.pairs) {
-                if destination == selected {
-                    row_weights[origin] += flow.workers * (j - 1.0);
-                }
-            }
-            for (flow, &(origin, destination)) in world.flows.iter_mut().zip(&self.pairs) {
-                let weight = if destination == selected { j } else { 1.0 };
-                flow.workers *= weight * world.zones[origin].workers / row_weights[origin];
-                world.zones[destination].jobs += flow.workers;
-            }
-        }
-        let after = &world.zones[selected];
-        let summary = Summary {
-            zone_id: scenario.zone_id,
-            jobs_multiplier: j,
-            housing_multiplier: h,
-            total_population: world.zones.iter().map(|z| z.population).sum(),
-            total_households: world.zones.iter().map(|z| z.households).sum(),
-            total_workers: world.flows.iter().map(|f| f.workers).sum(),
-            selected_zone_population_delta: after.population - before.population,
-            selected_zone_households_delta: after.households - before.households,
-            selected_zone_dwellings_delta: after.dwellings - before.dwellings,
-            selected_zone_workers_delta: after.workers - before.workers,
-            selected_zone_jobs_delta: after.jobs - before.jobs,
+    // Preserve the existing single-zone client shape while using the shared calculation.
+    fn simulate_request(&self, request: ScenarioRequest) -> Result<serde_json::Value, String> {
+        let (changes, legacy) = match request {
+            ScenarioRequest::Shared { changes } => (changes, None),
+            ScenarioRequest::Legacy(change) => (vec![change.clone()], Some(change)),
         };
-        Simulation {
-            world,
-            summary,
-            elapsed_ms: start.elapsed().as_secs_f64() * 1000.0,
+        let result = city::simulate(&self.baseline, &self.pairs, changes)?;
+        if let Some(change) = legacy {
+            let d = result
+                .zone_deltas
+                .iter()
+                .find(|d| d.id == change.zone_id)
+                .unwrap();
+            let summary = Summary {
+                zone_id: change.zone_id,
+                jobs_multiplier: change.jobs_multiplier,
+                housing_multiplier: change.housing_multiplier,
+                total_population: result.summary.total_population,
+                total_households: result.summary.total_households,
+                total_workers: result.summary.total_workers,
+                selected_zone_population_delta: d.population,
+                selected_zone_households_delta: d.households,
+                selected_zone_dwellings_delta: d.dwellings,
+                selected_zone_workers_delta: d.workers,
+                selected_zone_jobs_delta: d.jobs,
+            };
+            Ok(serde_json::to_value(Simulation {
+                world: result.scenario,
+                summary,
+                elapsed_ms: result.elapsed_ms,
+            })
+            .unwrap())
+        } else {
+            let mut latest = self.latest.lock().unwrap();
+            let mut result = serde_json::to_value(result).unwrap();
+            result["revision"] = serde_json::json!(latest.0 + 1);
+            *latest = (latest.0 + 1, result.clone());
+            Ok(result)
         }
     }
 }
@@ -364,12 +301,15 @@ async fn event_scenario(
     State(core): State<Arc<Core>>,
     Json(request): Json<event::EventRequest>,
 ) -> Result<Json<event::EventResponse>, (StatusCode, Json<serde_json::Value>)> {
-    core.event_model.scenario(request).map(Json).map_err(|error| {
-        (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(serde_json::json!({ "error": error })),
-        )
-    })
+    core.event_model
+        .scenario(request)
+        .map(Json)
+        .map_err(|error| {
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(serde_json::json!({ "error": error })),
+            )
+        })
 }
 
 async fn station_scenario(
@@ -477,10 +417,22 @@ async fn main() {
         .route(
             "/api/simulate",
             post(
-                |State(core): State<Arc<Core>>, Json(scenario): Json<Scenario>| async move {
-                    Json(core.simulate(scenario))
+                |State(core): State<Arc<Core>>, Json(scenario): Json<ScenarioRequest>| async move {
+                    core.simulate_request(scenario).map(Json).map_err(|error| {
+                        (
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            Json(serde_json::json!({"error": error})),
+                        )
+                    })
                 },
             ),
+        )
+        .route(
+            "/api/scenario-latest",
+            get(|State(core): State<Arc<Core>>| async move {
+                let result = core.latest.lock().unwrap().1.clone();
+                ([("cache-control", "no-store")], Json(result))
+            }),
         )
         .route("/api/site-scenario", post(site_scenario))
         .route("/api/station-scenario", post(station_scenario))

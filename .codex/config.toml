@@ -1,3 +1,7 @@
+[mcp_servers.santiago]
+command = "node"
+args = ["tools/santiago-mcp/server.mjs"]
+
 [mcp_servers.discord]
 command = "node"
 args = ["tools/discord-mcp/server.mjs"]

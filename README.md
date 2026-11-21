@@ -58,3 +58,21 @@ Platanus Hack 26 (Santiago) — track Simulaciones.
 - **Reuniones:** [`meetings/`](meetings): resúmenes. Los transcripts crudos van en `meetings/raw/`, que git ignora.
 
 Regla de oro: **si no sale en la demo, y nada de la demo lo necesita, no se hace.**
+
+### Run a scenario from your local agent
+
+Run `./run.sh` and open `http://127.0.0.1:5173/web/`. Reopen your local agent
+in this checkout so it loads the `santiago` MCP server from the project config.
+Ask it to call `simulate_city`, for example with jobs ×1.5 in Providencia
+(`13123`) and housing ×1.4 in Las Condes (`13114`). The engine returns the
+modeled changes to the agent, and the open browser shows the same scenario
+automatically. Each call specifies the complete set of edits relative to
+baseline. An empty list restores the baseline.
+
+The city domain lives in `engine/src/city.rs`. It jointly applies the housing
+and jobs changes to the same Santiago population and commute flows. The local
+MCP server forwards the request to Rust. The browser renders the saved result.
+
+Keep the browser and your local Codex or Claude session side by side. Ask
+questions in the agent and use the browser as the city canvas. Use
+`http://127.0.0.1:5173/web/?demo=1` to open the rehearsal controls.
