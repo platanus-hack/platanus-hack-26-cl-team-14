@@ -3,7 +3,7 @@
 Topic: public registers of people and vehicles, as aggregate statistics. No named persons.
 Author: clever-fox (claude-haiku-5-5). Checks run 2026-11-21 with `curl`.
 
-Summary: the best checked files are the INE population projections by comuna (bytes and header only) and the SERMIG residence-permit table (bytes and header only, region level). Neither is a TARGET. Neither gives comuna-level flows or resident stock. Vehicle, electoral, and birth data by comuna are still open. The driver-licence file we found holds personal data and must not be used.
+Summary: the INE population projections by comuna are the best checked file (RM rows parsed). They run 5.6% to 13.8% above the census counts, so they need rescaling. The SERMIG residence-permit table is bytes and header only, region level. Neither is a TARGET. Neither gives comuna-level flows or resident stock. Vehicle, electoral, and birth data by comuna are still open. The driver-licence file we found holds personal data and must not be used.
 
 ## Entries
 
@@ -13,10 +13,11 @@ Summary: the best checked files are the INE population projections by comuna (by
 - Granularity: comuna. Time step: one year (2002 to 2035).
 - Year: 2002 to 2035, base 2017. The estimate/projection cutoff was not checked.
 - Access: direct download, xlsx, 11,057,485 bytes.
-- Check: VERIFIED-BYTES; DATA ROWS UNVERIFIED. 2026-11-21, HTTP 200, `application/vnd.openxmlformats` content type, 11,057,485 bytes. Unzipped the file and read the sheet name, shared-string header and the year columns. Row count not counted (sheet XML is 69 MB).
-- Limits: Base 2017, so it may differ from the 2024 census. The INE page shows an estimate at 31 Dec 2023, so check which series this file holds before you use it as a control total. Age granularity: check if it is single year or 5-year groups. No geometry.
+- Check: VERIFIED-ROWS (Región Metropolitana subset). 2026-11-21, HTTP 200, 11,057,485 bytes. Parsed the sheet with a Python standard-library reader. Layout: one row per comuna × sex (1 Hombre, 2 Mujer) × age (`Edad`, 81 values), with `Poblacion 2002` to `Poblacion 2035` columns. RM has 8,424 rows = 52 comunas × 2 sexes × 81 ages. RM totals from these rows: 2017 = 7,508,690; 2024 = 8,420,729.
+- Census comparison (INE census 2024 first results, and BCN for census 2017): RM 2024 = 7,400,741 (census), so the file is +13.8% higher. RM 2017 = 7,112,808 (census), so the file is +5.6% higher. The file does not reproduce the census counts.
+- Limits: Base 2017. Its RM totals exceed the census counts (see Check). Do not use it as a control total without rescaling to Census 2024 (7,400,741 for RM). Ages are single years 0 to 80 (81 values); check whether 80 is a top code. No geometry.
 - Role: INPUT
-- Use in the simulation: Candidate INPUT for modeled population totals after row and version checks. Estimates and projections are not observed-count TARGETs; use Census counts for an observed baseline.
+- Use in the simulation: INPUT, only after rescaling to Census 2024 counts. Estimates and projections are not observed-count TARGETs; use Census counts for an observed baseline.
 
 ### SERMIG: Datos abiertos, residence permits (RD) acogidas 2000 to 1st semester 2026
 - Link: https://serviciomigraciones.cl/wp-content/uploads/estudios/Datos-abiertos/RD/RD_Acogidas_2000_1er_semestre_2026.xlsx (page: https://serviciomigraciones.cl/estudios-migratorios/datos-abiertos/)
@@ -95,17 +96,6 @@ Summary: the best checked files are the INE population projections by comuna (by
 - Role: NONE
 - Use in the simulation: NONE. Privacy risk. Do not use. Do not keep this file, even for a check.
 
-### Servel: Padrón electoral and participation (TOTEM-2 PDF, 2026)
-- Link: https://www.servel.cl/wp-content/uploads/2026/03/TOTEM-2.pdf
-- Contents: Presentation with voting history for the Valparaíso region (padrón and participation by election, 1988 to 2025). It is a regional table, not per comuna of the Metropolitan region.
-- Granularity: region (the file we opened).
-- Year: 1988 to 2025.
-- Access: PDF.
-- Check: VERIFIED-ROWS for the file only. HTTP 200, 1,255,941 bytes, PDF text read on pages 1 and 2 (regional padrón table). This is Valparaíso region data, not Santiago.
-- Limits: Not Santiago. Comuna tables for the Metropolitan region were not found. Servel published personal data in 2022 (CIPER report, 2022-04-28, shows the risk). Use only aggregate tables.
-- Role: NONE
-- Use in the simulation: NONE for this file. The comuna padrón (adult count) would be an INPUT if a Metropolitan file is found.
-
 ### Servel: Padrón por comuna (Metropolitan region)
 - Link: https://www.servel.cl (search for estadísticas and datos abiertos; section not found by search)
 - Contents: per the news search, Servel publishes padrón counts by comuna, including foreign voters (786,466 foreign voters in the latest padrón, per news report).
@@ -150,17 +140,6 @@ Summary: the best checked files are the INE population projections by comuna (by
 - Role: NONE
 - Use in the simulation: NONE for the comuna model. Use as a national check for the birth rate.
 
-### Registro Civil: portal de datos (births, deaths, names)
-- Link: https://www.chilevision.cl/noticias/te-ayuda/portal-de-datos-asi-funciona-la-plataforma-donde-el-registro-civil-comparte-datos-de-nombres-muertes-y-nacimientos/amp/ (news about the portal, the portal itself not found)
-- Contents: per news, Registro Civil shares births, deaths, and names data through a portal.
-- Granularity: unknown.
-- Year: unknown.
-- Access: unknown.
-- Check: UNVERIFIED. News article only. Portal not opened.
-- Limits: Names data and individual events may be personal. Do not use microdata.
-- Role: NONE
-- Use in the simulation: NONE until the aggregate tables are found.
-
 ### Driver-licence statistics at national level (MTT, Registro Civil, INE)
 - Link: none verified.
 - Contents: no national or comuna licence count was found.
@@ -176,13 +155,14 @@ Summary: the best checked files are the INE population projections by comuna (by
 
 - Subtrans: no open data on vehicle permits found. Subtrans covers public transport only.
 - SERMIG RD file: no comuna column. Region only.
-- Servel: no Metropolitan comuna padrón table found. The file we opened is Valparaíso.
+- Servel: no Metropolitan comuna padrón table found. The Servel PDF we opened covers Valparaíso and was removed.
 - DEIS: the 2010 link returns 404. No working download found.
+- Registro Civil: only a news article found; the portal was not opened. Removed.
 
 ## Critique
 
-1. The INE projection file is verified as a download, but the rows are not counted, and the age split is not checked. The base (2017) may not match the census of 2024. It is also not clear whether the file has single-year ages. A simulation that uses it as the control total could be off by a version.
+1. The INE projection file is the best input in this file, but it overstates RM population: +13.8% for 2024 and +5.6% for 2017 against the census. It must be rescaled before use as a control total. Only the RM subset was parsed; other regions were not checked.
 2. Most vehicle, electoral, and birth sources are still UNVERIFIED. The INE permits page loads its file list from a POST endpoint that needs folder IDs. I did not find the IDs. The DEIS link is dead. The Servel comuna table was not found. Without these, the vehicle, voter, and birth inputs are open.
 3. The SERMIG tables count permits, not residents, and have no comuna. The migrant share per comuna still has no verified source. The minutas PDFs look useful, but I did not open them.
 
-What I did not check: full dataset rows; SERMIG RD records (only the declared sheet range was read); INE projection records (header only); the Anuario 2023 body, the other SERMIG files, the Servel TOTEM-2 beyond pages 1 and 2, and the Registro Civil portal.
+What I did not check: SERMIG RD records (only the declared sheet range was read); the Anuario 2023 body; the other SERMIG files; the INE permits file list; the rows of projections outside RM.

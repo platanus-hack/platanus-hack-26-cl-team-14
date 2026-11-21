@@ -6,7 +6,7 @@
 - Link: [SII company and address file index](https://www.sii.cl/sobre_el_sii/nominapersonasjuridicas.html), [worker records ZIP](https://www.sii.cl/estadisticas/nominas/PUB_EMPRESAS_PJ_2020_A_2024.zip), [registered addresses ZIP](https://www.sii.cl/estadisticas/nominas/PUB_NOM_DIRECCIONES.zip)
 - Contents: Join the legal-entity worker record to its registered address by RUT. The worker file gives worker counts or bands, region, activity, and sales band. The address file lists registered head offices and branches, including inactive addresses.
 - Granularity: Company address point after geocoding; no coordinates. Worker counts follow the SII domicile or head office. They do not show where each worker performs the job.
-- Year: Worker records cover commercial years 2020–2024. Address records include historical and current addresses; the latest published directory was updated in August 2026.
+- Year: Worker records cover commercial years 2020–2024 and were updated in November 2025. Address records include historical and current addresses; the latest directory was updated in August 2026.
 - Access: Direct download; two ZIP files with TXT data. The current worker ZIP is 187,529,334 bytes. The address ZIP is 95,040,204 bytes.
 - Check: VERIFIED-BYTES 2026-11-21, HTTP 206, 1,024 bytes from each ZIP. Both start with a ZIP signature. I did not decode their TXT rows.
 - Limits: Counts follow company headquarters, not work sites. One company can have many branches. Address geocoding is required. The public worker file covers legal entities, not every employer type.
@@ -50,8 +50,8 @@
 
 ### SECTRA EOD Santiago database
 - Link: [SECTRA Santiago EOD page](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/), [survey database ZIP](https://drive.google.com/file/d/193675NwL6QNDs6VJFHU0mXiX5-6SdBPJ/view?usp=drive_link), [direct download](https://drive.usercontent.google.com/download?id=193675NwL6QNDs6VJFHU0mXiX5-6SdBPJ&export=download&confirm=t)
-- Contents: Survey database in Access format. SECTRA describes the survey as daily trips by purpose and travel mode. The ZIP contains one 118,259,712-byte Access database. I did not inspect its tables.
-- Granularity: EOD survey zones and trips. Exact trip fields were not checked.
+- Contents: SECTRA describes the 2012 survey and links a database. Its tables and fields were not verified.
+- Granularity: Unknown at file level. The page also links an EOD zone file.
 - Year: 2012.
 - Access: Direct ZIP download from Google Drive. The source page also links the survey report and zone file.
 - Check: VERIFIED-BYTES 2026-11-21, downloaded the 16,324,719-byte ZIP and passed `unzip -t`. The archive contains the Access database. I did not read data rows.
@@ -61,8 +61,8 @@
 
 ### SECTRA EOD Santiago zone polygons
 - Link: [SECTRA Santiago EOD page](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/), [zone shapefile ZIP](https://drive.google.com/file/d/1SM2C5b3jhbmYCbAkmtg2yWRU2dMQkGRl/view?usp=drive_link), [direct download](https://drive.usercontent.google.com/download?id=1SM2C5b3jhbmYCbAkmtg2yWRU2dMQkGRl&export=download&confirm=t)
-- Contents: One polygon per EOD zone. The DBF has 866 rows and fields `ID`, `AREA`, `Zona`, `Com`, and `Comuna`. First row: zone 103, area 837.75, commune code 13105, El Bosque.
-- Granularity: EOD zone polygon.
+- Contents: SECTRA labels the link as the survey zoning file. File fields and geometry were not verified.
+- Granularity: EOD zone, as described by SECTRA.
 - Year: 2012.
 - Access: Direct ZIP download; SHP, SHX, DBF, and PRJ files. The extracted files total 1,038,309 bytes.
 - Check: VERIFIED-ROWS 2026-11-21, ZIP passed `unzip -t`; read all 866 DBF rows and the first row.
@@ -79,6 +79,7 @@
 - Year: 2017.
 - Access: Online REDATAM tabulations; request a DVD from an INE office for zone-level records.
 - Check: UNVERIFIED. I opened the access note but did not obtain the microdata or confirm a workplace-location variable.
+- Role: INPUT
 - Limits: The release confirms person records by residence zone, but I did not check its work-status field. It is older than the 2024 census. No work-site location was confirmed.
 - Role: NONE.
 - Use in the simulation: NONE for job-site counts. A worker field would need review before using it for a 2017 resident baseline.
@@ -90,6 +91,7 @@
 - Year: 1995 onward; industry code definitions change in 2013.
 - Access: INE page describes the data product. I did not find or download the microdata file in this check.
 - Check: UNVERIFIED. The product page opened, but I did not retrieve data rows or a data file.
+- Role: TARGET
 - Limits: It covers manufacturing only. A stable establishment ID does not locate the establishment.
 - Role: NONE.
 - Use in the simulation: NONE until a public geographic field is confirmed.
@@ -97,5 +99,5 @@
 ## Critique
 
 - SII worker totals follow headquarters. They can place a multi-site employer's workforce at the wrong address.
-- SECTRA's Access database bytes were verified, but its trip fields and expansion weights were not read.
-- I found no open count of workers by current block or work-site point. The verified sources stop at head office, EOD zone trips, or commune totals.
+- SECTRA's EOD downloads point to a host that disallows automated access. The survey fields, weights, and zone geometry remain unverified.
+- I found no open count of workers by current block or work-site point. I did not retrieve records from the 2024 Redatam data, 2017 Census microdata, or ENIA.
