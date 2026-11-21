@@ -923,7 +923,15 @@ fn stacked_vehicle(rows: &[&str], slices: &[&[usize]], cell: [f32; 3], body: Rgb
         .with_inserted_indices(Indices::U32(indices))
 }
 
+#[derive(Resource)]
+struct FixedClock(Option<f32>);
+
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mats: ResMut<Assets<StandardMaterial>>) {
+    let seconds = std::env::var("SANTIAGO_CLOCK_SECONDS").ok().map(|v| {
+        v.parse::<f32>()
+            .expect("SANTIAGO_CLOCK_SECONDS must be seconds after midnight")
+    });
+    commands.insert_resource(FixedClock(seconds));
     let car = stacked_vehicle(CAR_ROWS, CAR_SLICES, [0.125, 0.115, 0.115], [235, 160, 53]);
     let bus = stacked_vehicle(BUS_ROWS, BUS_SLICES, [0.205, 0.212, 0.205], [216, 51, 49]);
     let bike = shape([
@@ -1119,6 +1127,7 @@ fn right(dir: Vec3) -> Vec3 {
 fn draw(
     time: Res<Time>,
     replay: Res<Replay>,
+    clock: Res<FixedClock>,
     routes: Res<Routes>,
     models: Res<Models>,
     camera: Query<(&GlobalTransform, &Frustum), With<Camera3d>>,
@@ -1144,7 +1153,6 @@ fn draw(
     };
     let size_at = |p: Vec3| (eye.distance(p) * 0.0024).clamp(1.35, 11.);
     // Twelve city seconds per real second, starting in the morning peak.
-    let now = (8. * 3600. + 10. * 60. + time.elapsed_secs() * 12.) % DAY;
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
     for batch in pool.0.values_mut() {
@@ -1152,7 +1160,6 @@ fn draw(
     }
     let mut place =
         |model, paint, transform| pool.place(model, paint, transform, &models, &mut commands, &mut query);
-    let transition = ((time.elapsed_secs() - replay.revision_started) / 1.2).clamp(0., 1.);
     for bin in slot - (replay.longest / BIN).ceil() as i32..=slot {
         let since_bin = now - bin as f32 * BIN;
         for g in &replay.departures[bin.rem_euclid(48) as usize] {
