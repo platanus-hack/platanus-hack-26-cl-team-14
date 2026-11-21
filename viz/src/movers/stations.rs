@@ -98,6 +98,11 @@ pub(super) fn spawn_closed_sign(commands: &mut Commands, station: &Value) {
 }
 
 pub(super) fn position_closed_signs(
+    result: Res<Scenario>,
+    replay: Res<Replay>,
+    fixed: Res<FixedClock>,
+    time: Res<Time>,
+    rate: Res<PlaybackRate>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera3d>>,
     window: Single<&Window, With<bevy::window::PrimaryWindow>>,
     canvas: Query<&Sprite, With<crate::pixels::CityCanvas>>,
@@ -105,9 +110,26 @@ pub(super) fn position_closed_signs(
     mut signs: Query<(&StationPin, &mut Node, &mut Visibility)>,
 ) {
     let (camera, transform) = *camera;
+    let closure_active = result.0["closure_window"]["half_hours"]
+        .as_array()
+        .is_none_or(|window| {
+            let start = window[0].as_u64().unwrap();
+            let end = window[1].as_u64().unwrap();
+            let now = fixed
+                .0
+                .or_else(|| replay.clock_offset.map(|offset| offset + time.elapsed_secs() * rate.0));
+            now.is_some_and(|seconds| {
+                let slot = (seconds.rem_euclid(DAY) / BIN) as u64;
+                (start..end).contains(&slot)
+            })
+        });
     for (sign, mut node, mut visibility) in &mut signs {
-        if (!sign.name || (100. ..=2200.).contains(&rig.distance))
-            && let Ok(mut point) = camera.world_to_viewport(transform, sign.centre) {
+        let show = if sign.name {
+            (100. ..=2200.).contains(&rig.distance)
+        } else {
+            closure_active
+        };
+        if show && let Ok(mut point) = camera.world_to_viewport(transform, sign.centre) {
             // Pixel mode centres and scales the 3D target on a window-sized UI camera.
             if let Ok(sprite) = canvas.single()
                 && let (Some(size), Some(viewport)) = (sprite.custom_size, camera.logical_viewport_size())
