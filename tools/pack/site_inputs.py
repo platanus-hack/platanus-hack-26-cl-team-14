@@ -69,29 +69,47 @@ def run_pass():
 
 
 def block_totals():
-    """Comuna sums of the INE block table. No value is suppressed in these columns."""
+    """Comuna sums of the INE block table, and the same sums over the apartment blocks."""
+    keys = ["n_per", "n_vp", "n_vp_ocupada", "n_vp_desocupada", "n_tipo_viv_depto", "n_hog",
+            "n_transporte_auto", "n_transporte_publico", "n_transporte_camina",
+            "n_transporte_bicicleta", "n_transporte_motocicleta",
+            "n_transporte_cab_lan_bote", "n_transporte_otros"]
     z = zipfile.ZipFile(BLOCKS)
     fh = io.TextIOWrapper(z.open("Base_manzana_entidad_CPV24.csv"), encoding="utf-8-sig")
-    keys = ["n_per", "n_vp", "n_vp_ocupada", "n_vp_desocupada", "n_tipo_viv_depto", "n_hog"]
     totals = collections.defaultdict(collections.Counter)
     flats = collections.defaultdict(collections.Counter)
-    names = {}
+    names, suppressed = {}, 0
     for row in csv.DictReader(fh, delimiter=";"):
         if row["COD_REGION"] != "13":
             continue
         cut = f'{int(row["CUT"]):05d}'
         names[cut] = row["COMUNA"]
+        values = {}
         for k in keys:
-            totals[cut][k] += int(row[k])
+            raw = row[k].strip()
+            if raw in ("*", ""):           # INE suppresses a few small cells
+                suppressed += 1
+                raw = 0
+            values[k] = int(raw)
+        totals[cut].update(values)
         # Blocks where almost every private dwelling is an apartment: the nearest
         # measured proxy for a new tower.
-        vp = int(row["n_vp"])
-        if vp >= 10 and int(row["n_tipo_viv_depto"]) >= 0.9 * vp:
-            flats[cut]["persons"] += int(row["n_per"])
-            flats[cut]["occupied"] += int(row["n_vp_ocupada"])
-            flats[cut]["dwellings"] += vp
+        if values["n_vp"] >= 10 and values["n_tipo_viv_depto"] >= 0.9 * values["n_vp"]:
+            flats[cut].update(values)
             flats[cut]["blocks"] += 1
+    print("suppressed cells over the 13 columns read:", suppressed)
     return totals, flats, names
+
+
+TRAVEL = ["n_transporte_auto", "n_transporte_publico", "n_transporte_camina",
+          "n_transporte_bicicleta", "n_transporte_motocicleta",
+          "n_transporte_cab_lan_bote", "n_transporte_otros"]
+
+
+def share(counts, key):
+    """Share of one travel mode over the travel answers of the same block set."""
+    total = sum(counts[k] for k in TRAVEL)
+    return round(counts[key] / total, 4) if total else ""
 
 
 def build():
@@ -113,11 +131,15 @@ def build():
                     "apartment_share_of_dwellings",
                     "persons_per_occupied_dwelling_apartment_blocks",
                     "occupied_share_apartment_blocks",
+                    "car_share_block_table", "public_share_block_table",
+                    "car_share_apartment_blocks", "public_share_apartment_blocks",
                     "apartment_blocks", "apartment_block_persons",
                     "dwellings_with_residents_present", "persons_all_dwelling_kinds"])
         for cut in sorted(totals):
             t, p, fl = totals[cut], tallies[cut], flats[cut]
             persons = p["persons"]
+            fl["persons"], fl["occupied"] = fl["n_per"], fl["n_vp_ocupada"]
+            fl["dwellings"] = fl["n_vp"]
             w.writerow([cut, names[cut], t["n_vp"], t["n_vp_ocupada"],
                         round(t["n_vp_ocupada"] / t["n_vp"], 4), persons,
                         round(persons / t["n_vp_ocupada"], 4),
@@ -128,6 +150,8 @@ def build():
                         round(t["n_tipo_viv_depto"] / t["n_vp"], 4),
                         round(fl["persons"] / fl["occupied"], 4) if fl["occupied"] else "",
                         round(fl["occupied"] / fl["dwellings"], 4) if fl["dwellings"] else "",
+                        share(t, "n_transporte_auto"), share(t, "n_transporte_publico"),
+                        share(fl, "n_transporte_auto"), share(fl, "n_transporte_publico"),
                         fl["blocks"], fl["persons"], p["occupied_dwellings"], t["n_per"]])
     print(OUT, len(totals), "rows")
     print("persons by tipo_operativo:", dict(universe))
