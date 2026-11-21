@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="es">
 <meta charset="utf-8">
-<title>Santiago · Tobalaba</title>
+<title>Santiago</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://unpkg.com/deck.gl@9.0.38/dist.min.js"></script>
 <style>
   html, body { margin: 0; height: 100%; background: #0a0f24; color: #fff; overflow: hidden;
@@ -24,9 +25,24 @@
   #delta { bottom: 28px; right: 28px; text-align: right; font-size: 90px; display: none; }
   .more { color: #ff4d6d; } .less { color: #3ddc97; } .model { color: #ffb47a; }
   i { display: inline-block; width: 26px; height: 26px; border-radius: 50%; margin: 0 8px 0 18px; }
+  html.city-only .box { display: none !important; }
+  html:not(.city-only) .city-hud { display: none; }
+  .city-hud { position: absolute; z-index: 1; pointer-events: none; }
+  .city-heading { top: 24px; left: 24px; }
+  .city-heading h1 { margin: 0; font-size: clamp(24px, 5vw, 44px); letter-spacing: -.04em; }
+  .city-card { bottom: 24px; left: 24px; max-width: min(340px, calc(100vw - 80px)); padding: 14px 16px;
+    border: 1px solid #364865; border-radius: 14px; background: #0c162bd9;
+    font: 400 14px/1.5 system-ui, sans-serif; color: #c6d3e8; }
+  .city-card strong { display: block; color: white; font-size: 16px; }
+  .city-card p { margin: 4px 0 0; }
 </style>
 <body class="t">
 <div id="map"></div>
+<header class="city-hud city-heading"><h1>Santiago</h1></header>
+<aside class="city-hud city-card" aria-live="polite">
+  <strong id="city-title">Censo 2024</strong>
+  <p id="city-result">Haz una pregunta en Codex o Claude para simular un cambio.</p>
+</aside>
 <div id="switch" class="box"><button id="vs">Santiago</button><button id="vt">Tobalaba</button><button id="vp">Puntaje</button><button id="ve">Evento</button></div>
 
 <div class="box tl t" id="clock">
@@ -100,6 +116,9 @@
 <script>
 const {DeckGL, MapView, GeoJsonLayer, ColumnLayer, ArcLayer, TextLayer, PolygonLayer, FlyToInterpolator, LightingEffect, AmbientLight, DirectionalLight} = deck;
 const API = 'http://localhost:8787/api/';
+const q = new URLSearchParams(location.search);
+const demo = ['demo', 'v', 't', 'mut', 'j', 'h', 'site', 'm'].some(key => q.has(key));
+document.documentElement.classList.toggle('city-only', !demo);
 const MUT = [-70.6009, -33.4180];
 const FIRST = 11, LAST = 47;  // 05:30 to 23:30
 const HOMES = 298;            // average dwellings of an RM tower of 15 floors or more
@@ -219,7 +238,7 @@ function tobalaba() {
 }
 
 // ---------- Santiago ----------
-let changes = new Map(), revision = 0, submitting = false;
+let changes = new Map(), revision = 0, submitting = false, cityResult = null;
 function syncControls() {
   const change = changes.get(sel);
   for (const [control, field, label] of [['jobs', 'jobs_multiplier', 'jv'], ['housing', 'housing_multiplier', 'hv']]) {
@@ -232,6 +251,7 @@ function syncControls() {
 function applyCityResult(result, external) {
   if (!result || result.revision <= revision) return;
   revision = result.revision;
+  cityResult = result;
   world = result.baseline;
   sim = result.scenario;
   changes = new Map(result.summary.changes.map(change => [change.zone_id, change]));
@@ -278,12 +298,23 @@ async function watchCity() {
   }
 }
 
+function updateCityCard(zone) {
+  const delta = cityResult?.zone_deltas.find(row => row.id === zone.id);
+  const modeled = Boolean(cityResult?.summary.changes.length && delta);
+  const signed = value => (Math.round(value) > 0 ? '+' : '') + fmt(value);
+  $('city-title').textContent = modeled ? zone.name + ' · escenario' : 'Censo 2024';
+  $('city-result').textContent = modeled
+    ? `${signed(delta.population)} residentes · ${signed(delta.jobs)} personas que trabajan aquí`
+    : 'Haz una pregunta en Codex o Claude para simular un cambio.';
+}
+
 function santiago() {
   const zs = sim ? Object.fromEntries(sim.zones.map(z => [z.id, z])) : {};
   const base = world ? Object.fromEntries(world.zones.map(z => [z.id, z])) : {};
   const pos = id => [zs[id].longitude, zs[id].latitude, zs[id].jobs * KZ];
   const z = zs[sel];
   if (z) {
+    if (!demo) updateCityCard(z);
     const model = sim.metadata.state != 'observed_baseline';
     $('zname').textContent = z.name; $('zjobs').textContent = fmt(z.jobs); $('zpop').textContent = fmt(z.population);
     $('zjobs').className = $('zpop').className = model ? 'mid model' : 'mid';
@@ -410,13 +441,12 @@ Promise.all(['station_score_run.json', 'stops.json', 'tobalaba_observations.json
   // Metro: three reviewed station files (PR #29), 48 bins, null where there is no observation
   stops = [...r.map(o => ({name: o.station.name, lon: o.station.longitude, lat: o.station.latitude, observed: o.half_hour_bins.LABORAL})), ...bus];
   tob = stops[0];
-  const q = new URLSearchParams(location.search);  // ?v=s, or ?t=36&mut=1, gives a fixed frame for screenshots
   if (q.has('t')) { t = +q.get('t'); playing = false; }
   if (q.has('mut')) $('go').onclick();
   if (q.has('j')) $('jobs').value = q.get('j');
   if (q.has('site')) document.querySelector(`.site[data-id=${q.get('site')}]`).onclick();
   if (q.has('m')) $('mult').value = q.get('m');
-  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || 's');
+  if (q.get('v') == 'e') $('ve').onclick(); else show(q.get('v') || (demo ? 't' : 's'));
   tick();
   get(API + 'world').then(w => { world ??= w; sim ??= w; syncControls(); draw(); }, () => engine('s'));
   watchCity();
