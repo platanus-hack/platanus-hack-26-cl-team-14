@@ -15,6 +15,19 @@ Entry rules: [README](README.md). Scripts live in the repository's `tools/scrape
 | [Environment](environment.md) | Declared episode dates and vehicle restrictions | Scenario INPUT. Eligibility and exemptions matter; pollutant measurements do not by themselves establish restrictions. |
 | [Events and attendance](events-attendance.md) | Event dates and attendance evidence | Calendar INPUT; estimates must remain distinct from observed attendance. |
 | [Public registers](demography-registers.md) | INE population projections | Modeled INPUT, not an independent observed population target. |
+| [People and work check](verify-people-work.md) | Census 2024 manzanas; ENE and ESI rows with home and work comuna | INPUT. Rows read for all 10 sources. Survey rows are not weighted. |
+| [Transport check](verify-transport.md) | EOD 2012 mirror (113,591 trips); bicycle counter at Alameda con Portugal | INPUT (EOD, old) and one site-day TARGET (bicycles). The mirror is not compared with the official ZIP. |
+| [Housing and land check](verify-housing-land.md) | Green areas, campamentos, INE permits, SII F2890 sample | INPUT. Small samples only. Zoning service is broken; TOCTOC gives 403. |
+| [Sale and asking prices](housing-listings.md) | SII F2890: 9,219,582 property transfers with price, 1998 to October 2026 | Price INPUT. TARGET candidate only after property classification and treatment of multi-role deeds. No coordinates. A deed with many roles repeats the full amount. Rent prices are not open. |
+| [Prior simulators](prior-art-simulators.md) | MATSim Santiago v2b: 665,201 agents, 36 count stations, 2012 to 2013 data | INPUT and method reference. No other synthetic population of Santiago was found; the search does not prove absence. Nobody ran the simulator here. |
+| [Construction permits](construction-pipeline.md) | INE permits with coordinates, 2010 to 2018 (UC mirror): 25,808 RM points | INPUT for "dwellings in a tower of N floors". Tower stats 2010 to 2018; official 2025 permit rows sampled (CRF_PE_v2). Zoning layers have blank and free-text height. |
+| [Time use and behaviour](time-use-behaviour.md) | ENUT 2023 (48,020 rows); ENE 2026 work hours | INPUT for day schedules. ENUT gives durations, not the hour order. `region_ord=7` is RM. |
+| [Global grids](global-grids.md) | Meta HRSL 30 m (Chile is on HDX); WorldPop 100 m | Fallback INPUT. Census 2024 manzanas are real counts and come first. No pixel of Santiago was read by the owner. |
+| [Urban indicators](urban-indicators.md) | SIEDU and SIET tables | Comuna-level INPUT. Derived indexes with mixed years. Below comuna: not verified. |
+| [Crime and safety](crime-safety.md) | CEAD cases by comuna, year, and crime family | Comuna-level INPUT. Nothing public below the comuna. |
+| [Phone and app mobility](telco-app-mobility.md) | Read the file | Reviewed in PR #15. |
+| [Job locations](jobs-location.md) | Read the file | Reviewed in PR #15. |
+| [Portal sweep](portals-sweep.md) | Read the file | Reviewed in PR #15. |
 
 ## Integration notes
 
@@ -23,3 +36,7 @@ Entry rules: [README](README.md). Scripts live in the repository's `tools/scrape
 - The reviewed traffic sources include aggregate gantry passes. This pass did not obtain an open sub-hourly count dataset for ordinary streets or pedestrians; that is a search result, not proof of absence. The transport verifier reports daily bicycle counts at Alameda con Portugal for the April observation week.
 - The tested live endpoints did not provide measured bus or Metro movement records. Blocks, missing keys and unavailable endpoints are access limits, not proof that data does not exist.
 - Additional topic and verification files may arrive in later batches. The master catalog records integrated reports and remaining gaps.
+- Sale prices are open (SII F2890). The older claim "no open property-level sale history" is wrong.
+- Speed test: 7 million destination draws over 866 zones took 1.75 s in numpy on a laptop, with random costs and no activity chains. No latency claim for a real run is justified.
+- SII comuna codes are not INE comuna codes. See `../santiago-source-joins.md`.
+- Held back: `utilities-proxies.md`. A critic found dead links that the file called verified.

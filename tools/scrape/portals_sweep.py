@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""List Santiago datasets from the IDE Chile and Las Condes catalogs."""
+"""List Santiago datasets from five public data catalogs."""
 
 import csv
 import html
