@@ -705,3 +705,15 @@ Four causes of the gap, and they do not all point the same way:
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
+
+## public_routes.json
+
+The map loads `web/data/public_routes.json`. The pack links to the same file. Run `python3 tools/pack/public_routes.py` to rebuild it from the March 2026 GTFS.
+
+Each key is a directed `origin_cut-destination_cut` pair from `travel_times.csv`. Each value contains a path of longitude/latitude points and the GTFS route IDs used, listed in first-boarding order within each mode. The keys are `metro_lines`, `bus_routes`, and `rail_routes` when the path uses EFE. The map has 1,190 pairs between 35 comuna centres. The other 17 centres have no GTFS stop within 1 km. Same-comuna paths are outside this matrix.
+
+The builder traces the winning path of the existing weekday 08:00 router. It includes the initial walk, each transfer, each ride, and the final walk. Walks use straight segments at 4.8 km/h, up to 1 km at each end and 300 m per transfer edge. A platform and its parent station have zero transfer cost. Rides use a GTFS shape between the boarding and exit stops, or the ordered stop positions when a shape is absent. The display simplifies each ride at 25 m tolerance and rounds coordinates to five decimal places.
+
+The router assigns one wait to a stop pattern. When several route IDs share one pattern, the display uses the active trip with the shortest headway, or the first scheduled departure in the 08:00 hour. These paths connect population-weighted comuna centres and show modeled travel on a representative weekday. They have no passenger-level endpoints.
+
+Example: Quilicura → Santiago (`13125-13101`) uses bus 425 and Metro L3. The corresponding CSV row gives 37.4 minutes door to door, 25.6 minutes on board, and one transfer.

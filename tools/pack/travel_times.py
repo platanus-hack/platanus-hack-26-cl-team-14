@@ -159,49 +159,64 @@ print(f"{len(outside)} comuna points have NO stop within {ACCESS_M:.0f} m, so th
       f"row: {[(c, round(nearest[c] / 1000, 1)) for c in outside]}")
 print(f"pairs left out for that reason: {52 * 51 - len(served) * (len(served) - 1)}")
 
-rows = []
-for origin in sorted(points):
-    if not covered[origin]:
-        continue
-    best = {}
-    queue = []
-    order = 0
-    for stop, distance in reachable[origin]:
-        heapq.heappush(queue, (distance / WALK_MPS, order, 0, 0, distance, ("s", stop)))
-        order += 1
-    while queue:
-        cost, _, on_board, boardings, access, node = heapq.heappop(queue)
-        if node in best:
+def solve(on_path=None):
+    rows = []
+    for origin in sorted(points):
+        if not covered[origin]:
             continue
-        best[node] = (cost, on_board, boardings, access)
-        for target, edge, vehicle, board in graph[node]:
-            if target not in best:
-                order += 1
-                heapq.heappush(queue, (cost + edge, order, on_board + vehicle,
-                                       boardings + board, access, target))
-    for destination in sorted(points):
-        if destination == origin or not covered[destination]:
-            continue
-        answer = None
-        for stop, distance in reachable[destination]:
-            label = best.get(("s", stop))
-            if label:
-                total = label[0] + distance / WALK_MPS
-                if answer is None or total < answer[0]:
-                    answer = (total, label[1], label[2], label[3], distance)
-        if answer:
-            rows.append([origin, destination, round(answer[0] / 60, 1),
-                         round(answer[1] / 60, 1), max(answer[2] - 1, 0),
-                         round(answer[3]), round(answer[4])])
-    print(f"  {origin} {len(best)} nodes", end=" ", flush=True)
+        best = {}
+        parents = {}
+        queue = []
+        order = 0
+        for stop, distance in reachable[origin]:
+            heapq.heappush(queue, (distance / WALK_MPS, order, 0, 0, distance, ("s", stop), None))
+            order += 1
+        while queue:
+            cost, _, on_board, boardings, access, node, parent = heapq.heappop(queue)
+            if node in best:
+                continue
+            if on_path is not None:
+                parents[node] = parent
+            best[node] = (cost, on_board, boardings, access)
+            for target, edge, vehicle, board in graph[node]:
+                if target not in best:
+                    order += 1
+                    heapq.heappush(queue, (cost + edge, order, on_board + vehicle,
+                                           boardings + board, access, target, node))
+        for destination in sorted(points):
+            if destination == origin or not covered[destination]:
+                continue
+            answer = None
+            for stop, distance in reachable[destination]:
+                label = best.get(("s", stop))
+                if label:
+                    total = label[0] + distance / WALK_MPS
+                    if answer is None or total < answer[0]:
+                        answer = (total, label[1], label[2], label[3], distance, stop)
+            if answer:
+                if on_path is not None:
+                    chain = []
+                    node = ("s", answer[5])
+                    while node is not None:
+                        chain.append(node)
+                        node = parents[node]
+                    on_path(origin, destination, chain[::-1])
+                rows.append([origin, destination, round(answer[0] / 60, 1),
+                             round(answer[1] / 60, 1), max(answer[2] - 1, 0),
+                             round(answer[3]), round(answer[4])])
+        print(f"  {origin} {len(best)} nodes", end=" ", flush=True)
 
-OUT.parent.mkdir(parents=True, exist_ok=True)
-with OUT.open("w", newline="", encoding="utf-8") as fh:
-    writer = csv.writer(fh)
-    writer.writerow(["origin_cut", "destination_cut", "minutes_door_to_door",
-                     "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress"])
-    writer.writerows(rows)
-print(OUT, len(rows), "directed pairs over", len(served), "comunas")
+    return rows
+
+
+def write_times(rows):
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    with OUT.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["origin_cut", "destination_cut", "minutes_door_to_door",
+                         "minutes_in_vehicle", "transfers", "walk_m_access", "walk_m_egress"])
+        writer.writerows(rows)
+    print(OUT, len(rows), "directed pairs over", len(served), "comunas")
 
 
 EOD = pathlib.Path("data/raw/eod2012/x/eod2012/EOD_STGO")
@@ -286,5 +301,7 @@ def ranks(values):
     return out
 
 
-if "eod" in sys.argv:
-    compare_with_eod()
+if __name__ == "__main__":
+    write_times(solve())
+    if "eod" in sys.argv:
+        compare_with_eod()
