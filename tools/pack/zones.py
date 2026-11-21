@@ -1,4 +1,4 @@
-"""Build data/mvp/zones.csv: Census 2024 home zones (manzanas and rural entities) of the RM.
+"""Build data/mvp/blocks.csv (Census 2024 home blocks of the RM), communes.csv and communes.geojson.
 
 Usage: python3 -I tools/pack/zones.py
 Reads data/raw/verify-people-work/census-blocks.zip and cartography-rm.gpkg.
@@ -72,8 +72,8 @@ for r in rows:
         a = acc.setdefault(r["CUT"], [0, 0.0, 0.0])
         a[0] += w; a[1] += w * lon; a[2] += w * lat
 
-out = csv.writer(open("data/mvp/zones.csv", "w", newline=""))
-out.writerow(["manzana_id", "comuna_cut", "lon", "lat", "persons", "dwellings", "workers", "students"])
+out = csv.writer(open("data/mvp/blocks.csv", "w", newline=""))
+out.writerow(["block_id", "cut", "longitude", "latitude", "population", "households", "dwellings", "workers", "students"])
 for r in rows:
     mz = str(int(r["MANZENT"]))
     if r["CONTENEDOR_COMUNAL"] == "0":
@@ -81,7 +81,7 @@ for r in rows:
     else:
         w, x, y = acc[r["CUT"]]
         lon, lat = x / w, y / w
-    out.writerow([mz, r["CUT"], f"{lon:.6f}", f"{lat:.6f}", n(r["n_per"]), n(r["n_vp"]),
+    out.writerow([mz, r["CUT"], f"{lon:.6f}", f"{lat:.6f}", n(r["n_per"]), n(r["n_hog"]), n(r["n_vp"]),
                   n(r["n_ocupado"]), n(r["n_asistencia_basica"]) + n(r["n_asistencia_media"])])
 
 # communes.csv: sums of the same block rows; point = polygon centroid of the comuna.
@@ -108,6 +108,6 @@ for cut, shape in db.execute("select CUT, SHAPE from Comunal_CPV24 order by CUT"
                     ring.append(pt)
             g.append(ring)
         geo.append(g)
-    feats.append({"type": "Feature", "properties": {"cut": cut, "name": name, "population": p},
+    feats.append({"type": "Feature", "properties": {"cut": str(cut), "name": name, "population": p},
                   "geometry": {"type": "MultiPolygon", "coordinates": geo}})
 json.dump({"type": "FeatureCollection", "features": feats}, open("data/mvp/communes.geojson", "w"), separators=(",", ":"))

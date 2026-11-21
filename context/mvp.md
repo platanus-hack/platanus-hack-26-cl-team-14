@@ -44,8 +44,11 @@ Use the coordinator's [published schema](https://discord.com/channels/1573514576
 | --- | --- |
 | `communes.csv` | `cut,name,population,households,dwellings,longitude,latitude` |
 | `work_od.csv` | `origin_cut,destination_cut,workers` |
+| `mode_share.csv` | `cut,mode,commuters` (home comuna; same filter as `work_od.csv`) |
 | `schools.csv` | `rbd,name,cut,longitude,latitude,enrollment` |
 | `communes.geojson` | EPSG:4326 geometry; property `cut` matches `communes.csv` |
+
+`work_od.csv` keeps all 2,740,454 commuters. The engine models the 2,688,814 RM to RM commuters and reports the 51,640 to destinations outside the RM as external.
 
 CSV uses UTF-8, commas and a header. CUT stays five-digit text. Coordinates use WGS84.
 Report missing fields instead of inventing values. Include source/year, units, row counts, exclusions and a reproducible command in `data/mvp/README.md`.
