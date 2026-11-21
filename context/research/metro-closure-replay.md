@@ -23,8 +23,17 @@ Type this question in the terminal.
 
 Use the same scale in both views. Label trip counts with their population and time window. Label the historical panel “Santiago, octubre de 2019”. Label the weekday replay and the observed weekend separately. Present the observed closure as a check on service availability. Keep mode shifts and congestion labeled as model estimates.
 
+## Timed preview evidence
+
+Both runs model 1,487,455 work departures from 07:00 to 10:00. Public transport falls from 772,186 to 663,173. Car rises from 504,342 to 591,475. The cached chart reads the closure result's `closure_window` counts. Both shots used only the replay endpoint during playback. [Timed A/B bundle](https://discord.com/channels/1573514576400752640/1573809606277337280/1573820133032591372) · [Independent numerical check](https://discord.com/channels/1573514576400752640/1573809606277337280/1573820992717856799)
+
+All 126 modeled stations show zero entries in the six closure bins. Outside the window, every station bin and 894 viewer trip groups match the baseline. The preview has no road speed or delay measure. [Engine and cache check](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/371#issuecomment-7069861666)
+
+The runner opened the chart at 1280 × 720 and read its units and counts. The chart appeared between 53.98 and 54.23 seconds after the closure arrived. The saved delay was 12 seconds. The viewer measured 1 FPS in warm-up. [Native timing check](https://discord.com/channels/1573514576400752640/1573809606277337280/1573821785055567944)
+
 ## Before capture
 
-- V1 supplies the set of active Metro entities, a time-bounded service change, and the trip and congestion outputs. The current station change removes an access point for the full request. It does not cancel train service or change commute mode choice by itself. [Station change](../../engine/src/scenario_stations.rs) · [Scenario result](../../engine/src/scenario.rs)
+- Rebuild both cached shots on the integrated revision. Check the chart reveal in presentation seconds, the 08:00 camera cues, and the Metro train draw during and outside the closure. [Train visibility](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/386)
+- Show road speed or delay only when the final cache provides that measure.
 - Confirm zero active stations and zero boardings during the saved closure. The official record establishes the expected service state. A check of travel changes still needs matched observed counts.
 - Save the question, assumptions, and result through the replay tools. Play the saved result in the city view. Check the 08:00 frame, the final chart, and the terminal return. Time the take as part of the full pitch. [V3 contract](../verticals.md#v3--three-scenario-demo)

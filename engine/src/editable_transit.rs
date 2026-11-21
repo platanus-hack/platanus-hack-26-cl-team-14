@@ -28,6 +28,12 @@ struct Pattern {
     pickup_type: Vec<u8>,
     drop_off_type: Vec<u8>,
     headway_minutes: Option<f64>,
+    /// Stops that are not in the GTFS catalog, for example river piers: ID → WGS84 [longitude, latitude].
+    #[serde(default)]
+    new_stops: BTreeMap<String, [f64; 2]>,
+    /// Passengers per vehicle. None means no capacity limit in the rider model.
+    #[serde(default)]
+    vehicle_capacity: Option<f64>,
     #[serde(flatten)]
     encoded: EncodedSchedule,
     #[serde(skip)]
@@ -116,7 +122,7 @@ impl Pattern {
             let stops: Vec<_> = self
                 .stop_ids
                 .iter()
-                .map(|id| catalog.pack.stops[id].coordinates)
+                .map(|id| self.stop_point(id, catalog))
                 .collect();
             let coordinates = self
                 .shape_id
@@ -130,8 +136,13 @@ impl Pattern {
             "id": id, "mode": self.mode, "route_id": self.route_id, "direction": self.direction, "shape_id": self.shape_id,
             "stop_ids": self.stop_ids, "segment_minutes": self.segment_minutes,
             "dwell_minutes": self.dwell_minutes, "headway_minutes": self.headway_minutes,
-            "pickup_type": self.pickup_type, "drop_off_type": self.drop_off_type
+            "pickup_type": self.pickup_type, "drop_off_type": self.drop_off_type,
+            "new_stops": self.new_stops, "vehicle_capacity": self.vehicle_capacity
         }})
+    }
+
+    fn stop_point(&self, id: &str, catalog: &LineCatalog) -> [f64; 2] {
+        catalog.pack.stops.get(id).map_or_else(|| self.new_stops[id], |stop| stop.coordinates)
     }
 }
 
@@ -161,12 +172,13 @@ struct Pack {
     calendar_dates: Vec<Exception>,
 }
 
-const ASSUMPTIONS: [&str; 5] = [
+const ASSUMPTIONS: [&str; 6] = [
     "Depart comuna points at 08:00 on Monday 13 April 2026 and count arrivals by 11:00. Fixed trips use scheduled boarding calls. Frequency trips use half a headway after arrival while the shifted window permits it.",
     "New or explicitly changed frequency runs at the first stop from 08:00 to 09:00. Changes to stops or ride times reuse the published service starts unless headway changes.",
     "Access and egress use straight-line walks up to 1 km. Stop transfers use straight-line walks up to 300 m.",
     "The graph measures travel between comuna population points. A route must include at least one transit segment. Null means no such route in this graph.",
-    "A geometry-only move keeps service times and the stop order. For added stop calls, omitted dwell is zero and boarding and alighting are allowed. The shape follows the selected calls in order."
+    "A geometry-only move keeps service times and the stop order. For added stop calls, omitted dwell is zero and boarding and alighting are allowed. The shape follows the selected calls in order.",
+    "A line that calls at new stops (outside the GTFS catalog) is not in the comuna graph and changes no comuna-pair minutes. Its riders come from the person-level line rider model."
 ];
 
 pub struct LineCatalog {
@@ -226,7 +238,41 @@ pub struct LineEdits<'a> {
     minutes: Option<Vec<Option<f64>>>,
 }
 
+/// An added service pattern, as the person-level rider model reads it.
+pub struct AddedLine {
+    pub id: String,
+    pub mode: String,
+    pub stop_ids: Vec<String>,
+    pub stops: Vec<[f64; 2]>,
+    /// [arrival, departure] minutes of each call from the first departure.
+    pub calls: Vec<[f64; 2]>,
+    pub headway_minutes: f64,
+    pub pickup_type: Vec<u8>,
+    pub drop_off_type: Vec<u8>,
+    pub vehicle_capacity: Option<f64>,
+}
+
 impl LineEdits<'_> {
+    /// Patterns that this request added (their IDs are not in the catalog).
+    pub fn added(&self) -> Vec<AddedLine> {
+        self.changes
+            .iter()
+            .filter(|(id, _)| !self.catalog.pack.lines.contains_key(*id))
+            .filter_map(|(id, pattern)| pattern.as_ref().map(|p| (id, p)))
+            .map(|(id, p)| AddedLine {
+                id: id.clone(),
+                mode: p.mode.clone(),
+                stop_ids: p.stop_ids.clone(),
+                stops: p.stop_ids.iter().map(|s| p.stop_point(s, self.catalog)).collect(),
+                calls: p.call_times(),
+                headway_minutes: p.headway_minutes.unwrap(),
+                pickup_type: p.pickup_type.clone(),
+                drop_off_type: p.drop_off_type.clone(),
+                vehicle_capacity: p.vehicle_capacity,
+            })
+            .collect()
+    }
+
     pub fn apply(&mut self, raw: &Value) -> Result<Value, String> {
         if raw["target"]["type"] == "mode" {
             return self.remove_mode(raw);
@@ -344,7 +390,8 @@ impl LineEdits<'_> {
                 "stop_ids": pattern.stop_ids, "shape_id": pattern.shape_id,
                 "segment_minutes": pattern.segment_minutes,
                 "dwell_minutes": pattern.dwell_minutes, "headway_minutes": pattern.headway_minutes,
-                "pickup_type": pattern.pickup_type, "drop_off_type": pattern.drop_off_type
+                "pickup_type": pattern.pickup_type, "drop_off_type": pattern.drop_off_type,
+                "new_stops": pattern.new_stops, "vehicle_capacity": pattern.vehicle_capacity
             }),
             None => json!({}),
         };
@@ -404,19 +451,20 @@ impl LineEdits<'_> {
             "headway_minutes",
             "pickup_type",
             "drop_off_type",
+            "new_stops",
+            "vehicle_capacity",
         ] {
             if let Some(value) = properties.get(key) {
                 fields[key] = value.clone();
             }
         }
         let mut pattern: Pattern = serde_json::from_value(fields)
-            .map_err(|_| "Supply a mode, known stop IDs, and travel minutes per segment.")?;
-        if !matches!(pattern.mode.as_str(), "metro" | "bus")
+            .map_err(|_| "Supply a mode, known or new stop IDs, and travel minutes per segment.")?;
+        if !matches!(pattern.mode.as_str(), "metro" | "bus" | "boat")
             || pattern.stop_ids.len() < 2
-            || pattern
-                .stop_ids
-                .iter()
-                .any(|id| !self.catalog.pack.stops.contains_key(id))
+            || pattern.stop_ids.iter().any(|id| {
+                !self.catalog.pack.stops.contains_key(id) && !pattern.new_stops.contains_key(id)
+            })
             || pattern.segment_minutes.len() + 1 != pattern.stop_ids.len()
             || pattern
                 .segment_minutes

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 
 const data = (file) => readFileSync(new URL(`../../data/mvp/${file}`, import.meta.url), 'utf8');
@@ -54,7 +54,9 @@ const path = { type: 'array', items: point, minItems: 2 };
 const numbers = { type: 'array', items: { type: 'number' } };
 const stopRules = { type: 'array', items: { type: 'integer', minimum: 0, maximum: 3 } };
 const lineProperties = {
-  mode: { enum: ['bus', 'metro'] }, stop_ids: { type: 'array', items: { type: 'string' } },
+  mode: { enum: ['bus', 'metro', 'boat'] }, stop_ids: { type: 'array', items: { type: 'string' } },
+  new_stops: { type: 'object', additionalProperties: point, description: 'Stops that are not in the catalog (for example river piers): ID → [longitude, latitude]. List them in stop_ids too.' },
+  vehicle_capacity: { type: 'number', exclusiveMinimum: 0, description: 'Passengers per vehicle. Caps line_riders per half hour.' },
   segment_minutes: numbers, dwell_minutes: numbers, headway_minutes: { type: ['number', 'null'], exclusiveMinimum: 0, description: 'Use a positive headway for new service. Use null to restore a null catalog headway.' },
   pickup_type: stopRules, drop_off_type: stopRules,
 };
@@ -74,7 +76,7 @@ const featureChanges = [
   },
   {
     kind: 'line',
-    description: 'Edit one directed bus or Metro service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing. Target {type:"mode",id:"metro"} with op remove removes every pattern of that mode (close all Metro service; also close the stations with kind station). Set temporary true for a closure of one day: workers change mode, not job.',
+    description: 'Edit one directed bus, Metro or boat service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. A two-way service is two adds. Stops outside the catalog go in new_stops. Each added line returns line_riders: workers near both ends, trips to work by stop and half hour, and the mode they leave. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing. Target {type:"mode",id:"metro"} with op remove removes every Metro pattern. Also close the stations with kind station. Set temporary true to change mode choice for one day.',
     target: idTarget, geometries: ['LineString'],
     properties: lineProperties,
   },
@@ -129,6 +131,67 @@ const sceneTool = {
     },
   },
 };
+
+// Cached replays for the demo: create before the pitch, list and run during it. The engine computes nothing on run.
+const replays = new URL('../../data/replays/', import.meta.url);
+// An id is a file name inside data/replays, never a path.
+const replayFile = (id) => {
+  if (!/^[a-z0-9-]+$/.test(id)) throw new Error('A replay id uses only a-z, 0-9 and -.');
+  return new URL(`${id}.json`, replays);
+};
+const readReplay = (id) => JSON.parse(readFileSync(replayFile(id), 'utf8'));
+const listReplaysTool = {
+  name: 'list_replays',
+  description: 'List the cached demo replays: id, title, the presenter question, the changes, the scene place and start half hour, the duration and what to analyze. Use it to match the presenter question to a replay.',
+  inputSchema: { type: 'object', properties: {} },
+};
+const runReplayTool = {
+  name: 'run_replay',
+  description: 'Play one cached replay in the open city view. Before you call it, show the presenter the replay assumptions from list_replays: the entities that change, the start time, the duration and what to analyze. The result is the saved engine result; report it with the same rules as simulate_city.',
+  inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+};
+const createReplayTool = {
+  name: 'create_replay',
+  description: 'Before the demo only. Run the general engine once with a scene and a list of changes (the same changes as simulate_city) and save the full result as a cached replay in data/replays/<id>.json. An existing id is replaced.',
+  inputSchema: {
+    type: 'object', required: ['id', 'title', 'question', 'scene', 'changes', 'duration_half_hours', 'analyze'],
+    properties: {
+      id: { type: 'string', pattern: '^[a-z0-9-]+$' },
+      title: { type: 'string' },
+      question: { type: 'string', description: 'The question the presenter types.' },
+      scene: sceneTool.inputSchema,
+      changes: tool.inputSchema.properties.changes,
+      stations: tool.inputSchema.properties.stations,
+      duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
+      analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
+      chart: {
+        type: 'object', required: ['title', 'unit', 'bars'],
+        description: 'The final chart of the replay, drawn in the city view as stacked bars. Each bar reads one field of a saved result: a number, or an object of numbers (one stack segment per key). Example: {"title":"Entradas al Metro","unit":"entradas por día hábil","bars":[{"label":"Antes","field":"summary.boardings_base"},{"label":"Después","field":"summary.boardings_scenario"}]}.',
+        properties: {
+          title: { type: 'string' }, unit: { type: 'string' },
+          keys: { type: 'object', additionalProperties: { type: 'string' }, description: 'Screen label of each value key, for example {"public":"Transporte público","car":"Auto","other":"Otro"}.' },
+          show_after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts before the chart appears, so the map plays first. Default 0.' },
+          bars: { type: 'array', minItems: 1, items: { type: 'object', required: ['label', 'field'], properties: {
+            label: { type: 'string' },
+            field: { type: 'string', description: 'Dot path in the saved result, for example events.0.fan_base.by_mode.' },
+            replay: { type: 'string', description: 'Read the field from this other cached replay, for example the baseline of an A/B. Default: this replay.' },
+          } } },
+        },
+      },
+    },
+  },
+};
+
+// The chart reads saved results only, so the numbers on screen are the cached engine values.
+function chartValues({ id, chart: { title, unit, bars, keys = {}, show_after_seconds = 0 } }) {
+  return { title, unit, show_after_seconds, bars: bars.map(({ label, field, replay = id }) => {
+    const value = field.split('.').reduce((v, key) => v[key], readReplay(replay).result);
+    const values = typeof value === 'number' ? { total: value } : value;
+    // The viewer draws only numbers: stop here, before publishing, if the field is wrong.
+    if (!values || !Object.values(values).length || Object.values(values).some(v => typeof v !== 'number')) throw new Error(`Chart field ${field} in replay ${replay} is not a number or an object of numbers.`);
+    return { label, values: Object.fromEntries(Object.entries(values).map(([k, v]) => [keys[k] ?? k, v])) };
+  }) };
+}
 
 function catalogEntry(rows, query) {
   const matches = rows.filter(row => plain(row.name) === plain(query));
@@ -247,15 +310,38 @@ async function dispatch({ method, params }) {
     serverInfo: { name: 'santiago', version: '2.0.0' },
   };
   if (method === 'ping') return {};
-  if (method === 'tools/list') return { tools: [tool, sceneTool] };
-  if (method !== 'tools/call' || ![tool.name, sceneTool.name].includes(params?.name)) return null;
+  const tools = [tool, sceneTool, listReplaysTool, runReplayTool, createReplayTool];
+  if (method === 'tools/list') return { tools };
+  if (method !== 'tools/call' || !tools.some(t => t.name === params?.name)) return null;
   try {
-    if (params.name === sceneTool.name) {
-      const receipt = await setScene(params.arguments);
-      return { content: [{ type: 'text', text: JSON.stringify(receipt) }] };
-    }
+    const args = params.arguments ?? {};
+    let text;
+    if (params.name === sceneTool.name) text = await setScene(args);
+    else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
+    else if (params.name === runReplayTool.name) {
+      const { meta, result } = readReplay(args.id);
+      if (meta.chart) result.chart = chartValues(meta);
+      await engineJSON('/api/replay', result);
+      text = { replay: meta, result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
+    } else if (params.name === createReplayTool.name) {
+      const { scene, changes, stations = [], ...meta } = args;
+      replayFile(meta.id);
+      await setScene(scene);
+      const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
+      const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
+      writeFileSync(replayFile(meta.id), JSON.stringify(replay));
+      text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
+    } else text = (await runScenario(args)).short;
+    return { content: [{ type: 'text', text: JSON.stringify(text) }] };
+  } catch (error) {
+    return { isError: true, content: [{ type: 'text', text: error.message }] };
+  }
+}
+
+// Changes from the chat: named places become census blocks, then the engine runs once. The map gets the full result; the agent a short copy.
+async function runScenario(args) {
     const placesUsed = [];
-    for (const change of params.arguments.changes ?? []) {
+    for (const change of args.changes ?? []) {
       if (change.kind === 'line' && change.op === 'set') {
         const fields = Object.keys(change.properties ?? {});
         if ('value' in change || !fields.length || fields.some(key => !Object.hasOwn(lineProperties, key))) {
@@ -273,9 +359,14 @@ async function dispatch({ method, params }) {
       placesUsed.push({ place: change.target.id, block: place.block, status: place.status, nearby_candidate_blocks: place.nearby_candidate_blocks });
       change.target = { type: 'block', id: place.block };
     }
-    const { stations: asked = [], ...request } = params.arguments;
-    // The map reads the full result from the engine. The agent gets a short copy: the 5 largest station gains and losses and the 5 largest zone job changes.
-    const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, ...result } = await engineJSON('/api/scenario', request);
+    const { stations: asked = [], ...request } = args;
+    const full = await engineJSON('/api/scenario', request);
+    return { full, short: shortResult(structuredClone(full), asked, placesUsed), placesUsed };
+}
+
+// The agent's copy: the 5 largest station gains and losses and the 5 largest zone job changes.
+function shortResult(full, asked, placesUsed) {
+    const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, ...result } = full;
     if (result.city_edits) result.city_edits = result.city_edits.map(editSummary);
     for (const note of [...result.applied, ...result.not_modeled]) {
       if (['building', 'road', 'line'].includes(note.kind)) {
@@ -308,10 +399,7 @@ async function dispatch({ method, params }) {
     if (placesUsed.length) result.places_used = placesUsed;
     result.blocks_changed = blocks_changed.slice(0, 5);
     result.omitted = 'Other stations, zones, comuna flows and trip groups are in the city view, not here. Do not describe them.';
-    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-  } catch (error) {
-    return { isError: true, content: [{ type: 'text', text: error.message }] };
-  }
+    return result;
 }
 
 for await (const line of createInterface({ input: process.stdin })) {

@@ -1,5 +1,5 @@
 mod vote;
-// Keep text at output resolution while the city uses a fixed three-pixel grid.
+// Keep text at output resolution while the city uses a fixed pixel grid.
 use bevy::{
     camera::{RenderTarget, visibility::RenderLayers},
     image::ImageSampler,
@@ -8,15 +8,18 @@ use bevy::{
     window::PrimaryWindow,
 };
 
-const SCALE: u32 = 3;
+const SCALE: u32 = 2;
 const SAMPLES_PER_AXIS: u32 = 2;
 const SCREEN_LAYER: RenderLayers = RenderLayers::layer(1);
+
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub(crate) struct CityMarks;
 
 pub struct PixelMode;
 
 impl Plugin for PixelMode {
     fn build(&self, app: &mut App) {
-        if std::env::var("SANTIAGO_PIXEL").as_deref() == Ok("1") {
+        if std::env::var("SANTIAGO_PIXEL").as_deref() != Ok("0") {
             vote::install(app);
             app.add_systems(PostStartup, setup)
                 .add_systems(Update, fit_window);

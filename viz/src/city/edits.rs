@@ -10,6 +10,76 @@ pub(crate) struct EditMesh;
 #[derive(Component)]
 pub(crate) struct SurfaceEdit;
 
+#[derive(Component)]
+pub(crate) struct ClosureEnd(Vec3);
+
+fn closure_ends(commands: &mut Commands, geometry: &Value) {
+    let lines = &geometry["coordinates"];
+    fn ends(line: &Value) -> [&Value; 2] {
+        let points = line.as_array().unwrap();
+        [points.first().unwrap(), points.last().unwrap()]
+    }
+    let mut endpoints = Vec::new();
+    if geometry["type"] == "MultiLineString" {
+        for line in lines.as_array().unwrap() {
+            endpoints.extend(ends(line));
+        }
+    } else {
+        endpoints.extend(ends(lines));
+    }
+    // Shared endpoints join parts of the same feature. Mark its exposed ends.
+    for point in &endpoints {
+        if endpoints.iter().filter(|p| **p == *point).count() != 1 {
+            continue;
+        }
+        commands.spawn((
+            EditMesh,
+            ClosureEnd(world(point[0].as_f64().unwrap(), point[1].as_f64().unwrap())),
+            Node {
+                position_type: PositionType::Absolute,
+                width: px(16),
+                height: px(16),
+                border_radius: BorderRadius::MAX,
+                border: UiRect::all(px(1)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            BackgroundColor(Color::srgb_u8(164, 53, 47)),
+            Visibility::Hidden,
+            children![(
+                Node { width: px(10), height: px(3), ..default() },
+                BackgroundColor(Color::WHITE),
+            )],
+        ));
+    }
+}
+
+pub(crate) fn place_closure_ends(
+    camera: Single<(&Camera, &GlobalTransform), With<Camera3d>>,
+    window: Single<&Window, With<bevy::window::PrimaryWindow>>,
+    canvas: Query<&Sprite, With<crate::pixels::CityCanvas>>,
+    mode: Res<SubwayView>,
+    mut ends: Query<(&ClosureEnd, &mut Node, &mut Visibility)>,
+) {
+    let (camera, transform) = *camera;
+    for (end, mut node, mut visible) in &mut ends {
+        let Ok(mut p) = camera.world_to_viewport(transform, end.0) else {
+            *visible = Visibility::Hidden;
+            continue;
+        };
+        if let Ok(sprite) = canvas.single()
+            && let (Some(size), Some(viewport)) = (sprite.custom_size, camera.logical_viewport_size())
+        {
+            p = window.size() * 0.5 + (p / viewport - Vec2::splat(0.5)) * size;
+        }
+        node.left = px(p.x - 8.);
+        node.top = px(p.y - 8.);
+        *visible = if mode.0 { Visibility::Hidden } else { Visibility::Inherited };
+    }
+}
+
 fn rings(value: &Value) -> Vec<Vec<Vec3>> {
     value
         .as_array()
@@ -31,18 +101,17 @@ fn rings(value: &Value) -> Vec<Vec<Vec3>> {
 fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
     let mut mesh = Surface::default();
     let geometry = &feature["geometry"];
-    let color = if removed {
-        [0.9, 0.08, 0.05, 1.]
-    } else if kind == "line" {
-        [0.02, 0.75, 0.95, 1.]
-    } else {
-        [0.95, 0.55, 0.07, 1.]
-    };
+    // The transparent pass lays engine edits over the printed city.
+    let color = [0.85, 0.13, 0.09, 1.];
     match kind {
         "building" => mesh.polygon(
             &rings(&geometry["coordinates"]),
             0.3,
-            feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32,
+            if removed {
+                0.
+            } else {
+                feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32
+            },
             color,
             color,
         ),
@@ -134,6 +203,7 @@ pub(crate) fn refresh(
             materials.add(StandardMaterial {
                 cull_mode: None,
                 unlit: true,
+                alpha_mode: AlphaMode::Blend,
                 ..default()
             })
         })
@@ -144,8 +214,10 @@ pub(crate) fn refresh(
                 || before["geometry"] != after["geometry"]
                 || (kind == "line"
                     && before["properties"]["mode"] != after["properties"]["mode"]))
-            && kind != "building"
         {
+            if kind == "road" && after.is_null() {
+                closure_ends(&mut commands, &before["geometry"]);
+            }
             let shape = draw(&before, &kind, true);
             if !shape.indices.is_empty() {
                 let mut entity = commands.spawn((

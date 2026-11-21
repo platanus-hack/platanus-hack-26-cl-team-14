@@ -109,6 +109,10 @@ impl Routing {
         let mut edges = self.walk.clone();
         let mut schedules = Vec::new();
         for pattern in patterns {
+            // New stops (river piers, for example) are not graph nodes. The person-level rider model covers them.
+            if pattern.stop_ids.iter().any(|id| !self.stops.contains_key(id)) {
+                continue;
+            }
             for schedule in pattern.schedules.iter() {
                 if !schedule.starts.overlaps(
                     schedule.calls[0][1],
