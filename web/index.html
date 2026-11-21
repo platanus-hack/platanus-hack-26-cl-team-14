@@ -39,8 +39,9 @@
   <button id="go">Sacar el MUT</button>
   <div class="val"><span id="n">298</span> <small>viviendas · supuesto</small></div>
   <input id="slider" type="range" min="0" max="1500" step="2" value="298">
-  <small>MUT, Las Condes · 7.124 empleos (modelo)</small>
-  <small id="legend"><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#fff"></i>modelo base<i style="background:#ff7a1a"></i>escenario</small>
+  <small>MUT: 4.679 empleos · modelo</small>
+  <small>ocupación y uso de Metro · supuesto</small>
+  <small id="legend"><i style="background:#00e5ff;margin-left:0"></i>observado<i style="background:#fff"></i>base<i style="background:#ff7a1a"></i>escenario</small>
 </div>
 
 <div class="box tl s">
@@ -54,6 +55,7 @@
   <div class="val"><small>viviendas</small> ×<span id="hv">1,0</span></div>
   <input id="housing" type="range" min="0.2" max="2" step="0.1" value="1">
   <button id="reset">Volver</button>
+  <small style="margin-top:14px"><i style="background:#ff4d6d;margin-left:0"></i>gana empleos<i style="background:#3ddc97"></i>pierde · modelo</small>
 </div>
 
 <div id="engine" class="box"><span id="ms">—</span><small id="msk">motor Rust</small></div>
@@ -91,37 +93,40 @@ const deckgl = new DeckGL({
     sun: new DirectionalLight({direction: [-2, -4, -3], intensity: 1.4})})],
 });
 
-function engine(r) {  // the measured time of the engine, or "sin motor"
-  $('ms').textContent = r ? fmt(r.elapsed_ms, 2) + ' ms' : 'sin motor';
-  $('msk').textContent = r ? 'motor Rust · medido' : 'localhost:8787 no responde';
+const ms = {};  // for each view: the measured time of the last engine answer, or "sin motor"
+function engine(v, r) {
+  ms[v] = r ? [fmt(r.elapsed_ms, 2) + ' ms', 'motor Rust · medido'] : ['sin motor', v == 's' ? ':8787 no responde' : site ? 'se ve el último escenario válido' : 'falta /api/site-scenario'];
+  draw();
 }
 
 // ---------- Tobalaba ----------
 function siteScenario() {
   // every parameter is explicit; the engine has no defaults. P = value, kind, source.
   const P = (value, source_kind, source) => ({value, source_kind, source});
-  const u = 'user_assumption', o = 'observed_aggregate';
+  const u = 'user_assumption';
   post('site-scenario', {
     station_id: 'TB-TOB', comuna_cut: '13114', longitude: MUT[0], latitude: MUT[1],
-    baseline_jobs: P(7124, u, 'data/mvp/jobs.csv, manzana 13114131009033, modeled, not measured'),
-    baseline_dwellings: P(0, u, 'the MUT has no dwellings'),
-    jobs_removed: P(7124, u, 'all modeled jobs of the manzana'),
+    // values of clever-heron's reviewed manual run of site.rs (PR #30): illustrative, not a measured preset
+    baseline_jobs: P(4679, u, 'modeled MUT jobs from floor area, data/mvp/jobs.csv; not observed site employment'),
+    baseline_dwellings: P(0, u, 'no dwellings at this site; not a verified count'),
+    jobs_removed: P(4679, u, 'the scenario removes all assumed baseline jobs'),
     dwellings_added: P(homes, u, 'slider on the page'),
     parameters: {
-      occupied_share: P(0.901, o, 'Las Condes households / dwellings = 116,176 / 128,937, communes.csv, Census 2024'),
-      persons_per_occupied_dwelling: P(2.549, o, 'Las Condes population / households = 296,134 / 116,176, communes.csv, Census 2024'),
-      known_commuters_per_resident: P(0.3637, o, 'Las Condes origin total of work_od.csv / population = 107,707 / 296,134'),
-      attendance_home: P(1, u, 'each commuter goes to work each weekday'),
-      attendance_work: P(1, u, 'each worker comes each weekday'),
-      filled_job_share: P(1, u, 'all modeled jobs are filled'),
-      metro_entry_share_home: P(0.314, u, 'bus+Metro share of Las Condes commuters, mode_share.csv; upper limit for Metro entries'),
-      metro_entry_share_work: P(0.314, u, 'same value as home; no data on workers of the site'),
-      access_share_home: P(1, u, 'all Metro users of the site enter at the nearest station'),
-      access_share_work: P(1, u, 'all Metro users of the site enter at the nearest station'),
-      maximum_access_distance_m: P(1000, u, 'straight line'),
+      occupied_share: P(0.9, u, 'not measured MUT occupancy'),
+      persons_per_occupied_dwelling: P(2.1, u, 'not measured Las Condes or MUT occupancy'),
+      known_commuters_per_resident: P(104980 / 296134, 'observed_aggregate', 'Las Condes RM-to-RM commuters / residents, Census 2024; its use for new households is an assumption'),
+      attendance_home: P(0.8, u, 'not measured daily attendance'),
+      attendance_work: P(0.8, u, 'not measured MUT attendance'),
+      filled_job_share: P(0.9, u, 'not measured vacancy'),
+      metro_entry_share_home: P(0.2, u, 'share of departures with a Metro entry; not the Census public-transport share'),
+      metro_entry_share_work: P(0.2, u, 'not measured worker mode choice'),
+      access_share_home: P(0.8, u, 'share of Metro entries at Tobalaba; not an observed catchment'),
+      access_share_work: P(0.8, u, 'share of Metro entries at Tobalaba; not an observed catchment'),
+      maximum_access_distance_m: P(500, u, 'straight line to a Tobalaba entrance; not a walking route'),
     },
     time_profile: 'observed_am_06_10_pm_16_21', population_policy: 'local_increment_unbalanced',
-  }).then(r => { site = r; engine(r); }, () => { site = null; engine(); }).then(() => {
+  }).then(r => { site = r; engine('t', r); }, () => engine('t'))  // a failed call keeps the last valid answer
+  .then(() => {
     const dd = site && site.delta.reduce((a, x) => a + (x || 0), 0);
     $('dv').textContent = site ? (dd > 0 ? '+' : '') + fmt(dd) : '';
     $('dv').className = dd > 0 ? 'more' : 'less';
@@ -169,7 +174,7 @@ function simulate() {
   const n = ++seq, j = +$('jobs').value, h = +$('housing').value;
   $('jv').textContent = fmt(j, 1); $('hv').textContent = fmt(h, 1);
   post('simulate', {zone_id: sel, jobs_multiplier: j, housing_multiplier: h})
-    .then(r => { if (n == seq) { sim = r; engine(r); draw(); } }, () => engine());
+    .then(r => { if (n == seq) { sim = r; engine('s', r); } }, () => engine('s'));
 }
 
 function santiago() {
@@ -187,8 +192,11 @@ function santiago() {
     new GeoJsonLayer({id: 'communes', data: communes, extruded: !!sim, pickable: true,
       getElevation: f => zs[f.properties.cut].jobs * KZ, getLineColor: [150, 170, 255],
       getFillColor: f => {
-        const c = f.properties.cut, dj = sim ? zs[c].jobs - base[c].jobs : 0, k = sim ? Math.sqrt(zs[c].jobs / 5e5) : 0;  // more jobs, more light
-        return c == sel ? [255, 122, 26] : dj > 50 ? [255, 77, 109] : dj < -50 ? [61, 220, 151] : [14 + 60 * k, 20 + 80 * k, 48 + 150 * k];
+        const c = f.properties.cut;
+        if (c == sel || !sim) return [255, 122, 26, c == sel ? 255 : 0];
+        const k = Math.sqrt(zs[c].jobs / 5e5), blue = [14 + 60 * k, 20 + 80 * k, 48 + 150 * k];  // more jobs, more light
+        const dj = zs[c].jobs / base[c].jobs - 1, m = Math.min(1, Math.abs(dj) * 4), to = dj > 0 ? [255, 77, 109] : [61, 220, 151];  // red gains jobs, green loses
+        return blue.map((x, i) => x + (to[i] - x) * m);
       },
       material: {ambient: .5, diffuse: .7, shininess: 8},
       onClick: ({object}) => { sel = String(object.properties.cut); $('jobs').value = $('housing').value = 1; simulate(); },
@@ -215,6 +223,8 @@ function draw() {
     const day = Math.max(0, Math.sin((t - 13) / 28 * Math.PI));  // 0 at 06:30 and 20:30, 1 near 13:30
     document.body.style.background = `rgb(${6 + 14 * day}, ${9 + 26 * day}, ${26 + 52 * day})`;
   } else document.body.style.background = '';
+  $('engine').style.display = ms[view] ? 'block' : 'none';
+  if (ms[view]) [$('ms').textContent, $('msk').textContent] = ms[view];
   deckgl.setProps({layers: view == 't' ? tobalaba() : santiago()});
 }
 
@@ -237,7 +247,7 @@ $('go').onclick = () => {
   $('go').textContent = active ? 'Volver al MUT' : 'Sacar el MUT';
   $('go').className = active ? 'on' : '';
   if (active) return siteScenario();
-  site = null; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
+  site = null; delete ms.t; $('slider').value = homes = HOMES; $('n').textContent = HOMES; $('delta').style.display = 'none'; draw();
 };
 $('jobs').oninput = $('housing').oninput = simulate;
 $('reset').onclick = () => { $('jobs').value = $('housing').value = 1; simulate(); };
@@ -257,7 +267,7 @@ Promise.all(['stops.json', 'tobalaba_observations.json', 'los_leones_observation
   if (q.has('j')) $('jobs').value = q.get('j');
   show(q.get('v') || 't');
   tick();
-  get(API + 'world').then(w => { world = sim = w; simulate(); }, () => engine());
+  get(API + 'world').then(w => { world = sim = w; simulate(); }, () => engine('s'));
 });
 </script>
 </html>
