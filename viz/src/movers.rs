@@ -847,12 +847,32 @@ struct FixedClock(Option<f32>);
 #[derive(Resource)]
 struct PlaybackRate(f32);
 
+/// Top-left label with the replayed day and hour.
+#[derive(Component)]
+struct ClockLabel;
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    mut fonts: ResMut<Assets<Font>>,
 ) {
+    let font = fonts.add(Font::from_bytes(include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec()));
+    commands.spawn((
+        ClockLabel,
+        Text::new(""),
+        TextFont { font: font.into(), font_size: FontSize::Px(30.0), ..default() },
+        TextColor(Color::WHITE),
+        BackgroundColor(Color::srgba(0., 0., 0., 0.55)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(16),
+            left: px(16),
+            padding: UiRect::axes(px(14), px(6)),
+            ..default()
+        },
+    ));
     let seconds = std::env::var("SANTIAGO_CLOCK_SECONDS").ok().map(|v| {
         v.parse::<f32>()
             .expect("SANTIAGO_CLOCK_SECONDS must be seconds after midnight")
@@ -1076,6 +1096,7 @@ fn draw(
     mut query: Query<(&mut Transform, &mut Visibility), With<Figure>>,
     mut pool: Local<Pool>,
     mut marks: ResMut<instanced::Marks>,
+    mut label: Query<&mut Text, With<ClockLabel>>,
 ) {
     marks.clear();
     if replay.departures.is_empty() {
@@ -1101,6 +1122,9 @@ fn draw(
         .0
         .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs() * rate.0)
         .rem_euclid(DAY);
+    // The engine models one regular weekday; it has no calendar date.
+    let minute = (now / 60.) as u32;
+    **label.single_mut().unwrap() = format!("Día laboral · {:02}:{:02}", minute / 60, minute % 60);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
     let mut surface_load = std::collections::BTreeMap::new();
