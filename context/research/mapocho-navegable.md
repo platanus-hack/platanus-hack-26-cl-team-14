@@ -1,0 +1,81 @@
+# Mapocho navigable with public transport (case 2)
+
+Brief for the second pitch case ([Mac, 16:15 UTC](https://discord.com/channels/1573514576400752640/1573688250797658172/1573733563491291157)).
+Writer: Marcia-44. Water and seasons: Belarmino-11 (section 2).
+
+## 1. Previous projects
+
+| Project | What happened | Source |
+| --- | --- | --- |
+| Mapocho Navegable (Piñera, 2004 campaign; Bicentennial project) | Only one part was built: Parque Fluvial Renato Poblete, now Parque de la Familia (Quinta Normal, 2014). A 7 ha lagoon with river water, small boats without motors. The boats stopped in 2019. The architect (Boza) said the whole river can never be navigable because of the slope. | [BioBio 2024](https://www.biobiochile.cl/noticias/nacional/region-metropolitana/2024/02/07/el-mapocho-navegable-el-sueno-de-pinera-que-tuvo-corta-vida-en-el-parque-de-la-familia.shtml), [Publimetro 2013](https://www.publimetro.cl/cl/nacional/2013/04/10/mapocho-navegable-50-avance.html) |
+| Ferrando, U. de Chile (2000) | Hydrology review of the project. The section "Viabilidad del Proyecto" is against it. Full text not opened (bot wall). | [Repositorio U. de Chile](https://repositorio.uchile.cl/handle/2250/117852) |
+| Mapocho Pedaleable (UC, 2013) | A bike path in the riverbed, Pérez Zujovic to Estación Mapocho. It can flood. MTT tendered the social evaluation. | [CPP UC](https://politicaspublicas.uc.cl/opinion/mapocho-pedaleable/) |
+| Mapocho 42K | Riverside cycle park, about 42 km, 11 comunas. About 20 km continuous by 2022; Vitacura added 3.16 km in April 2025. | [Wikipedia](https://es.wikipedia.org/wiki/Cicloparque_Mapocho_42K), [La Tercera 2025](https://www.latercera.com/nacional/noticia/inauguran-nuevo-tramo-de-316-kilometros-del-cicloparque-mapocho-42k-en-vitacura/) |
+
+No public transport study for boats on the Mapocho was found. Every built or studied version is recreation or cycling.
+
+## 2. Water and seasons (Belarmino-11)
+
+- Without barriers the river is not navigable in any month: about 9 to 27 cm of water (own Manning estimate, 40 m wide, 1 % slope). **Assumption.**
+- With a chain of barriers (like the six inflatable barriers of Parque de la Familia), boats can run **September to April**. May to August has closures on rain flood days. July is the worst month: mean instantaneous maximum 155 m³/s (DGA, Rinconada de Maipú 1975–99).
+- Rule for the engine (**assumption**): service runs when flow is 5 to 80 m³/s. 80 m³/s is the design flow of the Costanera works that failed in the April 2016 flood (120–150 m³/s).
+- Current flows are low: the DGA 2025/26 snowmelt forecast at Los Almendros is 53 % below the 1991–2020 mean ([DGA](https://dga.mop.gob.cl/uploads/sites/13/2025/09/Pronostico-Deshielo-Temporada-2025-2026-con-firma-1.pdf)).
+
+Full monthly table and sources: Belarmino-11's handoff in [agent-chat](https://discord.com/channels/1573514576400752640/1573561159955648553).
+
+## 3. Who already travels along the river (real data)
+
+EOD 2012, weekday, trips with both ends within 800 m of the river axis (OSM relation 7548664, lon −70.80 to −70.52) and 3 km or more apart east–west after projection onto the river.
+Command: `python3 -I tools/pack/mapocho_corridor.py <EOD_STGO> <nominatim.json>` (sources in the script header).
+
+| Measure | Value |
+| --- | --- |
+| Weekday trips in the corridor | **88,962** (0.61 % of 14.58 M trips with coordinates) |
+| Mode today | bus 40.8 %, car 31.2 %, bus+Metro 9.2 %, Metro 8.9 %, bicycle 3.0 %, colectivo 2.7 % |
+| Median reported trip time | 43 min |
+| Busiest start hours | 17:00, 08:00, 12:00, 07:00 |
+| Largest comuna pairs | Providencia–Santiago 12,592 · Providencia–Vitacura 8,578 · Cerro Navia–Santiago 8,160 · Recoleta–Renca 6,639 · Santiago–Vitacura 6,098 · Providencia–Renca 6,075 |
+
+Pier-to-pier subset (Eliseo-21, independent check of this count): **24,493** of the 88,962 trips (27.5 %; 95 survey records) have both ends within 800 m straight-line of two different piers in [piers.json](mapocho/piers.json). 13,885 of them already use bus, Metro or both. [Evidence](https://discord.com/channels/1573514576400752640/1573561159955648553/1573738670098485268).
+
+This is the market a river line could take from, not a forecast of boat riders. Two strong axes: east (Vitacura–Providencia–Centro) and west (Cerro Navia–Renca–Centro). The survey is from 2012.
+
+## 4. Comparable river buses
+
+- London, Uber Boat by Thames Clippers: about 4 million passengers a year, about 10,000 a day, 24 piers, a boat every 10–20 min, 25–32 knots top speed (12 knots on battery) ([Wikipedia](https://en.wikipedia.org/wiki/Thames_Clippers), [fleet](https://www.thamesclippers.com/whats-on-board/fleet)). London has a deep tidal river; the Mapocho does not.
+
+## 5. How the engine can run this case
+
+- Nearest existing input: new station points (`{type:"point", id, name, longitude, latitude}`, [PR #193](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/193) on the [#189](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/189) access projection). Put one point at each pier, at bridges along the two axes in section 3. Bridge points come from Belarmino-11's river GeoJSON.
+- Limit: the projection treats a new point like a Metro station. It has no boat speed, capacity, headway, lock time or season. A boat line needs those as explicit assumptions, or the result overstates riders.
+- Season switch: the flow rule in section 2 turns the line on or off by month.
+
+## 6. First engine run: piers as Metro-like points
+
+Input: [10 piers](mapocho/piers.json), one about every 2 km on the river axis from Cerro Navia (MAP01) to Vitacura (MAP10). The positions are an assumption, not proposed piers.
+Command: `target/release/scenario data/mvp - < context/research/mapocho/piers.json` on main `af6fb31` (includes #191).
+
+| Measure | Value |
+| --- | --- |
+| Modeled entries at the 10 piers | 143,391 per weekday |
+| Change at existing Metro stations | −59,771 (Pedro de Valdivia −7,206, Los Leones −6,478, Cal y Canto −5,887) |
+| Busiest piers | MAP02 20,051 · MAP05 19,951 · MAP06 19,686 · MAP08 18,924 |
+
+**Do not quote this as boat passengers.** The pier entries are larger than the whole corridor market (88,962 trips). The model treats each pier like a Metro station on the full network, with no boat speed, capacity, headway or season. It shows where river access would compete with Metro, not how many people would take a boat.
+
+## 7. Second engine test: the boat as faster travel minutes
+
+The engine already moves job and mode choice when `minutes` between two comunas change (gravity + logit in `engine/src/choice.rs`). This is how activity-based models add a mode: a new time, a cost, and a constant (ActivitySim tour mode choice, MATSim scoring with a constant per mode).
+`python3 -I tools/pack/mapocho_boat_minutes.py` writes one `minutes` `set` per comuna pair where a boat is faster door to door. Assumptions: 17 km/h (Brisbane CityCat average, Tanko & Burke 2019), a boat every 10 min, walk at 4.5 km/h with a 1.3 detour, 1 min per intermediate pier.
+
+**Result: the centroid-based screening found zero pairs where the assumed boat service was faster.** Seven comunas have a pier within 2.5 km of their point (Cerro Navia, Renca, Quinta Normal, Independencia, Santiago, Providencia, Vitacura). For all 42 pairs between them the boat is 2 to 3 times slower than today's public transport. Example: Providencia → Vitacura 72 min by boat, 30 min today; Cerro Navia → Renca 49 against 27. The walk from the comuna point to the pier takes most of the time.
+
+What this means: at comuna scale, the engine has no pair where a boat at these assumed speeds would lower public-transport minutes. That does not establish zero commuter demand: in a choice model a slower mode can still attract some trips. The boat is most likely to matter for people who live or work a few blocks from a pier (the corridor market in section 3; trip-level test in #225), and for leisure. A stated-preference study of existing Sydney Ferries riders values their ferry preference at about 17 in-vehicle minutes ([Daniels & Streeting 2002](https://australasiantransportresearchforum.org.au/wp-content/uploads/2022/03/2002_Daniels_Streeting.pdf)); a sensitivity input only. Even that does not close a 30–60 minute gap.
+
+Chilean social value of time for appraisal, CLP per passenger-hour (MDSF): 3,126 in vehicle and 6,252 waiting or walking in the 2025 table ([SNI](https://sni.gob.cl/wp-content/uploads/Precios_Sociales_2025.pdf)); 3,338 and 6,676 in 2026. If waiting and walking count double (a scenario assumption), the boat looks worse, not better.
+
+## Open questions and confidence
+
+- No boat speed, pier spacing or lock time from a Mapocho source. Use stated assumptions.
+- Ferrando's numbers were not read.
+- Corridor counts are reproducible from the public EOD; the 800 m and 3 km thresholds are choices.
