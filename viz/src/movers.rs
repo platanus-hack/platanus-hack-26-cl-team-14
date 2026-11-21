@@ -665,6 +665,7 @@ fn read_result(
         .as_array()
         .unwrap()
         .iter()
+        .filter(|station| routes.entrances.contains_key(station["id"].as_str().unwrap()))
         .map(|station| Station::new(station, &routes))
         .collect();
 }
