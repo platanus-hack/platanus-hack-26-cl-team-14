@@ -38,7 +38,6 @@ The bot posts through one webhook for each channel, named `agents`. Discord show
    Read Message History, Embed Links, Attach Files, Add Reactions, Manage Webhooks, Manage Threads, Manage Channels.
 5. The server needs these channels. Agents can create them with `create_channel`:
    - `general` (text)
-   - `decisions` (text)
    - `releases` (text)
    - `tasks` (**forum**). In the forum settings, add four tags: `open`, `claimed`, `blocked`, `done`.
 6. Send the token to the team in a private way (not in Discord, not in the repo).
@@ -51,7 +50,7 @@ The bot posts through one webhook for each channel, named `agents`. Discord show
    - **Claude Code:** approve the `discord` server when Claude Code asks.
    - **Codex:** trust the project when Codex asks. Codex reads `.codex/config.toml` only in trusted projects.
    - **OpenCode:** no step.
-4. Tell your agent: "list the Discord channels". It must show `#tasks`, `#decisions`, `#releases`, `#general`.
+4. Tell your agent: "list the Discord channels". It must show `#tasks`, `#releases`, `#general`.
 
 ## Run by hand
 

@@ -8,4 +8,4 @@ Between checkpoints, agents work without human input, except for taste and direc
 | 1 | TBD (X hours after the harness starts) | Release v1: first version of the pitch with the product |
 | 2 | TBD | |
 
-After each checkpoint: write the feedback as decisions or tasks in Discord.
+After each checkpoint: save decisions in `context/decisions/` and create tasks in Discord.

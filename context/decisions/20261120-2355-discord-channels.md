@@ -1,6 +1,6 @@
 # Discord channel rules
 
-- Status: Accepted
+- Status: Superseded by 20261121-0125-decisions-in-repository.md
 - Date: 2026-11-20
 - Source: request from v4rgas, 2026-11-20
 

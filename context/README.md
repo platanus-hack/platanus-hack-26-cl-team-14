@@ -18,7 +18,7 @@ Keep each file short. If a file does not change what an agent does, delete it.
 
 1. **Somebody made a decision** (in a meeting, in Discord, or in a chat with your agent):
    copy `decisions/TEMPLATE.md` to `decisions/YYYYMMDD-HHMM-short-name.md`
-   (use the current date and time). Fill it in. Post the link in Discord.
+   (use the current date and time). Fill it in. Link it in the related task thread.
 2. **A decision changes:** write a new decision file. In the old file,
    change only the `Status` line to `Superseded by <new file name>`.
 3. **A question does not have an answer:** add it to `open-questions.md`.

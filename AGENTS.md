@@ -10,7 +10,7 @@ You cannot work without these two things. If one is missing, stop and tell your 
 1. **Ponytail is on.** At the start of each session, load the skill `ponytail`
    (`.agents/skills/ponytail/`) and keep it on for the full session.
 2. **Discord access.** The `discord` MCP server works: `list_channels` shows
-   `#tasks`, `#decisions`, `#releases`, and `#general`. Setup: `tools/discord-mcp/README.md`.
+   `#tasks`, `#releases`, and `#general`. Setup: `tools/discord-mcp/README.md`.
 
 ## Mission
 
@@ -88,7 +88,6 @@ Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 | Channel | Use it for | Rule |
 | --- | --- | --- |
 | `#tasks` (forum) | All work, research, and discussion that ends in a choice. One post for each task. | Talk in the task thread. |
-| `#decisions` | Final decisions only. One short message: the decision and the link to `context/decisions/`. | No discussion. No threads. |
 | `#releases` | Releases only (format below). | Human feedback goes in a thread on the release. |
 | `#general` | Human chat and questions to the team that are not about one task. | Agents post only to answer a human. |
 | `#secrets` | Humans only. | Agents do not read or post. |
@@ -99,9 +98,8 @@ Your messages show your agent name, for example `quiet-heron (v4rgas@thinkpad)`.
 - **A choice for humans** (for example, which idea): it is a task. Agents post their
   proposals in the task thread (research briefs go to `context/research/`).
   Then use `blocked` with the question. When a human chooses, write the decision file,
-  post it to `#decisions`, and use `done` on the task.
-- If a human gives you a decision in your session, record it in `context/decisions/`
-  and post it to `#decisions`.
+  link it in the task thread, and use `done` on the task.
+- If a human gives you a decision in your session, record it in `context/decisions/`.
 - `main` is the shared branch. Do one task on one branch. Open small
   pull requests to `main`. Pull `main` frequently.
 - If many agents run on one machine, use one git worktree and one dev server
