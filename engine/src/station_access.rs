@@ -100,6 +100,9 @@ struct Mass {
     bus: [f64; 2],
 }
 
+/// Home and job contributions to entries at one physical station.
+pub type EntryOrigins = [Vec<(f64, f64, &'static str, f64)>; 2];
+
 /// An open scenario station. Its point supplies walk access.
 #[derive(Clone)]
 pub struct AddedStation {
@@ -170,7 +173,7 @@ impl StationAccess {
                 PointAccess::new(&model.stations, &model.bus, &links, x, y)
             });
         }
-        let masses = model.place(&homes, &jobs, &model.all_parent_ids(), &[]);
+        let masses = model.place(&homes, &jobs, &model.all_parent_ids(), &[], &mut []);
         let mut cells = Vec::new();
         for (i, s) in model.stations.iter().enumerate().filter(|(_, s)| !s.holdout) {
             for (t, observed) in s.laboral.as_ref().unwrap().iter().enumerate() {
@@ -234,12 +237,15 @@ impl StationAccess {
         }
     }
 
-    fn place(&self, homes: &[PointMass], jobs: &[PointMass], active: &HashSet<String>, additions: &[AddedStation]) -> Vec<Mass> {
+    fn place(&self, homes: &[PointMass], jobs: &[PointMass], active: &HashSet<String>, additions: &[AddedStation], origins: &mut [EntryOrigins]) -> Vec<Mass> {
         let open: Vec<_> = self.stations.iter().map(|s| active.contains(&s.id)).collect();
         let all_open = open.iter().all(|&o| o);
         let links: Vec<_> = self.bus.stops.iter().map(|s| s.links.iter().find(|(i, _)| open[*i]).copied()).collect();
         let mut masses = vec![Mass::default(); self.stations.len() + additions.len()];
         let mut added_walk = Vec::new();
+        // The half-hour profile is shared by all origins in a station and half-day.
+        let bus_scale = self.bus_mix * self.bus_scale;
+        let walk_scale = (1.0 - self.bus_mix) * self.fit.a + bus_scale;
         for (half, points) in [homes, jobs].into_iter().enumerate() {
             for &(x, y, mass) in points {
                 if mass == 0.0 { continue; }
@@ -263,7 +269,11 @@ impl StationAccess {
                 }
                 if sum > 0.0 {
                     for (i, w) in walks().chain(added_walk.iter().copied()) {
-                        masses[i].walk[half] += mass * w / sum;
+                        let assigned = mass * w / sum;
+                        masses[i].walk[half] += assigned;
+                        if let Some(rows) = origins.get_mut(i) {
+                            if walk_scale > 0.0 { rows[half].push((x, y, "walk", assigned * walk_scale)); }
+                        }
                     }
                 } else {
                     // A closure can only remove bus routes. An open winner is still fastest.
@@ -272,9 +282,18 @@ impl StationAccess {
                     } else {
                         self.bus.fastest(x, y, &links, &self.stations)
                     };
-                    if let Some(i) = bus { masses[i].bus[half] += mass; }
+                    if let Some(i) = bus {
+                        masses[i].bus[half] += mass;
+                        if let Some(rows) = origins.get_mut(i) {
+                            if bus_scale > 0.0 { rows[half].push((x, y, "bus", mass * bus_scale)); }
+                        }
+                    }
                 }
             }
+        }
+        for rows in origins.iter_mut().flatten() {
+            let total: f64 = rows.iter().map(|row| row.3).sum();
+            for row in rows { row.3 /= total; }
         }
         masses
     }
@@ -286,7 +305,7 @@ impl StationAccess {
     }
 
     pub fn event_access_share_with_additions(&self, longitude: f64, latitude: f64, active: &HashSet<String>, additions: &[AddedStation]) -> f64 {
-        self.place(&[(longitude, latitude, 1.0)], &[], active, additions).iter()
+        self.place(&[(longitude, latitude, 1.0)], &[], active, additions, &mut []).iter()
             .map(|m| m.walk[0] + self.bus_mix * m.bus[0]).sum()
     }
 
@@ -303,7 +322,11 @@ impl StationAccess {
 
     /// The fit and existing station classes stay fixed. New parents follow the fitted walk job/home rule.
     pub fn project_with_additions(&self, homes: &[PointMass], jobs: &[PointMass], active: &HashSet<String>, additions: &[AddedStation]) -> Vec<(String, String, Vec<f64>)> {
-        let masses = self.place(homes, jobs, active, additions);
+        self.project_with_origins(homes, jobs, active, additions, &mut [])
+    }
+
+    pub fn project_with_origins(&self, homes: &[PointMass], jobs: &[PointMass], active: &HashSet<String>, additions: &[AddedStation], origins: &mut [EntryOrigins]) -> Vec<(String, String, Vec<f64>)> {
+        let masses = self.place(homes, jobs, active, additions, origins);
         let existing = self.stations.iter().zip(&self.fit.class).map(|(s, &class)| (&s.id, &s.name, class));
         let added = additions.iter().zip(&masses[self.stations.len()..]).map(|(s, mass)| {
             let [home, job] = mass.walk;
