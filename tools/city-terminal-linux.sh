@@ -39,12 +39,13 @@ open_city_terminal_linux() {
         # i3 ignores requested window geometry when it first tiles a window.
         # Match only this launch. Cargo can build for a while before Bevy opens.
         (
-            for spec in \
-                "[instance=\"^$template\$\"] $((x + city_width)) $term_width" \
-                "[class=\"^$city_class\$\"] $x $city_width"; do
-                read -r criterion left span <<< "$spec"
+            for spec in "instance $template $((x + city_width)) $term_width" \
+                        "class $city_class $x $city_width"; do
+                read -r field tag left span <<< "$spec"
                 while kill -0 "$terminal_pid" 2>/dev/null; do
-                    if i3-msg -q "$criterion floating enable, border none, resize set $span px $height px, move position $left px $y px" 2>/dev/null; then
+                    tree=$(i3-msg -t get_tree) || break
+                    if [[ $tree == *\"$tag\"* ]]; then
+                        i3-msg -q "[$field=\"^$tag\$\"] floating enable, border none, resize set $span px $height px, move position $left px $y px"
                         break
                     fi
                     sleep 0.5
