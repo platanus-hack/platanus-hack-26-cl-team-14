@@ -35,7 +35,7 @@ OUT = pathlib.Path("data/mvp/travel_times_blocks.csv")
 WEEKDAY_SERVICES = {"L", "LJ"}
 DEPART = 8 * 3600
 ACCESS_M, TRANSFER_M, WALK_MPS = 1000.0, 300.0, 4.8 * 1000 / 3600
-SAMPLE = int(sys.argv[1]) if len(sys.argv) > 1 else 4
+SAMPLE = int(sys.argv[1]) if len(sys.argv) > 1 else 6
 KX, KY = 111320 * math.cos(math.radians(-33.45)), 110540
 
 z = zipfile.ZipFile(GTFS)

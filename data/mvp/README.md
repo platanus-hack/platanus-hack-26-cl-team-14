@@ -692,7 +692,7 @@ and a layer must freeze its formula before it is scored.
 
 ## travel_times_blocks.csv
 
-Run `python3 -I tools/pack/travel_times_blocks.py` with the March 2026 GTFS feed and Census 2024 blocks. The table gives modeled public transport minutes at 08:00 on a weekday. It contains 1,602 directed pairs across 41 of the 52 comunas. The builder samples up to four blocks per comuna from blocks with employed residents and a GTFS stop within 1 km. Trips within a comuna use different blocks at each end.
+Run `python3 -I tools/pack/travel_times_blocks.py` with the March 2026 GTFS feed and Census 2024 blocks. The table gives modeled public transport minutes at 08:00 on a weekday. It contains 1,602 directed pairs across 41 of the 52 comunas. The builder samples up to six blocks per comuna from blocks with employed residents and a GTFS stop within 1 km. Trips within a comuna use different residential blocks at each end. Worker counts affect both the sample selection and the averaging weights. At 08:00 the other 39 origins reach both Buin and Paine. Buin reaches itself and Paine. Paine reaches only itself.
 
 `origin_access_share` and `destination_access_share` give the fraction of resident workers within 1 km of a stop at each end. The minutes describe travel between the sampled blocks with access. `worker_pairs` counts routed block pairs.
 
