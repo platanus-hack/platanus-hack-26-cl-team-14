@@ -1,0 +1,33 @@
+# Casos reales: traslado de estadios y apertura de malls
+
+**Pregunta:** cuando un estadio o un mall se mueve o abre, ¿qué cambia de verdad en los viajes, el público y el barrio?
+
+Confianza: **A** = abrí la fuente primaria. **B** = cita secundaria, resumen o abstract. **C** = débil (prensa, experto sin informe).
+
+| Caso | Año | Cambio medido | Fuente | Conf. |
+|---|---|---|---|---|
+| Sanfrecce Hiroshima: Big Arch (suburbio) → Edion Peace Wing (centro) | 2024 | Uso de auto baja 19,4 pp en hinchas "core", 12,8 pp en "medios", 1,1 pp en "ocasionales". CO2 de viaje por espectador: 10.670 g → 7.480 g (−29,9 %). Residentes de la ciudad: 1.892 g → 744 g (−60,7 %). | Inoue et al., *Sustainability* 17(13):5956, 2025, [doi:10.3390/su17135956](https://doi.org/10.3390/su17135956) | B (abstract abierto vía Semantic Scholar; cifras de resúmenes; MDPI bloqueó la descarga) |
+| Mismo caso: distancia media de viaje 10,3 → 2,5 km | 2024 | **No encontrado** en ninguna fuente que pude leer. | — | — |
+| Mismo caso: público | 2024 | Promedio +9.398 por partido vs 2023; 90 % de ocupación. | [Soccerphile](https://www.soccerphile.com/stadiums/edion-peace-wing-hiroshima-stadium) | C |
+| Arsenal: Highbury → Emirates | 2006 | Público liga: 38.184 → ~60.040 por partido (+57 %). Acuerdo S106 exige < 20 % de hinchas en auto; el GLA dice que la meta "se cumplió" (dato del club). Cero estacionamiento + zona de permisos pagada por el club. | GLA, *A Question of Sports Travel*, 2007, [pdf](https://www.london.gov.uk/media/84247/download), p. 16–17; [Football Ground Map](https://www.footballgroundmap.com/team/arsenal) | A (regla 20 %); B (público) |
+| Tottenham: White Hart Lane → nuevo estadio | 2019 | Plan: auto 40 % → ~23 % (meta 77 % sin auto). TfL lo llama "muy ambicioso" y dice que Emirates logró una baja mayor. +20.000 viajes a pie (+55 %), previstos. En 2021 el club dice estar "cerca" de 23 %. | GLA, informe PDU/2292a/02, 2010, [pdf](https://www.london.gov.uk/sites/default/files/public://public://PAWS/media_id_133530///tottenham_hotspur_fc_report.pdf) párr. 36, 56, 86; [Sport Positive 2021](https://www.sportpositiveleagues.com/team/tottenham-hotspur-2021/) | A (meta, no medición); B (2021) |
+| Atlético: Calderón → Metropolitano (junto a Metro L7) | 2017 | Partido inaugural: > 40.000 hinchas en Metro, 3 veces más pasajeros que en Pirámides (Calderón) en la semifinal de mayo 2017. Trenes cada 3 min. | [Comunidad de Madrid, 18-09-2017](https://www.comunidad.madrid/noticias/2017/09/18/comunidad-transporto-metro-40000-aficionados-estadio-metropolitano) | B (la página no cargó; cifra vía resumen) |
+| West Ham: Upton Park → London Stadium | 2016 | Público liga: 34.910 (2015/16) → 56.972 (2016/17), +63 %. | [Wikipedia temporada 2016–17](https://en.wikipedia.org/wiki/2016%E2%80%9317_West_Ham_United_F.C._season) | B |
+| Juventus: Olimpico → Juventus Stadium | 2011 | Público liga: 21.966 → 38.111 (+73 %), con estadio más chico (41.000). Abono: 14.600 → 23.000. | [Wikipedia 2011–12](https://en.wikipedia.org/wiki/2011%E2%80%9312_Juventus_FC_season) | B |
+| Atlanta Braves: Turner Field (ciudad, bus a MARTA) → SunTrust Park (Cobb, sin metro) | 2017 | Público anual 2.020.914 → 2.505.252 (+24 %). Pierde acceso a tren; 30 % menos estacionamiento. Impacto económico neto en Cobb: pequeño; costo fiscal ~US$15 M/año. | [Baseball-Reference](https://www.baseball-reference.com/teams/ATL/attend.shtml); Bradbury 2022, [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6159506) | B |
+| Costanera Center (junto a Metro Tobalaba) | 2012 | Locatarios: mayoría llega a pie desde Tobalaba (La Reina, Ñuñoa, Macul, Peñalolén, La Florida). > 2,5 M visitas/mes a 5 meses. 3.000 estacionamientos sin llenar el día de 200.000 visitas. Tráfico: −15 % la 1.ª semana, +10 % congestión al año (experto). Tobalaba hoy: estación más cargada (83.593/día hábil, 2018). | [La Tercera](https://www.latercera.com/diario-impreso/publico-de-costanera-center-no-cumple-con-expectativa-de-tiendas-a-5-meses-de-apertura/); [AOA](https://www.aoa.cl/costanera-center-mision-cumplida/); [Plataforma Urbana 2013](https://www.plataformaurbana.cl/archive/2013/06/10/el-impacto-urbano-vial-e-inmobiliario-del-costanera-center-a-un-ano-de-su-inauguracion/); [UDD/El Mercurio](https://gobierno.udd.cl/cpp/noticias/2018/07/03/tobalaba-manquehue-y-la-cisterna-son-las-estaciones-de-metro-con-mayor-afluencia-el-mercurio/) | C |
+| Mall Plaza Egaña (Metro L4) | 2013 | Entradas antes/después de la apertura: **no encontrado**. L4 Plaza Egaña: 21.470 pasajeros/día (~2017). | [Economía y Negocios](http://www.economiaynegocios.cl/noticias/noticias.asp?id=442564) | C |
+
+## Qué dice para el caso MUT ↔ Monumental
+
+- **Apoya: estadio junto al Metro → menos auto.** Hiroshima es el único antes/después medido con encuesta y revisión de pares: el uso de auto baja 13–19 pp en los hinchas frecuentes. Atlético triplica los pasajeros de Metro del estadio anterior. Esto apoya la dirección de "−2.400 autos, +2.800 en transporte público" en el sitio MUT. La magnitud no está validada.
+- **Apoya, con condición: la política de estacionamiento pesa tanto como el Metro.** Emirates y Tottenham bajan el auto con cero estacionamiento y zonas de permiso, no solo con estaciones. Si el motor no modela estacionamiento, puede sobrestimar o subestimar.
+- **El motor no prueba esto: el público cambia.** Todos los traslados a estadio nuevo subieron el público (+24 % a +73 %), incluso Braves sin Metro. El efecto "estadio nuevo" se mezcla con el de ubicación. Si el motor mantiene fijo el público del Monumental, es una simplificación que hay que decir.
+- **Contradice un supuesto simple: perder Metro no mata el público.** Braves se fue a un suburbio sin tren y subió 24 %. El acceso en auto compensa en ciudades de auto. Santiago está en un punto medio.
+- **No podemos probar: el mall y el origen de los compradores.** No hay antes/después de entradas en Tobalaba por el Costanera ni en Plaza Egaña por el mall. Solo hay evidencia cualitativa: los compradores del Costanera llegan a pie desde Tobalaba y vienen del oriente y sur-oriente vía L4. Para medirlo hay que usar los datos de validaciones bip! de DTPM 2011 vs 2013.
+
+## Cómo usarlo en el pitch
+
+"Cuando Hiroshima llevó su estadio del suburbio al centro, junto al transporte público, el uso de auto de sus hinchas bajó hasta 19 puntos (estudio revisado por pares, 2025). Nuestro motor predice la misma dirección para el Monumental en Tobalaba."
+
+No usar la cifra 10,3 → 2,5 km: no la encontré en ninguna fuente.
