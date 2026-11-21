@@ -24,9 +24,35 @@ fn spread(places: Vec<u32>) -> Vec<u32> {
     v.into_iter().map(|x| x.1).collect()
 }
 
-/// `job_weights`: one weight per point of `pop.jobs`, same order (push new points to `pop.jobs` before the call).
-/// `minutes`: n×n comuna matrix, as `Choice::minutes`. Students do not change. Returns the workers that changed `dest`.
-pub fn rechoose(c: &Choice, pop: &mut Population, job_weights: &[f64], minutes: &[f64]) -> usize {
+fn class(m: i8) -> usize { match m { 2 => 0, 1 => 1, _ => 2 } }
+
+/// The baseline placement of population.rs minus the quotas of the baseline inputs, per comuna pair, per mode
+/// of each pair and per job point. `rechoose` adds it to the new quotas. Thus the quotas of the baseline inputs
+/// are the baseline placement and no worker moves, and other inputs move only the true surplus.
+pub struct Base { pair: Vec<i32>, mode: Vec<[i32; 3]>, point: Vec<i32> }
+
+impl Base {
+    /// `pop`: the baseline population, before any change.
+    pub fn new(c: &Choice, pop: &Population) -> Base {
+        let n = c.n;
+        let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
+        let zero = Base { pair: vec![0; n * n], mode: vec![[0; 3]; n * n], point: vec![0; weights.len()] };
+        let (home, work, pair, mode, point) = quotas(c, pop, &weights, &c.minutes, &zero);
+        let mut b = Base { pair: pair.iter().map(|&q| -(q as i32)).collect(), mode: mode.iter().map(|m| [0, 1, 2].map(|j| -(m[j] as i32))).collect(),
+            point: point.iter().map(|&q| -(q as i32)).collect() };
+        for p in pop.persons.iter().filter(|p| !p.student) {
+            let od = home[p.home as usize] * n + work[p.dest as usize];
+            b.pair[od] += 1;
+            b.mode[od][class(p.mode)] += 1;
+            b.point[p.dest as usize] += 1;
+        }
+        b
+    }
+}
+
+/// Comuna of each home point and of each job point, then the quotas: comuna pair, mode of each pair, job point.
+/// A quota is the rounded share of the rules plus the part of `base`, and is 0 or more.
+fn quotas(c: &Choice, pop: &Population, job_weights: &[f64], minutes: &[f64], base: &Base) -> (Vec<usize>, Vec<usize>, Vec<u32>, Vec<Vec<u32>>, Vec<u32>) {
     let n = c.n;
     let ix: HashMap<&str, usize> = c.cuts.iter().enumerate().map(|(i, s)| (s.as_str(), i)).collect();
     let home: Vec<usize> = pop.homes.iter().map(|p| ix[p.cut.as_str()]).collect();
@@ -34,21 +60,30 @@ pub fn rechoose(c: &Choice, pop: &mut Population, job_weights: &[f64], minutes: 
     let mut jobs = vec![0.0; n];
     for (d, w) in work.iter().zip(job_weights) { jobs[*d] += w; }
     let (prob, share) = (c.destinations(&jobs, minutes), c.modes(minutes));
+    let fix = |q: u32, r: i32| (q as i32 + r).max(0) as u32;
 
-    // Quotas: comuna pair, mode of each pair, job point.
     let mut workers = vec![0.0; n];
     for p in pop.persons.iter().filter(|p| !p.student) { workers[home[p.home as usize]] += 1.0; }
-    let mut pair: Vec<u32> = (0..n).flat_map(|o| split(workers[o], prob[o * n..][..n].iter().copied())).collect();
-    let mut mode: Vec<Vec<u32>> = (0..n * n).map(|i| split(pair[i] as f64, share[i].into_iter())).collect();
+    let pair: Vec<u32> = (0..n).flat_map(|o| split(workers[o], prob[o * n..][..n].iter().copied())).zip(&base.pair).map(|(q, &r)| fix(q, r)).collect();
+    let mode = (0..n * n).map(|i| split(pair[i] as f64, share[i].into_iter()).into_iter().zip(base.mode[i]).map(|(q, r)| fix(q, r)).collect()).collect();
     let mut point = vec![0; work.len()];
     for d in 0..n {
         let into: f64 = (0..n).map(|o| pair[o * n + d] as f64).sum();
         let ids: Vec<usize> = (0..work.len()).filter(|&p| work[p] == d).collect();
-        for (p, q) in ids.iter().zip(split(into, ids.iter().map(|&p| job_weights[p] / jobs[d]))) { point[*p] = q; }
+        // A new point has no part in `base`.
+        for (p, q) in ids.iter().zip(split(into, ids.iter().map(|&p| job_weights[p] / jobs[d]))) { point[*p] = fix(q, base.point.get(*p).copied().unwrap_or(0)); }
     }
+    (home, work, pair, mode, point)
+}
+
+/// `job_weights`: one weight per point of `pop.jobs`, same order (push new points to `pop.jobs` before the call).
+/// `minutes`: n×n comuna matrix, as `Choice::minutes`. `base`: `Base::new` of the population before the change.
+/// Students do not change. Returns the workers that had a job point and changed it.
+pub fn rechoose(c: &Choice, pop: &mut Population, job_weights: &[f64], minutes: &[f64], base: &Base) -> usize {
+    let n = c.n;
+    let (home, work, mut pair, mut mode, mut point) = quotas(c, pop, job_weights, minutes, base);
 
     // Each worker keeps what has room.
-    let class = |m: i8| match m { 2 => 0, 1 => 1, _ => 2 };
     let (mut pool, mut no_mode) = (vec![], vec![]);
     for (i, p) in pop.persons.iter().enumerate().filter(|(_, p)| !p.student) {
         // dest u32::MAX = a new worker with no job yet (scenario.rs): it goes to the pool.
@@ -72,7 +107,7 @@ pub fn rechoose(c: &Choice, pop: &mut Population, job_weights: &[f64], minutes: 
         let p = &mut pop.persons[i];
         let d = comunas[home[p.home as usize]].pop().unwrap() as usize;
         let dest = points[d].pop().unwrap();
-        moved += (dest != p.dest) as usize;
+        moved += (p.dest != u32::MAX && dest != p.dest) as usize;
         p.dest = dest;
     }
     for &i in pool.iter().chain(&no_mode) {

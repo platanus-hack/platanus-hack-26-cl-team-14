@@ -33,7 +33,7 @@ fn main() {
     let n = c.n;
     let mut pop = Population::build(data);
     let model = stations::StationModel::new(data);
-    let (start, base) = (pop.persons.clone(), day(&model, &pop));
+    let (start, base, placed) = (pop.persons.clone(), day(&model, &pop), rechoose::Base::new(&c, &pop));
     let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
     let public = |pop: &Population| pop.persons.iter().filter(|p| p.mode == 2).count() as i64;
     let od = |pop: &Population| {
@@ -50,7 +50,7 @@ fn main() {
     let run = |label: &str, pop: &mut Population, weights: &[f64], minutes: &[f64]| {
         pop.persons.clone_from(&start);
         let t = Instant::now();
-        let moved = rechoose::rechoose(&c, pop, weights, minutes);
+        let moved = rechoose::rechoose(&c, pop, weights, minutes, &placed);
         let choose_ms = t.elapsed().as_secs_f64() * 1e3;
         let t = Instant::now();
         let after = day(&model, pop);
