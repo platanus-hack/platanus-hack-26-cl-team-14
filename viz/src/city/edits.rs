@@ -147,6 +147,30 @@ fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
     mesh
 }
 
+// The detailed mesh has local heights but uses the city's horizontal coordinates.
+// Reuse it only when every footprint ring has the same horizontal displacement.
+fn landmark_offset(before: &Value, after: &Value) -> Option<Vec3> {
+    if before.is_null()
+        || after.is_null()
+        || before["geometry"] == after["geometry"]
+        || before["properties"]["height_m"] != after["properties"]["height_m"]
+    {
+        return None;
+    }
+    let source = rings(&before["geometry"]["coordinates"]);
+    let target = rings(&after["geometry"]["coordinates"]);
+    let offset = *target.first()?.first()? - *source.first()?.first()?;
+    let translated = source.len() == target.len()
+        && source.iter().zip(&target).all(|(a, b)| {
+            a.len() == b.len()
+                && a.iter().zip(b).all(|(&p, &q)| {
+                    // Positions are metres in f32; ignore centimetre-scale rounding.
+                    (q - p - offset).xz().length_squared() < 0.01
+                })
+        });
+    translated.then_some(offset)
+}
+
 // Every result is a full scenario. Keep only the last state of each edited object.
 pub(crate) fn refresh(
     mut commands: Commands,
@@ -156,7 +180,13 @@ pub(crate) fn refresh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     old: Query<Entity, With<EditMesh>>,
-    mut named: Query<(&NamedBuilding, &mut Visibility)>,
+    mut named: Query<(
+        &NamedBuilding,
+        &Mesh3d,
+        &MeshMaterial3d<StandardMaterial>,
+        &Transform,
+        &mut Visibility,
+    )>,
     mut material: Local<Option<Handle<StandardMaterial>>>,
 ) {
     for entity in &old {
@@ -191,12 +221,26 @@ pub(crate) fn refresh(
         buildings.dirty[tile] = true;
     }
     buildings.hidden = hidden;
-    for (key, mut visibility) in &mut named {
+    let mut moved_landmarks = HashSet::new();
+    for (key, mesh, material, transform, mut visibility) in &mut named {
         *visibility = if buildings.hidden.contains(&(key.0, key.1)) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
         };
+        let id = format!("mesh:{}:{}", key.0, key.1);
+        let Some((before, after)) = final_state.get(&("building".to_owned(), id.clone())) else {
+            continue;
+        };
+        if let Some(offset) = landmark_offset(before, after) {
+            commands.spawn((
+                EditMesh,
+                mesh.clone(),
+                material.clone(),
+                Transform::from_translation(transform.translation + offset),
+            ));
+            moved_landmarks.insert(id);
+        }
     }
     let path_material = material
         .get_or_insert_with(|| {
@@ -208,12 +252,11 @@ pub(crate) fn refresh(
             })
         })
         .clone();
-    for ((kind, _), (before, after)) in final_state {
+    for ((kind, id), (before, after)) in final_state {
         if !before.is_null()
             && (after.is_null()
                 || before["geometry"] != after["geometry"]
-                || (kind == "line"
-                    && before["properties"]["mode"] != after["properties"]["mode"]))
+                || (kind == "line" && before["properties"]["mode"] != after["properties"]["mode"]))
         {
             if kind == "road" && after.is_null() {
                 closure_ends(&mut commands, &before["geometry"]);
@@ -237,7 +280,7 @@ pub(crate) fn refresh(
                 }
             }
         }
-        if !after.is_null() {
+        if !after.is_null() && !(kind == "building" && moved_landmarks.contains(&id)) {
             let shape = draw(&after, &kind, false);
             if !shape.indices.is_empty() {
                 let mut entity = commands.spawn((
