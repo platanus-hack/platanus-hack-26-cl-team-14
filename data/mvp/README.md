@@ -971,16 +971,51 @@ cd ../../..
 python3 -I tools/pack/city_footprints.py
 ```
 
+## Higher education enrollment
+
+`higher_ed.csv` contains all 137 SIES campus groups in the Metropolitan Region for 2026.
+The July 10 release has 805,359 registrations across undergraduate, graduate and post-title programs.
+The three modality columns sum to `enrollment`: 523,602 in person, 36,806 hybrid and 244,951 remote.
+Each registration belongs to the reported campus. It does not establish residence, attendance on April 15 or a Metro trip.
+[MINEDUC/SIES enrollment release](https://www.mifuturo.cl/bases-de-datos-de-matriculados/)
+
+Run `python3 tools/pack/higher_ed.py` from the repository root with curl and bsdtar installed.
+The builder downloads aggregate program counts and geocoded teaching addresses into ignored `data/raw/higher_ed/`.
+It groups program counts by institution, campus and reported comuna CUT. Coordinates use WGS84 longitude and latitude.
+The ministry geocoded SIES addresses in October 2020. Campus names must match within the institution and comuna.
+For several matching buildings within 500 m, the builder selects the building with the smallest total distance to the others.
+A blank point means the campus has only remote registrations or the builder could not identify one teaching location.
+A verified address uses the institution page and geocode recorded in [the address table](../../tools/pack/higher_ed_addresses.csv).
+The campus point represents a site. Students can attend other buildings.
+[MINEDUC geocoded teaching addresses](https://ideserver.sma.gob.cl/arcgis/rest/services/IDE/Infraestructura_rural_urbana/MapServer/6)
+
+The pack places 68 campus groups with 346,778 in-person and 17,012 hybrid registrations.
+The 69 groups without a point include 12 fully remote groups. The other 57 have in-person or hybrid registrations.
+Some large groups cover several campuses. Universidad de Chile reports 45,937 in-person registrations at “Santiago”.
+The ministry directory lists its teaching buildings across multiple comunas. That group has no point.
+SIES assigns AIEP Bellavista to Santiago (CUT 13101), but its verified address lies in Providencia (13123).
+All 67 other points fall within the reported CUT in `communes.geojson`. AIEP San Joaquín falls inside 13129
+even though the 2020 address directory assigns 13118. ENAC lists three teaching buildings within about 340 m.
+Its point uses Alameda 2182. The UANDES point marks its main campus in Las Condes.
+Clinical training can take place elsewhere. [UANDES clinical center in San Bernardo](https://salud.uandes.cl/)
+Exclude remote registrations when using this table to choose trip destinations.
+
+## April weekday bus validation and Metro supply
+
+The [bus target](../validation/bus_boardings_2026_04/README.md) gives observed boardings for each stop and half hour. It includes a comuna summary with the number of stops that reported. Use the same observed stops when scoring a comuna.
+
+The [Metro capacity table](metro_capacity.md) gives line departures and nominal train places where verified. For station comparisons, use the [station service table and indicator rule](metro_station_service.md). It counts departures at the station where passengers can board.
+
 ## Citywide building polygons and boxes
 
-The two files in `web/data/` describe the same **654,666 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Census blocks with no mapped footprint supply 375,281 generated shapes. The binaries retain each shape's source.
+The two files in `web/data/` describe the same **739,230 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Populated census blocks supply 361,310 generated shapes in previously unmapped blocks and 98,535 in partly mapped blocks with less than 5% mapped roof cover. The binaries retain each shape's source. The builder excludes mapped school grounds, plazas, parks, sports grounds, green areas, surface parking and vacant sites from generated roof placement. In the published green layer, two generated roofs share a single vertex each with a green polygon. Both intersections have zero area.
 
 | File | Use | Gzip bytes | Inflated bytes |
 | --- | --- | ---: | ---: |
-| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 4,555,215 | 8,513,964 |
-| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 11,161,265 | 19,401,272 |
+| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 5,234,365 | 9,613,272 |
+| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 12,635,045 | 21,684,424 |
 
-The polygon file has 655,715 rings and 3,046,816 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 326 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 27,915,236 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
+The polygon file has 740,279 rings and 3,385,070 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 324 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 31,297,696 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
 
 The build keeps complete OSM building polygons inside the box and retains multipolygon components and holes. Of 279,387 complete raw components, two collapse when rounded to five decimals. It excludes 63 boundary-crossing components and standalone `building:part` objects. The mesh keeps the quantized source rings for 125 components whose geometry needed repair during the census spatial join. Their detailed rendering depends on the triangulator. Height priority and record counts:
 
@@ -988,20 +1023,25 @@ The build keeps complete OSM building polygons inside the box and retains multip
 | ---: | --- | ---: |
 | 0 | Real OSM footprint, tagged height | 1,997 |
 | 1 | Real OSM footprint, tagged levels × 3.5 m | 21,361 |
-| 2 | Real OSM footprint, estimated from census block density | 255,985 |
-| 3 | Real OSM footprint outside a matched census block, neutral 3 m styling | 42 |
-| 6 | Generated footprint, estimated from census block data | 375,281 |
+| 16 | Real OSM footprint, tagged height on a matched part | 1 |
+| 17 | Real OSM footprint, tagged floors on matched parts × 3.5 m | 1 |
+| 32 | Real OSM footprint, arena operator’s stated dome height | 1 |
+| 10 | Real OSM footprint, 2023 satellite height estimate | 65,857 |
+| 2 | Real OSM footprint, estimated from census block density | 190,130 |
+| 3 | Real OSM footprint outside a matched census block, neutral 3 m styling | 37 |
+| 6 | Generated footprint, estimated from census block data | 459,845 |
 
-Tagged dimensions are map attributes. The remaining heights and all generated shapes are visual assumptions. [Coverage by comuna, estimates, and exclusions](../validation/city_buildings/README.md).
+Among 739,230 shapes, 1,999 (0.2704%) have a reported height, 21,362 (2.8898%) use a reported floor count, and 65,857 (8.9089%) use a satellite estimate. The satellite data come from Google Research, Open Buildings 2.5D Temporal (2023). The derived height lookup uses ODbL 1.0. [Credit, matching rules and accuracy check](../../context/research/santiago-roof-heights.md). [Coverage by comuna, estimates, and exclusions](../validation/city_buildings/README.md).
 
 **Read in the browser.** Import `loadBuildingTiles` from `web/data/building_tiles.mjs`. Pass the URL to either gzip file. The decoder supports servers that deliver the gzip archive directly and servers that set `Content-Encoding: gzip`. Call `mesh.tile(column, row)` for zero-copy typed arrays, or `null` for an empty tile.
 
 - Each tile measures 0.02° per side except the top row. Columns increase east, rows north. For a quantized pair `x,y`, convert to degrees with `lon = (mesh.west + x)/100000` and `lat = (mesh.south + y)/100000`.
 - Polygon tile: `polygonOffsets[i..i+1]` gives the half-open range of rings. `ringOffsets[j..j+1]` gives the half-open vertex range in interleaved `positions`. Rings are implicitly closed. The first is the exterior. Other rings are holes. `heights[i]` is decimetres.
 - Box tile: `boxes.subarray(6*i,6*i+6)` gives center X, center Y, width in decimetres, depth in decimetres, rotation in hundredths of a degree, and height in decimetres. Rotation follows the width axis counterclockwise from east, in [0°, 180°).
-- In either file, `flags[i] & 4` marks a generated shape and `flags[i] & 3` gives the height source in the table above.
+- In either file, `flags[i] & 4` marks a generated shape and the full flag byte identifies the source in the table above. `flags[i] & 8` marks an image estimate, `flags[i] & 16` marks an OSM part, and `flags[i] & 32` marks the operator’s value. The two low bits retain the original tagged-height, tagged-levels, estimate, and neutral classes.
 
-**Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Preparing the rounded OSM geometry took 3.19 s. Packing both binaries from the completed spatial join took 8.20 s on an Apple Silicon Mac. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+**Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Rebuild the block sidecar with `python3 -B tools/pack/building_block_ids.py` after packing both meshes. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
 ## Santiago landmarks
 
 `web/data/santiago_landmarks.geojson` contains nine public landmarks (15,778 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
@@ -1029,6 +1069,35 @@ The arena operator describes a “cúpula de 50 metros de altura”. The municip
 Other `height_m` values come from OSM structure-height tags. The `elevation_m` field gives a tagged summit elevation above sea level. The builder omits dimensions without a source. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
 
 Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
+### Saturday Metro use among public transport trips
+
+`saturday_public_metro.json` gives two conditional shares from the Santiago EOD 2012.
+The denominator counts each complete normal-Saturday trip that uses only public transport.
+The numerator for `metro_any_share` counts trips with a Metro stage anywhere in the trip.
+The numerator for `metro_first_share` counts trips whose first stage is Metro.
+
+Of 2,862 surveyed trips, 869 included Metro and 505 started on Metro. After expansion,
+1,154,358.09403654 of 3,638,246.57528746 trips used Metro at any stage (31.73%).
+696,340.70226136 of that same total started on Metro (19.14%). The JSON preserves
+the expanded counts as exact decimal strings. Each trip contributes its weight once.
+
+The builder joins `Etapas` to `viajes`, checks the recorded number of stages and reads
+their order from `Etapa`. It includes EOD stage modes 2, 3, 4, 5, 7, 12, 14 and 16.
+These codes cover bus, Metro, colectivo, taxi and train. All stages must qualify.
+It multiplies `viajes.FactorSabadoNormal` by `personas.Factor_SabadoNormal` and keeps
+positive weights. The survey assigns Saturday, day class 2 (weekend) and season 1
+(normal) to every trip with a positive Saturday trip weight.
+
+The survey covers all purposes and predates the 2026 event. Transferring its probabilities
+to event attendees is a scenario assumption. A rider who starts by bus may board Metro
+farther from the venue. The aggregate provides no participant origins or event attendance.
+[SECTRA survey](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) · [Public survey tables](https://users.dcc.uchile.cl/~egraells/gds-data/eod2012.tgz) · [INE trip and person expansion method](https://www.ine.gob.cl/docs/default-source/sistema-de-indicadores-y-estandares-de-desarrollo-urbano/manuales/actualizaci%C3%B3n-2019/manual-procedimientos-siedu-act2019.pdf)
+
+```sh
+python3 -I tools/pack/saturday_public_metro.py --survey /path/to/EOD_STGO
+```
+
 ## Residential streets and mapped green areas
 
 The native view can read two gzip-compressed GeoJSON FeatureCollections under `web/data/`. Both cover the full Santiago roads rectangle (longitude −70.85 to −70.45, latitude −33.65 to −33.30). Each feature has `osm_type`, numeric `osm_id`, and `kind`. Named objects also have `name`. A source object may have several clipped parts. Coordinates use WGS84 longitude and latitude to five decimals.
@@ -1043,6 +1112,7 @@ The street layer adds 29,245 `residential` and 50,024 `living_street` parts. The
 Green areas retain 110 holes. The `kind` values are `park`, `garden`, `nature_reserve`, `recreation_ground`, `wood`, `meadow`, `grass`, `village_green`, `grassland`, `scrub`, and `heath`. Mapped forests, woods, and tree cover share the class `wood`. Parks and reserves describe mapped land use, so a park can contain paved areas. Features can overlap across classes. The pack includes Parque O’Higgins (72.04 ha) and Parque Forestal (16.08 ha). [OSM parks](https://wiki.openstreetmap.org/wiki/Tag:leisure%3Dpark).
 
 The builder repairs invalid geometry, clips it to the viewport, and simplifies in UTM zone 19S. Tolerances are 3 m for streets and 4 m for green areas. After rounding, all released features passed the GEOS validity and bounds checks. Run `python3 tools/pack/city_ground_layers.py data/raw/osm-buildings-city/urban.osm.pbf` with osmium and DuckDB Spatial. The command reuses the cached [Geofabrik Chile snapshot](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf) from 2026-11-20 at 21:21 UTC and took 7.67 s locally. Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
 ## Santiago surface elevation
 
 `web/data/terrain.i16` contains 481 columns × 421 rows. Read each value as a little-endian signed 16-bit integer in metres above EGM2008. The first sample is the northwest corner, at (-70.85, -33.30). Longitude increases with column and latitude decreases with row. Both bounds are sample centres. The full urban box includes the east and south edges at (-70.45, -33.65). Use `web/data/terrain.json` for the grid spacing, dimensions, coordinate system, bounds, and attribution.
@@ -1054,6 +1124,7 @@ Copernicus GLO-90 is a digital surface model. Elevations include trees, building
 Required credit for the derived grid: produced using Copernicus WorldDEM-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved
 
 To rebuild, download the 5,131,205-byte [source GeoTIFF](https://copernicus-dem-90m.s3.amazonaws.com/Copernicus_DSM_COG_30_S34_00_W071_00_DEM/Copernicus_DSM_COG_30_S34_00_W071_00_DEM.tif) into `data/raw/copernicus-dem/` with its original filename. SHA-256: `5fec8634dd8d5433b13c1766a4948518457dba29a90f4cb676cf7852dd71a800`. Run `python3 -I tools/pack/terrain.py` from the repo root.
+
 ## City tree points
 
 `web/data/city_trees.bin.gz` contains one point per mapped `natural=tree` node. Inflate the gzip stream, then read four bytes per tree. The first two bytes encode unsigned little-endian x, and the next two encode unsigned little-endian y. There is no header. Longitude is `(x - 7085000) / 100000`, latitude is `(y - 3365000) / 100000`. This is the coordinate grid of the city building tiles.

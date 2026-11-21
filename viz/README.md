@@ -8,7 +8,7 @@ CARGO_TARGET_DIR=/tmp/viz-target cargo run --manifest-path viz/Cargo.toml
 
 Drag to pan. Scroll to zoom. Press M to switch between the surface and the subway at the same camera position. Set `SANTIAGO_ENGINE` to use another engine. Set `SANTIAGO_PIXEL=1` for the pixel-art view. Each art pixel takes the most frequent palette color from four samples. Depth edges use a darker shade. [Pixel rendering reference](https://github.com/cobanov/pixelart-gaussiansplat)
 
-The two building packs contain 279,385 mapped footprints and 375,281 shapes generated inside census blocks. Camera distance selects the oriented boxes or the full polygons. Roof forms, window patterns and tree crowns are visual approximations.
+The two building packs contain 279,385 mapped footprints and 459,845 shapes generated inside census blocks. Camera distance selects the oriented boxes or the full polygons. Roof forms, window patterns and tree crowns are visual approximations.
 
 The window reads each full engine result. Roof height encodes changes in jobs or residents. The engine supplies before and after values for relative changes, or a net change for direction. The view displays relative changes between 0.35 and 3 times the original height. For a signed change without a baseline, it displays 0.75 or 1.25 times the original height.
 

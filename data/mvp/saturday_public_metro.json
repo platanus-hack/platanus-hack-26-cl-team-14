@@ -1,0 +1,16 @@
+{
+  "source": "Santiago EOD 2012",
+  "period": "normal Saturday, all trip purposes",
+  "sample_trips": {
+    "public_only": 2862,
+    "metro_first": 505,
+    "metro_any": 869
+  },
+  "expanded_trips": {
+    "public_only": "3638246.5752874600000",
+    "metro_first": "696340.7022613600000",
+    "metro_any": "1154358.0940365400000"
+  },
+  "metro_first_share": 0.19139458743428947,
+  "metro_any_share": 0.31728418350681287
+}
