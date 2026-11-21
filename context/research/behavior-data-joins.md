@@ -15,3 +15,7 @@ For income-specific travel behavior, link trips to people and households **withi
 The review checked the CSV headers, row counts and missing destination keys against this checkout. It also checked the local income, vehicle and survey documentation. It did not reproduce the upstream surveys or estimate a behavioral coefficient.
 
 [Packed data definitions](../../data/mvp/README.md) · [CASEN income](commune-income.md) · [Survey coverage and weights](../../data/mvp/eod_tours/README.md)
+
+## A newer source for earnings by comuna
+
+Sheet 1 of the ministry's 2024 annual workbook gives mean monthly taxable earnings for formal dependent workers aged 15 and older for months with contributions. All 52 names in communes.csv matched a comuna row after case and accent normalization. The workbook uses names. Use the matched census CUT for a geographic join. The reported means round to CLP 2,601,600 in Las Condes and CLP 1,452,157 in Macul. Sheet 5 uses the whole working-age population as its denominator. CASEN household income uses another unit. The workbook does not identify employees of either venue, and this review did not verify how the ministry assigns a worker to a comuna. [Annual workbook, sheet 1](https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/rraa/2024/Indicadores_Ingreso_Anual_2024.xlsx) · [Income indicator methodology](https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/rraa/Indicadores_Ingresos.pdf)
