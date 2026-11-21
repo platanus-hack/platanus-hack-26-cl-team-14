@@ -8,6 +8,10 @@ pub(super) struct Entrance {
     outward: Vec3,
 }
 
+impl Entrance {
+    pub(super) fn arrival_porch(&self) -> (Vec3, Vec3) { (self.sign, self.outward) }
+}
+
 pub(super) type Entrances = HashMap<String, Vec<Entrance>>;
 
 pub(super) fn entrances() -> Entrances {

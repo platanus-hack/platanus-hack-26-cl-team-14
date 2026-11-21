@@ -1,6 +1,7 @@
 use super::*;
 struct Approach {
     path: Arc<Path>,
+    gate: usize,
     scenario_share: [f64; 2],
     base_share: [f64; 2],
     seed: f64,
@@ -10,6 +11,7 @@ struct Approach {
 
 pub(in crate::movers) struct AccessFlows {
     approaches: Vec<Approach>,
+    gates: Vec<(Vec3, Vec3)>,
     scenario: Vec<f64>,
     base: Vec<f64>,
     has_baseline: bool,
@@ -34,7 +36,11 @@ fn walk_shares(origins: &Value) -> HashMap<OriginKey, [f64; 2]> {
 impl AccessFlows {
     // Receive the baseline origin shares from the same engine baseline as base_half_hour.
     // An absent comparison still draws today's access, without claiming a route-level gain.
-    pub(in crate::movers) fn new(row: &Value, base_origins: Option<&Value>, routes: &Routes) -> Self {
+    pub(in crate::movers) fn new(
+        row: &Value,
+        base_origins: Option<&Value>,
+        routes: &Routes,
+    ) -> Self {
         let id = row["id"].as_str().unwrap();
         let bins = |field: &str| {
             row[field]
@@ -46,6 +52,7 @@ impl AccessFlows {
         };
         let mut flow = Self {
             approaches: Vec::new(),
+            gates: Vec::new(),
             scenario: bins("scenario_half_hour"),
             base: bins("base_half_hour"),
             has_baseline: base_origins.is_some(),
@@ -54,17 +61,18 @@ impl AccessFlows {
             return flow;
         };
         let gates = &routes.entrances[id];
+        flow.gates = gates.iter().map(|gate| gate.arrival_porch()).collect();
         let base = base_origins.map(walk_shares).unwrap_or_default();
         for (key, scenario_share) in walk_shares(&row["access_origins"]) {
             let Some((path, door)) = paths.get(&key) else {
                 continue;
             };
-            if !gates
+            let Some(gate) = gates
                 .iter()
-                .any(|gate| gate.gtfs.as_deref() == Some(door.as_str()))
-            {
+                .position(|gate| gate.gtfs.as_deref() == Some(door.as_str()))
+            else {
                 continue;
-            }
+            };
             let centre = (path.points[0] + *path.points.last().unwrap()) * 0.5;
             let radius = path
                 .points
@@ -82,6 +90,7 @@ impl AccessFlows {
             hash ^= hash >> 33;
             flow.approaches.push(Approach {
                 path: path.clone(),
+                gate,
                 scenario_share,
                 base_share: base.get(&key).copied().unwrap_or_default(),
                 seed: (hash >> 11) as f64 / (1u64 << 53) as f64,
@@ -111,8 +120,15 @@ impl AccessFlows {
         } else {
             48.
         };
-        let size = (view_distance * 0.005).clamp(1.8, 11.);
-        let slot = (now / BIN).floor() as i32;
+        if self.approaches.is_empty() {
+            return;
+        }
+        let size = (view_distance * 0.012).clamp(1.8, 22.);
+        let district = (650. ..3500.).contains(&view_distance);
+        // Show the last minute of arrivals at each mapped door. A sample switches
+        // from walking to an arrival stamp, so it is drawn once in each frame.
+        let mut recent = vec![[0usize; 2]; self.gates.len()];
+        let slot = ((now - if district { 60. } else { 0. }) / BIN).floor() as i32;
         for approach in &self.approaches {
             if !visible(approach.centre, approach.radius + 20.) {
                 continue;
@@ -132,16 +148,43 @@ impl AccessFlows {
                     // leaves the timing and path of each common display sample intact.
                     let fraction = (phase + copy as f64 * 0.7548776662466927).fract();
                     let arrival = (arrival_slot as f32 + fraction as f32) * BIN;
+                    let gained = self.has_baseline && copy >= plain;
+                    if district && (0. ..60.).contains(&(now - arrival)) {
+                        recent[approach.gate][usize::from(gained)] += 1;
+                        continue;
+                    }
                     let age = now - (arrival - duration);
                     if let Some((p, dir, _, metres)) = approach.path.trip_pose(age, copy)
                         && visible(p, 20.)
                     {
-                        let paint = if self.has_baseline && copy >= plain {
-                            Paint::Gain
-                        } else {
-                            Paint::Plain
-                        };
+                        let paint = if gained { Paint::Gain } else { Paint::Plain };
                         let scale = pedestrian_scale(eye.distance(p), size);
+                        // The tapered trace follows the last few metres of the same path.
+                        if district && gained {
+                            let mut head = p;
+                            for segment in 0..3 {
+                                let along = (metres - 8. * (segment + 1) as f32).max(0.);
+                                let Some((tail, _, _)) =
+                                    approach.path.at(along, &approach.path.metres)
+                                else {
+                                    break;
+                                };
+                                let chord = head - tail;
+                                if chord.length_squared() < 0.01 {
+                                    break;
+                                }
+                                place(
+                                    Model::WalkTrace,
+                                    paint,
+                                    pose(
+                                        (head + tail) * 0.5 + Vec3::Y * 0.5,
+                                        chord.normalize(),
+                                        Vec3::new(chord.length(), 1., 4.5 - segment as f32),
+                                    ),
+                                );
+                                head = tail;
+                            }
+                        }
                         let frame = motion::gait_frame(metres, scale, copy);
                         place(
                             Model::Walking(frame),
@@ -150,6 +193,26 @@ impl AccessFlows {
                         );
                     }
                 }
+            }
+        }
+        for (gate, [plain, gain]) in self.gates.iter().zip(recent) {
+            let (at, outward) = *gate;
+            if !visible(at, 90.) {
+                continue;
+            }
+            for i in 0..plain + gain {
+                let col = (i % 5) as f32 - 2.;
+                let row = (i / 5) as f32;
+                let stamp_size = size * 0.8;
+                let pos = at
+                    + outward * (5. + row * stamp_size * 0.9)
+                    + right(outward) * col * stamp_size * 0.85;
+                let tint = if i < plain { Paint::Plain } else { Paint::Gain };
+                place(
+                    Model::Person,
+                    tint,
+                    pose(pos, -outward, Vec3::splat(stamp_size)),
+                );
             }
         }
     }

@@ -775,6 +775,7 @@ enum Model {
     BusInterior,
     BusPassenger,
     StationEntries,
+    WalkTrace,
     Bike,
     Person,
     Walking(u8),
@@ -911,6 +912,7 @@ fn setup(
     let models = [
         (Model::BusInterior, bus_load::interior_mesh(), None),
         (Model::BusPassenger, bus_load::passenger_mesh(), None),
+        (Model::WalkTrace, block([1., 0.20, 1.], [0.; 3], [255; 3]), None),
         (Model::StationEntries, street_people::entry_disc(), None),
         (Model::Person, motion::pedestrian(None, ink), None),
         (Model::BusJoint, shape((-2..=2).map(|i| {
