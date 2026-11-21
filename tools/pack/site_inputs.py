@@ -112,6 +112,20 @@ def share(counts, key):
     return round(counts[key] / total, 4) if total else ""
 
 
+def ratio(subset, whole, key):
+    """How a dwelling of the subset compares with a dwelling of the comuna, one basis.
+
+    `key` is one travel column, or TRAVEL for every traveller. Both sides divide by
+    `n_vp` of their own block set, so the person-file chain of the comuna can be scaled
+    by this one number instead of mixing two universes.
+    """
+    keys = TRAVEL if key is TRAVEL else [key]
+    if not subset["n_vp"]:
+        return ""
+    return round((sum(subset[k] for k in keys) / subset["n_vp"])
+                 / (sum(whole[k] for k in keys) / whole["n_vp"]), 4)
+
+
 def build():
     tallies = collections.defaultdict(collections.Counter)
     universe = collections.Counter()
@@ -133,6 +147,8 @@ def build():
                     "occupied_share_apartment_blocks",
                     "car_share_block_table", "public_share_block_table",
                     "car_share_apartment_blocks", "public_share_apartment_blocks",
+                    "travellers_per_dwelling_ratio_apartment_blocks",
+                    "car_travellers_per_dwelling_ratio_apartment_blocks",
                     "apartment_blocks", "apartment_block_persons",
                     "dwellings_with_residents_present", "persons_all_dwelling_kinds"])
         for cut in sorted(totals):
@@ -152,6 +168,7 @@ def build():
                         round(fl["occupied"] / fl["dwellings"], 4) if fl["dwellings"] else "",
                         share(t, "n_transporte_auto"), share(t, "n_transporte_publico"),
                         share(fl, "n_transporte_auto"), share(fl, "n_transporte_publico"),
+                        ratio(fl, t, TRAVEL), ratio(fl, t, "n_transporte_auto"),
                         fl["blocks"], fl["persons"], p["occupied_dwellings"], t["n_per"]])
     print(OUT, len(totals), "rows")
     print("persons by tipo_operativo:", dict(universe))
