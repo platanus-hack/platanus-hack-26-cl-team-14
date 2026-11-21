@@ -280,13 +280,13 @@ function eventScenario() {
 function evento() {
   const st = ev ? ev.stations : [];
   const col = (id, key, dx, color) => new ColumnLayer({id, data: st.filter(s => at(s[key], t) != null),
-    getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 90, getElevation: s => at(s[key], t) * 0.8,  // 0.8 m for each boarding, same scale for both
+    getPosition: s => [s.longitude + dx, s.latitude], diskResolution: 16, radius: 90, getElevation: s => at(s[key], t) * 0.35,  // 0.35 m for each boarding, one true scale; chosen so that x3 stays on screen
     getFillColor: color, material: {ambient: .9, diffuse: .3}, updateTriggers: {getElevation: t}});
   return [
     new GeoJsonLayer({id: 'communes-flat', data: communes, getFillColor: [20, 28, 64], getLineColor: [70, 84, 130], getLineWidth: 30}),
     ev && new deck.ScatterplotLayer({id: 'site', data: [ev], getPosition: v => [v.longitude, v.latitude], getRadius: 160, getFillColor: [255, 255, 255]}),
     col('eobs', 'observed', -0.0012, [0, 229, 255]), col('escn', 'scenario', 0.0012, [255, 122, 26]),
-    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude, (at(s.scenario, t) || at(s.observed, t) || 0) * 0.8], getPixelOffset: [0, -34], getText: s => s.name, updateTriggers: {getPosition: t},
+    new TextLayer({id: 'enames', data: st, getPosition: s => [s.longitude, s.latitude, (at(s.scenario, t) || at(s.observed, t) || 0) * 0.35], getPixelOffset: [0, -34], getText: s => s.name, updateTriggers: {getPosition: t},
       getSize: 34, fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 800, getColor: [0, 229, 255]}),
   ];
 }
