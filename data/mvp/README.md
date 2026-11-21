@@ -150,6 +150,39 @@ How the commuters of `work_od.csv` travel to work, by comuna of residence. Built
 - **Limit that matters for the station layer: code 2 puts metro, bus, train, taxi and colectivo in one answer.** The census does not separate them, so this file cannot give a metro share. Any split of code 2 between metro and bus is an assumption, and the page must label it.
 - The universe is a person who works away from the dwelling, so "works at home" is `NA` and is not in this file. It is the main mode, not every leg of the trip, and it is the usual mode, not a trip on a given day.
 
+### work_departures.csv
+
+This file gives 48 local half-hour departure shares for each of five travel modes in
+the 2012 Santiago origin-destination survey. Bin 0 starts at midnight. Each row contains
+`mode,half_hour,expanded_trips,share`. The 48 shares for each mode sum to one.
+Use the shares to assign times to trips. The expanded totals describe Santiago in 2012.
+
+The builder selects trips to work (`Proposito=1`) on normal weekdays, with a recorded
+`HoraIni`. This includes all trips to work during the day. The survey can count a worker
+again after a lunch break. Three eligible records lacked the departure clock.
+The 13,437 remaining trips expand to 2,989,363 weekday trips. Each trip weight equals
+`viajes.FactorLaboralNormal × personas.Factor_LaboralNormal` for the same respondent.
+[Survey and files](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) · [INE expansion method](https://www.ine.gob.cl/docs/default-source/sistema-de-indicadores-y-estandares-de-desarrollo-urbano/manuales/actualizaci%C3%B3n-2019/manual-procedimientos-siedu-act2019.pdf)
+
+| Group | EOD `ModoAgregado` | Sample trips | Expanded trips | Peak start and share |
+|---|---|---:|---:|---:|
+| car | 1 | 3,387 | 924,788 | 07:00 · 19.33% |
+| public | 2–7, 9–12 | 6,798 | 1,244,381 | 07:00 · 17.07% |
+| walk | 17 | 1,580 | 482,964 | 14:00 · 16.90% |
+| bicycle | 18 | 717 | 151,907 | 07:30 · 18.12% |
+| other | 8, 13–16 | 955 | 185,324 | 07:00 · 16.70% |
+
+The public group covers bus, Metro, taxi, colectivo and their combinations.
+The other group includes car with Metro and trips that the EOD labels as other.
+Applying those timing profiles to 2024 Census mode groups is a modeling assumption.
+The EOD table has no separate profiles for scooters, motorcycles or an unknown mode.
+
+After extracting the survey with its original filenames, run:
+
+```sh
+python3 -I tools/pack/work_departures.py --survey /path/to/EOD_STGO
+```
+
 ### mode_share_by_workplace.csv
 
 `cut,work_place,mode,commuters`. The same counts split by `p44_lug_trab`: **2** works in

@@ -33,10 +33,10 @@ fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
 }
 
 /// Cumulative weights of each comuna's points, for systematic sampling.
-struct Sampler { by_cut: HashMap<String, (Vec<u32>, Vec<f64>)>, next: HashMap<String, f64> }
+struct Sampler { by_cut: HashMap<String, (Vec<u32>, Vec<f64>)>, next: HashMap<String, f64>, step: f64 }
 
 impl Sampler {
-    fn new(points: &[Point]) -> Sampler {
+    fn new(points: &[Point], step: f64) -> Sampler {
         let mut by_cut: HashMap<String, (Vec<u32>, Vec<f64>)> = HashMap::new();
         for (i, p) in points.iter().enumerate().filter(|(_, p)| p.weight > 0.0) {
             let e = by_cut.entry(p.cut.clone()).or_default();
@@ -44,17 +44,13 @@ impl Sampler {
             e.0.push(i as u32);
             e.1.push(c);
         }
-        Sampler { by_cut, next: HashMap::new() }
+        Sampler { by_cut, next: HashMap::new(), step }
     }
-    /// The next point of a comuna. The k-th person of a comuna sits at the golden-ratio (Weyl) position
-    /// frac((k + 0.5) * 0.618...) of its cumulative weight: the points are filled in proportion to their weights,
-    /// and persons of one home (or destination) group spread over the whole comuna instead of a contiguous run,
-    /// so the order of the input rows does not tie a destination point to one origin.
     fn take(&mut self, cut: &str) -> u32 {
         let (ids, cum) = &self.by_cut[cut];
         let total = *cum.last().unwrap();
         let k = self.next.entry(cut.to_string()).or_insert(0.0);
-        let at = ((*k + 0.5) * 0.618_033_988_749_894_9).fract() * total;
+        let at = ((*k + 0.5) * self.step).fract() * total;
         *k += 1.0;
         ids[cum.partition_point(|&c| c <= at).min(ids.len() - 1)]
     }
@@ -69,7 +65,11 @@ impl Population {
         let schools: Vec<Point> = rows::<School>(&data.join("schools.csv")).into_iter()
             .map(|s| Point { id: s.rbd, cut: s.cut, longitude: s.longitude, latitude: s.latitude, weight: s.enrollment_no_preschool }).collect();
         // Workers and students get their own home sampler, so each group alone covers all home points of its comuna.
-        let (mut hw, mut hst, mut js, mut ss) = (Sampler::new(&homes), Sampler::new(&homes), Sampler::new(&jobs), Sampler::new(&schools));
+        // Different irrational steps keep home and destination ranks from moving together inside each OD row.
+        let home_step = 0.618_033_988_749_894_9;
+        let destination_step = std::f64::consts::SQRT_2 - 1.0;
+        let (mut hw, mut hst) = (Sampler::new(&homes, home_step), Sampler::new(&homes, home_step));
+        let (mut js, mut ss) = (Sampler::new(&jobs, destination_step), Sampler::new(&schools, destination_step));
         let internal = |d: &str| d.starts_with("13");
         let workers: Vec<ModeOd> = rows::<ModeOd>(&data.join("mode_od.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
         let students: Vec<SchoolOd> = rows::<SchoolOd>(&data.join("school_od.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
@@ -89,3 +89,8 @@ impl Population {
         Population { homes, jobs, schools, persons }
     }
 }
+
+#[path = "population/trips.rs"]
+mod trips;
+#[allow(unused_imports)] // Each binary imports only the population outputs it needs.
+pub use trips::{TripGroup, sample_trips};
