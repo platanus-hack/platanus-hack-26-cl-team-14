@@ -166,7 +166,8 @@ function drawLine({points, distances, steps, duration, headway}, now) {
   for (let age = now % headway; age < duration; age += headway) {
     const {start, end, from, to} = steps.find(step => age < step.end);
     const distance = from + (to - from) * (age - start) / (end - start);
-    const i = distances.findIndex(value => value > distance);
+    const next = distances.findIndex(value => value > distance);
+    const i = next === -1 ? points.length - 1 : next;
     const [x, y] = points[i - 1];
     const dx = points[i][0] - x;
     const dy = points[i][1] - y;
