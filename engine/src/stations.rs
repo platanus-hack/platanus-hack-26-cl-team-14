@@ -18,7 +18,7 @@ struct Job { cut: String, longitude: f64, latitude: f64, jobs: f64 }
 pub struct Station { pub name: String, longitude: f64, latitude: f64, pub holdout: bool, laboral: Option<Vec<Option<f64>>> }
 
 #[derive(Serialize)]
-pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64 }
+pub struct Report { pub scale: f64, pub class_cut: f64, pub training_class_counts: [usize; 2], pub heldout_class_counts: [usize; 2], pub profile_max_station_share: [[f64; 2]; 2], pub training_stations: usize, pub training_cells: usize, pub profile_support: Vec<usize>, pub support_by_class: Vec<Vec<usize>>, pub distance_m_quantiles: [f64; 5], pub home_mass: f64, pub job_mass: f64 }
 
 fn rows<T: for<'de> Deserialize<'de>>(p: &Path) -> Vec<T> {
     csv::Reader::from_path(p).unwrap().deserialize().map(|r| r.unwrap()).collect()
@@ -80,12 +80,14 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
     // Profile p_t per class: mean over training stations observed at t, normalized to 1 inside each half.
     let mut p = vec![vec![0.0; 48]; 2];
     let mut support = vec![0; 48];
+    let mut support_by_class = vec![vec![0; 48]; 2];
     for c in 0..2 {
         let train: Vec<&Vec<Option<f64>>> = (0..st.len()).filter(|&i| !st[i].holdout && class[i] == c).map(|i| st[i].laboral.as_ref().unwrap()).collect();
         if train.is_empty() { continue; }
         for t in 0..48 {
             let v: Vec<f64> = train.iter().filter_map(|b| b[t]).collect();
             support[t] += v.len();
+            support_by_class[c][t] = v.len();
             if !v.is_empty() { p[c][t] = v.iter().sum::<f64>() / v.len() as f64; }
         }
         for half in [0..24, 24..48] {
@@ -94,12 +96,13 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
         }
     }
     let train_count = st.iter().filter(|s| !s.holdout).count();
-    // Largest single station's share of each class-half profile mass (calm-condor's check, print only).
+    // Each observation contributes y / observed station count to its class-bin mean.
     let mut maxshare = [[0.0; 2]; 2];
     for c in 0..2 {
         for (k, half) in [0..24, 24..48].into_iter().enumerate() {
             let m: Vec<f64> = (0..st.len()).filter(|&i| !st[i].holdout && class[i] == c)
-                .map(|i| st[i].laboral.as_ref().unwrap()[half.clone()].iter().flatten().sum()).collect();
+                .map(|i| half.clone().filter_map(|t| st[i].laboral.as_ref().unwrap()[t]
+                    .map(|y| y / support_by_class[c][t] as f64)).sum()).collect();
             let tot: f64 = m.iter().sum();
             if tot > 0.0 { maxshare[c][k] = m.iter().cloned().fold(0.0, f64::max) / tot; }
         }
@@ -122,7 +125,7 @@ pub fn predict(data: &Path, st: &[Station], radius: f64, public_share: bool, cla
         qs[k] = dist.iter().find(|d| { acc += d.1; acc >= f * w }).unwrap().0.round();
     }
     let count = |h: bool| { let mut c = [0; 2]; for i in 0..st.len() { if st[i].holdout == h { c[class[i]] += 1; } } c };
-    let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support,
+    let report = Report { scale: a, class_cut: cut, training_class_counts: count(false), heldout_class_counts: count(true), profile_max_station_share: maxshare, training_stations: train_count, training_cells: cells, profile_support: support, support_by_class,
         distance_m_quantiles: qs, home_mass: h.iter().sum(), job_mass: j.iter().sum() };
     (q.into_iter().map(|r| r.into_iter().map(|v| v * a).collect()).collect(), report)
 }
