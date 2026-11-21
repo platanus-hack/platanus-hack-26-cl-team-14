@@ -10,7 +10,7 @@ El ejemplo cambia los viajes en una comuna que el presentador no nombró. Luego 
 
 En [98ae956](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/tree/98ae956d5d4e047c0ceaa5c40b6263d2d49bd037), el motor en Rust simula cambios de residentes, empleos y tiempos de viaje. También puede cerrar o reabrir estaciones existentes. Emplea una población sintética que conserva los totales por comuna del Censo. Los trabajadores vuelven a elegir destino y modo ante un cambio. [Motor](../../engine/src/scenario.rs), [datos](../../data/mvp/README.md).
 
-Comprobamos que `simulate_city` aplica los dos cambios del ejemplo y publica el mismo resultado que envía al agente. En esta versión, la vista de main sigue siendo la anterior. Falta probar juntos el chat y la vista de Santiago sin controles. [Cambio del motor](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/126).
+Comprobamos que `simulate_city` aplica los dos cambios del ejemplo. El agente y la vista reciben el mismo identificador y las mismas cifras del resumen. La vista recibe además los grupos de viajes para dibujarlos. En esta versión, la vista de main sigue siendo la anterior. Falta probar juntos el chat y la vista de Santiago sin controles. [Cambio del motor](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/126).
 
 En esa revisión, el motor declara las preguntas que requieren una estación nueva, una línea nueva o un evento. Tampoco estima capacidad ni congestión. Conserva una dependencia del conjunto de datos original: si cambia el identificador de la manzana del MUT, el servidor no parte.
 
