@@ -9,7 +9,7 @@ Propuesta de los agentes; `context/pitch.md` sigue siendo de ustedes. Fuentes: `
   1. **Tobalaba**: edificios reales y la estación con sus 48 medias horas (37 con dato, 11 sin dato; 7.516 a las 18:00). Un control: sacar el MUT (4.679 empleos modelados) y poner una torre de N viviendas. Al correr, dos estimaciones etiquetadas (−513 y −2.781 al día con 298 viviendas, ver tabla) y "84 salen en auto al día · 52 en transporte público".
   2. **Santiago**: 52 comunas y flujos casa→trabajo; control de empleo y vivienda por comuna, totales conservados. Etiqueta: "reconstrucción del Censo 2024 + sensibilidad, sin validar".
   3. **Puntaje**: 31 estaciones reservadas, columnas observadas y predichas, error agregado 45% (L4b). Puntaje de desarrollo; no valida el cambio del MUT.
-  4. **Evento**: dos botones (Estadio Nacional, Monumental) y un control de 0 a 3. Añade, como supuesto, el exceso de subidas de la tarde del sábado 11 de abril de 2026 en Parque O'Higgins sobre su línea (día de un evento agotado en el Movistar Arena) a las estaciones a menos de 1 km del sitio, sobre lo observado ese sábado; con 0 no cambia nada. Límites: solo 19:00–23:30 (23:30 sin dato), la llegada no se modela; dos supuestos en pantalla; sin validar.
+  4. **Evento**: dos botones (Estadio Nacional, Monumental) y un control de 0 a 3. Añade, como supuesto, el exceso de subidas de la tarde del sábado 11 de abril de 2026 en Parque O'Higgins sobre su línea (día de un evento agotado en el Movistar Arena) a las estaciones a menos de 1 km del sitio, sobre lo observado; con 0 no cambia nada. Límites: solo 19:00–23:30 (23:30 sin dato), la llegada no se modela; dos supuestos en pantalla; sin validar.
 - **No construido**: Variante B (Estación Central 2017→2024).
 
 ## Cómo verlo (requiere Rust y Python 3; una compilación medida tomó 75 s)
@@ -51,7 +51,7 @@ Nada cambia después de las 12:30 hasta que ustedes lo digan.
 
 1. **Comuna y palabras**: "Las Condes, al lado de Tobalaba"; "transporte público" para el Censo, "Metro" solo para DTPM.
 2. **La sorpresa del MUT**: ¿las dos estimaciones etiquetadas, el cambio pequeño en la estación y los residentes que salen en auto? Recomendación: todo visible, incluida la brecha de la base.
-3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre hoy en la vista Santiago) como caso 2. El evento está construido y revisado. Recomendación: tercera pregunta, con sus dos supuestos en voz alta: "qué pasaría si ese patrón se repite".
+3. **Casos 2 y 3**: Estación Central (57 torres de 20 pisos o más, 477 viviendas en promedio; corre hoy en la vista Santiago) como caso 2. El evento está construido y revisado. Recomendación: tercera pregunta, con sus dos supuestos en voz alta: "qué pasaría si ese exceso se repite".
 4. **Los datos de 2023**: ¿dos frases de contexto ("no sabemos cuánto es del MUT; nuestros modelos no cuentan visitantes") o se dejan para el jurado? Recomendación: para el jurado.
 5. **Tiempo y cierre**: 295 palabras habladas con el evento, apertura incluida (~136 s a 130 por minuto, antes de clics y del jurado). El cierre puede decir "tres preguntas". Si el ensayo pasa de 3 minutos, cortar en este orden: el evento, el contexto 2023, la línea del modelo de estaciones; nunca la apertura ni el número del jurado.
 
