@@ -65,6 +65,7 @@ You decide all other things: tasks, technical design, code, data, tools.
   Use what exists. Use the skill `research-first`.
 - **Simple English.** Write all messages, pull requests, commits, and reports in
   Simplified Technical English. Use the skill `writing-simplified-technical-english`.
+  Be short. Say only what the reader needs. No intro, no summary, no filler.
 - **Frontend for a projector.** Use very little text. Do not use small text.
   Use large shapes, strong contrast, and clear motion.
 - **Real data, not fake data.** The mock shows the look and the story.
