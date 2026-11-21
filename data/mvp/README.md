@@ -1255,3 +1255,7 @@ A national industry study by acuanto.cl found 17,241 white (32.3%) and 14,257 gr
 ### Planned Metro network
 
 The planned network contains station locations, neighboring stations, existing connections and route geometry for L7, L8, L9 and the two L6 extensions. Dates are projections. Each feature identifies its source. [Data and limits](metro_planned.md)
+
+### Building permits
+
+The annual table covers housing permits for the 52 comunas in 2023–2025. MINVU marks 2025 preliminary. INE's mapped floor area for all uses covers 131 of the 156 comuna-year pairs. [Sources, coverage and units](building_permits.md)
