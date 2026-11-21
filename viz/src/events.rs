@@ -95,6 +95,8 @@ fn setup(
         paint: COLORS.map(|color| {
             materials.add(StandardMaterial {
                 base_color: color,
+                // Draw the legend colors in the city pass after ink quantization.
+                alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 ..default()
             })
@@ -134,8 +136,7 @@ fn setup(
                     ..default()
                 })
                 .with_children(|row| {
-                    for (name, color) in ["● Público", "● Auto", "● Otros"].into_iter().zip(COLORS)
-                    {
+                    for (name, color) in ["Público", "Auto", "Otros"].into_iter().zip(COLORS) {
                         row.spawn((
                             Text::new(name),
                             TextColor(color),
