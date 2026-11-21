@@ -273,3 +273,17 @@ Car stock is 68.43841074812. At zero attendance, stock stays unchanged and daily
 Manual JSON comparisons found baseline/reset identical apart from timing, and existing site fields unchanged from the prior response.
 Local HTTP times were 1.043/0.677/0.408/0.381 ms for baseline/change/reset/attendance-zero, respectively, for single requests.
 The existing `elapsed_ms` still covers only `site.rs`, not mode allocation. Server PID 12891 stopped after the run.
+
+## Station prediction L0 (`stations` binary)
+
+Predicts weekday Metro boardings for all 126 parents, 48 half hours, without reading held-out counts.
+
+```
+python3 -I tools/pack/metro_training.py          # writes data/mvp/metro_training.json, held-out bins null
+cargo run --release --manifest-path engine/Cargo.toml --bin stations -- data/mvp /tmp/pred_l0.json
+python3 -I tools/pack/check_score.py /tmp/pred_l0.json
+```
+
+Mechanism (clever-heron's v0 contract): RM-internal `work_od.csv` origin totals split by `blocks.csv` population, destination totals split by `jobs.csv` jobs, each point to its nearest Metro parent. 00:00–12:00 from homes, 12:00–24:00 from jobs, times a training-only profile, times one scale fitted on the 95 training stations. Needs `blocks.csv` and `jobs.csv` in the data directory.
+
+Score at first run: WAPE_bins 0.5001, WAPE_daily 0.4198 (trivial training-mean profile: 0.6245 / 0.5494). Scale 0.4514. Known weakness: nearest-only assignment gives terminal stations the outer city (Plaza Maipú predicted 202,823 against 44,664 observed).
