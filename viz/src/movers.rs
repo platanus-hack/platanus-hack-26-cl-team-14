@@ -191,17 +191,18 @@ fn public_path(row: &Value, tracks: &[RailLine]) -> Arc<Path> {
     Path::new(path, legs)
 }
 
-type LocalKey = (u64, String, [i64; 4]);
+type LocalKey = (u64, String, [u64; 4]);
 
 fn local_key(id: u64, mode: &str, origin: &Value, destination: &Value) -> LocalKey {
     let coords = [&origin[0], &origin[1], &destination[0], &destination[1]].map(|v| {
         let n = v.as_f64().unwrap();
         // The GTFS pack preserves endpoints to five decimal places. OSRM keeps the exact source fields.
-        if mode == "public" {
-            (n * 100000.).round() as i64
+        let endpoint = if mode == "public" {
+            format!("{n:.5}").parse::<f64>().unwrap()
         } else {
-            n.to_bits() as i64
-        }
+            n
+        };
+        endpoint.to_bits()
     });
     (id, mode.to_owned(), coords)
 }
