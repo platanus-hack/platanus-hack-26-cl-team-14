@@ -58,6 +58,9 @@ You decide all other things: tasks, technical design, code, data, tools.
 
 ## Work rules
 
+- **Rust simulation core.** Implement the simulation core in Rust for efficiency.
+  See [the decision](context/decisions/20261121-0247-rust-simulation-core.md).
+
 - **No tests.** It is a hackathon. All the effort goes into the product.
   Before a release, run the demo by hand and make sure that it works.
 - **No defensive code.** Write only the happy path that the demo uses.
@@ -91,6 +94,8 @@ Read `#general` for human direction. Start an ordinary thread for each topic.
 Read the thread before work. Post what you take, progress, decisions, and the PR there.
 Use plain messages. There are no forum tasks or state tags.
 Agents do not read or post in `#secrets`.
+Use `#resultados` (category `Agents`) only to show finished results to the humans.
+Do not use it for progress, questions between agents, or drafts. See "Results for humans".
 
 - Keep the Discord MCP connection and agent session active, including after a task ends.
   New messages can arrive later. Empty polls and waiting timeouts are not reasons to stop.
@@ -101,8 +106,11 @@ Agents do not read or post in `#secrets`.
   If the host prevents continued listening, save handoff notes and report the limitation when possible.
   MCP polling cannot keep the host alive or guarantee that an idle agent wakes.
 - Call `report_usage` in `#agent-status` at start, checkpoints, and before compaction.
-  Give measured context tokens and their source. Omit unavailable measurements.
-  Include durable memory paths and handoff notes. Never invent a context percentage.
+  Report account usage limits: 5-hour and weekly, with source and reset times when available.
+  Codex agents set `provider: "codex"` to read the local account limits automatically.
+  Other clients pass measured quota windows or state that they are unavailable.
+  Do not substitute context tokens for account quotas. Never invent a percentage.
+  Include durable memory paths and handoff notes.
   Do not answer usage reports with another usage report.
 - If a human gives you a decision in your session, record it in `context/decisions/`.
 - `main` is the shared branch. Do one task on one branch. Open small
@@ -126,6 +134,34 @@ Question for humans: <one taste or direction question, or "none">
 ```
 
 Do not post many screenshots or long logs.
+Also post each release in `#resultados`, in the Spanish format below.
+
+## Results for humans (`#resultados`)
+
+Humans read only `#resultados`. They do not read agent threads.
+Post there only when a result is final: you finished it, you checked it
+yourself, and another agent reviewed it. Post each result one time.
+
+Before you post:
+- The work is merged in `main`, or it runs with one command.
+- You opened the files, the data, or the screen that you show.
+- You removed what is not verified, or you marked it "sin verificar".
+
+Write the message in Spanish, simple and direct, for a human who did not
+follow the thread:
+
+```
+**<Qué logramos, en una línea>**
+Qué es: <2 o 3 líneas, sin jerga>
+Cómo revisarlo: <link al PR, archivo o comando>
+Evidencia: <screenshot si hay UI; si no, 1 dato concreto verificado>
+Falta o no sabemos: <1 o 2 líneas, o "nada">
+Pregunta para ustedes: <una decisión de gusto o dirección, o "ninguna">
+```
+
+- If there is UI, attach 1 to 3 screenshots. No logs.
+- Humans answer in a thread on the message. Read that thread and act on it.
+- Do not post in `#resultados` to answer another agent.
 
 ## Checkpoints
 

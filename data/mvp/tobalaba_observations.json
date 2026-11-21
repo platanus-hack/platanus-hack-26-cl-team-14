@@ -1,0 +1,892 @@
+{
+  "kind": "observed_boardings",
+  "timezone": "America/Santiago",
+  "period": {
+    "LABORAL": "average of 2026-04-13 through 2026-04-17",
+    "SABADO": "2026-04-11",
+    "DOMINGO": "2026-04-12"
+  },
+  "source": {
+    "boarding_workbook": "https://www.dtpm.cl/descargas/modelos_y_matrices/Subidas_Paradero_Estacion_2026.04_v3.xlsx",
+    "gtfs_url": "https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip",
+    "gtfs": {
+      "name": "gtfs.zip",
+      "bytes": 10701870,
+      "sha256": "f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b"
+    },
+    "exported_boardings": {
+      "name": "boardings.csv",
+      "bytes": 84979065,
+      "sha256": "24da85944374d1b07ac2b8c5bf696279370e2ecd9d6dd1d76daca84b5dd26ec4"
+    }
+  },
+  "crosswalk": {
+    "mode": "Metro",
+    "internal_stop": "TOBALABA",
+    "user_stop": "-",
+    "rule": "Reviewed exact station name after case conversion: TOBALABA; unique GTFS station location_type=1, stop_id=TB-TOB. Listed platforms share this parent. No line/platform split in DTPM observations.",
+    "gtfs_station_record": {
+      "stop_id": "TB-TOB",
+      "stop_code": "",
+      "stop_name": "Tobalaba",
+      "stop_lat": "-33.418119835792474",
+      "stop_lon": "-70.60192866420536",
+      "stop_url": "",
+      "wheelchair_boarding": "1",
+      "location_type": "1",
+      "parent_station": "",
+      "level_id": ""
+    },
+    "gtfs_platform_records": [
+      {
+        "stop_id": "TB_L1_V2",
+        "stop_code": "",
+        "stop_name": "Tobalaba Dirección San Pablo",
+        "stop_lat": "-33.4185453788357",
+        "stop_lon": "-70.6026151321302",
+        "stop_url": "",
+        "wheelchair_boarding": "1",
+        "location_type": "0",
+        "parent_station": "TB-TOB",
+        "level_id": "TB-TOB:L-2-ANDENL1"
+      },
+      {
+        "stop_id": "TB_L1_V1",
+        "stop_code": "",
+        "stop_name": "Tobalaba Dirección Los Domínicos",
+        "stop_lat": "-33.4187101768709",
+        "stop_lon": "-70.6026623463313",
+        "stop_url": "",
+        "wheelchair_boarding": "1",
+        "location_type": "0",
+        "parent_station": "TB-TOB",
+        "level_id": "TB-TOB:L-2-ANDENL1"
+      },
+      {
+        "stop_id": "TOB_L4_V1",
+        "stop_code": "",
+        "stop_name": "Tobalaba Dirección Plaza Puente Alto",
+        "stop_lat": "-33.4183411721355",
+        "stop_lon": "-70.6014190389351",
+        "stop_url": "",
+        "wheelchair_boarding": "1",
+        "location_type": "0",
+        "parent_station": "TB-TOB",
+        "level_id": "TB-TOB:L-3-ANDENL4"
+      },
+      {
+        "stop_id": "TOB_L4_V2",
+        "stop_code": "",
+        "stop_name": "Tobalaba Dirección Tobalaba",
+        "stop_lat": "-33.4182635495817",
+        "stop_lon": "-70.601403300868",
+        "stop_url": "",
+        "wheelchair_boarding": "1",
+        "location_type": "0",
+        "parent_station": "TB-TOB",
+        "level_id": "TB-TOB:L-3-ANDENL4"
+      }
+    ]
+  },
+  "station": {
+    "id": "TB-TOB",
+    "name": "Tobalaba",
+    "latitude": -33.418119835792474,
+    "longitude": -70.60192866420536
+  },
+  "limits": [
+    "Validation-derived boardings, excluding estimated fare evasion; not unique riders.",
+    "Station total, not a platform, entrance, MUT visitor count, or forecast.",
+    "Absent half-hours are missing observations, not zero demand.",
+    "Location is the GTFS parent station; no allocation to lines, platforms or entrances."
+  ],
+  "day_totals": {
+    "DOMINGO": 27151.0,
+    "LABORAL": 81612.8,
+    "SABADO": 46461.0
+  },
+  "observations": [
+    {
+      "source_row": 178281,
+      "day_type": "DOMINGO",
+      "half_hour": "07:00",
+      "boardings": 48.0
+    },
+    {
+      "source_row": 178282,
+      "day_type": "DOMINGO",
+      "half_hour": "07:30",
+      "boardings": 323.0
+    },
+    {
+      "source_row": 178283,
+      "day_type": "DOMINGO",
+      "half_hour": "08:00",
+      "boardings": 317.0
+    },
+    {
+      "source_row": 178284,
+      "day_type": "DOMINGO",
+      "half_hour": "08:30",
+      "boardings": 205.0
+    },
+    {
+      "source_row": 178285,
+      "day_type": "DOMINGO",
+      "half_hour": "09:00",
+      "boardings": 203.0
+    },
+    {
+      "source_row": 178286,
+      "day_type": "DOMINGO",
+      "half_hour": "09:30",
+      "boardings": 209.0
+    },
+    {
+      "source_row": 178287,
+      "day_type": "DOMINGO",
+      "half_hour": "10:00",
+      "boardings": 181.0
+    },
+    {
+      "source_row": 178288,
+      "day_type": "DOMINGO",
+      "half_hour": "10:30",
+      "boardings": 257.0
+    },
+    {
+      "source_row": 178289,
+      "day_type": "DOMINGO",
+      "half_hour": "11:00",
+      "boardings": 291.0
+    },
+    {
+      "source_row": 178290,
+      "day_type": "DOMINGO",
+      "half_hour": "11:30",
+      "boardings": 394.0
+    },
+    {
+      "source_row": 178291,
+      "day_type": "DOMINGO",
+      "half_hour": "12:00",
+      "boardings": 528.0
+    },
+    {
+      "source_row": 178292,
+      "day_type": "DOMINGO",
+      "half_hour": "12:30",
+      "boardings": 623.0
+    },
+    {
+      "source_row": 178293,
+      "day_type": "DOMINGO",
+      "half_hour": "13:00",
+      "boardings": 788.0
+    },
+    {
+      "source_row": 178294,
+      "day_type": "DOMINGO",
+      "half_hour": "13:30",
+      "boardings": 884.0
+    },
+    {
+      "source_row": 178295,
+      "day_type": "DOMINGO",
+      "half_hour": "14:00",
+      "boardings": 941.0
+    },
+    {
+      "source_row": 178296,
+      "day_type": "DOMINGO",
+      "half_hour": "14:30",
+      "boardings": 908.0
+    },
+    {
+      "source_row": 178297,
+      "day_type": "DOMINGO",
+      "half_hour": "15:00",
+      "boardings": 1015.0
+    },
+    {
+      "source_row": 178298,
+      "day_type": "DOMINGO",
+      "half_hour": "15:30",
+      "boardings": 1148.0
+    },
+    {
+      "source_row": 178299,
+      "day_type": "DOMINGO",
+      "half_hour": "16:00",
+      "boardings": 1266.0
+    },
+    {
+      "source_row": 178300,
+      "day_type": "DOMINGO",
+      "half_hour": "16:30",
+      "boardings": 1291.0
+    },
+    {
+      "source_row": 178301,
+      "day_type": "DOMINGO",
+      "half_hour": "17:00",
+      "boardings": 1381.0
+    },
+    {
+      "source_row": 178302,
+      "day_type": "DOMINGO",
+      "half_hour": "17:30",
+      "boardings": 1390.0
+    },
+    {
+      "source_row": 178303,
+      "day_type": "DOMINGO",
+      "half_hour": "18:00",
+      "boardings": 1563.0
+    },
+    {
+      "source_row": 178304,
+      "day_type": "DOMINGO",
+      "half_hour": "18:30",
+      "boardings": 1496.0
+    },
+    {
+      "source_row": 178305,
+      "day_type": "DOMINGO",
+      "half_hour": "19:00",
+      "boardings": 1504.0
+    },
+    {
+      "source_row": 178306,
+      "day_type": "DOMINGO",
+      "half_hour": "19:30",
+      "boardings": 1539.0
+    },
+    {
+      "source_row": 178307,
+      "day_type": "DOMINGO",
+      "half_hour": "20:00",
+      "boardings": 1816.0
+    },
+    {
+      "source_row": 178308,
+      "day_type": "DOMINGO",
+      "half_hour": "20:30",
+      "boardings": 1529.0
+    },
+    {
+      "source_row": 178309,
+      "day_type": "DOMINGO",
+      "half_hour": "21:00",
+      "boardings": 1399.0
+    },
+    {
+      "source_row": 178310,
+      "day_type": "DOMINGO",
+      "half_hour": "21:30",
+      "boardings": 747.0
+    },
+    {
+      "source_row": 178311,
+      "day_type": "DOMINGO",
+      "half_hour": "22:00",
+      "boardings": 622.0
+    },
+    {
+      "source_row": 178312,
+      "day_type": "DOMINGO",
+      "half_hour": "22:30",
+      "boardings": 338.0
+    },
+    {
+      "source_row": 178313,
+      "day_type": "DOMINGO",
+      "half_hour": "23:00",
+      "boardings": 7.0
+    },
+    {
+      "source_row": 537368,
+      "day_type": "LABORAL",
+      "half_hour": "05:30",
+      "boardings": 78.8
+    },
+    {
+      "source_row": 537369,
+      "day_type": "LABORAL",
+      "half_hour": "06:00",
+      "boardings": 290.2
+    },
+    {
+      "source_row": 537370,
+      "day_type": "LABORAL",
+      "half_hour": "06:30",
+      "boardings": 379.8
+    },
+    {
+      "source_row": 537371,
+      "day_type": "LABORAL",
+      "half_hour": "07:00",
+      "boardings": 920.2
+    },
+    {
+      "source_row": 537372,
+      "day_type": "LABORAL",
+      "half_hour": "07:30",
+      "boardings": 1090.8
+    },
+    {
+      "source_row": 537373,
+      "day_type": "LABORAL",
+      "half_hour": "08:00",
+      "boardings": 1139.4
+    },
+    {
+      "source_row": 537374,
+      "day_type": "LABORAL",
+      "half_hour": "08:30",
+      "boardings": 994.0
+    },
+    {
+      "source_row": 537375,
+      "day_type": "LABORAL",
+      "half_hour": "09:00",
+      "boardings": 880.6
+    },
+    {
+      "source_row": 537376,
+      "day_type": "LABORAL",
+      "half_hour": "09:30",
+      "boardings": 792.6
+    },
+    {
+      "source_row": 537377,
+      "day_type": "LABORAL",
+      "half_hour": "10:00",
+      "boardings": 821.0
+    },
+    {
+      "source_row": 537378,
+      "day_type": "LABORAL",
+      "half_hour": "10:30",
+      "boardings": 890.6
+    },
+    {
+      "source_row": 537379,
+      "day_type": "LABORAL",
+      "half_hour": "11:00",
+      "boardings": 1093.8
+    },
+    {
+      "source_row": 537380,
+      "day_type": "LABORAL",
+      "half_hour": "11:30",
+      "boardings": 1278.4
+    },
+    {
+      "source_row": 537381,
+      "day_type": "LABORAL",
+      "half_hour": "12:00",
+      "boardings": 1413.2
+    },
+    {
+      "source_row": 537382,
+      "day_type": "LABORAL",
+      "half_hour": "12:30",
+      "boardings": 1591.8
+    },
+    {
+      "source_row": 537383,
+      "day_type": "LABORAL",
+      "half_hour": "13:00",
+      "boardings": 2066.0
+    },
+    {
+      "source_row": 537384,
+      "day_type": "LABORAL",
+      "half_hour": "13:30",
+      "boardings": 2003.4
+    },
+    {
+      "source_row": 537385,
+      "day_type": "LABORAL",
+      "half_hour": "14:00",
+      "boardings": 2377.8
+    },
+    {
+      "source_row": 537386,
+      "day_type": "LABORAL",
+      "half_hour": "14:30",
+      "boardings": 2421.2
+    },
+    {
+      "source_row": 537387,
+      "day_type": "LABORAL",
+      "half_hour": "15:00",
+      "boardings": 2483.4
+    },
+    {
+      "source_row": 537388,
+      "day_type": "LABORAL",
+      "half_hour": "15:30",
+      "boardings": 2605.2
+    },
+    {
+      "source_row": 537389,
+      "day_type": "LABORAL",
+      "half_hour": "16:00",
+      "boardings": 3244.6
+    },
+    {
+      "source_row": 537390,
+      "day_type": "LABORAL",
+      "half_hour": "16:30",
+      "boardings": 3596.2
+    },
+    {
+      "source_row": 537391,
+      "day_type": "LABORAL",
+      "half_hour": "17:00",
+      "boardings": 5042.4
+    },
+    {
+      "source_row": 537392,
+      "day_type": "LABORAL",
+      "half_hour": "17:30",
+      "boardings": 6244.4
+    },
+    {
+      "source_row": 537393,
+      "day_type": "LABORAL",
+      "half_hour": "18:00",
+      "boardings": 7516.0
+    },
+    {
+      "source_row": 537394,
+      "day_type": "LABORAL",
+      "half_hour": "18:30",
+      "boardings": 6703.6
+    },
+    {
+      "source_row": 537395,
+      "day_type": "LABORAL",
+      "half_hour": "19:00",
+      "boardings": 5284.2
+    },
+    {
+      "source_row": 537396,
+      "day_type": "LABORAL",
+      "half_hour": "19:30",
+      "boardings": 3754.8
+    },
+    {
+      "source_row": 537397,
+      "day_type": "LABORAL",
+      "half_hour": "20:00",
+      "boardings": 3515.6
+    },
+    {
+      "source_row": 537398,
+      "day_type": "LABORAL",
+      "half_hour": "20:30",
+      "boardings": 2636.2
+    },
+    {
+      "source_row": 537399,
+      "day_type": "LABORAL",
+      "half_hour": "21:00",
+      "boardings": 2547.2
+    },
+    {
+      "source_row": 537400,
+      "day_type": "LABORAL",
+      "half_hour": "21:30",
+      "boardings": 1652.4
+    },
+    {
+      "source_row": 537401,
+      "day_type": "LABORAL",
+      "half_hour": "22:00",
+      "boardings": 1473.4
+    },
+    {
+      "source_row": 537402,
+      "day_type": "LABORAL",
+      "half_hour": "22:30",
+      "boardings": 773.0
+    },
+    {
+      "source_row": 537403,
+      "day_type": "LABORAL",
+      "half_hour": "23:00",
+      "boardings": 16.4
+    },
+    {
+      "source_row": 537404,
+      "day_type": "LABORAL",
+      "half_hour": "23:30",
+      "boardings": 0.2
+    },
+    {
+      "source_row": 760768,
+      "day_type": "SABADO",
+      "half_hour": "06:00",
+      "boardings": 46.0
+    },
+    {
+      "source_row": 760769,
+      "day_type": "SABADO",
+      "half_hour": "06:30",
+      "boardings": 229.0
+    },
+    {
+      "source_row": 760770,
+      "day_type": "SABADO",
+      "half_hour": "07:00",
+      "boardings": 378.0
+    },
+    {
+      "source_row": 760771,
+      "day_type": "SABADO",
+      "half_hour": "07:30",
+      "boardings": 326.0
+    },
+    {
+      "source_row": 760772,
+      "day_type": "SABADO",
+      "half_hour": "08:00",
+      "boardings": 410.0
+    },
+    {
+      "source_row": 760773,
+      "day_type": "SABADO",
+      "half_hour": "08:30",
+      "boardings": 411.0
+    },
+    {
+      "source_row": 760774,
+      "day_type": "SABADO",
+      "half_hour": "09:00",
+      "boardings": 398.0
+    },
+    {
+      "source_row": 760775,
+      "day_type": "SABADO",
+      "half_hour": "09:30",
+      "boardings": 422.0
+    },
+    {
+      "source_row": 760776,
+      "day_type": "SABADO",
+      "half_hour": "10:00",
+      "boardings": 471.0
+    },
+    {
+      "source_row": 760777,
+      "day_type": "SABADO",
+      "half_hour": "10:30",
+      "boardings": 611.0
+    },
+    {
+      "source_row": 760778,
+      "day_type": "SABADO",
+      "half_hour": "11:00",
+      "boardings": 733.0
+    },
+    {
+      "source_row": 760779,
+      "day_type": "SABADO",
+      "half_hour": "11:30",
+      "boardings": 882.0
+    },
+    {
+      "source_row": 760780,
+      "day_type": "SABADO",
+      "half_hour": "12:00",
+      "boardings": 1051.0
+    },
+    {
+      "source_row": 760781,
+      "day_type": "SABADO",
+      "half_hour": "12:30",
+      "boardings": 1281.0
+    },
+    {
+      "source_row": 760782,
+      "day_type": "SABADO",
+      "half_hour": "13:00",
+      "boardings": 1985.0
+    },
+    {
+      "source_row": 760783,
+      "day_type": "SABADO",
+      "half_hour": "13:30",
+      "boardings": 1778.0
+    },
+    {
+      "source_row": 760784,
+      "day_type": "SABADO",
+      "half_hour": "14:00",
+      "boardings": 1826.0
+    },
+    {
+      "source_row": 760785,
+      "day_type": "SABADO",
+      "half_hour": "14:30",
+      "boardings": 1974.0
+    },
+    {
+      "source_row": 760786,
+      "day_type": "SABADO",
+      "half_hour": "15:00",
+      "boardings": 2041.0
+    },
+    {
+      "source_row": 760787,
+      "day_type": "SABADO",
+      "half_hour": "15:30",
+      "boardings": 2012.0
+    },
+    {
+      "source_row": 760788,
+      "day_type": "SABADO",
+      "half_hour": "16:00",
+      "boardings": 1969.0
+    },
+    {
+      "source_row": 760789,
+      "day_type": "SABADO",
+      "half_hour": "16:30",
+      "boardings": 2108.0
+    },
+    {
+      "source_row": 760790,
+      "day_type": "SABADO",
+      "half_hour": "17:00",
+      "boardings": 2168.0
+    },
+    {
+      "source_row": 760791,
+      "day_type": "SABADO",
+      "half_hour": "17:30",
+      "boardings": 2312.0
+    },
+    {
+      "source_row": 760792,
+      "day_type": "SABADO",
+      "half_hour": "18:00",
+      "boardings": 2270.0
+    },
+    {
+      "source_row": 760793,
+      "day_type": "SABADO",
+      "half_hour": "18:30",
+      "boardings": 2262.0
+    },
+    {
+      "source_row": 760794,
+      "day_type": "SABADO",
+      "half_hour": "19:00",
+      "boardings": 2444.0
+    },
+    {
+      "source_row": 760795,
+      "day_type": "SABADO",
+      "half_hour": "19:30",
+      "boardings": 2274.0
+    },
+    {
+      "source_row": 760796,
+      "day_type": "SABADO",
+      "half_hour": "20:00",
+      "boardings": 2291.0
+    },
+    {
+      "source_row": 760797,
+      "day_type": "SABADO",
+      "half_hour": "20:30",
+      "boardings": 2150.0
+    },
+    {
+      "source_row": 760798,
+      "day_type": "SABADO",
+      "half_hour": "21:00",
+      "boardings": 2108.0
+    },
+    {
+      "source_row": 760799,
+      "day_type": "SABADO",
+      "half_hour": "21:30",
+      "boardings": 1110.0
+    },
+    {
+      "source_row": 760800,
+      "day_type": "SABADO",
+      "half_hour": "22:00",
+      "boardings": 1005.0
+    },
+    {
+      "source_row": 760801,
+      "day_type": "SABADO",
+      "half_hour": "22:30",
+      "boardings": 705.0
+    },
+    {
+      "source_row": 760802,
+      "day_type": "SABADO",
+      "half_hour": "23:00",
+      "boardings": 20.0
+    }
+  ],
+  "half_hour_bins": {
+    "DOMINGO": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      48.0,
+      323.0,
+      317.0,
+      205.0,
+      203.0,
+      209.0,
+      181.0,
+      257.0,
+      291.0,
+      394.0,
+      528.0,
+      623.0,
+      788.0,
+      884.0,
+      941.0,
+      908.0,
+      1015.0,
+      1148.0,
+      1266.0,
+      1291.0,
+      1381.0,
+      1390.0,
+      1563.0,
+      1496.0,
+      1504.0,
+      1539.0,
+      1816.0,
+      1529.0,
+      1399.0,
+      747.0,
+      622.0,
+      338.0,
+      7.0,
+      null
+    ],
+    "LABORAL": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      78.8,
+      290.2,
+      379.8,
+      920.2,
+      1090.8,
+      1139.4,
+      994.0,
+      880.6,
+      792.6,
+      821.0,
+      890.6,
+      1093.8,
+      1278.4,
+      1413.2,
+      1591.8,
+      2066.0,
+      2003.4,
+      2377.8,
+      2421.2,
+      2483.4,
+      2605.2,
+      3244.6,
+      3596.2,
+      5042.4,
+      6244.4,
+      7516.0,
+      6703.6,
+      5284.2,
+      3754.8,
+      3515.6,
+      2636.2,
+      2547.2,
+      1652.4,
+      1473.4,
+      773.0,
+      16.4,
+      0.2
+    ],
+    "SABADO": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      46.0,
+      229.0,
+      378.0,
+      326.0,
+      410.0,
+      411.0,
+      398.0,
+      422.0,
+      471.0,
+      611.0,
+      733.0,
+      882.0,
+      1051.0,
+      1281.0,
+      1985.0,
+      1778.0,
+      1826.0,
+      1974.0,
+      2041.0,
+      2012.0,
+      1969.0,
+      2108.0,
+      2168.0,
+      2312.0,
+      2270.0,
+      2262.0,
+      2444.0,
+      2274.0,
+      2291.0,
+      2150.0,
+      2108.0,
+      1110.0,
+      1005.0,
+      705.0,
+      20.0,
+      null
+    ]
+  }
+}
