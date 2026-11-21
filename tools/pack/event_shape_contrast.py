@@ -92,6 +92,18 @@ for day in DAYS:
         summary.append({"day_type": day, "station_id": venue, "station": name,
                         "lines": sorted(own_lines), "peers": peers,
                         "peer_count": len(peers), "peers_common_mask": len(common),
+                        "observed_bin_indices": observed,
+                        "missing_bin_indices": [b for b in range(48) if b not in observed],
+                        "peer_observed_bin_masks": {
+                            p: "".join("1" if v is not None else "0" for v in by_id[p]["half_hour_bins"][day])
+                            for p in peers},
+                        "peer_day_totals_observed": {
+                            p: sum(v for v in by_id[p]["half_hour_bins"][day] if v is not None)
+                            for p in peers},
+                        "common_mask_peer_ids": common,
+                        "peer_day_totals_common_mask": {
+                            p: sum(by_id[p]["half_hour_bins"][day][b] for b in observed)
+                            for p in common},
                         "observed_bins": len(observed), "missing_bins": 48 - len(observed),
                         "day_total_observed": venue_total,
                         "max_gap_pp": best[0], "max_gap_bin": label(best[1])})
@@ -110,6 +122,15 @@ with (OUT / "shape_contrast.csv").open("w", newline="", encoding="utf-8") as fh:
     "timezone": "America/Santiago",
     "frozen_rule": "https://discord.com/channels/1573514576400752640/1573579088684253235/1573640576606404610",
     "primary_statistic": "gap_pp, each station divided by its own observed day total",
+    "mask_definition": "48 characters in bin-index order; 1 = observed, 0 = missing; index 0 starts at 00:00",
+    "frozen_pass_rule": {
+        "threshold_pp": 3,
+        "comparison": "strictly greater than threshold; largest positive gap must be in the window",
+        "window": "19:00 on the event date through 01:00 on the following date",
+        "calendar_condition": "A separate source must tie an event to that venue and date; this artifact does not assess it",
+        "coverage": "This artifact reports each calendar date separately. It does not join next-date midnight bins; the full overnight window is not evaluated",
+        "same_date_evening_bin_indices": list(range(38, 48))
+    },
     "sensitivity": "gap_pp_common_mask, computed after the results were seen; not the frozen statistic",
     "sources": {"observations": OBS.name,
                 "observations_sha256": hashlib.sha256(OBS.read_bytes()).hexdigest(),
