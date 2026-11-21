@@ -97,21 +97,22 @@ fn draw(
                 position_type: PositionType::Absolute,
                 right: px(24),
                 bottom: px(48),
-                width: px(780),
-                padding: UiRect::all(px(28)),
+                width: px(360),
+                max_width: percent(29),
+                padding: UiRect::all(px(16)),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(18),
+                row_gap: px(8),
                 ..default()
             },
         ))
         .with_children(|panel| {
-            panel.spawn(text(chart["title"].as_str().unwrap().to_owned(), 46.));
-            panel.spawn(text(chart["unit"].as_str().unwrap().to_owned(), 26.));
+            panel.spawn(text(chart["title"].as_str().unwrap().to_owned(), 30.));
+            panel.spawn(text(chart["unit"].as_str().unwrap().to_owned(), 20.));
             for (label, values) in &bars {
                 let total: f64 = values.iter().map(|(_, v)| v).sum();
-                panel.spawn(text(format!("{label} · {}", thousands(total)), 34.));
+                panel.spawn(text(format!("{label} · {}", thousands(total)), 24.));
                 panel
-                    .spawn(Node { width: percent(100), height: px(56), ..default() })
+                    .spawn(Node { width: percent(100), height: px(24), ..default() })
                     .with_children(|row| {
                         for (key, value) in values {
                             let color = COLORS[keys.iter().position(|k| k == key).unwrap_or(0) % COLORS.len()];
@@ -129,8 +130,8 @@ fn draw(
                             ))
                             .with_children(|segment| {
                                 // A narrow segment has no room for its number.
-                                if keys.len() > 1 && share >= 14. {
-                                    segment.spawn(ink(thousands(*value), 28., Color::BLACK));
+                                if keys.len() > 1 && share >= 25. {
+                                    segment.spawn(ink(thousands(*value), 16., Color::BLACK));
                                 }
                             });
                         }
@@ -139,17 +140,17 @@ fn draw(
             // A single "total" key needs no legend.
             if keys.len() > 1 {
                 panel
-                    .spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: px(24), row_gap: px(8), ..default() })
+                    .spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: px(12), row_gap: px(4), ..default() })
                     .with_children(|legend| {
                         for (i, key) in keys.iter().enumerate() {
                             legend
-                                .spawn(Node { column_gap: px(10), align_items: AlignItems::Center, ..default() })
+                                .spawn(Node { column_gap: px(6), align_items: AlignItems::Center, ..default() })
                                 .with_children(|item| {
                                     item.spawn((
                                         BackgroundColor(COLORS[i % COLORS.len()]),
-                                        Node { width: px(26), height: px(26), ..default() },
+                                        Node { width: px(14), height: px(14), ..default() },
                                     ));
-                                    item.spawn(text(key.clone(), 28.));
+                                    item.spawn(text(key.clone(), 18.));
                                 });
                         }
                     });
