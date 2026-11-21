@@ -1,4 +1,5 @@
 mod activity;
+pub(crate) mod edits;
 mod facade;
 mod ground;
 mod streets;
@@ -22,6 +23,7 @@ pub fn world(lon: f64, lat: f64) -> Vec3 {
 
 use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
 use flate2::read::GzDecoder;
+use std::collections::HashSet;
 use std::{fs::File, io::Read};
 
 pub type Rgba = [f32; 4];
@@ -243,6 +245,7 @@ pub(crate) struct Buildings {
     pub ready: bool,
     dirty: Vec<bool>,
     heights: activity::HeightScales,
+    hidden: HashSet<(usize, usize)>,
 }
 
 fn box_mesh(
@@ -250,6 +253,7 @@ fn box_mesh(
     tile: usize,
     detail: Detail,
     scale: &impl Fn(usize) -> (f32, f32),
+    hidden: &HashSet<(usize, usize)>,
 ) -> Surface {
     let bytes = pack.slice(tile);
     let count = integer(bytes, 0);
@@ -258,7 +262,7 @@ fn box_mesh(
     mesh.positions.reserve(count * if overview { 4 } else { 8 });
     mesh.indices.reserve(count * if overview { 6 } else { 30 });
     for i in 0..count {
-        if ground::NAMED.contains(&(tile, i)) {
+        if ground::NAMED.contains(&(tile, i)) || hidden.contains(&(tile, i)) {
             continue;
         }
         let at = 4 + i * 12;
@@ -313,6 +317,7 @@ fn polygon_mesh(
     polys: &Pack,
     tile: usize,
     scale: &impl Fn(usize) -> (f32, f32),
+    hidden: &HashSet<(usize, usize)>,
 ) -> Surface {
     let bytes = polys.slice(tile);
     let boxbytes = boxes.slice(tile);
@@ -325,7 +330,7 @@ fn polygon_mesh(
         ..default()
     };
     for i in 0..count {
-        if ground::NAMED.contains(&(tile, i)) {
+        if ground::NAMED.contains(&(tile, i)) || hidden.contains(&(tile, i)) {
             continue;
         }
         let first = integer(bytes, 12 + i * 4);
@@ -391,6 +396,7 @@ pub fn load_buildings(
         ready: false,
         dirty,
         heights: activity::HeightScales::load(Path::new("web/data/city_building_block_ids.bin.gz")),
+        hidden: HashSet::new(),
     });
 }
 
@@ -515,12 +521,20 @@ pub(crate) fn draw_buildings(
         }
         if let Some(detail) = detail {
             let mesh = match detail {
-                Detail::Overview | Detail::Far => box_mesh(&buildings.boxes, tile, detail, &|i| {
-                    buildings.heights.scale(tile, i)
-                }),
-                Detail::Near => polygon_mesh(&buildings.boxes, &buildings.polygons, tile, &|i| {
-                    buildings.heights.scale(tile, i)
-                }),
+                Detail::Overview | Detail::Far => box_mesh(
+                    &buildings.boxes,
+                    tile,
+                    detail,
+                    &|i| buildings.heights.scale(tile, i),
+                    &buildings.hidden,
+                ),
+                Detail::Near => polygon_mesh(
+                    &buildings.boxes,
+                    &buildings.polygons,
+                    tile,
+                    &|i| buildings.heights.scale(tile, i),
+                    &buildings.hidden,
+                ),
             };
             let mat = if detail == Detail::Near {
                 &buildings.facade_material
