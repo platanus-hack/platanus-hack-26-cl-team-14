@@ -111,3 +111,7 @@ for cut, shape in db.execute("select CUT, SHAPE from Comunal_CPV24 order by CUT"
     feats.append({"type": "Feature", "properties": {"cut": str(cut), "name": name, "population": p},
                   "geometry": {"type": "MultiPolygon", "coordinates": geo}})
 json.dump({"type": "FeatureCollection", "features": feats}, open("data/mvp/communes.geojson", "w"), separators=(",", ":"))
+
+# Gran Santiago, 34 comunas: Provincia de Santiago (CUT 131xx) + Puente Alto + San Bernardo.
+urban = [f for f in feats if f["properties"]["cut"][:3] == "131" or f["properties"]["cut"] in ("13201", "13401")]
+json.dump({"type": "FeatureCollection", "features": urban}, open("data/mvp/communes_urban.geojson", "w"), separators=(",", ":"))
