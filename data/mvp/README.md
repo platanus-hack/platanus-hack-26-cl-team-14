@@ -886,6 +886,8 @@ The map loads `web/data/public_routes.json`. The pack links to the same file. Ru
 
 Each key is a directed `origin_cut-destination_cut` pair from `travel_times.csv`. Each value contains a path of longitude/latitude points and the GTFS route IDs used, listed in first-boarding order within each mode. The keys are `metro_lines`, `bus_routes`, and `rail_routes` when the path uses EFE. The map has 1,190 pairs between 35 comuna centres. The other 17 centres have no GTFS stop within 1 km. Same-comuna paths are outside this matrix.
 
+Each pair has ordered `segments`. Fields `start` and `end` are inclusive, zero-based vertex indexes. Read a leg with `path.slice(start, end + 1)`. Adjacent legs share one vertex. A ride has `kind: "ride"`, a GTFS route ID in `service`, and mode `"bus"`, `"metro"`, or `"rail"` (EFE). A walk has `mode: "walk"`, `service: null`, and kind `"access"`, `"transfer"`, or `"egress"`. A transfer walk groups consecutive edges between stops, including platform changes. A leg can have equal indexes when its start and end coordinates match. A change of service at the same stop needs no walk edge.
+
 The builder traces the winning path of the existing weekday 08:00 router. It includes the initial walk, each transfer, each ride, and the final walk. Walks use straight segments at 4.8 km/h, up to 1 km at each end and 300 m per transfer edge. A platform and its parent station have zero transfer cost. Rides use a GTFS shape between the boarding and exit stops, or the ordered stop positions when a shape is absent. The display simplifies each ride at 25 m tolerance and rounds coordinates to five decimal places.
 
 The router assigns one wait to a stop pattern. When several route IDs share one pattern, the display uses the active trip with the shortest headway, or the first scheduled departure in the 08:00 hour. These paths connect population-weighted comuna centres and show modeled travel on a representative weekday. They have no passenger-level endpoints.
@@ -958,3 +960,54 @@ osmium export -u type_id --geometry-types=polygon -f geojsonseq buildings.osm.pb
 cd ../../..
 python3 -I tools/pack/city_footprints.py
 ```
+
+## Citywide building polygons and boxes
+
+The two files in `web/data/` describe the same **654,666 building shapes** in the Santiago roads rectangle (−70.85 to −70.45 longitude, −33.65 to −33.30 latitude). OSM supplies 279,385 mapped footprints. Census blocks with no mapped footprint supply 375,281 generated shapes. The binaries retain each shape's source.
+
+| File | Use | Gzip bytes | Inflated bytes |
+| --- | --- | ---: | ---: |
+| `city_building_boxes.bin.gz` | Far view, one oriented rectangle per building | 4,555,215 | 8,513,964 |
+| `city_building_polygons.bin.gz` | Near view, exterior rings and holes | 11,161,265 | 19,401,272 |
+
+The polygon file has 655,715 rings and 3,046,816 vertices. The box uses the minimum-area rectangle of the convex hull in local metres. Both files use the same order within each tile, the same height, and the same source flags. They cover 326 occupied tiles in a 20 × 18 grid. Tile assignment uses the box center. Include neighboring tiles when drawing buildings across a viewport boundary. The two inflated buffers together use 27,915,236 bytes. Renderer arrays, triangulation, GPU allocations, and temporary decompression buffers add to that amount.
+
+The build keeps complete OSM building polygons inside the box and retains multipolygon components and holes. Of 279,387 complete raw components, two collapse when rounded to five decimals. It excludes 63 boundary-crossing components and standalone `building:part` objects. The mesh keeps the quantized source rings for 125 components whose geometry needed repair during the census spatial join. Their detailed rendering depends on the triangulator. Height priority and record counts:
+
+| Flags | Geometry and height source | Count |
+| ---: | --- | ---: |
+| 0 | Real OSM footprint, tagged height | 1,997 |
+| 1 | Real OSM footprint, tagged levels × 3.5 m | 21,361 |
+| 2 | Real OSM footprint, estimated from census block density | 255,985 |
+| 3 | Real OSM footprint outside a matched census block, neutral 3 m styling | 42 |
+| 6 | Generated footprint, estimated from census block data | 375,281 |
+
+Tagged dimensions are map attributes. The remaining heights and all generated shapes are visual assumptions. [Coverage by comuna, estimates, and exclusions](../validation/city_buildings/README.md).
+
+**Read in the browser.** Import `loadBuildingTiles` from `web/data/building_tiles.mjs`. Pass the URL to either gzip file. The decoder supports servers that deliver the gzip archive directly and servers that set `Content-Encoding: gzip`. Call `mesh.tile(column, row)` for zero-copy typed arrays, or `null` for an empty tile.
+
+- Each tile measures 0.02° per side except the top row. Columns increase east, rows north. For a quantized pair `x,y`, convert to degrees with `lon = (mesh.west + x)/100000` and `lat = (mesh.south + y)/100000`.
+- Polygon tile: `polygonOffsets[i..i+1]` gives the half-open range of rings. `ringOffsets[j..j+1]` gives the half-open vertex range in interleaved `positions`. Rings are implicitly closed. The first is the exterior. Other rings are holes. `heights[i]` is decimetres.
+- Box tile: `boxes.subarray(6*i,6*i+6)` gives center X, center Y, width in decimetres, depth in decimetres, rotation in hundredths of a degree, and height in decimetres. Rotation follows the width axis counterclockwise from east, in [0°, 180°).
+- In either file, `flags[i] & 4` marks a generated shape and `flags[i] & 3` gives the height source in the table above.
+
+**Rebuild.** Reuse the Geofabrik input and `polygons.geojsonseq` from the central footprint steps above. Run `python3 tools/pack/building_mesh.py prepare`, run the [census assignment and fill builder](../validation/city_buildings/README.md), then run `python3 tools/pack/building_mesh.py pack`. Preparing the rounded OSM geometry took 3.19 s. Packing both binaries from the completed spatial join took 8.20 s on an Apple Silicon Mac. Gzip uses a fixed timestamp. The OSM geometry and its derived boxes require the map credit [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and use the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
+## Santiago landmarks
+
+`web/data/santiago_landmarks.geojson` contains eight public landmarks (14,810 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
+
+| ID | City-view geometry | Official reference |
+| --- | --- | --- |
+| `gran_torre_costanera` | Exterior tower footprint. OSM tags 300 m height and 64 levels. | [Sky Costanera names the tower and gives the viewpoint height of 300 m](https://www.skycostanera.cl/es) |
+| `estadio_nacional` | Mapped stadium perimeter in Ñuñoa. | [Law 20.264 gives the name Estadio Nacional Julio Martínez Prádanos](https://www.bcn.cl/leychile/navegar?idNorma=273588) |
+| `la_moneda` | Palace footprint with four courtyard holes. OSM tags three levels. | [National Heritage Service entry for Palacio de La Moneda](https://ide.patrimoniocultural.gob.cl/patrimonio/909) |
+| `san_cristobal` | Summit point. OSM elevation 880 m above sea level. | [Parquemet visitor map identifies the summit at 880 m](https://mapas.parquemet.gob.cl/doc/MAP_ParqueMet_es.pdf) |
+| `santa_lucia` | Summit point. OSM elevation 629 m above sea level. | [Municipal tourism office identifies Cerro Santa Lucía](https://www.santiagoturismo.cl/es/cerro-santa-lucia/) |
+| `parque_forestal` | Mapped park boundary. | [Municipal tourism office identifies Parque Forestal](https://www.santiagoturismo.cl/es/parque-forestal/) |
+| `parque_ohiggins` | Mapped park boundary. | [Municipal tourism office identifies Parque O’Higgins](https://www.santiagoturismo.cl/es/parque-ohiggins/) |
+| `rio_mapocho` | Main river centreline inside the Santiago roads view. | [Environment Ministry record for Río Mapocho](https://sistemahumedales.mma.gob.cl/HumedalesUrbanos/DetailsPublico/114) |
+
+The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
+
+Run `python3 tools/pack/santiago_landmarks.py data/raw/osm-buildings-city/urban.osm.pbf` with Python 3 and the osmium CLI. The builder reuses the urban PBF from the city building steps. [Geofabrik Chile OSM snapshot, 2026-11-20 21:21 UTC](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf). Display [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). The geometry uses [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
