@@ -242,9 +242,6 @@ impl AccessFlows {
         anchor: Vec3,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
-        if self.approaches.is_empty() {
-            return;
-        }
         let bin = (now / BIN) as usize % 48;
         let count = self.scenario[bin];
         let common = count.min(self.base[bin]);
