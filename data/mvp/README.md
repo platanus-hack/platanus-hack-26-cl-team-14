@@ -689,3 +689,29 @@ Four causes of the gap, and they do not all point the same way:
 I apply **no correction factor**. The 1.54 that would close the level is a fit to EOD,
 and a layer must freeze its formula before it is scored.
 
+## Direct bus access to Metro stations
+
+`bus_station_access.csv` gives the shortest scheduled access time from a bus stop to each
+Metro parent that riders can reach on one bus. The file has 71,857 stop-parent pairs,
+9,476 origin stops and 126 Metro parents. Each row gives the origin stop ID, longitude,
+latitude, Metro parent ID and seconds. The scenario adds the walk to the origin stop.
+
+The builder uses the March 2026 DTPM feed and the existing `bus_metro_300m.csv` transfer
+links. It uses the same Wednesday and 08:00 service window as `travel_times.csv`.
+All 666 active bus trips specify headways. For each downstream stop, the cost includes
+half the headway, the time from departure at the origin to arrival at that stop, and a
+straight walk to the parent at 4.8 km/h. Each pair keeps its lowest cost, in seconds
+rounded to three decimal places. [DTPM feed](https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip) · [GTFS frequencies](https://gtfs.org/documentation/schedule/reference/#frequenciestxt)
+
+For example, PA1 to AN-NA via PA298 takes 878.090 seconds on trip pattern 505-I-L-B04.
+The wait is 207.5 seconds, the ride takes 534 seconds, and the transfer walk is 182.12 metres.
+
+To model a station closure, exclude its parent ID before selecting a path. Of 247
+origin stops whose fastest path ends at FER, LCR or PQU, 144 switch to LIB when those
+three close, 34 switch to other stations and 69 lose all direct access by bus.
+These counts describe scheduled access in the 2026 bus network. The table has no
+passenger counts, Metro ride times or historical bus routes.
+
+```sh
+python3 -I tools/pack/bus_station_access.py --gtfs /path/to/GTFS_20260321_v3.zip
+```
