@@ -51,8 +51,9 @@ pub fn rechoose(c: &Choice, pop: &mut Population, job_weights: &[f64], minutes: 
     let class = |m: i8| match m { 2 => 0, 1 => 1, _ => 2 };
     let (mut pool, mut no_mode) = (vec![], vec![]);
     for (i, p) in pop.persons.iter().enumerate().filter(|(_, p)| !p.student) {
-        let od = home[p.home as usize] * n + work[p.dest as usize];
-        if pair[od] > 0 && point[p.dest as usize] > 0 {
+        // dest u32::MAX = a new worker with no job yet (scenario.rs): it goes to the pool.
+        let od = home[p.home as usize] * n + work.get(p.dest as usize).copied().unwrap_or(0);
+        if p.dest != u32::MAX && pair[od] > 0 && point[p.dest as usize] > 0 {
             pair[od] -= 1;
             point[p.dest as usize] -= 1;
             if mode[od][class(p.mode)] > 0 { mode[od][class(p.mode)] -= 1 } else { no_mode.push(i) }
