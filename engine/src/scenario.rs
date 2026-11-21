@@ -247,22 +247,40 @@ impl Scenario {
                     Target::Pair { .. } => unreachable!(),
                 }
             };
-            // New weights of the points: a comuna keeps the proportions of its points.
-            let scale = |v: &mut [Point], ids: &[usize]| -> (f64, f64) {
+            // Keep current proportions. If an earlier change emptied a comuna,
+            // use its original block weights to distribute the next increase.
+            let scale = |v: &mut [Point], ids: &[usize], baseline: &[Point]| {
                 let before: f64 = ids.iter().map(|&i| v[i].weight).sum();
                 let after = op(before);
-                for &i in ids { v[i].weight = if ids.len() == 1 { after } else { v[i].weight * after / before }; }
-                (before, after)
+                if ids.len() == 1 {
+                    v[ids[0]].weight = after;
+                } else if before > 0.0 {
+                    for &i in ids { v[i].weight = v[i].weight * after / before; }
+                } else if after > 0.0 {
+                    let weight = |i: usize| baseline.get(i).map_or(0.0, |p| p.weight);
+                    let total: f64 = ids.iter().map(|&i| weight(i)).sum();
+                    if total == 0.0 { return None; }
+                    for &i in ids { v[i].weight = weight(i) * after / total; }
+                }
+                Some((before, after))
             };
             match ch.kind {
                 Kind::Jobs => {
                     let (ids, cut) = points(&mut pop.jobs);
-                    let (before, after) = scale(&mut pop.jobs, &ids);
+                    let Some((before, after)) = scale(&mut pop.jobs, &ids, &self.pop.jobs) else {
+                        note["reason"] = json!("The comuna has no baseline block weights for this increase.");
+                        not_modeled.push(note);
+                        continue;
+                    };
                     note["understood"] = json!({ "comuna": c.names[self.ix(&cut)], "jobs_before": r1(before), "jobs_after": r1(after) });
                 }
                 Kind::Residents => {
                     let (ids, cut) = points(&mut pop.homes);
-                    let (before, after) = scale(&mut pop.homes, &ids);
+                    let Some((before, after)) = scale(&mut pop.homes, &ids, &self.pop.homes) else {
+                        note["reason"] = json!("The comuna has no baseline block weights for this increase.");
+                        not_modeled.push(note);
+                        continue;
+                    };
                     let k = ((after - before) * self.ratio[self.ix(&cut)]).round();
                     let workers = if k > 0.0 {
                         // New workers on the home points in proportion to the new weights. u32::MAX = no job yet (rechoose.rs).
