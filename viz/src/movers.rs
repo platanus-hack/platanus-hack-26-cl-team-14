@@ -570,6 +570,7 @@ struct Replay {
     departures: Vec<Vec<Group>>,
     platforms: Vec<Station>,
     longest: f32,
+    clock_offset: Option<f32>,
     revision_started: f32,
 }
 
@@ -584,6 +585,22 @@ fn read_result(
         return;
     }
     let r = &result.0;
+    replay.clock_offset.get_or_insert_with(|| {
+        let mut boardings = [0.; 48];
+        for station in r["stations"].as_array().unwrap() {
+            for (total, count) in boardings
+                .iter_mut()
+                .zip(station["base_half_hour"].as_array().unwrap())
+            {
+                *total += count.as_f64().unwrap();
+            }
+        }
+        let peak = (0..boardings.len())
+            .rev()
+            .max_by(|&a, &b| boardings[a].total_cmp(&boardings[b]))
+            .unwrap();
+        peak as f32 * BIN - time.elapsed_secs()
+    });
     let mut deltas = HashMap::new();
     for d in r["trips_delta"].as_array().into_iter().flatten() {
         deltas.insert(
@@ -990,7 +1007,7 @@ fn draw(
     // The city clock runs in real time from the morning peak and survives scenario revisions.
     let now = clock
         .0
-        .unwrap_or(8. * 3600. + 10. * 60. + time.elapsed_secs())
+        .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs())
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
     let mut trains = trains(&routes, now);
