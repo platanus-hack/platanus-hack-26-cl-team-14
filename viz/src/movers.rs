@@ -514,19 +514,173 @@ fn shape(parts: impl IntoIterator<Item = Mesh>) -> Mesh {
     shape
 }
 
+// Hand-drawn top-down slices, from tires to roof. The nose faces +X (right).
+// Each slice gives the near side up to the centerline. The other side mirrors it.
+const CAR_SLICES: &[&[&str]] = &[
+    &["..TT....TT..", "..TT....TT..", "............"],
+    &[".PTTPPPPTTP.", "WPPPPPPPPPPL", "TPPPPPPPPPPT"],
+    &[".PPPPPPPPPL.", "PPPGVVVGPPPL", "PPPGGGGGPPPP"],
+    &["...VGGGV....", "..VGGGGGV...", "..VGGGGGG..."],
+    &["............", "...WWWWG....", "...WWWWG...."],
+];
+
+const BUS_SLICES: &[&[&str]] = &[
+    &[
+        "...TT................TTT.....",
+        "...TT................TTT.....",
+        ".............................",
+        ".............................",
+    ],
+    &[
+        "PPPTTPPPPPPPPPPPPPPPPTTTPPPPL",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    ],
+    &[
+        "PPPTTPPPPPPPPPPPPPPPPTTTPPPPL",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPL",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    ],
+    &[
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    ],
+    &[
+        "PPGGGGTGGGGTGGGGTGGGGTGGGGGTG",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+    ],
+    &[
+        "PPVVVVTGGGGTGGGGTGGGGTGGGGGTV",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGV",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGV",
+        "TGGGGGGGGGGGGGGGGGGGGGGGGGGGV",
+    ],
+    &[
+        "PPPPPPPPPPPPPPPPPPPPPPPPPPPPT",
+        "WWWWWWWWWWWWWWWWWWWWWWWWWWWWT",
+        "WWWWWWWWWWWWWWWWWWWWWWWWWWWWL",
+        "WWWWWWWWWWWWWWWWWWWWWWWWWWWWL",
+    ],
+    &[
+        ".............................",
+        ".WWWWWWWWWWWWWWWWWWWWWWWWWWW.",
+        ".WWWWWWWWWWWWWWWWWWWWWWWWWWW.",
+        ".WWWWWWWWWWWWWWWWWWWWWWWWWWW.",
+    ],
+    &[
+        ".............................",
+        ".............................",
+        ".....VVVVV.........VVVV......",
+        ".....VVVVV.........VVVV......",
+    ],
+];
+
+fn stacked_vehicle(slices: &[&[&str]], body: Rgb) -> Mesh {
+    use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
+
+    let cell = [0.4; 3];
+    let half = slices[0].len();
+    let size = [
+        slices[0][0].len() as i32,
+        slices.len() as i32,
+        (half * 2 - 1) as i32,
+    ];
+    let pixel = |[x, y, z]: [i32; 3]| -> u8 {
+        if x < 0 || y < 0 || z < 0 || x >= size[0] || y >= size[1] || z >= size[2] {
+            return b'.';
+        }
+        slices[y as usize][z.min(size[2] - z - 1) as usize].as_bytes()[x as usize]
+    };
+    let tint = |key| {
+        let [r, g, b] = match key {
+            b'P' => body,
+            b'T' => [28, 39, 47],
+            b'G' => [53, 105, 127],
+            b'V' => [118, 169, 177],
+            b'W' => [241, 233, 211],
+            b'L' => [255, 211, 119],
+            _ => unreachable!(),
+        };
+        Color::srgb_u8(r, g, b).to_linear().to_f32_array()
+    };
+
+    let mut vertices = Vec::new();
+    let mut normals = Vec::new();
+    let mut colors = Vec::new();
+    let mut indices = Vec::new();
+    let origin = Vec3::new(
+        -0.5 * size[0] as f32 * cell[0],
+        0.,
+        -0.5 * size[2] as f32 * cell[2],
+    );
+    let cell = Vec3::from_array(cell);
+
+    // Each outward-facing run of equal color becomes one quad. Hidden faces cost no triangles.
+    for axis in 0..3 {
+        let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
+        for side in [-1, 1] {
+            let mut normal = [0.; 3];
+            normal[axis] = side as f32;
+            for depth in 0..size[axis] {
+                for row in 0..size[v] {
+                    let face = |col| {
+                        let mut p = [0; 3];
+                        p[axis] = depth;
+                        p[u] = col;
+                        p[v] = row;
+                        let key = pixel(p);
+                        p[axis] += side;
+                        if pixel(p) == b'.' { key } else { b'.' }
+                    };
+                    let mut col = 0;
+                    while col < size[u] {
+                        let start = col;
+                        let key = face(col);
+                        col += 1;
+                        if key == b'.' {
+                            continue;
+                        }
+                        while col < size[u] && face(col) == key {
+                            col += 1;
+                        }
+                        let index = vertices.len() as u32;
+                        let rgb = tint(key);
+                        for (a, b) in [(start, row), (col, row), (col, row + 1), (start, row + 1)] {
+                            let mut p = Vec3::ZERO;
+                            p[axis] = (depth + i32::from(side == 1)) as f32;
+                            p[u] = a as f32;
+                            p[v] = b as f32;
+                            vertices.push((origin + p * cell).to_array());
+                            normals.push(normal);
+                            colors.push(rgb);
+                        }
+                        let winding = if side == 1 {
+                            [0, 1, 2, 0, 2, 3]
+                        } else {
+                            [0, 2, 1, 0, 3, 2]
+                        };
+                        indices.extend(winding.map(|j| index + j));
+                    }
+                }
+            }
+        }
+    }
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
+        .with_inserted_indices(Indices::U32(indices))
+}
+
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mats: ResMut<Assets<StandardMaterial>>) {
-    let car = shape([
-        block([4.7, 0.38, 1.85], [0., 0.36, 0.], GLASS),
-        block([4.9, 0.78, 2.05], [0., 0.86, 0.], [241, 169, 58]),
-        block([2.55, 0.62, 1.69], [-0.12, 1.48, 0.], GLASS),
-        block([1.95, 0.15, 1.66], [-0.25, 1.85, 0.], IVORY),
-    ]);
-    let bus = shape([
-        block([11.6, 1.55, 2.65], [0., 1.05, 0.], [205, 53, 49]),
-        block([11.35, 1.12, 2.63], [0., 2.36, 0.], GLASS),
-        block([11.4, 0.28, 2.72], [0., 3.05, 0.], IVORY),
-        block([2.8, 0.25, 1.55], [-1.8, 3.3, 0.], [151, 164, 171]),
-    ]);
+    let car = stacked_vehicle(CAR_SLICES, [235, 160, 53]);
+    let bus = stacked_vehicle(BUS_SLICES, [213, 48, 53]);
     let bike = shape([
         wheel(-0.7),
         wheel(0.7),
