@@ -178,6 +178,14 @@ const createReplayTool = {
           distance: { type: 'number', exclusiveMinimum: 0, description: 'Camera distance in meters: 360 street, 4000 comuna, 18000 whole city.' },
         } },
       },
+      comparison: {
+        type: 'object', required: ['fields', 'unit'],
+        description: 'One number for the side-by-side tile. Sum these numeric fields from the saved result and display it with the unit and time window.',
+        properties: {
+          fields: { type: 'array', minItems: 1, items: { type: 'string' } },
+          unit: { type: 'string' },
+        },
+      },
       chart: {
         type: 'object', required: ['title', 'unit', 'bars'],
         description: 'The final chart of the replay, drawn in the city view as stacked bars. Each bar reads one field of a saved result: a number, or an object of numbers (one stack segment per key). Example: {"title":"Entradas al Metro","unit":"entradas por día hábil","bars":[{"label":"Antes","field":"summary.boardings_base"},{"label":"Después","field":"summary.boardings_scenario"}]}.',
