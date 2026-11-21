@@ -140,7 +140,10 @@ pub(crate) fn refresh(
         .clone();
     for ((kind, _), (before, after)) in final_state {
         if !before.is_null()
-            && (after.is_null() || before["geometry"] != after["geometry"])
+            && (after.is_null()
+                || before["geometry"] != after["geometry"]
+                || (kind == "line"
+                    && before["properties"]["mode"] != after["properties"]["mode"]))
             && kind != "building"
         {
             let shape = draw(&before, &kind, true);
