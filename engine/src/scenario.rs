@@ -2,7 +2,7 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
-use crate::population::{FineModes, NEW_OTHER_MODE, Person, Point, Population, TripGroup, TripPlan, trip_deltas};
+use crate::population::{FineModes, NEW_OTHER_MODE, Person, UNKNOWN, Point, Population, TripGroup, TripPlan, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::{EntryOrigins, StationAccess, planned::PlannedStations};
 use santiago_scenario_core::{buildings::Buildings, editable_transit::LineCatalog, roads::RoadGraph};
@@ -209,6 +209,7 @@ impl Scenario {
         for (home, delta) in deltas.into_iter().enumerate() {
             pop.persons.extend((0..delta).map(|_| Person {
                 home: home as u32, dest: u32::MAX, student: false, mode: NEW_OTHER_MODE,
+                age_band: UNKNOWN, household_size: UNKNOWN,
             }));
         }
     }
@@ -585,7 +586,19 @@ impl Scenario {
             }
         }
         let job_minutes: Vec<f64> = minutes.iter().zip(&temporary).map(|(&m, &t)| if t == 0.0 { m } else { (m - t).max(1.0) }).collect();
+        let modes_before: Vec<i8> = pop.persons.iter().map(|p| p.mode).collect();
         let moved = rechoose(car_choice.as_ref().unwrap_or(c), &mut pop, &weights, &job_minutes, &minutes, &self.placed);
+        // Workers and mode changes by age band and household size (rechoose changes `mode` only for a new mode class).
+        // Per group: workers, changed mode, public transport (mode 2) before, left public transport.
+        let mut by_trait = [[[0_u32; 4]; 5]; 2];
+        for (p, &before) in pop.persons.iter().zip(&modes_before).filter(|(p, _)| !p.student && p.age_band != UNKNOWN) {
+            for (t, v) in [(0, p.age_band), (1, p.household_size - 1)] {
+                by_trait[t][v as usize][0] += 1;
+                by_trait[t][v as usize][1] += u32::from(p.mode != before);
+                by_trait[t][v as usize][2] += u32::from(before == 2);
+                by_trait[t][v as usize][3] += u32::from(before == 2 && p.mode != 2);
+            }
+        }
         self.fine_modes.apply(&mut pop);
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
@@ -688,6 +701,16 @@ impl Scenario {
             "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         });
+        if by_trait[0].iter().any(|b| b[1] > 0) {
+            let rows = |t: usize, labels: [&str; 5]| -> Vec<Value> { labels.iter().zip(by_trait[t])
+                .map(|(l, [workers, changed, public, left])| json!({ "group": l, "workers": workers, "changed_mode": changed,
+                    "public_base": public, "left_public": left })).collect() };
+            result["mode_change_by_person"] = json!({
+                "age_band": rows(0, ["0-14", "15-24", "25-44", "45-64", "65+"]),
+                "household_size": rows(1, ["1", "2", "3", "4", "5+"]),
+            });
+            result["assumptions"].as_array_mut().unwrap().push(json!("When a mode loses places, who keeps it is a deterministic weighted draw: the weight is the Census 2024 share of that mode among workers of the same home comuna, age band and household size. mode_change_by_person follows from this rule, not from an observed response. Workers that a residents change adds are not counted."));
+        }
         if !car_shares.is_empty() {
             let cars = self.car_ownership.as_ref().unwrap();
             let counts = |[public, car, other]: [u32; 3]| json!({

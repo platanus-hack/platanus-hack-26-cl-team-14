@@ -2,7 +2,7 @@
 //! The rules of choice.rs give quotas: workers by comuna pair, by job point and by mode of each pair. A worker
 //! keeps its job point and its mode while their quotas have room. Only the surplus moves. No random numbers.
 use crate::choice::Choice;
-use crate::population::{NEW_OTHER_MODE, Population};
+use crate::population::{NEW_OTHER_MODE, Person, Population};
 use std::collections::HashMap;
 
 /// Integers near `total × share` that sum to `total` (rounding of the cumulative sum).
@@ -29,22 +29,32 @@ fn class(m: i8) -> usize { match m { 2 => 0, 1 => 1, _ => 2 } }
 /// The baseline placement of population.rs minus the quotas of the baseline inputs, per comuna pair, per mode
 /// of each pair and per job point. `rechoose` adds it to the new quotas. Thus the quotas of the baseline inputs
 /// are the baseline placement and no worker moves, and other inputs move only the true surplus.
-pub struct Base { pair: Vec<i32>, mode: Vec<[i32; 3]>, point: Vec<i32> }
+/// `stay`: per home comuna, age band and household size, the baseline share of workers in each mode class.
+/// When a mode quota shrinks, a worker keeps its mode with a weight equal to this share for its group.
+pub struct Base { pair: Vec<i32>, mode: Vec<[i32; 3]>, point: Vec<i32>, stay: Vec<[f32; 3]> }
+
+/// Index of a worker's group in `Base::stay`: home comuna × 25 + age band × 5 + household size − 1.
+fn group(home: usize, p: &Person) -> usize { home * 25 + p.age_band as usize * 5 + p.household_size as usize - 1 }
 
 impl Base {
     /// `pop`: the baseline population, before any change.
     pub fn new(c: &Choice, pop: &Population) -> Base {
         let n = c.n;
         let weights: Vec<f64> = pop.jobs.iter().map(|p| p.weight).collect();
-        let zero = Base { pair: vec![0; n * n], mode: vec![[0; 3]; n * n], point: vec![0; weights.len()] };
+        let zero = Base { pair: vec![0; n * n], mode: vec![[0; 3]; n * n], point: vec![0; weights.len()], stay: vec![] };
         let (home, work, pair, mode, point) = quotas(c, pop, &weights, &c.minutes, &c.minutes, &zero);
         let mut b = Base { pair: pair.iter().map(|&q| -(q as i32)).collect(), mode: mode.iter().map(|m| [0, 1, 2].map(|j| -(m[j] as i32))).collect(),
-            point: point.iter().map(|&q| -(q as i32)).collect() };
+            point: point.iter().map(|&q| -(q as i32)).collect(), stay: vec![[0.0; 3]; n * 25] };
         for p in pop.persons.iter().filter(|p| !p.student) {
             let od = home[p.home as usize] * n + work[p.dest as usize];
             b.pair[od] += 1;
             b.mode[od][class(p.mode)] += 1;
             b.point[p.dest as usize] += 1;
+            b.stay[group(home[p.home as usize], p)][class(p.mode)] += 1.0;
+        }
+        for g in &mut b.stay {
+            let total: f32 = g.iter().sum();
+            if total > 0.0 { g.iter_mut().for_each(|x| *x /= total); }
         }
         b
     }
@@ -85,17 +95,37 @@ pub fn rechoose(c: &Choice, pop: &mut Population, job_weights: &[f64], job_minut
     let (home, work, mut pair, mut mode, mut point) = quotas(c, pop, job_weights, job_minutes, minutes, base);
 
     // Each worker keeps what has room.
-    let (mut pool, mut no_mode) = (vec![], vec![]);
+    let (mut pool, mut kept, mut no_mode) = (vec![], vec![], vec![]);
     for (i, p) in pop.persons.iter().enumerate().filter(|(_, p)| !p.student) {
         // dest u32::MAX = a new worker with no job yet (scenario.rs): it goes to the pool.
         let od = home[p.home as usize] * n + work.get(p.dest as usize).copied().unwrap_or(0);
         if p.dest != u32::MAX && pair[od] > 0 && point[p.dest as usize] > 0 {
             pair[od] -= 1;
             point[p.dest as usize] -= 1;
-            if mode[od][class(p.mode)] > 0 { mode[od][class(p.mode)] -= 1 } else { no_mode.push(i) }
+            kept.push(i);
         } else {
             pool.push(i);
         }
+    }
+    // Who keeps a shrinking mode: a weighted draw without replacement (Efraimidis and Spirakis, 2006), the weight
+    // being the share of that mode in the worker's group. Key u^(1/w), largest first. u is a SplitMix64 hash of
+    // the person index: deterministic, and not tied to the golden-ratio order of the home and job samplers.
+    let key = |i: usize| {
+        let p = &pop.persons[i];
+        let w = f64::from(base.stay[group(home[p.home as usize], p)][class(p.mode)]);
+        let mut z = (i as u64).wrapping_add(1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        let u = ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64;
+        u.powf(1.0 / w)
+    };
+    let mut kept: Vec<(f64, usize)> = kept.into_iter().map(|i| (key(i), i)).collect();
+    kept.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let kept = kept.into_iter().map(|(_, i)| i);
+    for i in kept {
+        let p = &pop.persons[i];
+        let m = &mut mode[home[p.home as usize] * n + work[p.dest as usize]][class(p.mode)];
+        if *m > 0 { *m -= 1 } else { no_mode.push(i) }
     }
 
     // The surplus takes the free places: first a comuna from the row of its home comuna, then a point in it.

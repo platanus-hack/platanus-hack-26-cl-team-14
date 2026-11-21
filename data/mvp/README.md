@@ -1365,3 +1365,10 @@ approval remain pending.
 - Monumental: `grounds` (leisure=stadium outline), `stadium_shell` (building=stadium), `pitch` and nine named `stand`s. OSM has no stand heights. The shell uses the median 2023 Google Open Buildings 2.5D height of the 69 4 m pixels fully inside it: 15.2 m. Océano (3 pixels, 12.2 m) and Rapa Nui (40 pixels, 15.6 m) have their own median. Tucapel has OSM `building:levels` 1 (3.5 m). For the other six stands no pixel passed all filters (whole pixel inside the outline, presence >= 0.7, height 2–100 m), so they take the shell median, `height_source` `stadium_shell_median`. These are model estimates, not measurements.
 
 Rebuild (needs rasterio, shapely, pyproj, numpy, certifi; reads the main OSM API and byte ranges of the Google rasters): `python3 tools/pack/pitch_sites.py` from the repository root. © OpenStreetMap contributors, ODbL 1.0.
+
+## person_traits_workers.csv and person_traits_students.csv
+
+- Source: INE Census 2024 person microdata, through `tools/pack/person_traits.py`. Brief: `context/research/person-age-household.md`.
+- `person_traits_workers.csv` (`origin_cut,destination_cut,mode,age_band,household_size,commuters`) splits each row of `mode_od.csv` by age band and household size. Its cells sum exactly to `mode_od.csv`. The engine reads it in place of `mode_od.csv`, so **regenerate it whenever `mode_od.csv` changes**.
+- `person_traits_students.csv` (`cut,age_band,household_size,students`): RM residents who attend basic or secondary school, by home comuna.
+- Age band: 0 under 15, 1 15–24, 2 25–44, 3 45–64, 4 65+. Household size 1 to 5, 5 = 5 or more.
