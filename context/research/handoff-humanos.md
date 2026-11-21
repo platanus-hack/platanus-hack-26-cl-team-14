@@ -6,6 +6,10 @@ Usa esta pregunta del primer ensayo para comprobar el arranque del chat y de la 
 
 Lee del chat el cambio que estima el motor en Universidad de Chile, en subidas por día laboral. Muestra esa misma ejecución en la maqueta nativa. Luego escribe una pregunta del jurado. Ambas preguntas usan `simulate_city`.
 
+## Descarga pública
+
+Descarga el ZIP de macOS con Apple Silicon o Linux x86_64. Descomprímelo y ejecuta `./run.sh` desde esa carpeta. El lanzador requiere curl. En Linux, la maqueta requiere glibc 2.44 o posterior. Para usar el chat, instala Node.js 22 o posterior y sigue `README.txt` del ZIP. [santiaguito.cl v0.1.0](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/releases/tag/v0.1.0).
+
 ## Qué puedes probar hoy
 
 El motor en `main` cambia residentes, empleos y tiempos de viaje. Puede cerrar o reabrir estaciones existentes. Comienza cada pregunta desde el escenario base. El chat recibe la estimación. El motor publica el mismo resultado para la vista. El motor estima la demanda de retorno de eventos por separado. El cálculo de eventos aplica al período completo de retorno. El chat ya puede estimar entradas en nuevos puntos de Metro. Esta función estima demanda del modelo. [PR #193](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/193), [configuración y alcance](../../README.md#ask-a-question-from-your-local-agent), [PR #137](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/137).
@@ -34,4 +38,4 @@ Claude Code ejecutó la pregunta preparada en el ensayo. El permiso documentado 
 
 - El ensayo de la pregunta preparada mostró menos subidas en Universidad de Chile y un cambio de alturas en la misma ejecución. Lee la cifra de la estación y su unidad. Las capturas muestran Tobalaba. Quedan pendientes el plano de Universidad de Chile y la grabación continua. [Traza y capturas del ensayo](https://discord.com/channels/1573514576400752640/1573688250797658172/1573712370340204634).
 - Ensaya una pregunta inédita con la maqueta aceptada. Para cada pregunta, anota cuándo cambia la ventana y cuándo termina de responder el chat. Queda pendiente aceptar el detalle en la periferia y las personas que caminan en esa misma revisión.
-- El nombre es «santiaguito.cl». El campo `deploy-url` abre el repositorio. Falta el enlace público a la aplicación o a una descarga utilizable. [Ficha](../../platanus-hack-project.jsonc).
+- El nombre es «santiaguito.cl». El campo `deploy-url` abre el repositorio. La descarga pública está disponible. El equipo decide qué dirección usar en la ficha. [Ficha](../../platanus-hack-project.jsonc).
