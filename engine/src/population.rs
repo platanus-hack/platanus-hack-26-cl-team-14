@@ -93,4 +93,4 @@ impl Population {
 #[path = "population/trips.rs"]
 mod trips;
 #[allow(unused_imports)] // Each binary imports only the population outputs it needs.
-pub use trips::{TripGroup, TripPlan, sample_trips};
+pub use trips::{TripDelta, TripGroup, TripPlan, sample_trips, trip_deltas};
