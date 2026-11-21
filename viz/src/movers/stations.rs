@@ -76,11 +76,19 @@ pub(super) fn spawn_closed_sign(commands: &mut Commands, station: &Value) {
 
 pub(super) fn position_closed_signs(
     camera: Single<(&Camera, &GlobalTransform), With<Camera3d>>,
+    window: Single<&Window, With<bevy::window::PrimaryWindow>>,
+    canvas: Query<&Sprite, With<crate::pixels::CityCanvas>>,
     mut signs: Query<(&ClosedSign, &mut Node, &mut Visibility)>,
 ) {
     let (camera, transform) = *camera;
     for (sign, mut node, mut visibility) in &mut signs {
-        if let Ok(point) = camera.world_to_viewport(transform, sign.0) {
+        if let Ok(mut point) = camera.world_to_viewport(transform, sign.0) {
+            // Pixel mode centres and scales the 3D target on a window-sized UI camera.
+            if let Ok(sprite) = canvas.single()
+                && let (Some(size), Some(viewport)) = (sprite.custom_size, camera.logical_viewport_size())
+            {
+                point = window.size() * 0.5 + (point / viewport - Vec2::splat(0.5)) * size;
+            }
             node.left = px(point.x - SIGN_SIZE / 2.);
             node.top = px(point.y - SIGN_SIZE / 2.);
             *visibility = Visibility::Inherited;

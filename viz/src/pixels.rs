@@ -25,7 +25,7 @@ impl Plugin for PixelMode {
 }
 
 #[derive(Component)]
-struct CityCanvas;
+pub(crate) struct CityCanvas;
 
 fn sample_size(window: &Window) -> UVec2 {
     UVec2::new(
