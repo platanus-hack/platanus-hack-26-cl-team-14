@@ -28,7 +28,12 @@ def utm19s_to_lonlat(x, y):
 
 import csv, json, sys, collections
 eod_dir, nom = sys.argv[1], sys.argv[2]
-rel = [r for r in json.load(open(nom)) if r['osm_type'] == 'relation'][0]['geojson']['coordinates']
+with open(nom) as source:
+    mapocho = next(
+        result for result in json.load(source)
+        if result['osm_type'] == 'relation' and str(result['osm_id']) == '7548664'
+    )
+rel = mapocho['geojson']['coordinates']
 # Urban stretch: Lo Barnechea (La Dehesa) to Pudahuel (Ruta 68 area).
 LON0, LON1 = -70.80, -70.52
 K = 111320 * math.cos(math.radians(-33.43))
@@ -72,9 +77,9 @@ for R in (800,):
         by_hour[r['HoraIni'][:2]] += f
         pairs[tuple(sorted((names[r['ComunaOrigen']], names[r['ComunaDestino']])))] += f
         if r['TiempoViaje']: minutes.append((int(r['TiempoViaje']), f))
-print('weekday trips total (expanded):', round(tot))
+print('weekday trips with origin and destination coordinates (expanded):', round(tot))
 print('both ends <=800 m from river, >=3 km apart east-west after projection:', round(along['trips']))
-print('share of all weekday trips: %.2f%%' % (100*along['trips']/tot))
+print('share of weekday trips with origin and destination coordinates: %.2f%%' % (100*along['trips']/tot))
 for m, v in by_mode.most_common(): print(' mode', m, round(v), '%.1f%%' % (100*v/along['trips']))
 minutes.sort(); acc=0; half=sum(f for _,f in minutes)/2
 for t,f in minutes:
