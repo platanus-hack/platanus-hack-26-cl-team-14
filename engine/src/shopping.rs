@@ -107,8 +107,11 @@ impl Shopping {
                 .map(|&o| json!({ "id": cuts[o], "name": names[o], "trips": by_home[o].round() })).collect::<Vec<_>>() })
         };
         // A removed site reports its shoppers in the base, an added site in the scenario.
+        // Only baseline shops count as removed and only shops still in the final stock count as added.
         let sites: Vec<Value> = sites.iter().map(|(x, y, removed, added)| {
-            let (shops, visitors) = if added.is_empty() { (-(removed.len() as i64), visitors(&b, &b_size, removed)) } else { (added.len() as i64, visitors(&s, &s_size, added)) };
+            let removed: Vec<Shop> = removed.iter().filter(|p| self.shops.contains(p)).copied().collect();
+            let added: Vec<Shop> = added.iter().filter(|p| shops.contains(p)).copied().collect();
+            let (shops, visitors) = if added.is_empty() { (-(removed.len() as i64), visitors(&b, &b_size, &removed)) } else { (added.len() as i64, visitors(&s, &s_size, &added)) };
             json!({ "longitude": x, "latitude": y, "shops": shops, "shoppers": summary(visitors) })
         }).collect();
         let mut changed: Vec<usize> = (0..n).filter(|&d| (inflow(&s, d) - inflow(&b, d)).abs() >= 1.0).collect();

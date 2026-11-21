@@ -306,7 +306,7 @@ async function dispatch({ method, params }) {
       .sort((a, b) => Math.abs(b.jobs_scenario - b.jobs_base) - Math.abs(a.jobs_scenario - a.jobs_base)).slice(0, 5);
     if (placesUsed.length) result.places_used = placesUsed;
     result.blocks_changed = blocks_changed.slice(0, 5);
-    result.shopping.destinations_changed = result.shopping.destinations_changed.slice(0, 5);
+    if (result.shopping) result.shopping.destinations_changed = result.shopping.destinations_changed.slice(0, 5); // cached results from before #360 have no shopping
     result.omitted = 'Other stations, zones, comuna flows and trip groups are in the city view, not here. Do not describe them.';
     return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   } catch (error) {
