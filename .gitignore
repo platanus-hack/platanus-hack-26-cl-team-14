@@ -16,3 +16,6 @@ target/
 dist/
 build/
 .DS_Store
+
+# Scraped data (large, rebuild with tools/scrape/)
+data/raw/
