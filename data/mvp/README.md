@@ -747,4 +747,32 @@ passenger counts, Metro ride times or historical bus routes.
 
 ```sh
 python3 -I tools/pack/bus_station_access.py --gtfs /path/to/GTFS_20260321_v3.zip
+
+
+### Walking and cycling by distance
+
+`active_mode_distance.json` estimates the probability that a 2012 Santiago trip to work
+used a bicycle, conditional on the traveler walking or cycling. For straight-line distance
+`d` in km, the estimated log odds of cycling are `intercept + slope_log1p_km × ln(1 + d)`.
+Use this distribution to assign walking and cycling within an existing active-mode total.
+The fit describes mode choices at different distances in 2012. A forecast of a cycleway's
+effect needs evidence from a change in the network.
+
+The builder uses the EOD fields `Proposito=1` and `ModoAgregado=17,18`. It keeps positive
+normal-weekday expansion weights and positive, non-imputed `DistEuclidiana` in metres.
+It multiplies the trip and person normal-weekday weights. It excludes 845 imputed distances
+and 113 nonpositive distances. The fit covers 780 walking and 560 cycling observations from
+1,118 households, equivalent to 210,874.42 walking and 122,876.47 cycling trips.
+[Survey](https://www.sectra.gob.cl/info-territorial/region-metropolitana-de-santiago/) · [INE expansion method](https://www.ine.gob.cl/docs/default-source/sistema-de-indicadores-y-estandares-de-desarrollo-urbano/manuales/actualizaci%C3%B3n-2019/manual-procedimientos-siedu-act2019.pdf)
+
+Five folds keep households together. Each household's group is the first eight bytes of
+its SHA-256 digest as a big-endian integer, modulo five, using the UTF-8 source ID.
+Each fit uses four folds. Its reference uses the weighted bicycle share of those same
+four folds. Pooled weighted log loss in the held-out folds fell from 0.660953 to 0.536681.
+One fold had higher loss with distance, 0.663965 versus 0.645002. The full-sample model
+uses all five folds after the pooled comparison met its acceptance rule.
+[Preregistration](https://discord.com/channels/1573514576400752640/1573579088684253235/1573676569355092079)
+
+```sh
+python3 -I tools/pack/active_mode_distance.py --survey /path/to/EOD_STGO
 ```
