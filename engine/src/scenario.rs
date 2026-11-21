@@ -48,7 +48,7 @@ pub struct Scenario {
 const ASSUMPTIONS: [&str; 7] = [
     "Persons are synthetic and consistent with the Census 2024 margins. They are not microdata.",
     "The station model (L4b) is fitted on the baseline. Its scale, classes and profiles do not change.",
-    "Travel times are comuna to comuna and biased low. Thus the effects of a time change are upper values.",
+    "Travel times are comuna to comuna and lower than survey times. The effect of a time change is an unvalidated sensitivity; the size and direction of its error are unknown.",
     "A mode change does not reach the stations yet: stations use the baseline public share of the home comuna.",
     "Open city for residents: more or fewer residents change the total of workers, with the baseline workers per resident of the comuna.",
     "Students do not choose again.",
