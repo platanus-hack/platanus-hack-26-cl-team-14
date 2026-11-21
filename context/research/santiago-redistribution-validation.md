@@ -7,7 +7,7 @@ The verified INE viewer exposes only 144 top-three flows from 48 Santiago origin
 It does not supply a complete historical matrix. A full 2002 cross-tab remains unverified.
 Do not invent a predictive Santiago score from the current engine's baseline identity.
 
-Retrieval update, 2026-11-21: [official Redatam CrossTab](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CrossTab?BASE=CENSO_2002&ITEM=CRUCPOB&lang=ESP) returned aggregates beyond the viewer's top three; the source audit verified employed codes `SLABORAL` 1, 2, and 4.
+Retrieval update, 2026-11-21: [official Redatam CrossTab](https://redatam-ine.ine.cl/redbin/RpWebStats.exe/CrossTab?BASE=CENSO_2002&ITEM=CRUCPOB&lang=ESP) returned aggregates beyond the viewer's top three; the [official questionnaire, PDF page 3](https://redatam-ine.ine.cl/cuestionarios/C2002.pdf) verifies employed codes `SLABORAL` 1, 2, and 4.
 Santiago→Providencia is 8,025 paid workers + 278 temporarily absent workers + 47 unpaid family workers = 8,350, matching INE exactly.
 The earlier provisional `SLABORAL <= 3` filter omitted the 47 unpaid family workers; the discrepancy is resolved by the corrected cohort, not normalization.
 Only this control pair is verified. A complete, correctly filtered 2002 OD matrix remains unverified and is not an approved evaluation target.
