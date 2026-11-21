@@ -116,15 +116,17 @@ def route_record(origin, destination, chain):
     segments = []
     modes = {"metro_lines": [], "bus_routes": []}
 
-    def add_segment(mode, service, kind, points):
+    def add_segment(mode, service, kind, points, stop_ids):
         start = len(path) - 1
         for lon, lat in points:
             point = [round(lon, 5), round(lat, 5)]
             if path[-1] != point:
                 path.append(point)
-        segments.append({"start": start, "end": len(path)-1, "mode": mode, "service": service, "kind": kind})
+        segments.append({"start": start, "end": len(path)-1, "mode": mode, "service": service, "kind": kind,
+                         "stop_ids": stop_ids})
 
-    add_segment("walk", None, "access", [router.coords[chain[0][1]]])
+    access_stop = chain[0][1]
+    add_segment("walk", None, "access", [router.coords[access_stop]], [access_stop])
     i = 0
     while i < len(chain):
         node = chain[i]
@@ -134,7 +136,8 @@ def route_record(origin, destination, chain):
             while i < len(chain) and chain[i][0] == "s":
                 i += 1
             if i > start + 1:
-                add_segment("walk", None, "transfer", (router.coords[n[1]] for n in chain[start+1:i]))
+                stop_ids = [n[1] for n in chain[start:i]]
+                add_segment("walk", None, "transfer", (router.coords[s] for s in stop_ids[1:]), stop_ids)
             continue
         pattern, first = node[1:]
         last = first
@@ -146,11 +149,12 @@ def route_record(origin, destination, chain):
         route = trip_for_pattern[pattern]["route_id"]
         mode, field = {"1": ("metro", "metro_lines"), "3": ("bus", "bus_routes"),
                        "0": ("rail", "rail_routes")}[routes[route]]
-        add_segment(mode, route, "ride", ride(pattern, first, last))
+        add_segment(mode, route, "ride", ride(pattern, first, last),
+                    [patterns[pattern][first], patterns[pattern][last]])
         values = modes.setdefault(field, [])
         if route not in values:
             values.append(route)
-    add_segment("walk", None, "egress", [destination])
+    add_segment("walk", None, "egress", [destination], [chain[-1][1]])
     return {"path": path, **modes, "segments": segments}
 
 
