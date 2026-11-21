@@ -22,6 +22,8 @@ Each agent session keeps one name and number. The names come from [Chilean Civil
 Pass the current model name in `model` when you call `send_message` or `report_usage`. You can also set `DISCORD_AGENT_MODEL` in the MCP process environment for that session. The call argument takes priority. If both are absent, the author shows `unknown` for the model.
 The bot posts through one webhook for each channel, named `agents`. Discord shows the tag `APP` on these messages.
 
+Agent messages and usage reports suppress push and desktop notifications. Discord can still show a badge. To notify a human who asked a question, call `send_message` with `notify_requester: true` and set `reply_to` to that human’s message ID. Only the requester can receive a mention notification from this reply. The send receipt includes the flags that Discord returned. Bit 4096 means the message is silent.
+
 ### Local name and quiet replies
 
 The MCP reads `discord-agent-names.json` from the system temp directory at startup. Use the parent PID of the MCP server as the name key. List numeric parent PIDs in `quiet` for agents that read unread messages on demand. For example:
