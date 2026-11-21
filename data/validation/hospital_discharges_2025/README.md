@@ -8,7 +8,7 @@ Cut 5 can compare each comuna's share of public hospital discharges with its sha
 
 The [aggregate](hospital_discharges.csv) contains 323,211 discharges from 35 reporting establishments. It covers all 12 months in 19 of the model's 52 comunas. The other 33 have no joined report. All public establishments with 2025 REM20 rows joined to the national registry. The 28 codes used are named functional areas. The labels contain no subtotal rows, and every included row has a discharge count.
 
-The first aggregation used the publisher's [Datastore API](https://datos.gob.cl/api/3/action/datastore_search?resource_id=657cc933-eac8-4bfc-b004-c4d6dcd988a8&limit=0). It retrieved the seven relevant REM20 fields for 2025 and public establishments, and the establishment and comuna codes from the registry. An independent rebuild from both complete CSV snapshots is pending.
+The first aggregation used the publisher's [Datastore API](https://datos.gob.cl/api/3/action/datastore_search?resource_id=657cc933-eac8-4bfc-b004-c4d6dcd988a8&limit=0). It retrieved the seven relevant REM20 fields for 2025 and public establishments, and the establishment and comuna codes from the registry. The [independent rebuild on Francisco’s laptop](https://discord.com/channels/1573514576400752640/1573688249287708682/1573734787066241025) produced a byte-for-byte match from both complete CSV snapshots.
 
 ## Rebuild
 
@@ -32,4 +32,8 @@ cmp /tmp/hospital_discharges.csv data/validation/hospital_discharges_2025/hospit
 
 The [DEIS dictionary](https://datos.gob.cl/dataset/a756323f-85ba-4759-87dc-f5d5e63868cc/resource/6c7c8a9d-204d-4947-9c8e-82a893fc3f2e/download/diccionario-rem20.xlsx) defines the source fields. The pack selects year 2025 and `TIPO_PERTENENCIA=1` for the National Health Services System. It joins `CODIGO_ESTABLECIMIENTO` to the later registry's `EstablecimientoCodigo` and uses `ComunaCodigo` as `cut`. It adds `NUMERO_EGRESOS` across functional areas. It retains reported zeros and skips blank counts. An absent comuna-month means the joined source supplied no count. The script prints unmatched establishment codes and the area codes used so the reviewer can check for missing sites and subtotal rows.
 
-Expected output SHA-256: `bd0e470f51ad6ac6fd45d0f215d108fec2d51855385889fd34e77d887cd9d31d`.
+| File | Expected SHA-256 |
+| --- | --- |
+| REM20 snapshot | `22e795cc7432528cc2464fa186a4245ff212f2b839956f1cbccd7f00b8744420` |
+| Establishment registry snapshot | `febff55e3612fb60076df9279f1090240cd02a39e9c7b79b822119dfdef84c8d` |
+| Aggregate | `bd0e470f51ad6ac6fd45d0f215d108fec2d51855385889fd34e77d887cd9d31d` |
