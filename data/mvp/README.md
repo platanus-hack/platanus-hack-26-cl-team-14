@@ -959,7 +959,7 @@ python3 -I tools/pack/city_footprints.py
 
 ## Santiago landmarks
 
-`web/data/santiago_landmarks.geojson` contains eight public landmarks (14,810 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
+`web/data/santiago_landmarks.geojson` contains nine public landmarks (15,695 bytes). Each GeoJSON feature has a stable string ID, Spanish `name`, `kind`, `osm_type`, numeric `osm_id`, and a `source_url` for an official place reference. Coordinates use WGS84, in longitude and latitude order, to five decimals.
 
 | ID | City-view geometry | Official reference |
 | --- | --- | --- |
@@ -971,6 +971,9 @@ python3 -I tools/pack/city_footprints.py
 | `parque_forestal` | Mapped park boundary. | [Municipal tourism office identifies Parque Forestal](https://www.santiagoturismo.cl/es/parque-forestal/) |
 | `parque_ohiggins` | Mapped park boundary. | [Municipal tourism office identifies Parque O’Higgins](https://www.santiagoturismo.cl/es/parque-ohiggins/) |
 | `rio_mapocho` | Main river centreline inside the Santiago roads view. | [Environment Ministry record for Río Mapocho](https://sistemahumedales.mma.gob.cl/HumedalesUrbanos/DetailsPublico/114) |
+| `movistar_arena` | Santander Arena footprint inside Parque O’Higgins. OSM way 32864171 has one exterior ring, no holes, and no height or levels tag. | [Venue operator](https://www.santanderarena.cl/) · [April 2026 event ticket lists Movistar Arena](https://www.puntoticket.com/red-bull-batalla-internacional-2026) |
+
+The arena keeps the event-era ID `movistar_arena`. Its `name` is the current Santander Arena, and `former_name` is Movistar Arena. OSM also gives the roof colour (`roof_color` = `#e2dfdf`) and Wikidata ID (`wikidata` = `Q3302708`).
 
 The `height_m` field gives a tagged structure height. The `elevation_m` field gives a tagged summit elevation above sea level. Fields without tags are absent. The summit points locate the two cerros. The data contain no hill-surface model. The polygon features retain all mapped rings. La Moneda has one exterior ring and four interior courtyard rings. The builder uses a 1 m simplification tolerance for the built outlines, 4 m for the parks, and 10 m for the river. The river connects ten `main_stream` members of OSM relation 7548664 in their original order. The simplified river path measures about 64.4 km inside this view.
 

@@ -1,4 +1,4 @@
-"""Export eight public Santiago landmarks from the cached November 2026 urban OSM extract."""
+"""Export nine public Santiago landmarks from the cached November 2026 urban OSM extract."""
 import json
 import subprocess
 import sys
@@ -18,6 +18,7 @@ PLACES = (
     ("parque_forestal", "park", "w332070819", "https://www.santiagoturismo.cl/es/parque-forestal/"),
     ("parque_ohiggins", "park", "w14817188", "https://www.santiagoturismo.cl/es/parque-ohiggins/"),
 )
+ARENA = ("movistar_arena", "arena", "w32864171", "https://www.santanderarena.cl/")
 # Main-stream members of OSM waterway relation 7548664 inside the view, in river order.
 MAPOCHO = (313436483, 1557777157, 1146079769, 32920812, 607853671,
            23393901, 1570502197, 1570502190, 22716905, 22700378)
@@ -31,14 +32,15 @@ def feature(place_id, name, kind, osm, source, geometry):
     return {"type": "Feature", "id": place_id, "geometry": geometry, "properties": props}
 
 
-ids = [p[2] for p in PLACES] + [f"w{n}" for n in MAPOCHO]
+ids = [p[2] for p in (*PLACES, ARENA)] + [f"w{n}" for n in MAPOCHO]
 with tempfile.NamedTemporaryFile(suffix=".osm.pbf") as selected:
     subprocess.run(["osmium", "getid", "-r", PBF, *ids, "-f", "pbf"], stdout=selected, check=True)
     stream = subprocess.check_output(["osmium", "export", "-u", "type_id", "-f", "geojsonseq", selected.name])
 features = [json.loads(line.lstrip(b"\x1e")) for line in stream.split(b"\n") if line]
 objects = {f["id"]: f for f in features}
-landmarks = []
-for place_id, kind, osm, source in PLACES:
+
+
+def place(place_id, kind, osm, source):
     if kind == "peak":
         obj = objects[osm]
         shape = {"type": "Point", "coordinates": [round(c, 5) for c in obj["geometry"]["coordinates"]]}
@@ -53,8 +55,12 @@ for place_id, kind, osm, source in PLACES:
     for tag, field in (("height", "height_m"), ("building:levels", "levels"), ("ele", "elevation_m")):
         if tag in tags:
             item["properties"][field] = float(tags[tag])
-    landmarks.append(item)
+    if kind == "arena":
+        item["properties"].update(former_name=tags["old_name:2008-2026"],
+                                  roof_color=tags["roof:colour"], wikidata=tags["wikidata"])
+    return item
 
+landmarks = [place(*entry) for entry in PLACES]
 course = []
 for n in MAPOCHO:
     line = objects[f"w{n}"]["geometry"]["coordinates"]
@@ -63,7 +69,7 @@ for n in MAPOCHO:
 river = feature("rio_mapocho", "Río Mapocho", "river", "r7548664", RIVER_SOURCE,
                 {"type": "LineString", "coordinates": rounded_path(course, 10)})
 river["properties"]["osm_way_ids"] = MAPOCHO
-landmarks.append(river)
+landmarks.extend((river, place(*ARENA)))
 write_json(OUT, {"type": "FeatureCollection", "attribution": "© OpenStreetMap contributors",
                  "license": "ODbL-1.0", "osm_timestamp": "2026-11-20T21:21:21Z", "features": landmarks})
 print(f"{len(landmarks)} landmarks, {OUT.stat().st_size} bytes")
