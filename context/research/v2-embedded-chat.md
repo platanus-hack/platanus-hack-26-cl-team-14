@@ -12,3 +12,9 @@ Keep the child view mounted at button size while the panel is closed. Reuse
 `tools/city-chat.sh` for the interactive CLI and its engine connection. Keep
 xterm.js 6.0.0 and its fit add-on 0.11.0 local. Check focus, transparency, and conversation
 continuity in the native window.
+
+The closed view uses one button. The left edge of the open view uses pointer
+capture while dragging. The right edge stays fixed. The existing terminal fits
+to the new bounds and updates the same PTY.
+[Pointer capture](https://developer.mozilla.org/en-US/docs/Web/API/Element/setPointerCapture)
+[Webview bounds](https://docs.rs/wry/0.57.3/wry/struct.WebView.html#method.set_bounds)
