@@ -31,7 +31,7 @@ use bevy::{
     image::{CompressedImageFormats, ImageSampler, ImageType},
     mesh::Indices,
     render::render_resource::PrimitiveTopology,
-    camera::primitives::{Frustum, Sphere as Bounds},
+    camera::primitives::{Aabb, Frustum, Sphere as Bounds},
     prelude::*,
 };
 use serde_json::Value;
@@ -624,6 +624,7 @@ impl StreetIndex {
 }
 
 struct Group {
+    car_bounds: Option<Aabb>,
     cars: Vec<u16>,
     itineraries: Vec<RiderPlan>,
     duration: f32,
@@ -827,7 +828,17 @@ fn read_result(
             .map(RiderPlan::duration)
             .fold(*path.seconds.last().unwrap(), f32::max);
         replay.longest = replay.longest.max(duration);
+        let car_bounds = (row["mode"] == "car").then(|| {
+            let (min, max) = path.points.iter().fold(
+                (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)),
+                |(min, max), &point| (min.min(point), max.max(point)),
+            );
+            // Cover the same visibility margin as the per-vehicle sphere.
+            let margin = Vec3::splat(100.);
+            Aabb::from_min_max(min - margin, max + margin)
+        });
         replay.departures[bin].push(Group {
+            car_bounds,
             cars: if row["mode"] == "car" {
                 fleet.cars(row["origin_cut"].as_str().unwrap(), id, copies[0])
             } else {
@@ -1318,7 +1329,9 @@ fn draw(
             if presence == 0. {
                 continue;
             }
-            if since_bin > BIN + g.duration + queues.group_wait(bin, group) {
+            if since_bin > BIN + g.duration + queues.group_wait(bin, group)
+                || g.car_bounds.as_ref().is_some_and(|bounds| !frustum.intersects_obb_identity(bounds))
+            {
                 continue;
             }
             let copies = g.copies[tier];
