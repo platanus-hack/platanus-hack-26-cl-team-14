@@ -32,7 +32,7 @@ impl Plugin for EventsPlugin {
                 refresh
                     .after(crate::city::draw_buildings)
                     .after(RefreshFanJourneys)
-                    .run_if(resource_changed::<Scenario>.or(resource_changed::<FanJourneys>)),
+                    .run_if(resource_changed::<Scenario>),
             )
             .add_systems(Update, animate.after(refresh).after(UpdateClock));
     }
