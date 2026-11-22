@@ -129,17 +129,18 @@ fn draw(feature: &Value, kind: &str, removed: bool, mask: &StreetMask) -> Surfac
     // The transparent pass lays engine edits over the printed city.
     let color = [0.85, 0.13, 0.09, 1.];
     match kind {
-        "building" => mesh.polygon(
-            &rings(&geometry["coordinates"]),
-            0.3,
-            if removed {
+        "building" => {
+            let footprint = rings(&geometry["coordinates"]);
+            if removed && mask.drape_if_cut(&mut mesh, &footprint, 0.3, color) {
+                return mesh;
+            }
+            let height = if removed {
                 0.
             } else {
                 feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32
-            },
-            color,
-            color,
-        ),
+            };
+            mesh.polygon(&footprint, 0.3, height, color, color);
+        }
         "road" | "line" => {
             let lines = if geometry["type"] == "MultiLineString" {
                 geometry["coordinates"].as_array().unwrap().clone()

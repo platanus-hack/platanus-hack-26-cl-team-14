@@ -43,18 +43,31 @@ impl StreetMask {
     }
 
     pub(super) fn drape(&self, surface: &mut Surface, rings: &[Vec<Vec3>], lift: f32, color: Rgba) {
+        if !self.drape_if_cut(surface, rings, lift, color) {
+            drape_land(surface, rings, lift, color);
+        }
+    }
+
+    // Leave the surface untouched when the caller can use its original geometry.
+    pub(super) fn drape_if_cut(
+        &self,
+        surface: &mut Surface,
+        rings: &[Vec<Vec3>],
+        lift: f32,
+        color: Rgba,
+    ) -> bool {
         if self.0.is_empty() {
-            return drape_land(surface, rings, lift, color);
+            return false;
         }
         let Some(outer) = rings.first().filter(|ring| !ring.is_empty()) else {
-            return;
+            return false;
         };
         let (lo, hi) = outer
             .iter()
             .fold((outer[0], outer[0]), |(lo, hi), &p| (lo.min(p), hi.max(p)));
         let bounds = Rect::new((lo.x, lo.z), (hi.x, hi.z));
         if !self.intersects(&bounds) {
-            return drape_land(surface, rings, lift, color);
+            return false;
         }
 
         let road = polygon(rings);
@@ -66,7 +79,7 @@ impl StreetMask {
             (relation.is_intersects() && !relation.is_touches()).then_some(mask)
         });
         let Some(first) = cuts.next() else {
-            return drape_land(surface, rings, lift, color);
+            return false;
         };
 
         let remaining = cuts.fold(road.difference(first), |parts, mask| parts.difference(mask));
@@ -84,5 +97,6 @@ impl StreetMask {
                 .collect();
             drape_land(surface, &rings, lift, color);
         }
+        true
     }
 }
