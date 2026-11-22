@@ -1,7 +1,11 @@
-//! Display-only yielding at UOCT junction J071171 (Tobalaba/Larraín).
+//! Display-only yielding at selected shared road nodes in the UOCT inventory.
 use super::{BIN, DAY, Life, Path, Replay, Vehicle, departure_offset, world};
 use bevy::prelude::Vec3;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap},
+    sync::Arc,
+};
 
 // City seconds between entries into the junction. At 9 m/s, the preceding
 // car has passed the centre by 26 m before the next one reaches its stop line.
@@ -11,16 +15,30 @@ const HEADWAY: f32 = 1.3;
 const STOP_DISTANCE: f32 = 14.;
 const QUEUE_RADIUS: f32 = 80.;
 
+// Shared OSM nodes, matched to UOCT inventory locations.
+// Grecia is one east-side merge, not an aggregate roundabout node.
+const LOCATIONS: [(f64, f64); 3] = [
+    (-70.558968, -33.4521462),  // J071171 · Tobalaba/Larraín
+    (-70.6141251, -33.4379143), // J005181 · Antonio Varas/Pocuro
+    (-70.5757932, -33.4691852), // J175111 · Grecia Oriente
+];
+
 type Car = (usize, usize, usize);
+
+struct Trip {
+    car: Car,
+    start: f32,
+    approaches: Arc<[Approach]>,
+}
 
 #[derive(Clone, Copy)]
 struct Approach {
+    junction: usize,
     lane: usize,
     stop_age: f32,
 }
 
 struct Pass {
-    car: Car,
     approach: Approach,
     arrive: f32,
     release: f32,
@@ -29,9 +47,10 @@ struct Pass {
 
 #[derive(Default)]
 pub(super) struct Queues {
-    junction: Vec3,
+    junctions: [Vec3; LOCATIONS.len()],
     passes: Vec<Pass>,
-    by_car: HashMap<Car, usize>,
+    by_car: HashMap<Car, Vec<usize>>,
+    now: f32,
     pub(super) longest_wait: f32,
 }
 
@@ -40,9 +59,10 @@ impl Queues {
         self.passes.clear();
         self.by_car.clear();
         self.longest_wait = 0.;
-        // OSM node 256366826 is the shared node on the two routed streets.
-        self.junction = world(-70.558968, -33.4521462);
-        let mut routes = HashMap::new();
+        self.junctions = LOCATIONS.map(|(lon, lat)| world(lon, lat));
+        let mut routes = HashMap::<*const Path, Arc<[Approach]>>::new();
+        let mut trips = Vec::new();
+        let mut due = BinaryHeap::new();
         for (bin, groups) in replay.departures.iter().enumerate() {
             for (group, flow) in groups.iter().enumerate() {
                 if matches!(flow.lifecycle, Life::Leave)
@@ -51,50 +71,78 @@ impl Queues {
                 {
                     continue;
                 }
-                let approach = routes
-                    .entry(Arc::as_ptr(&flow.path))
-                    .or_insert_with(|| approach(&flow.path, self.junction, replay));
-                let Some(approach) = *approach else {
+                let approaches = routes.entry(Arc::as_ptr(&flow.path)).or_insert_with(|| {
+                    let mut matches: Vec<_> = self
+                        .junctions
+                        .iter()
+                        .copied()
+                        .enumerate()
+                        .filter_map(|(id, junction)| approach(&flow.path, id, junction, replay))
+                        .collect();
+                    matches.sort_by(|a, b| a.stop_age.total_cmp(&b.stop_age));
+                    matches.into()
+                });
+                let Some(first) = approaches.first() else {
                     continue;
                 };
                 for copy in 0..flow.cars.len() {
-                    let arrive =
-                        bin as f32 * BIN + departure_offset(flow.phase, copy) + approach.stop_age;
-                    self.passes.push(Pass {
+                    let start = bin as f32 * BIN + departure_offset(flow.phase, copy);
+                    due.push(Reverse((
+                        arrival_ms(start + first.stop_age),
+                        trips.len(),
+                        0,
+                    )));
+                    trips.push(Trip {
                         car: (bin, group, copy),
-                        approach,
-                        arrive,
-                        release: 0.,
-                        ages: [0.; 2],
+                        start,
+                        approaches: approaches.clone(),
                     });
                 }
             }
         }
-        // FIFO reservations cannot starve one approach. Slots are tied to
-        // the replay clock and remain the same when the viewer seeks or pans.
-        self.passes.sort_by(|a, b| a.arrive.total_cmp(&b.arrive));
-        let mut next = f32::NEG_INFINITY;
-        for (index, pass) in self.passes.iter_mut().enumerate() {
-            pass.release = pass.arrive.max(next);
-            next = pass.release + CLEARANCE;
-            self.longest_wait = self.longest_wait.max(pass.release - pass.arrive);
-            self.by_car.insert(pass.car, index);
+        // Schedule FIFO admissions at each site. After a release, propagate
+        // its delay to this car's next stop along the original route.
+        let mut next = [f32::NEG_INFINITY; LOCATIONS.len()];
+        while let Some(Reverse((arrival, index, stop))) = due.pop() {
+            let trip = &trips[index];
+            let approach = trip.approaches[stop];
+            let arrive = arrival as f32 / 1_000.;
+            let release = arrive.max(next[approach.junction]);
+            next[approach.junction] = release + CLEARANCE;
+            self.longest_wait = self
+                .longest_wait
+                .max(release - trip.start - approach.stop_age);
+            self.by_car
+                .entry(trip.car)
+                .or_default()
+                .push(self.passes.len());
+            self.passes.push(Pass {
+                approach,
+                arrive,
+                release,
+                ages: [0.; 2],
+            });
+            if let Some(following) = trip.approaches.get(stop + 1) {
+                let arrival = release + (following.stop_age - approach.stop_age);
+                due.push(Reverse((arrival_ms(arrival), index, stop + 1)));
+            }
         }
     }
 
     pub(super) fn seek(&mut self, now: f32) {
+        self.now = now;
         for day in 0..2 {
             let now = now + day as f32 * DAY;
-            let mut leader = [f32::INFINITY; 4];
+            let mut leader = [[f32::INFINITY; 4]; LOCATIONS.len()];
             for pass in &mut self.passes {
                 let free = if now < pass.release {
                     (now - pass.arrive).min(0.)
                 } else {
                     now - pass.release
                 };
-                let lane = pass.approach.lane;
-                let progress = free.min(leader[lane] - HEADWAY);
-                leader[lane] = progress;
+                let last = &mut leader[pass.approach.junction][pass.approach.lane];
+                let progress = free.min(*last - HEADWAY);
+                *last = progress;
                 pass.ages[day] = pass.approach.stop_age + progress;
             }
         }
@@ -103,21 +151,37 @@ impl Queues {
     // Large map-scale bodies would overlap a close-spaced queue. Keep
     // the local footprint stable and restore map-scale sizing beyond it.
     pub(super) fn car_scale(&self, position: Vec3, scale: f32) -> f32 {
-        let offset = position - self.junction;
-        let distance = offset.x.hypot(offset.z);
+        let distance = self
+            .junctions
+            .iter()
+            .map(|&junction| {
+                let offset = position - junction;
+                offset.x.hypot(offset.z)
+            })
+            .fold(f32::INFINITY, f32::min);
         let blend = ((distance - QUEUE_RADIUS) / 30.).clamp(0., 1.);
         1.35 + (scale - 1.35) * blend
     }
 
     pub(super) fn age(&self, day_bin: i32, group: usize, copy: usize, age: f32) -> f32 {
         let key = (day_bin.rem_euclid(48) as usize, group, copy);
-        self.by_car.get(&key).map_or(age, |&index| {
-            self.passes[index].ages[usize::from(day_bin < 0)]
-        })
+        let Some(stops) = self.by_car.get(&key) else {
+            return age;
+        };
+        let day = usize::from(day_bin < 0);
+        let now = self.now + day as f32 * DAY;
+        let stop = stops
+            .partition_point(|&i| self.passes[i].release <= now)
+            .min(stops.len() - 1);
+        self.passes[stops[stop]].ages[day]
     }
 }
 
-fn approach(path: &Path, junction: Vec3, replay: &Replay) -> Option<Approach> {
+fn arrival_ms(seconds: f32) -> u32 {
+    (seconds * 1_000.).ceil() as u32
+}
+
+fn approach(path: &Path, id: usize, junction: Vec3, replay: &Replay) -> Option<Approach> {
     // Route packs may simplify a straight crossing into one segment. Match its
     // passage through the shared node, including ample route on both sides.
     let (near, dir, metres) = path.nearest(junction);
@@ -139,6 +203,7 @@ fn approach(path: &Path, junction: Vec3, replay: &Replay) -> Option<Approach> {
         2 + usize::from(inbound.z < 0.)
     };
     Some(Approach {
+        junction: id,
         lane,
         stop_age: stop / Vehicle::Car.speed(),
     })

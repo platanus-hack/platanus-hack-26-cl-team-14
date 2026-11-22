@@ -12,3 +12,20 @@ visual assumptions. The viewer uses the replay clock and leaves the engine,
 route closures, and reported travel times unchanged. SUMO also reserves time
 to clear an intersection between conflicting movements.
 [SUMO signal logic](https://sumo.dlr.de/docs/Simulation/Traffic_Lights.html)
+
+## Additional controls
+
+| UOCT | Shared OSM node | Movement in saved MUT A |
+| --- | --- | --- |
+| J071171, Tobalaba/Larraín | 256366826 | Crossing streams |
+| J005181, Antonio Varas/Pocuro | 332274486 | Crossing streams |
+| J175111, Grecia Oriente/Américo Vespucio | 310951822 | Merge into the same exit |
+
+The viewer reserves each site separately. A wait carries forward to the next
+site on the same route. Grecia covers one mapped merge. Other approaches in
+the roundabout keep their existing movement. The current locations passed a
+route check for two conflicting approaches in saved MUT A. This rule has no
+coverage at other nodes, for buses or for event traffic. A preliminary test
+at busy Tobalaba/Apoquindo estimated a maximum wait of 856 seconds under
+single occupancy, so that location stays outside this rule. The public
+inventory supplies locations only.
