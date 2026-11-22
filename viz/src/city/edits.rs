@@ -224,7 +224,7 @@ fn landmark_offset(before: &Value, after: &Value) -> Option<Vec3> {
 
 // Keep a building's overlays and transient copies across updates to unrelated edits.
 #[derive(Component)]
-struct BuildingEdit {
+pub(crate) struct BuildingEdit {
     id: String,
     solid: bool,
 }
