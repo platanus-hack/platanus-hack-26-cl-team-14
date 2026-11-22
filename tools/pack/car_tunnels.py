@@ -1,9 +1,40 @@
 """Find dry parts of car routes inside a mapped tunnel. Distances use the native view's metres."""
 import math
+import subprocess
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from functools import lru_cache
 
 from shapely import LineString, STRtree, union_all
 from shapely.geometry import Point
+
+from road_surface import source_way
+
+
+def with_covered_roads(roads, pbf):
+    with TemporaryDirectory() as tmp:
+        covered = Path(tmp) / "covered.pbf"
+        subprocess.run(["osmium", "tags-filter", pbf, "w/covered=yes", "-o", covered], check=True)
+        found = json.loads(subprocess.check_output([
+            "osmium", "export", "-u", "type_id", "--geometry-types", "linestring",
+            "-f", "geojson", covered]))["features"]
+    motor = {f["properties"]["osm_way_id"] for f in roads}
+    ids = {int(f["id"][1:]) for f in found}
+    for row in roads:
+        if row["properties"]["osm_way_id"] in ids:
+            row["properties"]["structure"] = "tunnel"
+    for row in found:
+        tags = row["properties"]
+        wid = int(row["id"][1:])
+        kind = source_way(tags)
+        access = next((tags[k] for k in ("motorcar", "motor_vehicle", "vehicle", "access") if k in tags), None)
+        # OSRM can use explicitly accessible pedestrian passages. Keep a roof
+        # off the street layer unless that passage is actually covered.
+        if wid not in motor and kind and kind[0] == "pedestrian" and access in {"yes", "permissive", "designated"}:
+            row["properties"] = {"structure": "tunnel", "width_m": kind[4]}
+            roads.append(row)
+    return roads
 
 
 def intervals(geometry, line):

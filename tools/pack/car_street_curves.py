@@ -1,6 +1,7 @@
 """Restore source vertices where a published comuna car route cuts through a building.
 
 Use the regional santiago.osm used for car_paths.py (data/mvp/README.md).
+Pass its path and the port of the original local OSRM car graph.
 Run from the repository root with NumPy and Shapely 2.
 """
 import csv
@@ -8,6 +9,7 @@ import gzip
 import json
 import struct
 import sys
+from urllib.request import urlopen
 from collections import defaultdict
 from pathlib import Path
 
@@ -17,7 +19,7 @@ from shapely import STRtree
 from shapely.geometry import shape
 
 from car_paths import car_graph, route
-from roads import PACK, distance, read_roads, simplify
+from roads import PACK, distance, read_roads, rounded_path, simplify
 
 DATA = Path("web/data")
 
@@ -96,12 +98,40 @@ def restore(routes, damaged, source):
     return result
 
 
+def local_curves(port):
+    with gzip.open(DATA / "local_mover_routes.json.gz") as f:
+        local = json.load(f)
+    groups = {g["route"]: g for g in local["groups"] if g["mode"] == "car"}
+    paths = {i: list(map(tuple, local["paths"][i])) for i in groups}
+    damaged = building_crossings(sorted({ab for path in paths.values() for ab in zip(path, path[1:])}))
+    curves = {}
+    for idx, path in paths.items():
+        if not damaged.intersection(zip(path, path[1:])):
+            continue
+        row = groups[idx]
+        coords = ";".join(f"{lon},{lat}" for lon, lat in (row["origin"], row["destination"]))
+        with urlopen(f"http://127.0.0.1:{port}/route/v1/driving/{coords}?geometries=geojson&overview=full&radiuses=250;250") as response:
+            original = json.load(response)["routes"][0]["geometry"]["coordinates"]
+        if rounded_path(original, 3) != local["paths"][idx]:
+            raise ValueError(f"OSRM route {idx} differs from the published route")
+        rounded = [tuple(round(n, 5) for n in p) for p in original]
+        start = 0
+        for a, b in zip(path, path[1:]):
+            end = rounded.index(b, start + 1)
+            if (a, b) in damaged:
+                curves[a, b] = original[start + 1:end]
+            start = end
+    return curves
+
+
 if __name__ == "__main__":
     routes = {k: list(map(tuple, v)) for k, v in json.loads((DATA / "car_routes.json").read_text()).items()}
     segments = sorted({ab for line in routes.values() for ab in zip(line, line[1:])})
     damaged = building_crossings(segments)
     curves = restore(routes, damaged, Path(sys.argv[1]))
+    print(f"{len(curves)} restored of {len(damaged)} comuna crossings")
+    curves.update(local_curves(sys.argv[2]))
     rows = [[a, *curves[a, b], b] for a, b in sorted(curves)]
     packed = json.dumps(rows, separators=(",", ":")).encode()
     (DATA / "car_street_curves.json.gz").write_bytes(gzip.compress(packed, mtime=0))
-    print(f"{len(curves)} restored of {len(damaged)} off-road building crossings")
+    print(f"{len(curves)} restored car curves")

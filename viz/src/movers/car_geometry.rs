@@ -1,5 +1,5 @@
 // Restore original directed street vertices between the anchors of the published car route.
-use super::{Table, gzip_json, points};
+use super::{Path, gzip_json, points};
 use bevy::prelude::Vec3;
 use std::{collections::HashMap, sync::Arc};
 
@@ -7,7 +7,7 @@ fn key(p: Vec3) -> (u32, u32) {
     (p.x.to_bits(), p.z.to_bits())
 }
 
-pub(super) fn restore(cars: &mut Table) {
+pub(super) fn restore<'a>(cars: impl Iterator<Item = &'a mut Arc<Path>>) {
     let pack = gzip_json("web/data/car_street_curves.json.gz");
     let mut curves = HashMap::new();
     for row in pack.as_array().unwrap() {
@@ -27,7 +27,7 @@ pub(super) fn restore(cars: &mut Table) {
             .collect::<Vec<_>>();
         curves.insert((key(line[0]), key(*line.last().unwrap())), interior);
     }
-    for path in cars.values_mut() {
+    for path in cars {
         let path = Arc::get_mut(path).unwrap();
         let mut coordinates = vec![path.points[0]];
         let mut metres = vec![0.];

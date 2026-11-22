@@ -17,7 +17,7 @@ from tempfile import TemporaryDirectory
 from shapely import STRtree, make_valid, transform, union_all
 from shapely.geometry import LineString, box, shape
 
-from car_tunnels import DryTunnels
+from car_tunnels import DryTunnels, with_covered_roads
 from roads import VIEW
 
 DATA = Path("web/data")
@@ -245,7 +245,7 @@ def main():
         "local": index.routes(local_rows),
         "od": index.routes(od_rows),
     }
-    tunnels = DryTunnels(read("road_centerlines.geojson.gz")["features"], metres)
+    tunnels = DryTunnels(with_covered_roads(read("road_centerlines.geojson.gz")["features"], pbf), metres)
     tunnels.add(local_rows, bundle["local"])
     tunnels.add(od_rows, bundle["od"])
     raw = json.dumps(bundle, separators=(",", ":"), ensure_ascii=False).encode()

@@ -457,10 +457,12 @@ impl Routes {
             .map(|(key, row)| (key.clone(), public_path(row, &riders)))
             .collect();
         let water: road_water::Pack = serde_json::from_reader(flate2::read::GzDecoder::new(fs::File::open("web/data/car_water_spans.json.gz").unwrap())).unwrap();
-        let local = local_routes(&riders, &water);
+        let mut local = local_routes(&riders, &water);
         let mut cars = table("web/data/car_routes.json", Vehicle::Car);
         for (key, path) in &mut cars { road_water::set_crossings(path, water.od.get(key)); }
-        car_geometry::restore(&mut cars);
+        car_geometry::restore(cars.values_mut().chain(
+            local.iter_mut().filter(|(key, _)| key.1 == "car").map(|(_, path)| path),
+        ));
         Self {
             public,
             local,
