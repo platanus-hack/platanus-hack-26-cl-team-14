@@ -65,7 +65,6 @@ pub fn install(app: &mut App) {
         .add_systems(
             Core3d,
             draw.in_set(Core3dSystems::MainPass)
-                .after(crate::pixels::CityMarks)
                 .before(main_transparent_pass_3d),
         );
 }
