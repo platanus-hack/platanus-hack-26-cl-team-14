@@ -1,5 +1,7 @@
 //! Build the synthetic person-level state, then run one full day of station boardings from it.
 //! Usage: cargo run --release --manifest-path engine/Cargo.toml --bin population -- data/mvp <out predictions.json> [l9|april-transport] [closed parent IDs or line:L7, corridor:L6-east, design:L7-01 ...]
+#[path = "../choice.rs"]
+mod choice;
 #[path = "../population.rs"]
 mod population;
 #[path = "../stations.rs"]
