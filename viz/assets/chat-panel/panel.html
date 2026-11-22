@@ -78,13 +78,16 @@
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
   term.open(mount);
-  // The CLI emits its name in a formatted session header and status card.
-  // Hide those rows in the view. Keep the terminal buffer and conversation intact.
-  const sessionBrand = /^\s*(?:│\s*)?>_ OpenAI Codex \(v[\w.+-]+\)\s*│?\s*$/;
+  // The startup header has the chat directory on the next line. Explicit
+  // status cards, trust prompts, and conversation text keep their original display.
+  const sessionBrand = /^\s*>_ OpenAI Codex \(v[\w.+-]+\)\s*$/;
   term.onRender(({ start, end }) => {
     const rows = mount.querySelector('.xterm-rows').children;
-    for (let row = start; row <= end; row++) {
-      rows[row].classList.toggle('session-brand', sessionBrand.test(rows[row].textContent));
+    for (let row = Math.max(start - 1, 0); row <= end; row++) {
+      const directory = rows[row + 1]?.textContent.trim();
+      const startsSession = sessionBrand.test(rows[row].textContent)
+        && (directory === 'chat' || directory?.endsWith('/chat'));
+      rows[row].classList.toggle('session-brand', startsSession);
     }
   });
   term.onData(text => send({ kind: 'input', text }));
