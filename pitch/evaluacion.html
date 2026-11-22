@@ -35,11 +35,13 @@
     }
     p { margin: 0; }
     /* Three cases side by side. */
-    main { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vw; min-height: 0; }
+    /* The rows are shared by the three cards (subgrid), so each part sits at the same height in all cards. */
+    main { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: auto auto auto 1fr auto; gap: 0 2vw; min-height: 0; }
     .eval {
       display: grid;
-      grid-template-rows: auto auto auto 1fr auto;
-      gap: 2.2vh;
+      grid-row: span 5;
+      grid-template-rows: subgrid;
+      row-gap: 2.2vh;
       min-height: 0;
       padding: 3vh 1.6vw;
       background: #0b1219d9;
@@ -55,17 +57,18 @@
     /* What happened in real life. */
     .case { color: #8dd0ff; font-size: clamp(.9rem, min(1.6vw, 3vh), 2rem); line-height: 1.2; }
     /* The accuracy is the hero of each card. */
-    .acc { display: flex; align-items: baseline; gap: .4vw; line-height: .85; }
-    .acc b { font-weight: 400; font-size: clamp(4rem, min(7.5vw, 15vh), 12rem); }
+    .acc { display: flex; align-items: baseline; gap: .4vw; line-height: .85; padding: 1.8vh 0; border-block: 2px solid #3d5368; }
+    .acc b { font-weight: 400; font-size: clamp(4rem, min(6.5vw, 13vh), 11rem); }
     .acc span { font-size: clamp(2rem, min(3.4vw, 6.5vh), 5rem); color: #8d9aa8; }
     .acc small { margin-left: .6vw; color: #c3ccd5; font-size: clamp(1rem, min(1.7vw, 3.2vh), 2.2rem); }
     /* Two columns of people: Santiaguito vs real life. Each person is one unit of the case. */
     .pict { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4vw; min-height: 0; }
-    .col { display: grid; grid-template-rows: 1fr auto; gap: 1vh; min-height: 0; }
-    .col > div { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
-    .col b { font-weight: 400; line-height: 1; margin-bottom: 1vh; font-size: clamp(1.4rem, min(2.8vw, 5.6vh), 4rem); }
-    .people { display: flex; flex-wrap: wrap-reverse; gap: .5vh .3vw; }
-    .people svg { width: min(2.3vw, 4.2vh); height: min(3.7vw, 6.7vh); fill: currentColor; opacity: 0; transform: translateY(1vh); transition: opacity .25s, transform .25s; }
+    /* Number on one top line, people stand on one bottom line, label under them. */
+    .col { display: grid; grid-template-rows: auto 1fr auto; gap: 1.2vh; min-height: 0; }
+    .col b { font-weight: 400; line-height: 1; font-size: clamp(1.4rem, min(2.8vw, 5.6vh), 4rem); }
+    /* Five people per row. */
+    .people { --w: min(1.9vw, 3.4vh); --g: .3vw; width: calc(5 * var(--w) + 4 * var(--g)); display: flex; flex-wrap: wrap-reverse; align-content: flex-start; gap: .5vh var(--g); min-height: 0; }
+    .people svg { width: var(--w); height: calc(var(--w) * 1.6); fill: currentColor; opacity: 0; transform: translateY(1vh); transition: opacity .25s, transform .25s; }
     .people svg.on { opacity: 1; transform: none; }
     .col p { letter-spacing: .08em; font-size: clamp(.8rem, min(1.3vw, 2.6vh), 1.7rem); }
     .col.sim { color: #4aa8ff; }
@@ -107,7 +110,7 @@
     // Build the two columns of people: one person per unit, rounded.
     cards.forEach(card => {
       const { sim, real, unit } = card.dataset;
-      const col = (cls, label, n) => `<div class="col ${cls}"><div><b>${Number(n).toLocaleString('es-CL')}</b><div class="people">${person.repeat(Math.round(n / unit))}</div></div><p>${label}</p></div>`;
+      const col = (cls, label, n) => `<div class="col ${cls}"><b>${Number(n).toLocaleString('es-CL')}</b><div class="people">${person.repeat(Math.round(n / unit))}</div><p>${label}</p></div>`;
       card.querySelector('.pict').innerHTML = col('sim', 'SANTIAGUITO', sim) + col('real', 'REAL', real);
     });
     // Type the question, press Enter, then show the real case and the result.
