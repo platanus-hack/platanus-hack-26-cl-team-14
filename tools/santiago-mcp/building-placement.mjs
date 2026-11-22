@@ -148,8 +148,9 @@ export async function expandBuildingPlacements(changes, places, engineJSON, scen
         type: 'Polygon',
         coordinates: part.geometry.coordinates.map(ring => ring.map(p => p.map((v, i) => v + (at[i] - origin.anchor[i])))),
       };
-      const { height_m, use } = part.properties;
-      const properties = { ...(height_m > 0 && { height_m }), ...(use && { use }), jobs: 0, residents: 0 };
+      const { height_m, levels, use } = part.properties;
+      const height = height_m ?? levels * 3.5;
+      const properties = { ...(height > 0 && { height_m: height }), ...(use && { use }), jobs: 0, residents: 0 };
       expanded.push({
         kind: 'building', op: move ? 'move' : 'add',
         target: { id: move ? part.id : `${id}-${index + 1}` }, geometry,
