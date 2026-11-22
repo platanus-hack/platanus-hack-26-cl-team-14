@@ -45,12 +45,16 @@ fn spawn(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             ..default()
         },
         TextColor(Color::WHITE),
-        BackgroundColor(crate::label::PANEL_INK),
+        BackgroundColor(crate::label::GLASS),
+        BorderColor::all(crate::label::GLASS_RIM),
+        crate::label::glass_shadow(),
         Node {
             position_type: PositionType::Absolute,
             top: px(24),
             left: px(24),
-            padding: UiRect::axes(px(22), px(10)),
+            padding: UiRect::axes(px(28), px(10)),
+            border: UiRect::all(px(2)),
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         Visibility::Hidden,

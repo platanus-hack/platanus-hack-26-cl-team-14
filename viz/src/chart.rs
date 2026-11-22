@@ -11,7 +11,7 @@ impl Plugin for ChartPlugin {
 }
 
 #[derive(Resource)]
-struct ChartFont(Handle<Font>);
+pub(crate) struct ChartFont(pub(crate) Handle<Font>);
 
 // The chart appears at this elapsed time, so the map plays first.
 #[derive(Component)]

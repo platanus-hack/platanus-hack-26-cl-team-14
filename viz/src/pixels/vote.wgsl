@@ -36,16 +36,7 @@ fn light(p: vec2<i32>) -> f32 {
     return dot(rgb, vec3<f32>(.30,.55,.15));
 }
 
-// Project a diagonal of the facade into the image. Grid spacing is in screen
-// cells, so even a narrow wall keeps readable ink when the camera turns.
-fn hatch_line(cell: vec2<f32>, stroke: vec3<f32>, spacing: f32) -> bool {
-    let across = vec2<f32>(stroke.y, stroke.x);
-    let length_sq = dot(across, across);
-    let phase = dot(cell, across) * inverseSqrt(max(length_sq, .0001)) / spacing;
-    return length_sq > .0001 && abs(fract(phase + .5) - .5) * spacing < .5;
-}
-
-fn print_city(pos: vec4<f32>, dark: bool, hatch: bool) -> vec4<f32> {
+fn print_city(pos: vec4<f32>, dark: bool, walls: bool) -> vec4<f32> {
     let p = vec2<i32>(pos.xy);
     let z = z_at(p);
     if z == 0. { return textureLoad(scene, p, 0); }
@@ -84,7 +75,7 @@ fn print_city(pos: vec4<f32>, dark: bool, hatch: bool) -> vec4<f32> {
         level = u32(clamp(mix(shadow, 13.2, value) + rank, 0., 13.));
         outline = select(5u, 3u, crease);
         if structure { outline -= 1u; }
-        if hatch && violet && l < .32 && !boundary && max(abs(bend_x), abs(bend_y)) <= tolerance {
+        if walls && violet && l < .32 && !boundary && max(abs(bend_x), abs(bend_y)) <= tolerance {
             // Reverse depth on a perspective-projected plane is affine in pixel coordinates.
             // Its two slopes give the geometric normal, including for the coarse building boxes.
             let slope = .5 * vec2<f32>(horizontal.y-horizontal.x, vertical.y-vertical.x);
@@ -93,13 +84,14 @@ fn print_city(pos: vec4<f32>, dark: bool, hatch: bool) -> vec4<f32> {
                                          z - dot(pos.xy-center, slope)));
             let sun = dot(n, view.sun_and_title.xyz);
             if abs(dot(n, view.up_and_focal.xyz)) < .25 && sun < .15 {
-                let up = view.up_and_focal.xyz;
-                let along_wall = normalize(cross(up, n));
-                let cell = vec2<f32>(grid) - .5 * center;
-                let stripe = hatch_line(cell, along_wall + up, 4.5);
-                let crossed = sun < -.35 && l < .12 && hatch_line(cell, along_wall - up, 6.);
-                level = select(min(level + 2u, 12u), level - 2u, stripe || crossed);
+                // A wall turned away from the sun prints as one solid ink. The darkest walls take a deeper one.
+                level = select(2u, 1u, sun < -.35 && l < .12);
+                outline = min(outline, level);
             }
+        }
+        // The shadow that a building casts on the ground prints as one solid ink too.
+        if !violet && level >= 6u && level <= 9u {
+            level = 5u;
         }
     }
     let shade = select(level, outline, crease || boundary);

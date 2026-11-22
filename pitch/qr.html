@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Santiaguito · Descarga</title>
+  <style>
+    @font-face {
+      font-family: Barlow;
+      src: url("../viz/assets/barlow/Barlow-Regular.ttf") format("truetype");
+    }
+    * { box-sizing: border-box; }
+    body {
+      height: 100svh;
+      margin: 0;
+      padding: 6vh 4vw 2vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 5vh;
+      color: #fff;
+      background: #101923;
+      font-family: Barlow, system-ui, sans-serif;
+    }
+    #fondo {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: blur(3px) brightness(.22);
+      
+    }
+    /* Slow panoramic drift across the city. */
+    @keyframes pan {
+      from { transform: scale(1.3) translate(-10%, 4%); }
+      to { transform: scale(1.3) translate(10%, -4%); }
+    }
+    body { display: grid; place-content: center; grid-template-rows: none; gap: 0; padding: 4vh 4vw; }
+    .cta {
+      display: grid;
+      grid-template-columns: auto auto;
+      align-items: center;
+      gap: 5vw;
+    }
+    .qr {
+      width: min(52vh, 34vw);
+      background: #fff;
+    }
+    .qr img { display: block; width: 100%; image-rendering: pixelated; }
+    h1 { margin: 0 0 3vh; font-size: clamp(2rem, min(6vw, 10vh), 8rem); font-weight: 400; line-height: 1; }
+    .url { color: #4aa8ff; font-size: clamp(1.6rem, min(4.5vw, 7.5vh), 6rem); line-height: 1; }
+    .sub { margin: 3vh 0 0; color: #dce4ef; font-size: clamp(1rem, min(2.2vw, 3.8vh), 2.8rem); line-height: 1.15; }
+  </style>
+</head>
+<body>
+  <video id="fondo" src="media/santiago-fondo.mp4" muted loop autoplay playsinline oncanplay="this.playbackRate = .15"></video>
+  <main class="cta">
+    <div class="qr"><img src="media/qr.png" alt="QR para descargar santiaguito"></div>
+    <div>
+      <h1>Simula lo que<br>quieras con<br>santiaguito</h1>
+      <div class="url">santiaguito.cl</div>
+    </div>
+  </main>
+</body>
+</html>

@@ -11,6 +11,13 @@ use bevy::{
 // The darkest blue-violet ink of the city print, opaque so text stays legible over white roofs.
 pub(crate) const PANEL_INK: Color = Color::srgb_u8(0x24, 0x29, 0x42);
 
+// Glass panels: a near-black tint, a bright rim and a soft shadow. White text stays legible over white roofs.
+pub(crate) const GLASS: Color = Color::srgba(0., 0., 0., 0.82);
+pub(crate) const GLASS_RIM: Color = Color::srgba(1., 1., 1., 0.35);
+pub(crate) fn glass_shadow() -> BoxShadow {
+    BoxShadow::new(Color::srgba(0., 0., 0., 0.35), px(0), px(10), px(0), px(28))
+}
+
 pub struct LabelPlugin;
 impl Plugin for LabelPlugin {
     fn build(&self, app: &mut App) {
@@ -87,19 +94,27 @@ struct CaptionText;
 #[derive(Component)]
 struct CueArrow(i32);
 
-// Full-width subtitle bar: the projector audience reads one large line per camera cue.
+// The X that hides the captions and the arrows.
+#[derive(Component)]
+struct CueClose;
+
+// Floating glass subtitle bar: the projector audience reads one large line per camera cue.
 fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let font = fonts.add(Font::from_bytes(include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec()));
     commands
         .spawn((
             CaptionBand,
             Visibility::Hidden,
-            BackgroundColor(PANEL_INK),
+            BackgroundColor(GLASS),
+            BorderColor::all(GLASS_RIM),
+            glass_shadow(),
             Node {
                 position_type: PositionType::Absolute,
-                left: px(0),
-                bottom: px(0),
-                width: percent(100),
+                left: px(40),
+                right: px(40),
+                bottom: px(32),
+                border: UiRect::all(px(2)),
+                border_radius: BorderRadius::all(px(44)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..default()
@@ -110,9 +125,9 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             band.spawn(Node {
                 position_type: PositionType::Absolute,
                 bottom: percent(100),
-                right: px(40),
+                right: px(0),
                 column_gap: px(12),
-                margin: UiRect::bottom(px(12)),
+                margin: UiRect::bottom(px(16)),
                 ..default()
             })
             .with_children(|row| {
@@ -125,10 +140,14 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                         CueArrow(step),
                         AccessibilityNode(accessibility),
                         RelativeCursorPosition::default(),
-                        BackgroundColor(PANEL_INK),
+                        BackgroundColor(GLASS),
+                        BorderColor::all(GLASS_RIM),
+                        glass_shadow(),
                         Node {
                             width: px(96),
                             height: px(96),
+                            border: UiRect::all(px(2)),
+                            border_radius: BorderRadius::MAX,
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
@@ -142,12 +161,30 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                         ));
                     });
                 }
+                row.spawn((
+                    CueClose,
+                    RelativeCursorPosition::default(),
+                    BackgroundColor(GLASS),
+                    BorderColor::all(GLASS_RIM),
+                    glass_shadow(),
+                    Node {
+                        width: px(96),
+                        height: px(96),
+                        border: UiRect::all(px(2)),
+                        border_radius: BorderRadius::MAX,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                ))
+                .with_children(|close| {
+                    close.spawn((
+                        Text::new("×"),
+                        TextFont { font: font.clone().into(), font_size: FontSize::Px(64.), ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                });
             });
-            // Accent strip in the red of the stadium stands.
-            band.spawn((
-                BackgroundColor(Color::srgb_u8(0xD6, 0x58, 0x4B)),
-                Node { width: percent(100), height: px(10), ..default() },
-            ));
             band.spawn((
                 CaptionText,
                 Text::default(),
@@ -171,6 +208,7 @@ fn click_arrow(
     mouse: Res<ButtonInput<MouseButton>>,
     band: Single<&Visibility, With<CaptionBand>>,
     arrows: Query<(Entity, &CueArrow, &RelativeCursorPosition)>,
+    close: Single<&RelativeCursorPosition, With<CueClose>>,
     mut actions: MessageReader<ActionRequest>,
     mut step: ResMut<CueStep>,
 ) {
@@ -185,12 +223,16 @@ fn click_arrow(
             step.click = arrow.0;
         }
     }
-    if mouse.just_pressed(MouseButton::Left)
-        && **band != Visibility::Hidden
-        && let Some((_, arrow, _)) = arrows.iter().find(|(_, arrow, cursor)| {
-            step.can_step(arrow.0) && cursor.cursor_over()
-        })
-    {
+    if !mouse.just_pressed(MouseButton::Left) || **band == Visibility::Hidden {
+        return;
+    }
+    if close.cursor_over() {
+        step.close = true;
+        return;
+    }
+    if let Some((_, arrow, _)) = arrows.iter().find(|(_, arrow, cursor)| {
+        step.can_step(arrow.0) && cursor.cursor_over()
+    }) {
         step.click = arrow.0;
     }
 }
@@ -204,9 +246,9 @@ fn style_arrows(
     for (arrow, mut background, mut accessibility) in &mut arrows {
         let enabled = step.can_step(arrow.0);
         background.set_if_neq(BackgroundColor(if enabled {
-            PANEL_INK
+            GLASS
         } else {
-            Color::srgb_u8(0x64, 0x68, 0x75)
+            Color::srgba(0., 0., 0., 0.35)
         }));
         if hidden && !accessibility.is_hidden() {
             accessibility.set_hidden();

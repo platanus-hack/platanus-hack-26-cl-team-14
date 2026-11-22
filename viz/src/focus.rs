@@ -123,6 +123,7 @@ pub(super) struct CueCaption(pub String);
 #[derive(Default, Resource)]
 pub(super) struct CueStep {
     pub click: i32, // -1 steps back, 1 steps forward.
+    pub close: bool, // A click on the caption X.
     next: usize,
     count: usize,
 }
@@ -139,6 +140,7 @@ impl CueStep {
 
 // A cue changes the caption and, when the camera is unlocked, starts a flight.
 // The arrow keys and the caption arrows step through the cues like slides. A step stops the timer.
+// The caption X hides the story until the next scene.
 pub(super) fn cue(
     time: Res<Time<Real>>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -149,6 +151,7 @@ pub(super) fn cue(
     mut scene_revision: Local<Option<u64>>,
     mut start: Local<f32>,
     mut manual: Local<bool>,
+    mut closed: Local<bool>,
 ) {
     let scene = &scenario.0["scene"];
     if scene["revision"].as_u64() != *scene_revision {
@@ -156,7 +159,16 @@ pub(super) fn cue(
         *start = time.elapsed_secs();
         controls.next = 0;
         *manual = false;
+        *closed = false;
         caption.0.clear();
+    }
+    if std::mem::take(&mut controls.close) {
+        *closed = true;
+        caption.0.clear();
+    }
+    if *closed {
+        controls.click = 0;
+        return;
     }
     controls.count = scene["cues"].as_array().map_or(0, Vec::len);
     let click = std::mem::take(&mut controls.click);
