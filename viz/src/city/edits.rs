@@ -148,6 +148,16 @@ fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
                     .iter()
                     .map(|pair| world(pair[0].as_f64().unwrap(), pair[1].as_f64().unwrap()))
                     .collect();
+                let points = if kind == "line" && feature["properties"]["mode"] == "boat" {
+                    let water = super::water::route(points.iter().map(|p| p.xz()).collect());
+                    let Some(water) = water else { continue };
+                    water
+                        .into_iter()
+                        .map(|p| Vec3::new(p.x, super::terrain_from_xz(p.x, p.y), p.y))
+                        .collect()
+                } else {
+                    points
+                };
                 ribbon(
                     &mut mesh,
                     &points,

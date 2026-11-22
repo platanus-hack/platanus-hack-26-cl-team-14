@@ -7,6 +7,7 @@ pub(crate) mod metro_service;
 mod streets;
 mod terrain;
 mod trees;
+pub(crate) mod water;
 use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
