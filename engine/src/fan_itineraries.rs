@@ -21,10 +21,10 @@ impl Request {
     }
 }
 
-fn car_routes(data: &Path) -> Option<Value> {
+fn compressed_routes(data: &Path, file: &str) -> Option<Value> {
     let output = Command::new("gzip")
         .arg("-dc")
-        .arg(data.join("event_car_routes.json.gz"))
+        .arg(data.join(file))
         .output()
         .ok()?;
     if !output.status.success() {
@@ -148,7 +148,7 @@ fn public_legs(
     plans.iter().find_map(|plan| {
         let lines = plan["legs"].as_array()?;
         let board = lines.first()?["board_stop_id"].as_str()?;
-        let access = &walks["access"][home_cut][board];
+        let access = &walks["communes"][home_cut][board];
         scheduled_legs(plan, access, gate_window)
     })
 }
@@ -183,7 +183,7 @@ pub(super) fn attach(
     let gate_arrival_minutes = request.gate_arrival_minutes.map(f64::from);
     let matches = venue_matches(data, venue_id, point);
     let car = matches
-        .then(|| car_routes(data))
+        .then(|| compressed_routes(data, "event_car_routes.json.gz"))
         .flatten()
         .unwrap_or(Value::Null);
     let car_venue = &car["venues"][venue_id];
@@ -191,7 +191,8 @@ pub(super) fn attach(
         .then(|| read_routes(data, "event_transit_routes.json"))
         .unwrap_or(Value::Null);
     let walks = matches
-        .then(|| read_routes(data, "event_transit_walks.json"))
+        .then(|| compressed_routes(data, "event_transit_access.json.gz"))
+        .flatten()
         .unwrap_or(Value::Null);
     let mut groups = Vec::new();
     let mut coverage = [[0.0; 2]; MODES.len()];
