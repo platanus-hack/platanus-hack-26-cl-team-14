@@ -42,7 +42,7 @@ struct ScenePlace {
 #[derive(Deserialize)]
 struct SceneRequest {
     place: ScenePlace,
-    half_hour: u8,
+    half_hour: Option<u8>,
 }
 
 impl SceneRequest {
@@ -56,7 +56,7 @@ impl SceneRequest {
                 "Use a point or a station, place, comuna or line with its catalog id.",
             ));
         }
-        if self.half_hour >= 48
+        if self.half_hour.is_some_and(|bin| bin >= 48)
             || !(-180.0..=180.0).contains(&place.longitude)
             || !(-90.0..=90.0).contains(&place.latitude)
         {
@@ -66,6 +66,14 @@ impl SceneRequest {
             ));
         }
         Ok(())
+    }
+
+    fn value(&self, revision: u64) -> Value {
+        let mut scene = json!({"revision": revision, "place": self.place});
+        if let Some(bin) = self.half_hour {
+            scene["half_hour"] = json!(bin);
+        }
+        scene
     }
 }
 
@@ -102,7 +110,7 @@ async fn general_scenario(
         let revision = next_revision(latest);
         result["revision"] = json!(revision);
         if let Some(scene) = request.scene {
-            result["scene"] = json!({"revision": revision, "place": scene.place, "half_hour": scene.half_hour});
+            result["scene"] = scene.value(revision);
         } else if let Some(scene) = latest.get("scene") {
             result["scene"] = scene.clone();
         }
@@ -128,7 +136,6 @@ async fn set_scene(
     Json(request): Json<SceneRequest>,
 ) -> Result<Json<Value>, (StatusCode, &'static str)> {
     request.validate()?;
-    let place = request.place;
     let needs_base = core.scenario_events.borrow().is_null();
     let baseline = needs_base.then(|| core.scenario.run(&[]));
     let mut response = Value::Null;
@@ -137,7 +144,7 @@ async fn set_scene(
         if latest.is_null() {
             *latest = baseline.unwrap();
         }
-        let scene = json!({"revision": revision, "place": place, "half_hour": request.half_hour});
+        let scene = request.value(revision);
         latest["scene"] = scene.clone();
         latest["revision"] = json!(revision);
         response = json!({"revision": revision, "scene": scene});
