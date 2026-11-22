@@ -6,7 +6,14 @@ use super::{DAY, FixedClock, PlaybackRate, Replay};
 use bevy::{prelude::*, text::FontSize};
 
 #[derive(Resource, Default)]
-pub(crate) struct CityClock(pub Option<f32>);
+pub(crate) struct CityClock(pub Option<f32>, f32);
+
+impl CityClock {
+    // This clock advances at the replay rate even when a camera cue changes the city time.
+    pub(crate) fn elapsed_replay_seconds(&self) -> f32 {
+        self.1
+    }
+}
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct UpdateClock;
@@ -16,6 +23,7 @@ impl Plugin for ClockPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CityClock>()
             .add_plugins(ferry::FerryPlugin)
+            .add_plugins(crate::city::route_activity::RouteActivityPlugin)
             .add_systems(Startup, spawn)
             .add_systems(Update, show.in_set(UpdateClock).after(super::read_result));
     }
@@ -59,9 +67,8 @@ fn show(
     mut night: ResMut<crate::Night>,
     mut text: Single<(&mut Text, &mut Visibility), With<ClockText>>,
 ) {
-    clock.0 = fixed.0.or(replay
-        .clock_offset
-        .map(|offset| offset + time.elapsed_secs() * rate.0));
+    clock.1 = time.elapsed_secs() * rate.0;
+    clock.0 = fixed.0.or(replay.clock_offset.map(|offset| offset + clock.1));
     let Some(now) = clock.0 else {
         return;
     };

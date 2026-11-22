@@ -6,6 +6,7 @@ pub(crate) mod horizon;
 mod outskirts;
 pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
+pub(crate) mod route_activity;
 pub(crate) mod street_mask;
 mod streets;
 mod terrain;
