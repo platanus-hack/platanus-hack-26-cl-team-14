@@ -18,10 +18,10 @@
       overflow: hidden;
       height: 100svh;
       margin: 0;
-      padding: 6vh 4vw 2vh;
+      padding: 6vh 6vw 4vh;
       display: grid;
-      grid-template-rows: 1fr auto;
-      gap: 5vh;
+      grid-template-rows: auto 1fr;
+      gap: 3vh;
       color: #fff;
       background: #101923;
       font-family: Barlow, system-ui, sans-serif;
@@ -34,141 +34,63 @@
       height: 100%;
       object-fit: cover;
       filter: blur(3px) brightness(.22);
-      
-    }
-    /* Slow panoramic drift across the city. */
-    @keyframes pan {
-      from { transform: scale(1.3) translate(-10%, 4%); }
-      to { transform: scale(1.3) translate(10%, -4%); }
     }
     h1 { margin: 0; font-size: clamp(1.8rem, min(4.6vw, 8vh), 6rem); font-weight: 400; line-height: 1.02; }
-    .lede { margin: 1.2vh 0 0; color: #fff; font-size: clamp(1rem, min(2vw, 3.5vh), 2.6rem); }
-    .lede b { color: #4aa8ff; font-weight: 400; }
-    body { grid-template-columns: minmax(0, 1fr); }
-    .evals { min-height: 0; min-width: 0; }
-    .track { display: flex; gap: 3vw; height: 100%; transition: transform .9s cubic-bezier(.6, 0, .2, 1); }
-    .track .eval { transition: opacity .9s, transform .9s; opacity: .3; transform: scale(.88); }
-    .track .eval.on { opacity: 1; transform: none; }
-    .track .eval { flex: 0 0 80%; display: grid; grid-template-rows: auto 1fr auto; gap: 2vh; padding: 4vh 3vw; }
-    .head .q { margin: 0; padding: 1.2vh 1vw; background: #05090d; border: 1px solid #2c3d4f; border-radius: .3em; font: 400 clamp(1rem, min(2.1vw, 3.8vh), 2.7rem) / 1.2 JetBrainsMono, monospace; }
-    .head .q span { color: #8dd0ff; }
-    .head .date { margin: 0; color: #8dd0ff; font-size: clamp(1rem, min(2vw, 3.4vh), 2.6rem); }
-    .foot { display: flex; align-items: baseline; justify-content: space-between; gap: 2vw; }
-    .foot .case { color: #8dd0ff; text-align: right; font-size: clamp(.8rem, min(1.3vw, 2.3vh), 1.7rem); line-height: 1.15; }
-    /* One track per case. --sim and --real are drawn lengths in % of the track, set by hand. */
-    .vs { display: grid; align-content: center; gap: 1.6vh; }
-    .lbl { width: calc(var(--at) * 1%); text-align: right; white-space: nowrap; line-height: 1; letter-spacing: .08em; font-size: clamp(1rem, min(2.2vw, 3.8vh), 2.8rem); }
-    .lbl b { margin-left: .25em; font-weight: 400; letter-spacing: 0; font-size: clamp(3rem, min(7.5vw, 14vh), 11rem); }
-    .lbl.sim { --at: var(--sim); color: #4aa8ff; }
-    .lbl.real { --at: var(--real); }
-    .pista { position: relative; height: 6vh; }
+    p, h2 { margin: 0; font-weight: 400; }
+    main { display: grid; grid-template-rows: repeat(3, 1fr); min-height: 0; }
+    /* One row per case: the accuracy on the left, one track on the right. */
+    .eval { display: grid; grid-template-columns: 24vw 1fr; align-items: center; gap: 3vw; }
+    .eval + .eval { border-top: 1px solid #2c3d4f; }
+    .pct { text-align: right; font-size: clamp(4rem, min(11vw, 20vh), 15rem); line-height: .9; }
+    .pct span { font-size: .45em; color: #8d9aa8; }
+    h2 { font-size: clamp(1.2rem, min(2.6vw, 4.6vh), 3.4rem); line-height: 1.1; }
+    /* --sim and --real are drawn lengths in % of the track, set by hand. */
+    .pista { position: relative; height: 3vh; margin: 2.6vh 0 2vh; background: #ffffff24; }
     .pista i { position: absolute; top: 0; bottom: 0; }
-    .pista .real { left: 0; width: calc(var(--real) * 1%); background: #fff; transition: width 1.2s ease-out .3s; }
-    .eval:not(.s1) .pista .real { width: 0; }
-    .pista .gap { left: calc(min(var(--sim), var(--real)) * 1%); width: calc((max(var(--sim), var(--real)) - min(var(--sim), var(--real))) * 1%); background: repeating-linear-gradient(135deg, #4aa8ff 0 .7vh, #4aa8ff55 .7vh 1.4vh); opacity: 0; transition: opacity .6s 1.5s; }
-    .eval.s1 .pista .gap { opacity: 1; }
-    .pista .mark { top: -1.6vh; bottom: -1.6vh; left: calc(var(--sim) * 1%); width: .8vw; margin-left: -.8vw; background: #4aa8ff; }
-    .typed { font-weight: 400; }
-    .typed.cursor::after { content: ""; display: inline-block; width: .55em; height: 1em; margin-left: .1em; vertical-align: -.12em; background: #fff; animation: blink 1s steps(1) infinite; }
-    @keyframes blink { 50% { opacity: 0; } }
-    .vs, .foot { opacity: 0; transition: opacity .6s; }
-    .eval.s1 .vs, .eval.s1 .foot { opacity: 1; }
-    .acc { margin: 0; color: #c3ccd5; font-size: clamp(1.2rem, min(2.6vw, 4.4vh), 3.2rem); }
-    .acc b { color: #fff; font-weight: 400; font-size: 2.2em; }
-    .dots { display: flex; justify-content: center; gap: 1.2vw; }
-    .dots i { width: 1.4vh; height: 1.4vh; border-radius: 50%; background: #4b5a69; transition: background .4s; }
-    .dots i.on { background: #4aa8ff; }
-    p { margin: 0; }
-    .eval {
-      padding: 3vh 1.8vw;
-      display: grid;
-      grid-template-rows: auto auto auto 1fr auto;
-      gap: 1.6vh;
-      background: #0b1219d9;
-      border-top: .5vh solid #4aa8ff;
-    }
-    .date { color: #8dd0ff; font-size: clamp(1rem, min(2.2vw, 3.8vh), 2.8rem); }
-    .case { font-size: clamp(1.6rem, min(3.6vw, 7vh), 5rem); line-height: 1.05; }
-    .what { color: #8dd0ff; font-size: clamp(1.1rem, min(2.6vw, 4.4vh), 3.2rem); line-height: 1.2; }
-    .nums { margin: 0; display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 1vh 1vw; align-self: center; }
-    .nums dt { color: #c3ccd5; font-size: clamp(1.2rem, min(2.8vw, 4.8vh), 3.4rem); }
-    .nums dd { margin: 0; text-align: right; font-size: clamp(2.6rem, min(6.5vw, 14vh), 10rem); line-height: 1; }
-    .nums dd.sim { color: #4aa8ff; }
-    .err { color: #c3ccd5; font-size: clamp(1.2rem, min(2.8vw, 4.8vh), 3.4rem); border-top: 1px solid #2c3d4f; padding-top: 1.5vh; }
-    .err b { color: #fff; font-weight: 400; font-size: 1.8em; }
-    .chart { width: 100%; height: 100%; min-height: 0; overflow: visible; }
-    .k { display: inline-block; width: .8em; height: .8em; vertical-align: -.05em; }
-    .k.real { background: #fff; } .k.sim { background: #4aa8ff; }
-    .bars { display: grid; gap: 1.2vh; align-self: end; }
-    .bar { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: .3vh 1vw; font-size: clamp(.8rem, min(1.6vw, 2.8vh), 2rem); }
-    .bar i { grid-column: 1 / -1; height: 3.2vh; background: #4aa8ff; width: 0; transition: width 1.2s ease-out; }
-    .bar.base { color: #8d9aa8; }
-    .bar.base i { background: #4b5a69; }
-    .bar b { font-weight: 400; font-size: 2.4em; line-height: 1; }
-    .bar:not(.base) b { color: #4aa8ff; }
-    .tag { color: #ffb057; }
-    footer { color: #dce4ef; font-size: clamp(.55rem, 1vw, 1rem); line-height: 1.2; }
+    .pista .real { left: 0; width: 0; background: #fff; transition: width 1.2s ease-out .3s; }
+    .go .pista .real { width: calc(var(--real) * 1%); }
+    .pista .mark { top: -1.4vh; bottom: -1.4vh; left: calc(var(--sim) * 1%); width: .6vw; margin-left: -.6vw; background: #4aa8ff; }
+    .nums { color: #c3ccd5; font-size: clamp(.9rem, min(1.6vw, 2.8vh), 2rem); }
+    .nums b { font-weight: 400; color: #fff; }
+    .nums .sim, .nums .sim b { color: #4aa8ff; }
+    .small { margin-top: .8vh; color: #6f7d8b; font-size: clamp(.6rem, min(.95vw, 1.7vh), 1.15rem); }
   </style>
 </head>
 <body>
   <video id="fondo" src="media/santiago-fondo.mp4" muted loop autoplay playsinline oncanplay="this.playbackRate = .15"></video>
-  <main class="evals"><div class="track">
-    <section class="eval">
-      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántos pasajeros más recibe Estación Central si cierran la USACH?"></b></p></header>
-      <div class="vs" style="--sim: 92; --real: 100">
-        <p class="lbl sim">SANTIAGUITO<b>469</b></p>
-        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
-        <p class="lbl real">REAL<b>662</b></p>
+  <h1>3 casos reales. 86 % de precisión promedio.</h1>
+  <main>
+    <section class="eval" style="--sim: 92; --real: 100">
+      <p class="pct">92<span>%</span></p>
+      <div>
+        <h2>Cierre de la USACH</h2>
+        <div class="pista"><i class="real"></i><i class="mark"></i></div>
+        <p class="nums"><span class="sim">Santiaguito <b>469</b></span> · Real <b>662</b></p>
+        <p class="small">¿Cuántos pasajeros más recibe Estación Central si cierran la USACH? · Lunes 21 abr 2025: Metro cerró Universidad de Santiago a las 19:20</p>
       </div>
-      <div class="foot"><p class="acc"><b>92 %</b> de precisión</p><p class="case">* Lunes 21 abr 2025: Metro cerró Universidad de Santiago a las 19:20</p></div>
     </section>
-    <section class="eval">
-      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántas entradas diarias tendrán las cuatro estaciones nuevas de la Línea 2?"></b></p></header>
-      <div class="vs" style="--sim: 100; --real: 85">
-        <p class="lbl sim">SANTIAGUITO<b>59.798</b></p>
-        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
-        <p class="lbl real">REAL<b>50.625</b></p>
+    <section class="eval" style="--sim: 100; --real: 85">
+      <p class="pct">82<span>%</span></p>
+      <div>
+        <h2>Extensión de la Línea 2</h2>
+        <div class="pista"><i class="real"></i><i class="mark"></i></div>
+        <p class="nums"><span class="sim">Santiaguito <b>59.798</b></span> · Real <b>50.625</b></p>
+        <p class="small">¿Cuántas entradas diarias tendrán las cuatro estaciones nuevas de la Línea 2? · Noviembre 2023: abrieron cuatro estaciones nuevas de la Línea 2</p>
       </div>
-      <div class="foot"><p class="acc"><b>82 %</b> de precisión</p><p class="case">* Noviembre 2023: abrieron cuatro estaciones nuevas de la Línea 2</p></div>
     </section>
-    <section class="eval">
-      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántos hinchas entran a Pedrero a las 18:00 después del partido?"></b></p></header>
-      <div class="vs" style="--sim: 100; --real: 86">
-        <p class="lbl sim">SANTIAGUITO<b>1.956</b></p>
-        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
-        <p class="lbl real">REAL<b>1.675</b></p>
+    <section class="eval" style="--sim: 100; --real: 86">
+      <p class="pct">83<span>%</span></p>
+      <div>
+        <h2>Partido en el Monumental</h2>
+        <div class="pista"><i class="real"></i><i class="mark"></i></div>
+        <p class="nums"><span class="sim">Santiaguito <b>1.956</b></span> · Real <b>1.675</b></p>
+        <p class="small">¿Cuántos hinchas entran a Pedrero a las 18:00 después del partido? · Sábado 26 abr 2025: Colo-Colo vs Coquimbo en el Monumental, 17.756 hinchas</p>
       </div>
-      <div class="foot"><p class="acc"><b>76 %</b> de precisión</p><p class="case">* Sábado 26 abr 2025: Colo-Colo vs Coquimbo en el Monumental, 17.756 hinchas</p></div>
     </section>
-  </div></main>
-  <div class="dots"><i></i><i></i><i></i></div>
+  </main>
   <script>
-    // Carousel: the active case sits in the center, its neighbours peek at the sides.
-    const track = document.querySelector('.track'), cards = [...track.children], dots = document.querySelectorAll('.dots i');
-    const show = i => {
-      const offset = track.parentElement.offsetWidth / 2 - (cards[i].offsetLeft - cards[0].offsetLeft + cards[i].offsetWidth / 2);
-      track.style.transform = `translateX(${offset}px)`;
-      cards.forEach((c, j) => c.classList.toggle('on', j === i));
-      dots.forEach((d, j) => d.classList.toggle('on', j === i));
-      play(cards[i]);
-    };
-    // Type the question, press Enter, then reveal the real case, the simulation and the accuracy together.
-    let timers = [];
-    function play(card) {
-      timers.forEach(clearTimeout); timers = [];
-      cards.forEach(c => {
-        c.classList.add('s1');
-        c.querySelector('.typed').textContent = c.querySelector('.typed').dataset.text;
-      });
-      card.classList.remove('s1');
-      const q = card.querySelector('.typed'), text = q.dataset.text;
-      q.textContent = ''; q.classList.add('cursor');
-      [...text].forEach((_, n) => timers.push(setTimeout(() => q.textContent = text.slice(0, n + 1), 250 + n * 18)));
-      const enter = 250 + text.length * 18 + 300;
-      timers.push(setTimeout(() => { q.classList.remove('cursor'); card.classList.add('s1'); }, enter));
-    }
-    show(Number(location.hash.slice(1)) || 0);
-    addEventListener('message', event => show(event.data));
+    // Grow the real bars up to the simulation mark.
+    requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('go')));
   </script>
 </body>
 </html>

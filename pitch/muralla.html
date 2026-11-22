@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Santiaguito · Muralla</title>
+  <style>
+    @font-face {
+      font-family: JetBrainsMono;
+      src: url("../tools/terminal-font/JetBrainsMonoNerdFontMono-Regular.ttf") format("truetype");
+    }
+    * { box-sizing: border-box; }
+    body {
+      height: 100svh;
+      margin: 0;
+      overflow: hidden;
+      color: #fff;
+      background: #05090d;
+    }
+    .wall {
+      height: 100%;
+      padding: .6vh;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: .6vh;
+    }
+    .wall video {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      object-fit: cover;
+      border-radius: .5vh;
+      opacity: 0;
+      transform: scale(.82);
+      transition: opacity .45s, transform .45s cubic-bezier(.2, 1.4, .4, 1);
+    }
+    .wall video.on { opacity: 1; transform: none; }
+    .ask {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      margin: 0;
+      padding: .35em .6em;
+      font: 400 clamp(1.2rem, min(3.2vw, 5.7vh), 4.2rem) / 1.15 JetBrainsMono, monospace;
+      background: #05090d;
+      border: 1px solid #2c3d4f;
+      border-radius: .25em;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(.9);
+      transition: opacity .5s, transform .5s;
+    }
+    .ask.on { opacity: 1; transform: translate(-50%, -50%); }
+    .prompt { color: #8dd0ff; }
+    .typed::after {
+      content: "";
+      display: inline-block;
+      width: .55em;
+      height: 1em;
+      margin-left: .1em;
+      vertical-align: -.12em;
+      background: #fff;
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+  </style>
+</head>
+<body>
+  <div class="wall"></div>
+  <p class="ask"><span class="prompt">❯ </span><span class="typed"></span></p>
+  <script>
+    const wall = document.querySelector('.wall');
+    const ask = document.querySelector('.ask');
+    const typed = document.querySelector('.typed');
+    const text = 'santiaguito.cl';
+    // Tiles appear in this order, so the wall fills in from scattered places.
+    const order = [5, 10, 0, 15, 6, 3, 12, 9, 1, 14, 7, 4, 11, 2, 13, 8];
+    for (let i = 1; i <= 16; i++) {
+      const video = document.createElement('video');
+      video.src = `media/muralla/${String(i).padStart(2, '0')}.mp4`;
+      video.muted = video.loop = video.playsInline = true;
+      video.preload = 'auto';
+      wall.append(video);
+    }
+    const videos = [...wall.children];
+    let timers = [];
+
+    // Fill the wall tile by tile, then type the open prompt.
+    function playSlide() {
+      timers.forEach(clearTimeout);
+      timers = [];
+      ask.classList.remove('on');
+      typed.textContent = '';
+      for (const video of videos) {
+        video.classList.remove('on');
+        video.pause();
+        video.currentTime = 0;
+      }
+      order.forEach((tile, step) => timers.push(setTimeout(() => {
+        videos[tile].classList.add('on');
+        videos[tile].play().catch(() => {});
+      }, 400 + step * 190)));
+      const filled = 400 + 16 * 190 + 1800;
+      timers.push(setTimeout(() => {
+        ask.classList.add('on');
+      }, filled));
+      [...text].forEach((_, i) => timers.push(setTimeout(() => {
+        typed.textContent = text.slice(0, i + 1);
+      }, filled + 900 + i * 140)));
+    }
+
+    document.addEventListener('click', playSlide);
+    document.addEventListener('keydown', event => {
+      if (event.code === 'Space' || event.code === 'KeyR') {
+        event.preventDefault();
+        playSlide();
+      }
+    });
+    playSlide();
+  </script>
+</body>
+</html>

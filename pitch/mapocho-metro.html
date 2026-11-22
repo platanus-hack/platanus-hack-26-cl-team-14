@@ -17,7 +17,7 @@
     body {
       min-height: 100svh;
       margin: 0;
-      padding: 3vh 3vw 2vh;
+      padding: 1vh .8vw;
       display: grid;
       grid-template-rows: 1fr;
       gap: 2vh;
@@ -26,7 +26,7 @@
       font-family: Barlow, system-ui, sans-serif;
     }
     main {
-      width: min(100%, 170vh);
+      width: 100%;
       margin: auto;
       display: grid;
       gap: 2.8vh;
@@ -40,13 +40,13 @@
     .scenarios {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      grid-template-rows: auto auto auto;
-      column-gap: clamp(12px, 2vw, 38px);
+      grid-template-rows: auto auto;
+      column-gap: .8vw;
       row-gap: 1.6vh;
     }
     section {
       display: grid;
-      grid-row: span 3;
+      grid-row: span 2;
       grid-template-rows: subgrid;
     }
     section h2 {
@@ -73,20 +73,13 @@
     @keyframes blink { 50% { opacity: 0; } }
     .run { display: block; min-height: 1.15em; color: #8dd0ff; }
     .run.done { color: #7ee2a8; }
-    section video, section .detail { opacity: 0; transition: opacity .6s; }
-    section.ready video, section.ready .detail { opacity: 1; }
+    section video { opacity: 0; transition: opacity .6s; }
+    section.ready video { opacity: 1; }
     video {
       display: block;
       width: 100%;
       aspect-ratio: 16 / 9;
       background: #0b1219;
-    }
-    .detail {
-      min-height: 2.55em;
-      margin: 0;
-      color: #8dd0ff;
-      font-size: clamp(.85rem, min(2.15vw, 3.7vh), 2.55rem);
-      line-height: 1.14;
     }
     #fondo {
       position: fixed;
@@ -118,13 +111,11 @@
         <h2 id="mapocho-question"><span class="prompt">❯ </span><span class="typed" data-text="¿Y si hubiera un ferry en el Mapocho?"></span><span class="run"></span></h2>
         <video id="ferry" src="media/mapocho-muelle-ferry.mp4" muted loop playsinline preload="auto"
           aria-label="Replay completo del ferry simulado en el Mapocho"></video>
-        <p class="detail">10 muelles · un ferry cada 10 minutos</p>
       </section>
       <section aria-labelledby="torre-question">
         <h2 id="torre-question"><span class="prompt">❯ </span><span class="typed" data-text="¿Y si copiamos la Gran Torre en Puente Alto?"></span><span class="run"></span></h2>
         <video id="torre" src="media/torre-puente-alto.mp4" muted loop playsinline preload="auto"
           aria-label="Replay de una copia de la Gran Torre Costanera en Puente Alto"></video>
-        <p class="detail">5.863 empleos · de 06:00 a 09:00</p>
       </section>
     </div>
   </main>
