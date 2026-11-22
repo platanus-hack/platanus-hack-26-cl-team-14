@@ -1,4 +1,57 @@
 use super::*;
+use geo::{BoundingRect, Intersects, Polygon};
+
+pub(in crate::movers) struct AccessFootprint {
+    polygon: Polygon<f32>,
+    bounds: geo::Rect<f32>,
+}
+
+impl AccessFootprint {
+    pub(in crate::movers) fn from_rim(rim: &[Vec3], transform: &Transform) -> Self {
+        let outline = rim
+            .iter()
+            .map(|p| {
+                let p = transform.transform_point(*p);
+                (p.x, p.z)
+            })
+            .collect();
+        let polygon = Polygon::new(outline, vec![]);
+        let bounds = polygon.bounding_rect().unwrap();
+        Self { polygon, bounds }
+    }
+
+    fn covers(&self, p: Vec3) -> bool {
+        let point = geo::Point::new(p.x, p.z);
+        self.bounds.intersects(&point) && self.polygon.intersects(&point)
+    }
+
+    fn crosses_trace(&self, head: Vec3, tail: Vec3, width: f32) -> bool {
+        // The renderer rotates the box in the ground plane and scales it by the 3D chord length.
+        let chord = head - tail;
+        let center = (head + tail) * 0.5;
+        let radius = (chord.length() + width) * 0.5;
+        let bounds = geo::Rect::new(
+            (center.x - radius, center.z - radius),
+            (center.x + radius, center.z + radius),
+        );
+        if !self.bounds.intersects(&bounds) {
+            return false;
+        }
+        let dir = (chord * Vec3::new(1., 0., 1.)).normalize_or_zero();
+        let along = dir * (chord.length() * 0.5);
+        let side = right(dir) * (width * 0.5);
+        let corners = [
+            center + along + side,
+            center + along - side,
+            center - along - side,
+            center - along + side,
+        ];
+        let outline = corners.map(|p| (p.x, p.z));
+        let trace = Polygon::new(outline.to_vec().into(), vec![]);
+        self.polygon.intersects(&trace)
+    }
+}
+
 struct Approach {
     path: Arc<Path>,
     gate: usize,
@@ -107,6 +160,7 @@ impl AccessFlows {
         now: f32,
         eye: Vec3,
         view_distance: f32,
+        stadium: Option<&AccessFootprint>,
         visible: &impl Fn(Vec3, f32) -> bool,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
@@ -184,17 +238,25 @@ impl AccessFlows {
                                 if chord.length_squared() < 0.01 {
                                     break;
                                 }
+                                let width = 4.5 - segment as f32;
+                                if stadium.is_some_and(|s| s.crosses_trace(head, tail, width)) {
+                                    head = tail;
+                                    continue;
+                                }
                                 place(
                                     Model::WalkTrace,
                                     paint,
                                     pose(
                                         (head + tail) * 0.5 + Vec3::Y * 0.5,
                                         chord.normalize(),
-                                        Vec3::new(chord.length(), 1., 4.5 - segment as f32),
+                                        Vec3::new(chord.length(), 1., width),
                                     ),
                                 );
                                 head = tail;
                             }
+                        }
+                        if stadium.is_some_and(|s| s.covers(p)) {
+                            continue;
                         }
                         let frame = motion::gait_frame(metres, scale, copy);
                         place(
@@ -218,6 +280,9 @@ impl AccessFlows {
                 let pos = at
                     + outward * (5. + row * stamp_size * 0.9)
                     + right(outward) * col * stamp_size * 0.85;
+                if stadium.is_some_and(|s| s.covers(pos)) {
+                    continue;
+                }
                 let tint = if i < plain { Paint::Plain } else { Paint::Gain };
                 place(
                     Model::Person,

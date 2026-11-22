@@ -500,7 +500,7 @@ fn inside(ring: &[Vec3], p: Vec2) -> bool {
 /// The same cross-sections used to draw the terraces, in the landmark's local frame.
 #[derive(Component)]
 pub(crate) struct StadiumSeating {
-    outer: Vec<Vec3>,
+    pub(crate) outer: Vec<Vec3>,
     inner: Vec<Vec3>,
     heights: Vec<f32>,
     floor: f32,
