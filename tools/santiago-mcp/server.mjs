@@ -158,6 +158,11 @@ const replayFile = (id) => {
   return new URL(`${id}.json`, replays);
 };
 const readReplay = (id) => JSON.parse(readFileSync(replayFile(id), 'utf8'));
+function replayMetadataForChat({ activity, ...meta }) {
+  if (!activity) return meta;
+  const { start_minute, step_minutes, steps, mode } = activity;
+  return { ...meta, activity: { start_minute, step_minutes, steps, mode } };
+}
 const listReplaysTool = {
   name: 'list_replays',
   description: 'List the cached demo replays: id, title, the presenter question, the changes, the scene place and start half hour, the duration and what to analyze. Use it to match the presenter question to a replay.',
@@ -170,7 +175,7 @@ const runReplayTool = {
 };
 const createReplayTool = {
   name: 'create_replay',
-  description: 'Create a saved replay for a confirmed new experiment. Run the general engine once with the agreed scene and changes, then save the full result with the agreed duration and analysis in data/replays/<id>.json. Use this tool instead of simulate_city when the user asks to save the new experiment. Choose a fresh id for a new replay. An existing id is replaced.',
+  description: 'Create a saved replay for a confirmed new experiment. Run the general engine once with the agreed scene, changes and optional route activity, then save the full result with the agreed duration and analysis in data/replays/<id>.json. Use this tool instead of simulate_city when the user asks to save the new experiment. Choose a fresh id for a new replay. An existing id is replaced.',
   inputSchema: {
     type: 'object', required: ['id', 'title', 'question', 'scene', 'changes', 'duration_half_hours', 'analyze'],
     properties: {
@@ -186,6 +191,59 @@ const createReplayTool = {
         },
       },
       changes: tool.inputSchema.properties.changes,
+      activity: {
+        type: 'object',
+        description: 'Confirmed route activity. Use an empty changes list for activity only. Step 0 starts at start_minute. Use stated assumptions for any arrivals, capacities or visits without measured inputs.',
+        required: ['start_minute', 'step_minutes', 'steps', 'segments', 'arrivals', 'geometry'],
+        properties: {
+          start_minute: { type: 'integer', minimum: 0, maximum: 1439, description: 'Exact local minute from midnight. 495 is 08:15.' },
+          step_minutes: { type: 'integer', minimum: 1 },
+          steps: { type: 'integer', minimum: 1, description: 'Number of open steps. The activity ends within the same local day.' },
+          mode: { type: 'string', description: 'Participant mode for display, such as bike or walk.' },
+          motor_access: { type: 'string', description: 'Known motor access rule during the activity. This describes access and does not apply a road edit.' },
+          segments: {
+            type: 'array', minItems: 1,
+            items: {
+              type: 'object', required: ['id', 'travel_steps', 'capacity_per_step'],
+              properties: {
+                id: { type: 'string' },
+                travel_steps: { type: 'integer', minimum: 1 },
+                capacity_per_step: { type: 'integer', minimum: 0 },
+                visit: {
+                  type: 'object', required: ['place_id', 'dwell_steps', 'starts_per_step'],
+                  properties: {
+                    place_id: { type: 'string' },
+                    dwell_steps: { type: 'integer', minimum: 1 },
+                    starts_per_step: { type: 'integer', minimum: 0 },
+                  },
+                },
+              },
+            },
+          },
+          arrivals: {
+            type: 'array', items: {
+              type: 'object', required: ['step', 'segment', 'participants'],
+              properties: {
+                step: { type: 'integer', minimum: 0 },
+                segment: { type: 'integer', minimum: 0, description: 'Zero-based index in the ordered route.' },
+                participants: { type: 'integer', minimum: 0 },
+              },
+            },
+          },
+          geometry: {
+            type: 'array', minItems: 1, description: 'One mapped polyline for each segment ID.', items: {
+              type: 'object', required: ['id', 'geometry'],
+              properties: {
+                id: { type: 'string', description: 'ID of the matching route segment.' },
+                geometry: {
+                  type: 'array', minItems: 2, description: 'Polyline from a source that permits redistribution. Use longitude, latitude.',
+                  items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } },
+                },
+              },
+            },
+          },
+        },
+      },
       stations: tool.inputSchema.properties.stations,
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
       analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
@@ -389,20 +447,23 @@ async function dispatch({ method, params }) {
       if (!raw) throw new Error('There is no published result. Confirm and run an experiment, or select a saved replay.');
       text = { source, ...queryResult(raw, args, publicWorkerWeights) };
     }
-    else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
+    else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => replayMetadataForChat(readReplay(f.slice(0, -5)).meta));
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
       if (meta.cues) result.scene.cues = meta.cues;
       if (meta.chart) result.chart = chartValues(meta);
       await engineJSON('/api/replay', result);
-      text = { replay: meta, result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
+      text = { replay: replayMetadataForChat(meta), result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
     } else if (params.name === createReplayTool.name) {
       const { scene, changes, stations = [], ...meta } = args;
       replayFile(meta.id);
       if (scene.half_hour == null) throw new Error('Select a start time for the replay.');
-      const placementScene = placement ? await resolveScene(scene, false) : undefined;
-      if (!placement) await setScene(scene);
-      const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations }, placement, placementScene);
+      const resolveWithRun = placement || meta.activity;
+      const runScene = resolveWithRun ? await resolveScene(scene, false) : undefined;
+      if (!resolveWithRun) await setScene(scene);
+      const { full, short, placesUsed } = await runScenario({
+        changes: structuredClone(changes), stations, activity: meta.activity,
+      }, placement, runScene);
       if (scene.layer === 'metro_service') full.scene.layer = scene.layer;
       for (const cue of meta.cues ?? []) {
         if (!cue.caption) continue;
@@ -414,7 +475,7 @@ async function dispatch({ method, params }) {
       }
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
-      text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
+      text = { saved: `data/replays/${meta.id}.json`, replay: replayMetadataForChat(replay.meta), result: short };
     } else text = (await runScenario(args, placement)).short;
     return { content: [{ type: 'text', text: JSON.stringify(text) }] };
   } catch (error) {
@@ -450,7 +511,12 @@ async function runScenario(args, requireAll, scene) {
 
 // The agent's copy: the 5 largest station gains and losses and the 5 largest zone job changes.
 function shortResult(full, asked, placesUsed) {
-    const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, ...result } = full;
+    const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, activity, ...result } = full;
+    if (activity) {
+      const { start_minute, end_minute, mode, steps } = activity;
+      const { entered, exited, remaining } = steps.at(-1);
+      result.activity = { start_minute, end_minute, mode, entered, exited, remaining };
+    }
     if (result.city_edits?.length) {
       result.city_edits = result.city_edits.map(editSummary);
       result.city_edit_scope = 'The physical city edits are exploratory model results.';
