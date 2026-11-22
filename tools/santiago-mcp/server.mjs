@@ -194,7 +194,7 @@ const createReplayTool = {
       activity: {
         type: 'object',
         description: 'Confirmed route activity. Use an empty changes list for activity only. Step 0 starts at start_minute. Use stated assumptions for any arrivals, capacities or visits without measured inputs.',
-        required: ['start_minute', 'step_minutes', 'steps', 'segments', 'arrivals'],
+        required: ['start_minute', 'step_minutes', 'steps', 'segments', 'arrivals', 'geometry'],
         properties: {
           start_minute: { type: 'integer', minimum: 0, maximum: 1439, description: 'Exact local minute from midnight. 495 is 08:15.' },
           step_minutes: { type: 'integer', minimum: 1 },
@@ -231,7 +231,7 @@ const createReplayTool = {
             },
           },
           geometry: {
-            type: 'array', items: {
+            type: 'array', minItems: 1, description: 'One mapped polyline for each segment ID.', items: {
               type: 'object', required: ['id', 'geometry'],
               properties: {
                 id: { type: 'string', description: 'ID of the matching route segment.' },
