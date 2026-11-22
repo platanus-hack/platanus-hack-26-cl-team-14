@@ -51,17 +51,37 @@ for purpose, path, count in (("work", "data/mvp/mode_od.csv", "commuters"), ("st
             model_mode[MODE_CENSUS.get(r["mode"], "other")] += n
 
 # Higher education (engine/src/population.rs): the travelling share of Census higher-education residents
-# (role 1 in person_traits_residents.csv) goes to SIES campuses in proportion to in-person + hybrid enrollment.
+# (role 1 in person_traits_residents.csv) goes to SIES campuses with P(campus | home comuna) proportional to
+# (in-person + hybrid enrollment) x exp(-BETA x minutes). BETA and minutes follow engine/src/choice.rs
+# (work destination beta fitted to Census commutes, printed by the choice_fit binary).
 campus, enrolled = collections.Counter(), 0.0
 for r in csv.DictReader(open("data/mvp/higher_ed.csv")):
     campus[r["cut"]] += float(r["in_person"] or 0) + float(r["hybrid"] or 0)
     enrolled += float(r["enrollment"] or 0)
 travel = sum(campus.values()) / enrolled
+import math
+BETA = 0.06509
+com = list(csv.DictReader(open("data/mvp/communes.csv")))
+cuts = [r["cut"] for r in com]
+xy = {r["cut"]: (float(r["longitude"]), float(r["latitude"])) for r in com}
+line = lambda a, b: math.hypot((xy[a][0]-xy[b][0])*92.9, (xy[a][1]-xy[b][1])*110.6)
+km = {(a, b): (min(line(a, e) for e in cuts if e != a)/2 if a == b else line(a, b)) for a in cuts for b in cuts}
+minutes = {}
+for r in csv.DictReader(open("data/mvp/travel_times.csv")):
+    minutes[(r["origin_cut"], r["destination_cut"])] = float(r["minutes_door_to_door"])
+xs = [(km[k], t) for k, t in minutes.items()]
+m = len(xs); sx = sum(x for x,_ in xs); sy = sum(y for _,y in xs); sxx = sum(x*x for x,_ in xs); sxy = sum(x*y for x,y in xs)
+b = (m*sxy - sx*sy)/(m*sxx - sx*sx); a = (sy - b*sx)/m
+mins = lambda o, d: minutes.get((o, d), a + b*km[(o, d)])
+share = {}
+for o in cuts:
+    row = {d: w*math.exp(-BETA*mins(o, d)) for d, w in campus.items()}
+    t = sum(row.values()); share[o] = {d: v/t for d, v in row.items()}
 for r in csv.DictReader(open("data/mvp/person_traits_residents.csv")):
     if r["role"] != "1":
         continue
-    for d, w in campus.items():
-        n = float(r["persons"]) * travel * w / sum(campus.values())
+    for d, f in share[r["cut"]].items():
+        n = float(r["persons"]) * travel * f
         o, s_d = sector.get(r["cut"]), sector.get(d)
         if o and s_d:
             model["study"][(o, s_d)] += n
@@ -111,3 +131,4 @@ print(f"\n## work mode (TV {tv(model_mode, survey_mode):.3f})")
 print("| mode | model 2024 | survey 2012 |")
 for k in ("car", "public", "walk", "bicycle", "other"):
     print(f"| {k} | {model_mode[k] / sum(model_mode.values()):.1%} | {survey_mode[k] / sum(survey_mode.values()):.1%} |")
+

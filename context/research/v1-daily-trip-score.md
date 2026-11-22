@@ -12,7 +12,7 @@ python3 -I tools/pack/eod_od_compare.py /path/to/EOD_STGO
 
 ## Method
 
-- **Model.** The engine places workers and students so that comuna flows equal `mode_od.csv` (Census 2024) and `school_od.csv` (MINEDUC 2026) exactly ([population.rs](../../engine/src/population.rs)). Higher education: 69.6 % of Census higher-education residents (209,954 persons) go to SIES campuses. **Unverified assumption:** 69.6 % is the in-person + hybrid share of SIES 2026 registrations; it measures registration type, not weekday attendance. The study score below is conditional on it. The campus is drawn in proportion to in-person + hybrid registrations, independent of home comuna; a campus without a point uses its reported comuna. Each of the 45 survey comunas lies in one EOD sector ([zones.csv](../../data/mvp/eod_sectors/zones.csv)), so the sector pairs of the model follow from the comuna flows.
+- **Model.** The engine places workers and students so that comuna flows equal `mode_od.csv` (Census 2024) and `school_od.csv` (MINEDUC 2026) exactly ([population.rs](../../engine/src/population.rs)). Higher education: 69.6 % of Census higher-education residents (209,954 persons) go to SIES campuses. **Unverified assumption:** 69.6 % is the in-person + hybrid share of SIES 2026 registrations; it measures registration type, not weekday attendance. The study score below is conditional on it. The campus is drawn with P(campus | home comuna) ∝ (in-person + hybrid registrations) × exp(−0.0651 × minutes), the work destination beta that `choice.rs` fits to Census commutes. Assumption: students weigh travel time like workers; no campus origin data exists (Census 2024 has no place of study). The beta is not tuned to EOD. A campus without a point uses its reported comuna. Each of the 45 survey comunas lies in one EOD sector ([zones.csv](../../data/mvp/eod_sectors/zones.csv)), so the sector pairs of the model follow from the comuna flows.
 
 ## Exclusions by geography
 
@@ -30,7 +30,7 @@ The survey dictionary (`Sector.csv`) labels code 9 "Exterior a RM" and gives no 
 | Purpose | Model | Survey | TV sector pair | TV origin | TV destination |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Work | 2,618,729 persons | 2,869,579 trips (12,865 records) | **0.090** | 0.054 | 0.057 |
-| Study (school + higher education) | 1,441,551 persons | 1,529,722 trips (7,935 records) | **0.160** | 0.118 | 0.097 |
+| Study (school + higher education) | 1,441,551 persons | 1,529,722 trips (7,935 records) | **0.148** | 0.118 | 0.095 |
 
 Work destination share by sector, model vs survey: Norte 15.8 % / 13.7 %, Poniente 14.9 / 13.4, Oriente 29.0 / 29.9, Centro 13.6 / 18.1, Sur 11.6 / 12.0, Sur-Oriente 9.8 / 9.6, Ext. Sur-Poniente 5.2 / 3.3. The largest pair gaps are trips inside Oriente (9.2 % vs 12.6 %) and inside Centro (2.9 % vs 5.0 %).
 
@@ -39,6 +39,6 @@ Work mode share (TV 0.113), model 2024 vs survey 2012: car 29.4 % / 30.6 %, publ
 ## Limits
 
 - Different years and units: Census 2024 usual workplace (one per person) vs 2012 diary trips. A survey worker can make two trips to work in one day (after lunch), which adds short trips and walking.
-- Study: the 0.160 score depends on the 69.6 % travel assumption above; no weekday participation estimate with its own denominator is used. Before higher education was added, TV was 0.179 and Centro had 5.9 % of model study destinations vs 15.2 % in the survey. With campus trips Centro is 11.3 %. Campus choice ignores distance from home, and Norte and Ext. Sur-Poniente remain over-represented (school enrollment).
+- Study: the 0.148 score depends on the 69.6 % travel assumption above; no weekday participation estimate with its own denominator is used. Steps: school only 0.179 (Centro 5.9 % of model study destinations vs 15.2 % in the survey); campus drawn region-wide 0.160 (Centro 11.3 %); campus by travel time 0.148 (Centro 12.5 %, mean campus trip 51.7 → 42.5 min). Norte and Ext. Sur-Poniente remain over-represented (school enrollment).
 - Survey trips to work can start away from home; model origins are homes.
 - The score uses inputs the model was built from (Census comuna flows), so it measures agreement with an older independent survey, not prediction error. V4 owns the fixed event score.
