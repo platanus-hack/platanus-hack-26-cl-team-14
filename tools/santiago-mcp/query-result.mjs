@@ -257,7 +257,11 @@ export function queryResult(raw, args, loadPublicWorkers) {
     population: data.population, scope: data.scope,
     weighting: census ? 'Fixed observed Census 2024 public work commuters by directed comuna pair, across the workday. These are not scenario passenger counts.'
       : q.weight === 'value' ? 'Weight each selected row by its modeled count.' : 'Each selected row contributes equally.',
-    method: q.aggregate === 'percentile' ? 'First value whose cumulative weight reaches the requested percentile.' : undefined,
+    method: {
+      percentile: 'First value whose cumulative weight reaches the requested percentile.',
+      share: 'The denominator is the eligible weight within each result group. The numerator applies the share filters to that same group.',
+      histogram: 'A cutoff belongs to the bin that starts at that value. Null bounds are open ends.',
+    }[q.aggregate],
     coverage, results,
   };
 }
