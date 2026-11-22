@@ -5,14 +5,14 @@ use crate::{
 use bevy::prelude::*;
 use std::sync::Arc;
 
-pub(super) struct GateWalk {
+pub(super) struct WalkPath {
     path: Arc<Path>,
     length: f32,
 }
 
-impl GateWalk {
+impl WalkPath {
     /// World-space walking points ending at the access declared by the journey.
-    pub(super) fn new(
+    pub(super) fn to_gate(
         mut points: Vec<Vec3>,
         bowl: &StadiumSeating,
         landmark: &Transform,
@@ -33,6 +33,11 @@ impl GateWalk {
             points.truncate(i + 1);
             points.push(point);
         }
+        Self::along(points)
+    }
+
+    pub(super) fn along(mut points: Vec<Vec3>) -> Option<Self> {
+        points.first()?;
         for point in &mut points {
             point.y = terrain_from_xz(point.x, point.z);
         }
@@ -48,5 +53,19 @@ impl GateWalk {
             .at(self.length * fraction.clamp(0., 1.), &self.path.metres)
             .map(|(point, heading, _)| (point, heading))
             .unwrap_or((self.path.points[0], Vec3::ZERO))
+    }
+}
+
+pub(super) struct OriginWalk {
+    pub(super) path: WalkPath,
+    pub(super) start: f32,
+    pub(super) end: f32,
+}
+
+impl OriginWalk {
+    pub(super) fn at(&self, now: f32) -> Option<(Vec3, Vec3)> {
+        (self.start..self.end)
+            .contains(&now)
+            .then(|| self.path.walk((now - self.start) / (self.end - self.start)))
     }
 }

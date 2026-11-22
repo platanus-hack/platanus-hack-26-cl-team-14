@@ -1,7 +1,7 @@
 //! Stadium arrivals use the same weighted journeys and city clock as their vehicles.
 //! Other neighborhood events retain their schematic local animation.
-#[path = "events/terrace.rs"]
-mod terrace;
+#[path = "events/walk.rs"]
+mod walk;
 use super::*;
 use super::{
     clock::{CityClock, UpdateClock},
@@ -12,7 +12,7 @@ use crate::{
     city::{StadiumSeating, SubwayView},
 };
 use bevy::{text::FontSize, time::Real};
-use terrace::GateWalk;
+use walk::{OriginWalk, WalkPath};
 
 const PHASE_SECONDS: f32 = 10.;
 // These are display transitions in replay seconds, not a measured gate capacity.
@@ -66,7 +66,8 @@ enum GroupPath {
         to: Vec3,
     },
     Arrival {
-        walk: GateWalk,
+        origin: Option<OriginWalk>,
+        walk: WalkPath,
         alight: f32,
         gate: f32,
         seat: Vec3,
@@ -319,7 +320,8 @@ fn refresh(
             let mut figures = 0usize;
             if let Some((_, bowl, landmark, _)) = stadium.and_then(|id| bowls.get(id).ok()) {
                 for group in groups {
-                    let Some(walk) = GateWalk::new(group.walk_path.clone(), bowl, landmark) else {
+                    let Some(walk) = WalkPath::to_gate(group.walk_path.clone(), bowl, landmark)
+                    else {
                         continue;
                     };
                     let mode = match group.mode {
@@ -342,6 +344,13 @@ fn refresh(
                             mode,
                             delay: 0.,
                             path: GroupPath::Arrival {
+                                origin: group.origin_walk.as_ref().and_then(|leg| {
+                                    Some(OriginWalk {
+                                        path: WalkPath::along(leg.path.clone())?,
+                                        start: leg.start_seconds,
+                                        end: leg.end_seconds,
+                                    })
+                                }),
                                 walk,
                                 alight: group.alight_seconds,
                                 gate: group.gate_seconds,
@@ -458,6 +467,7 @@ fn animate(
         let map_scale = (rig.distance * 0.0035).clamp(1.1, 3.8);
         let (point, heading, transit, scale) = match group.path {
             GroupPath::Arrival {
+                ref origin,
                 ref walk,
                 alight,
                 gate,
@@ -465,12 +475,14 @@ fn animate(
                 facing,
             } => {
                 let now = city_clock.0.unwrap().rem_euclid(DAY);
-                if now < alight {
-                    visibility.set_if_neq(Visibility::Hidden);
-                    continue;
-                }
                 let admitted = now - gate;
-                let ((point, heading), opacity) = if admitted < 0. {
+                let ((point, heading), opacity) = if now < alight {
+                    let Some(pose) = origin.as_ref().and_then(|leg| leg.at(now)) else {
+                        visibility.set_if_neq(Visibility::Hidden);
+                        continue;
+                    };
+                    (pose, 1.)
+                } else if admitted < 0. {
                     (walk.walk((now - alight) / (gate - alight)), 1.)
                 } else if admitted < GATE_FADE_SECONDS {
                     (walk.walk(1.), 1. - admitted / GATE_FADE_SECONDS)
