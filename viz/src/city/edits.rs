@@ -275,6 +275,39 @@ fn baseline_copy(
     Some((mesh, mat.clone()))
 }
 
+// Use exact mapped footprints after a cheap packed-box rejection.
+fn occupied_buildings(buildings: &Buildings, mask: &StreetMask) -> HashSet<(usize, usize)> {
+    let mut occupied = HashSet::new();
+    if mask.is_empty() { return occupied; }
+    let boxes = &buildings.boxes;
+    let polys = &buildings.polygons;
+    for tile in 0..boxes.offsets.len() - 1 {
+        let bytes = boxes.slice(tile);
+        if bytes.is_empty() { continue; }
+        for i in 0..super::integer(bytes, 0) {
+            let at = 4 + i * 12;
+            let x = boxes.origin.x + super::word(bytes, at) as f32 * 0.92915;
+            let z = boxes.origin.z - super::word(bytes, at + 2) as f32 * 1.10905;
+            // Packed centers and box extents round separately; exact polygons decide occupancy.
+            let radius = (super::word(bytes, at + 4) as f32 + super::word(bytes, at + 6) as f32) * 0.05 + 1.;
+            if !mask.intersects(&geo::Rect::new((x - radius, z - radius), (x + radius, z + radius))) { continue; }
+            let bytes = polys.slice(tile);
+            let ring_table = 12 + (super::integer(bytes, 0) + 1) * 4;
+            let vertices = ring_table + (super::integer(bytes, 4) + 1) * 4;
+            let first = super::integer(bytes, 12 + i * 4);
+            let end = super::integer(bytes, 16 + i * 4);
+            let rings: Vec<Vec<Vec3>> = (first..end).map(|r| {
+                (super::integer(bytes, ring_table + r * 4)..super::integer(bytes, ring_table + (r + 1) * 4)).map(|v| {
+                    let at = vertices + 4 * v;
+                    polys.position(super::word(bytes, at) as f32, super::word(bytes, at + 2) as f32)
+                }).collect()
+            }).collect();
+            if mask.overlaps(&rings) { occupied.insert((tile, i)); }
+        }
+    }
+    occupied
+}
+
 // Every result is a full scenario. Keep only the last state of each edited object.
 pub(crate) fn refresh(
     mut commands: Commands,
@@ -305,6 +338,7 @@ pub(crate) fn refresh(
     )>,
     mut road_tiles: Query<(&streets::StreetTile, &mut Mesh3d)>,
     mut previous_mask: ResMut<StreetMask>,
+    mut occupied: Local<HashSet<(usize, usize)>>,
     mut origins: Local<HashMap<Entity, Vec3>>,
     mut previous: Local<HashMap<String, Value>>,
     mut material: Local<Option<Handle<StandardMaterial>>>,
@@ -373,7 +407,7 @@ pub(crate) fn refresh(
         }
         commands.entity(entity).despawn();
     }
-    let hidden: HashSet<_> = final_state
+    let mut hidden: HashSet<_> = final_state
         .iter()
         .filter_map(|((kind, id), (before, _))| {
             if kind != "building" || before.is_null() {
@@ -382,15 +416,6 @@ pub(crate) fn refresh(
             tile_key(id)
         })
         .collect();
-    let changed: Vec<_> = buildings
-        .hidden
-        .symmetric_difference(&hidden)
-        .copied()
-        .collect();
-    for (tile, _) in changed {
-        buildings.dirty[tile] = true;
-    }
-    buildings.hidden = hidden;
     let mut moved_landmarks = HashMap::new();
     for (entity, key, visual, seating, mut transform, mut visibility) in &mut named {
         let original = *origins.entry(entity).or_insert(transform.translation);
@@ -438,7 +463,7 @@ pub(crate) fn refresh(
         *visibility = if offset.is_some() {
             moved_landmarks.insert(id, seating.is_some());
             Visibility::Inherited
-        } else if buildings.hidden.contains(&(key.0, key.1)) {
+        } else if hidden.contains(&(key.0, key.1)) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
@@ -458,8 +483,25 @@ pub(crate) fn refresh(
         },
     ));
     if mask != *previous_mask {
+        *occupied = occupied_buildings(&buildings, &mask);
         streets::apply(&mask, &mut meshes, &mut road_tiles);
         *previous_mask = mask;
+    }
+    hidden.extend(occupied.iter().copied());
+    let changed: Vec<_> = buildings
+        .hidden
+        .symmetric_difference(&hidden)
+        .copied()
+        .collect();
+    for (tile, _) in changed {
+        buildings.dirty[tile] = true;
+    }
+    buildings.hidden = hidden;
+    for (_, key, _, _, _, mut visibility) in &mut named {
+        let id = format!("mesh:{}:{}", key.0, key.1);
+        if buildings.hidden.contains(&(key.0, key.1)) && !moved_landmarks.contains_key(&id) {
+            *visibility = Visibility::Hidden;
+        }
     }
     let mask = &*previous_mask;
     let path_material = material
@@ -509,7 +551,8 @@ pub(crate) fn refresh(
                     .insert((EditMesh, BuildingEdit::new(id, false)));
             }
         }
-        if !before.is_null()
+        if kind != "building"
+            && !before.is_null()
             && (after.is_null()
                 || before["geometry"] != after["geometry"]
                 || (kind == "line" && before["properties"]["mode"] != after["properties"]["mode"]))

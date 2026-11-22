@@ -86,7 +86,7 @@ impl FanJourneys {
                     )
                 {
                     let scale = size_at(at);
-                    if !car.path.on_bridge(metres) && placed.intersects_body(at, dir, 3.24 * scale, 1.44 * scale) {
+                    if !car.path.on_bridge(metres) && placed.intersects_body(at, dir, 3.24 * scale, (if group.relocated { 1.64 } else { 1.44 }) * scale) {
                         continue;
                     }
                     let transform = pose(at, dir, Vec3::splat(scale));

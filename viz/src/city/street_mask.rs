@@ -20,6 +20,20 @@ impl StreetMask {
         self.0.is_empty()
     }
 
+    pub(super) fn overlaps(&self, rings: &[Vec<Vec3>]) -> bool {
+        let footprint = polygon(rings);
+        let Some(bounds) = footprint.bounding_rect() else {
+            return false;
+        };
+        self.0.iter().any(|(rect, mask)| {
+            if !rect.intersects(&bounds) {
+                return false;
+            }
+            let relation = mask.relate(&footprint);
+            relation.is_intersects() && !relation.is_touches()
+        })
+    }
+
     pub(crate) fn intersects_body(
         &self,
         position: Vec3,

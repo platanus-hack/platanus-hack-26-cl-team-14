@@ -1354,7 +1354,7 @@ fn draw(
                 // Check the rendered body after lane placement at building edges.
                 if g.itineraries.is_empty() && !g.path.on_bridge(metres) {
                     let collision = if kind == Vehicle::Car {
-                        let (length, width) = if tier == 2 { (3.5 * presence, 3.5 * presence) } else { (3.24 * scale, 1.44 * scale) };
+                        let (length, width) = if tier == 2 { (3.5 * presence, 3.5 * presence) } else { (3.24 * scale, (if paint == Paint::Plain { 1.44 } else { 1.64 }) * scale) };
                         placed.intersects_body(position, dir, length, width)
                     } else {
                         placed.contains(position)
