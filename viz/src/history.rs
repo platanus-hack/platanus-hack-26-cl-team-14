@@ -171,6 +171,7 @@ fn setup(mut commands: Commands) {
             BorderColor::all(BORDER),
             Node {
                 position_type: PositionType::Absolute,
+                display: Display::None,
                 top: px(106),
                 left: px(24),
                 border: UiRect::all(px(1)),
