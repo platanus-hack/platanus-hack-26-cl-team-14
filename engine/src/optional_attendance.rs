@@ -1,9 +1,6 @@
 //! Conditional attendance for a named synthetic person and supplied travel options.
-#[path = "optional_visit.rs"]
-mod optional_visit;
-
 use crate::population::Population;
-use optional_visit::{choose_visit, VisitOption};
+use super::optional_visit::{choose_visit, VisitOption};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
