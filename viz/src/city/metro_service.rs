@@ -22,7 +22,9 @@ impl Plugin for MetroServicePlugin {
 struct ServiceLines(f32);
 
 fn half_width(result: &Value, distance: f32) -> Option<f32> {
-    if distance >= 26_000. {
+    if result.is_null() {
+        None
+    } else if distance >= 26_000. {
         Some(115.)
     } else if distance >= 7_000. {
         Some(34.)
