@@ -1,6 +1,6 @@
 # Verticals
 
-There are five verticals. Each vertical has one team and one Discord thread.
+There are six verticals. Each vertical has one team and one Discord thread.
 Each team plans and takes its own tasks.
 The golden rule still applies: every task must serve a moment in `context/pitch.md`.
 
@@ -137,6 +137,44 @@ Fitting the engine to these evals is the intent. When a score goes on the pitch 
 - The humans say V5 is finished.
 - Each demo scene has at least one related eval whose score improved through engine changes.
 - One command reruns all evals.
+
+## V6 · Simulate activities over time
+
+**Goal:** Show how a time-bounded activity changes what people do and how
+they use places in Santiago. Start with the CicloRecreoVía.
+
+- An activity declares its start and end, step length, participants, route
+  or places, and rules for movement, waiting, visits and exits.
+- Each step uses the previous step’s state. A queue carries over. A
+  participant who stops can rejoin the route in a later step.
+- An experiment can change city properties at the start, run an activity,
+  or do both. The MCP confirms which case the user wants, the inputs and
+  what to measure.
+- Compare the same starting city with and without the activity. When
+  testing a city edit, also compare the same activity with and without
+  that edit. Report flow by segment and time, waiting, dwell and visits
+  under stated assumptions. Use real routes and available counts.
+- V1 owns the engine contract. V3 saves the step results as a replay. V2
+  displays the saved steps.
+
+**Start from:** [Pocuro route and evidence](research/v6-pocuro-evidence.md).
+The public schedule and survey give context. Use explicit assumptions
+for local entry counts, time profiles and visit rules.
+
+**Done when:**
+
+- One CicloRecreoVía replay shows the route opening for the activity,
+  participants moving and stopping, and the route reopening. It compares
+  flow and estimated visits with a stated reference.
+- One changed input affects a later step. The run accounts for each
+  participant who entered, left or remains in the activity.
+- The same activity format can describe a second case, such as a marathon
+  with timed start waves, without rules specific to its route.
+- The MCP confirms initial edits, an activity, or both. The replay presents
+  the chosen measures from the saved run.
+- The humans say V6 is finished.
+
+[Approved direction](https://discord.com/channels/1573514576400752640/1573903663821226187/1573918209529090092)
 
 ## Open
 
