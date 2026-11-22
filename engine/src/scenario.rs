@@ -22,6 +22,8 @@ mod building_permits;
 mod attendance;
 #[path = "fans.rs"]
 mod fans;
+#[path = "optional_visit.rs"]
+mod optional_visit;
 #[path = "shopping.rs"]
 mod shopping;
 use shopping::Shopping;
@@ -79,6 +81,8 @@ pub struct Scenario {
     /// Baseline workers per resident of each comuna (persons / blocks.csv population).
     ratio: Vec<f64>,
     shopping: Shopping,
+    /// Baseline optional shopping visits: eligible persons (worker indices, then other residents) and their decisions.
+    visits: OnceLock<(Vec<usize>, Vec<usize>, shopping::visits::Visits)>,
 }
 
 const ASSUMPTIONS: [&str; 10] = [
@@ -130,7 +134,7 @@ impl Scenario {
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
         let shopping = Shopping::load(dir, &choice.cuts, &pop.homes, &choice.minutes);
-        let mut sc = Scenario { shopping, data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
+        let mut sc = Scenario { shopping, visits: OnceLock::new(), data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
         sc.base = sc.state(&sc.pop, &Network::new(&sc.access), &mut []);
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -219,6 +223,32 @@ impl Scenario {
                 age_band: UNKNOWN, household_size: UNKNOWN,
             }));
         }
+    }
+
+    /// The same persons decide an optional shopping visit before and after the change (shopping/visits.rs), with one paired example.
+    fn optional_visits(&self, pop: &Population, minutes: &[f64], shops: &[shopping::Shop], window: Option<(usize, usize)>, residents_changed: bool) -> Value {
+        if residents_changed { return json!({ "not_modeled": "Optional visits pair the same persons before and after; a residents change adds or removes persons." }); }
+        let c = &self.choice;
+        let (workers, homes, visits) = self.visits.get_or_init(|| {
+            let home_ix: Vec<usize> = self.pop.homes.iter().map(|h| self.ix(&h.cut)).collect();
+            let workers: Vec<usize> = (0..self.pop.persons.len()).filter(|&i| !self.pop.persons[i].student).collect();
+            let homes: Vec<usize> = workers.iter().map(|&i| home_ix[self.pop.persons[i].home as usize])
+                .chain(self.pop.residents.iter().map(|r| home_ix[r.home as usize])).collect();
+            let visits = self.shopping.visits(c.n, &homes, &c.minutes);
+            (workers, homes, visits)
+        });
+        let after = visits.after(shops, &c.minutes, minutes, window);
+        let mut v = shopping::visits::summary(&c.cuts, &visits.before, &after);
+        v["baseline_check"] = json!({ "destination_tv_vs_shopping_layer": (visits.tv_vs_shopping_layer * 10000.0).round() / 10000.0 });
+        let cut = |x: Option<u8>| x.map(|d| c.cuts[d as usize].clone());
+        if let Some(k) = (0..workers.len()).find(|&k| visits.before[k] != after[k]) {
+            let (b, a) = (&self.pop.persons[workers[k]], &pop.persons[workers[k]]);
+            v["example_worker"] = json!({ "person": workers[k], "home_comuna": c.cuts[homes[k]],
+                "job_block_base": self.pop.jobs[b.dest as usize].id, "job_block_scenario": pop.jobs[a.dest as usize].id,
+                "work_mode_base": b.mode, "work_mode_scenario": a.mode,
+                "visit_comuna_base": cut(visits.before[k]), "visit_comuna_scenario": cut(after[k]) });
+        }
+        v
     }
 
     fn ix(&self, cut: &str) -> usize { self.choice.cuts.iter().position(|c| c == cut).unwrap() }
@@ -807,6 +837,7 @@ impl Scenario {
             "trips_delta": trip_deltas(&self.trips, &trips), "trips_base": self.trips, "trips_scenario": trips,
             "events": events,
             "shopping": self.shopping.run(&c.cuts, &c.names, &c.minutes, &minutes, &shops, &shop_sites),
+            "optional_visits": self.optional_visits(&pop, &minutes, &shops, window, resident_stock_edits > 0),
             "population": {
                 "workers": s.od.iter().sum::<f64>(), "students": pop.persons.iter().filter(|p| p.student).count(),
                 "other_residents_by_role": (["under_15", "higher_education", "employed_without_internal_commute", "unemployed", "outside_labour_force", "unknown"]
