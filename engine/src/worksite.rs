@@ -79,9 +79,9 @@ fn mode(code: i8) -> &'static str {
         1 => "car",
         2 => "public",
         3 => "walk",
-        4 => "bicycle",
+        4 => "bicycle_or_scooter",
         5 => "motorcycle",
-        6 => "boat",
+        6 => "horse_or_boat",
         7 => "other",
         _ => "unknown",
     }
@@ -168,7 +168,7 @@ pub fn results(
             "unit":"modeled workers",
             "scope":"A typical weekday. Counts follow synthetic workers assigned to this exact scenario worksite. Outside means the modeled home comuna differs from the placed building's primary census-block comuna.",
             "time_unit":"minutes",
-            "time_scope":"Travel times are comuna-pair proxies for the same assigned workers. Car uses the scenario road graph at free flow between comuna anchors. Public uses the scenario's scheduled-transit pair minutes for the morning routing reference (GTFS baseline coverage only, no imputed distance-fit pairs or timed transit scenarios). The public mode includes the broad Census public category. Other modes and local journeys have no time in this result. These are not door-to-door times to the building.",
+            "time_scope":"Travel times are comuna-pair proxies for the same assigned workers. Car uses the scenario road graph at free flow between comuna anchors. Public uses the scenario's scheduled-transit pair minutes for the morning routing reference (GTFS baseline coverage only, no imputed distance-fit pairs or timed transit scenarios). The Census public category includes bus, Metro, train, taxi and colectivo. The time proxy uses scheduled transit. Other modes and local journeys have no time in this result. These are not door-to-door times to the building.",
         })
     }).collect()
 }
