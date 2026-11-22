@@ -304,7 +304,7 @@ fn advance(
     hidden: Query<(Entity, &HiddenHud)>,
     mut exit: MessageWriter<AppExit>,
     #[cfg(target_os = "macos")] display: (
-        Single<&bevy::window::OnMonitor, With<PrimaryWindow>>,
+        Query<&bevy::window::OnMonitor, With<PrimaryWindow>>,
         Query<&bevy::window::Monitor>,
     ),
 ) {
@@ -358,7 +358,7 @@ fn advance(
             #[cfg(target_os = "macos")]
             let signal = {
                 let (window, monitors) = &display;
-                let monitor = monitors.get(window.0).unwrap();
+                let monitor = monitors.get(window.single().unwrap().0).unwrap();
                 // Winit's global monitor origin is physical, scaled by this monitor.
                 // AppKit and Terminal use global desktop points instead.
                 let origin = monitor.physical_position.as_dvec2() / monitor.scale_factor;
