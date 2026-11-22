@@ -17,6 +17,7 @@ from tempfile import TemporaryDirectory
 from shapely import STRtree, make_valid, transform, union_all
 from shapely.geometry import LineString, box, shape
 
+from car_tunnels import DryTunnels
 from roads import VIEW
 
 DATA = Path("web/data")
@@ -232,6 +233,8 @@ def main():
             if g["mode"] == "car" and g.get("route") is not None
         }
     )
+    local_rows = [(i, local["paths"][i]) for i in selected]
+    od_rows = read("car_routes.json").items()
     bundle = {
         "attribution": "© OpenStreetMap contributors",
         "license": "ODbL-1.0",
@@ -239,9 +242,12 @@ def main():
         "water": water,
         "water_ids": ids,
         "bridges": index.decks,
-        "local": index.routes((i, local["paths"][i]) for i in selected),
-        "od": index.routes(read("car_routes.json").items()),
+        "local": index.routes(local_rows),
+        "od": index.routes(od_rows),
     }
+    tunnels = DryTunnels(read("road_centerlines.geojson.gz")["features"], metres)
+    tunnels.add(local_rows, bundle["local"])
+    tunnels.add(od_rows, bundle["od"])
     raw = json.dumps(bundle, separators=(",", ":"), ensure_ascii=False).encode()
     dest = DATA / "car_water_spans.json.gz"
     dest.write_bytes(gzip.compress(raw, compresslevel=9, mtime=0))

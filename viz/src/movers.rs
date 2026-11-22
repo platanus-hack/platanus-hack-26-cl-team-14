@@ -5,6 +5,7 @@ pub(crate) mod clock;
 pub(crate) mod follow;
 mod fleet;
 mod motion;
+mod car_geometry;
 mod road_water;
 mod road_edits;
 mod articulated;
@@ -459,6 +460,7 @@ impl Routes {
         let local = local_routes(&riders, &water);
         let mut cars = table("web/data/car_routes.json", Vehicle::Car);
         for (key, path) in &mut cars { road_water::set_crossings(path, water.od.get(key)); }
+        car_geometry::restore(&mut cars);
         Self {
             public,
             local,
