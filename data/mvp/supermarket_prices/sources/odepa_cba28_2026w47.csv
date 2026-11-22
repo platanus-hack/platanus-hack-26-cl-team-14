@@ -1,0 +1,29 @@
+categoria_cba,unidad_cba_g_o_ml,cantidad_persona_mes,producto_observado_odepa,unidad_precio_odepa,g_o_ml_por_unidad_odepa,sectores_con_dato,clp_promedio_sectores_por_unidad_odepa,clp_por_kg_o_litro,clp_modelado_persona_mes,gasto_tabla_metodologica_base_clp,kcal_persona_dia_tabla_metodologica
+Arroz,GR,942,Arroz grano ancho grado 1,$/kilo,1000,5,2119.3,2119.3,1996.38,1061,115
+Harina de trigo blanca,GR,647,Harina sin polvos de hornear,$/kilo,1000,5,1302.47,1302.47,842.7,628,79
+Pan corriente a granel,GR,6282,Marraqueta,$/kilo,1000,5,2131.83,2131.83,13392.13,10239,666
+Espaguetis,GR,559,Spaghetti N°5,$/envase 400 gramos,400,5,1023.0,2557.51,1429.65,462,28
+Carne de vacuno corte posta,GR,81,Posta Rosada,$/kilo,1000,5,12305.38,12305.38,996.74,1107,6
+Carne de cerdo corte chuleta,GR,95,Chuleta (centro),$/kilo,1000,5,5817.04,5817.04,552.62,759,7
+Pechuga de pollo,GR,202,Pollo Pechuga,$/kilo,1000,5,4752.83,4752.83,960.07,1407,11
+Trutro de pollo,GR,490,Pollo Trutro Entero,$/kilo,1000,5,3581.11,3581.11,1754.74,2045,28
+Leche líquida entera,ML,995,Leche Fluida Entera,$/Caja de 1 Litro,1000,5,1111.79,1111.79,1106.24,1031,21
+Leche líquida descremada y semidescremada,ML,351,Leche Fluida Descremada,$/Caja de 1 Litro,1000,5,1113.51,1113.51,390.84,335,5
+Leche en polvo,GR,96,Leche en Polvo Entera,$/bolsa 800 grs,800,5,7177.44,8971.8,861.29,614,16
+Queso gouda,GR,183,Queso Gauda,$/envase 1 kilo,1000,5,11251.47,11251.47,2059.02,1446,21
+Queso chanco o mantecoso,GR,70,Queso Chanco,$/envase 1 kilo,1000,5,13205.26,13205.26,924.37,606,9
+"Aceites vegetales, de fruta o semillas",ML,712,Aceite vegetal,$/botella 900 ml,900,5,2220.32,2467.02,1756.52,1564,197
+Mantequillas,GR,81,Mantequilla con sal,$/pan de 250 gramos,250,5,3000.68,12002.72,972.22,693,20
+Margarinas y preparaciones similares,GR,105,Margarina,$/pote 500 gramos,500,5,2411.21,4822.41,506.35,407,11
+Plátanos frescos,GR,476,Plátano|Sin especificar|Primera,$/kilo,1000,5,1453.63,1453.63,691.93,891,14
+Paltas frescas,GR,365,Palta|Hass|Primera,$/kilo,1000,5,5810.33,5810.33,2120.77,1647,19
+Naranjas frescas,GR,230,Naranja|Navel Late|Primera,$/kilo,1000,5,2792.33,2792.33,642.24,304,4
+"Limones y limas, frescas",GR,359,Limón|Sin especificar|1a amarillo,$/kilo,1000,5,1915.52,1915.52,687.67,633,3
+Manzanas frescas,GR,380,Manzana|Fuji royal|Primera,$/kilo,1000,5,2520.0,2520.0,957.6,466,7
+Tomates frescos o refrigerados,GR,1047,Tomate|Larga vida|Primera,$/kilo,1000,5,2019.81,2019.81,2114.74,1446,6
+Zanahorias frescas o refrigeradas,GR,467,Zanahoria|Sin especificar|Primera,$/kilo,1000,5,1529.96,1529.96,714.49,424,7
+Cebollas frescas o refrigeradas,GR,674,Cebolla|Sin especificar|1a nueva(o),$/kilo,1000,5,1910.11,1910.11,1287.42,687,9
+Papas y otros tubérculos,GR,2979,Papa|Asterix|Primera,$/kilo,1000,5,2109.93,2109.93,6285.49,1916,75
+Porotos secos,GR,192,Poroto Tórtola,$/kilo,1000,5,4071.94,4071.94,781.81,394,21
+Lentejas secas,GR,92,Lentejas 6 mm,$/kilo,1000,5,3589.19,3589.19,330.21,199,10
+Azúcar de caña y remolacha,GR,680,Azúcar,$/kilo,1000,5,1249.02,1249.02,849.34,680,89
