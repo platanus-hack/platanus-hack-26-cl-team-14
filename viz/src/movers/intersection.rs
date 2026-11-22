@@ -13,7 +13,7 @@ const CLEARANCE: f32 = 4.5;
 // At the close camera scale this leaves room for the full rendered body.
 const HEADWAY: f32 = 1.3;
 const STOP_DISTANCE: f32 = 14.;
-const QUEUE_RADIUS: f32 = 80.;
+const QUEUE_RADIUS: f32 = 125.;
 
 // Shared OSM nodes, matched to UOCT inventory locations.
 // Grecia is one east-side merge, not an aggregate roundabout node.
@@ -173,7 +173,13 @@ impl Queues {
         let stop = stops
             .partition_point(|&i| self.passes[i].release <= now)
             .min(stops.len() - 1);
-        self.passes[stops[stop]].ages[day]
+        let age = self.passes[stops[stop]].ages[day];
+        if stop == 0 {
+            age
+        } else {
+            // The next approach must never pull a car behind a stop it passed.
+            age.max(self.passes[stops[stop - 1]].approach.stop_age)
+        }
     }
 }
 
