@@ -119,7 +119,7 @@ const tool = {
     type: 'object',
     required: ['changes'],
     properties: {
-      stations: { type: 'array', items: { type: 'string' }, description: 'Optional. Names or ids of the Metro stations the user asked about, for example ["UNIVERSIDAD DE CHILE"] or ["L7-05"]. Their rows always come back in asked_stations; a name shared by two stations returns both rows.' },
+      stations: { type: 'array', items: { type: 'string' }, description: 'Optional. Names or ids of the Metro stations the user asked about, for example ["UNIVERSIDAD DE CHILE"] or ["L7-05"]. Their rows come back in asked_stations. During a timed closure, entries_in_window counts modeled Metro entries within closure_window.half_hours. A name shared by two stations returns both rows.' },
       changes: {
         type: 'array',
         items: { oneOf: [scalarChange, ...featureChanges, buildingPlacementChange, optionalPointVisitChange, optionalAttendanceChange] },
@@ -459,7 +459,18 @@ function shortResult(full, asked, placesUsed) {
     result.asked_stations = asked.flatMap((name) => {
       const byId = byDelta.filter((s) => s.id === name);
       const matches = byId.length ? byId : byDelta.filter((s) => plain(s.name) === plain(name));
-      return matches.length ? matches.map((s) => ({ asked: name, ...s, new_station: !currentStations.has(s.id) })) : [{ asked: name, not_found: true }];
+      if (!matches.length) return [{ asked: name, not_found: true }];
+    return matches.map((s) => {
+      const row = { asked: name, ...s, new_station: !currentStations.has(s.id) };
+      const window = result.closure_window?.half_hours;
+      if (window) {
+        const [start, end] = window;
+        const station = stations.find(({ id }) => id === s.id);
+        const sum = (bins) => Math.round(bins.slice(start, end).reduce((total, entries) => total + entries, 0) * 10) / 10;
+        row.entries_in_window = { base: sum(station.base_half_hour), scenario: sum(station.scenario_half_hour) };
+      }
+      return row;
+    });
     });
     const opened = byDelta.filter((s) => !currentStations.has(s.id));
     if (opened.length) result.new_stations = {
