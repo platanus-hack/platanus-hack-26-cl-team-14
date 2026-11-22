@@ -33,6 +33,8 @@ pub struct Shopping {
     /// Departure half-hour shares (48) and mode shares (car, public, walk, bicycle, other) of shopping trips, by home comuna.
     /// EOD 2012 `eod_trip_profiles.csv`. A trip keeps the profile of its home comuna at any destination.
     profile: Vec<([f64; 48], [f64; 5])>,
+    /// Joint public-mode and departure shares among EOD trips with a known mode and time.
+    public_departures: Vec<Option<[f64; 48]>>,
     /// Total variation between modeled and EOD 2012 destination totals by comuna, at baseline.
     destination_tv: f64,
     /// EOD purpose, destination point kinds and Huff fit (SHOPPING or HEALTH).
@@ -75,11 +77,15 @@ impl Shopping {
             if let Some(o) = ix(&r[0]) { rate[o] = Some(r[6].parse::<f64>().unwrap()); }
         }
         let mut profile = vec![([0.0; 48], [0.0; 5]); n];
+        let mut public_departures = vec![None; n];
         for r in records(&dir.join("eod_trip_profiles.csv")).filter(|r| &r[1] == layer.0) {
             let (Some(o), Ok(bin)) = (ix(&r[0]), r[3].parse::<usize>()) else { continue }; // bin "unknown" has no time
             let w: f64 = r[6].parse().unwrap();
             match &r[2] {
                 "start_half_hour" => profile[o].0[bin] += w,
+                "public_start_half_hour" => {
+                    public_departures[o].get_or_insert([0.0; 48])[bin] = r[7].parse().unwrap();
+                }
                 // ModoAgregado: 1 car; 2–7 and 9–12 public transport; 17 walk; 18 bicycle (tools/pack/eod_leisure.py).
                 "mode_eod" => profile[o].1[match bin { 1 => 0, 2..=7 | 9..=12 => 1, 17 => 2, 18 => 3, _ => 4 }] += w,
                 _ => {}
@@ -105,7 +111,7 @@ impl Shopping {
         let modeled: Vec<f64> = (0..n).map(|d| (0..n).map(|o| od[o * n + d]).sum()).collect();
         let (m, s) = (modeled.iter().sum::<f64>(), observed.iter().sum::<f64>());
         let destination_tv = (0..n).map(|d| (modeled[d] / m - observed[d] / s).abs()).sum::<f64>() / 2.0;
-        Shopping { trips, shops, no_rate, profile, destination_tv, layer }
+        Shopping { trips, shops, no_rate, profile, public_departures, destination_tv, layer }
     }
 
     /// Add `delta` shop points at a point (comuna `cut`), with ids from `next_id`, or remove the `-delta` nearest shop points.
@@ -127,14 +133,20 @@ impl Shopping {
     }
 
     /// Base and scenario trips. `sites` are the edited points: (longitude, latitude, shops removed there, shops added there).
-    /// Only the public-transport trips that leave inside `window` (all day when None) see the scenario minutes: share of the
-    /// home comuna's EOD 2012 profile (public mode share × departure share in the window). The rest keep the base minutes.
+    /// Trips with public mode and a departure inside the window see the scenario minutes.
+    /// An all-day change uses the public mode share. The other trips keep the base minutes.
     pub fn run(&self, cuts: &[String], names: &[String], base_minutes: &[f64], minutes: &[f64], shops: &[Shop], sites: &[(f64, f64, Vec<Shop>, Vec<Shop>)], window: Option<(usize, usize)>) -> Value {
         let n = cuts.len();
         let (b, b_size) = flows(&self.trips, &self.shops, base_minutes, self.layer.2, self.layer.3);
         let (moved, s_size) = flows(&self.trips, shops, minutes, self.layer.2, self.layer.3);
         let (kept, _) = flows(&self.trips, shops, base_minutes, self.layer.2, self.layer.3);
-        let exposed: Vec<f64> = self.profile.iter().map(|(time, mode)| mode[1] * window.map_or(1.0, |(a, z)| time[a..z].iter().sum())).collect();
+        let exposed: Vec<f64> = self.profile.iter().zip(&self.public_departures)
+            .map(|((time, mode), departures)| match (window, departures) {
+                (Some((start, end)), Some(departures)) => departures[start..end].iter().sum(),
+                // Older data packs contain only the separate mode and time profiles.
+                (Some((start, end)), None) => mode[1] * time[start..end].iter().sum::<f64>(),
+                (None, _) => mode[1],
+            }).collect();
         let s: Vec<f64> = (0..n * n).map(|i| exposed[i / n] * moved[i] + (1.0 - exposed[i / n]) * kept[i]).collect();
         let inflow = |od: &[f64], d: usize| (0..n).map(|o| od[o * n + d]).sum::<f64>();
         // Trips to a set of shop points, by home comuna: each point gets 1 / shops of its comuna.
@@ -176,7 +188,7 @@ impl Shopping {
             "fit": { "destination_total_variation_vs_eod_2012": (self.destination_tv * 1000.0).round() / 1000.0,
                      "alpha": self.layer.2, "beta_per_minute": self.layer.3 },
             "comunas_without_eod_rate": self.no_rate,
-            "exposed_trips": (0..n).map(|o| self.trips[o] * self.profile[o].1[1] * window.map_or(1.0, |(a, z)| self.profile[o].0[a..z].iter().sum())).sum::<f64>().round(),
+            "exposed_trips": self.trips.iter().zip(&exposed).map(|(trips, share)| trips * share).sum::<f64>().round(),
             "unit": format!("weekday outbound {} trips of residents (EOD 2012 rates × Census 2024 residents), not distinct persons; returns are not included. shops_* count the destination points of {} {}", self.layer.0, self.layer.4, self.layer.1.join(", ")),
         })
     }

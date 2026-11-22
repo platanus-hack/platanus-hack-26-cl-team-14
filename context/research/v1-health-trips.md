@@ -10,14 +10,18 @@ Health points are not editable yet; a change of travel minutes moves the trips.
 
 ## Who sees a changed network
 
-Only the public-transport trips that leave inside the closure window see the scenario minutes. Per home comuna, that share is the EOD 2012 public mode share × the departure share inside the window (`eod_trip_profiles.csv`); without a window it is the public mode share. The other trips keep the base minutes. The same rule now applies to the shopping layer. Before, a 07:00–10:00 Metro closure moved every shopping trip of the day: Santiago fell from 228,720 to 114,597 shopping trips. Now it falls to 227,860. Results outside `shopping` and `health` do not change.
+Only public-transport trips within the closure window use the changed minutes. For each home comuna and purpose, `eod_trip_profiles.csv` gives the weighted share of trips that use public transport and start in each half hour. Each share divides by the weight of all trips with known mode and departure time. Sum these shares inside the window. An all-day change uses the public mode share. Other trips keep their base minutes.
+
+The morning Metro scene uses bins 14 to 19. The former rule multiplied separate mode and departure shares. It gave 83,929 health trips and 12,145 shopping trips eligible to respond. The joint table gives 86,715 and 19,350. The sum of absolute errors across the two regional totals falls from 9,991 to zero at whole-trip precision. This check is fitted to EOD 2012. It measures eligible trips. EOD provides no observed response to this hypothetical closure.
+
+Rebuild the profile with `python3 -I tools/pack/eod_trip_rates.py --survey /path/to/EOD_STGO`. Run `engine/target/release/scenario data/mvp context/research/metro_closure_window.json` and read `health.exposed_trips` and `shopping.exposed_trips`. The old packed profile reproduces the separate-share rule. [Santiago EOD 2012 files](https://users.dcc.uchile.cl/~egraells/gds-data/eod2012.tgz)
 
 ## Result (release CLI, data/mvp)
 
 | Scenario | Health trips that see the change | Santiago | Providencia | Maipú |
 | --- | ---: | ---: | ---: | ---: |
 | Baseline | — | 61,805 | 46,315 | 16,142 |
-| Metro closed 07:00–10:00 | 83,929 | 54,040 | 43,180 | 17,733 |
+| Metro closed 07:00–10:00 | 86,715 | 54,043 | 43,121 | 18,023 |
 | Metro closed all day | 214,542 | 41,642 | 37,535 | 20,801 |
 
 Health is 3.3% of 07:00–10:00 trips, twice its daily share ([v1-missing-services.md](v1-missing-services.md)). The trips are comuna flows, not identified patients or a chosen hospital. Urgency, opening hours and capacity are not modeled.
