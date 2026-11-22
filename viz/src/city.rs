@@ -272,14 +272,16 @@ fn box_mesh(
     detail: Detail,
     scale: &impl Fn(usize) -> (f32, f32),
     hidden: &HashSet<(usize, usize)>,
+    only: Option<usize>,
 ) -> Surface {
     let bytes = pack.slice(tile);
     let count = integer(bytes, 0);
     let mut mesh = Surface::default();
     let overview = detail == Detail::Overview;
-    mesh.positions.reserve(count * if overview { 4 } else { 8 });
-    mesh.indices.reserve(count * if overview { 6 } else { 30 });
-    for i in 0..count {
+    let indices = only.map_or(0..count, |i| i..i + 1);
+    mesh.positions.reserve(indices.len() * if overview { 4 } else { 8 });
+    mesh.indices.reserve(indices.len() * if overview { 6 } else { 30 });
+    for i in indices {
         if ground::NAMED.contains(&(tile, i)) || ground::HIDDEN.contains(&(tile, i)) || hidden.contains(&(tile, i)) {
             continue;
         }
@@ -336,6 +338,7 @@ fn polygon_mesh(
     tile: usize,
     scale: &impl Fn(usize) -> (f32, f32),
     hidden: &HashSet<(usize, usize)>,
+    only: Option<usize>,
 ) -> Surface {
     let bytes = polys.slice(tile);
     let boxbytes = boxes.slice(tile);
@@ -347,7 +350,7 @@ fn polygon_mesh(
         textured: true,
         ..default()
     };
-    for i in 0..count {
+    for i in only.map_or(0..count, |i| i..i + 1) {
         if ground::NAMED.contains(&(tile, i)) || ground::HIDDEN.contains(&(tile, i)) || hidden.contains(&(tile, i)) {
             continue;
         }
@@ -582,6 +585,7 @@ pub(crate) fn draw_buildings(
                     detail,
                     &|i| buildings.heights.scale(tile, i),
                     &buildings.hidden,
+                    None,
                 ),
                 Detail::Near => polygon_mesh(
                     &buildings.boxes,
@@ -589,6 +593,7 @@ pub(crate) fn draw_buildings(
                     tile,
                     &|i| buildings.heights.scale(tile, i),
                     &buildings.hidden,
+                    None,
                 ),
             };
             let mat = if detail == Detail::Near {
@@ -620,6 +625,10 @@ pub(crate) fn draw_buildings(
 
 #[derive(Component)]
 pub(crate) struct NamedBuilding(usize, usize);
+
+// Keep seating, route lookup and activity height on the landmark's stable anchor.
+#[derive(Component)]
+pub(crate) struct BuildingVisual(pub(crate) Entity);
 
 impl NamedBuilding {
     pub(crate) fn is_monumental(&self) -> bool {
@@ -655,12 +664,17 @@ pub(crate) fn setup_ground(
         commands.spawn((ChildOf(root), Mesh3d(meshes.add(mesh)), MeshMaterial3d(foliage.clone())));
     }
     for ((tile, i), base, mesh, seating) in ground::named_buildings(Path::new(".")) {
-        let mut entity = commands.spawn((
-            NamedBuilding(tile, i),
+        let visual = commands.spawn((
             Mesh3d(meshes.add(mesh)),
             MeshMaterial3d(mat.clone()),
+        )).id();
+        let mut entity = commands.spawn((
+            NamedBuilding(tile, i),
+            BuildingVisual(visual),
             Transform::from_xyz(0., base, 0.),
+            Visibility::Inherited,
         ));
+        entity.add_child(visual);
         if let Some(seating) = seating {
             entity.insert(seating);
         }

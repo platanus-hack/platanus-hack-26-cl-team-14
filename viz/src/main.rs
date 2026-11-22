@@ -373,7 +373,7 @@ fn main() -> AppExit {
                 .after(TransformSystems::Propagate)
                 .before(bevy::ui::UiSystems::Layout),
         )
-        .add_systems(Update, city::draw_buildings)
+        .add_systems(Update, (city::draw_buildings, city::edits::materialize::animate).chain())
         .add_plugins(boot::CityBoot)
         .run()
 }
