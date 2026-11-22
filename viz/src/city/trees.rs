@@ -5,32 +5,36 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
-/// Four silhouettes share a print sheet. Dots get denser on the shaded side.
-pub(super) fn canopies() -> Image {
-    const SIDE: usize = 40;
+/// Four crown slices seen from above share a print sheet, drawn as lobed blobs filled with a regular
+/// halftone dot grid, like the stippled trees of an architectural axonometric. Dots grow on the shaded
+/// south-east side and toward the rim.
+pub(super) fn crowns() -> Image {
+    const SIDE: usize = 64;
+    const CELL: usize = 4;
     let mut rgba = Vec::with_capacity(4 * SIDE * SIDE * 4);
     for y in 0..SIDE {
         for column in 0..4 * SIDE {
             let x = column % SIDE;
             let shape = (column / SIDE) as f32;
             let u = (x as f32 + 0.5) / SIDE as f32 * 2. - 1.;
-            let v = ((y as f32 + 0.5) / SIDE as f32 - 0.39) / 0.37;
-            let angle = v.atan2(u);
-            let radius = (u * u + v * v).sqrt();
-            let edge = 0.88 + 0.06 * (3. * angle + shape).sin() + 0.05 * (5. * angle - shape).cos();
-            let hash = ((column / 2) as u32)
-                .wrapping_mul(73856093)
-                .wrapping_add(((y / 2) as u32).wrapping_mul(19349663));
-            let noise = (hash.wrapping_mul(hash ^ 0x85ebca6b) >> 24) as f32 / 255.;
-            let density = 0.25 + 0.38 * (0.5 * u + 0.5) + 0.15 * (v + 0.4).max(0.);
-            let texel = if radius < edge && noise < density {
-                [48, 111, 69, 255]
-            } else if radius < edge - 0.08 {
-                [128, 177, 137, 255]
-            } else if u.abs() < 0.045 && y > SIDE / 2 {
-                [68, 92, 80, 255]
-            } else {
+            let v = (y as f32 + 0.5) / SIDE as f32 * 2. - 1.;
+            // Three or four overlapping lobes per shape.
+            let lobe = |k: f32| {
+                let a = k * 2.1 + shape * 1.3;
+                let (cx, cy) = (0.34 * a.cos(), 0.34 * a.sin());
+                ((u - cx).powi(2) + (v - cy).powi(2)).sqrt() / (0.58 + 0.06 * (k + shape).sin())
+            };
+            let inside = (0..3 + (shape as usize & 1)).map(|k| lobe(k as f32)).fold(f32::MAX, f32::min);
+            // Halftone: one dot per cell, larger where the crown is shaded.
+            let (cx, cy) = ((x / CELL * CELL) as f32 + CELL as f32 / 2., (y / CELL * CELL) as f32 + CELL as f32 / 2.);
+            let d = ((x as f32 + 0.5 - cx).powi(2) + (y as f32 + 0.5 - cy).powi(2)).sqrt();
+            let shade = (0.30 + 0.35 * (0.5 * (u + v) + 0.5) + 0.35 * inside.min(1.)).clamp(0., 1.);
+            let texel = if inside >= 1. {
                 [0, 0, 0, 0]
+            } else if d < 0.6 + 1.2 * shade {
+                [38, 96, 66, 255]
+            } else {
+                [176, 214, 178, 255]
             };
             rgba.extend(texel);
         }
