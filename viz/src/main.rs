@@ -47,7 +47,7 @@ impl Plugin for MiniatureCamera {
                     .before(city::draw_buildings),
             )
             .add_plugins((movers::clock::ClockPlugin, movers::follow::FollowPlugin))
-            .add_systems(Last, measure);
+            .add_systems(Last, measure.run_if(resource_exists::<city::Buildings>));
     }
 }
 
@@ -71,6 +71,9 @@ pub fn window() -> Window {
         window.resolution =
             WindowResolution::new(width as u32, height as u32).with_scale_factor_override(1.);
         window.focused = false;
+    }
+    if env::var_os("SANTIAGO_BOOT_SIGNAL").is_some() {
+        window.set_maximized(true);
     }
     window
 }
@@ -151,7 +154,6 @@ fn setup(mut commands: Commands, rig: Res<Rig>) {
         Transform::from_xyz(-0.65, 0.95, 0.48).looking_at(Vec3::ZERO, Vec3::Y),
         shadows(rig.distance),
     ));
-
 }
 
 fn navigate(

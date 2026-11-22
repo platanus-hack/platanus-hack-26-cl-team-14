@@ -85,7 +85,12 @@ impl Plugin for CityBoot {
         app.insert_resource(DeferredStartup(normal, presented))
             .insert_resource(MainScheduleOrder {
                 startup_labels: vec![SplashStartup.intern()],
-                labels: vec![First.intern(), PreUpdate.intern(), PostUpdate.intern()],
+                labels: vec![
+                    First.intern(),
+                    PreUpdate.intern(),
+                    PostUpdate.intern(),
+                    Last.intern(),
+                ],
             })
             .insert_resource(entry)
             .insert_resource(TitleLight(Some(0.)))
@@ -201,7 +206,14 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             BackgroundColor(ink(1.)),
         ))
         .id();
-    commands.spawn((ChildOf(cover), text("santiaguito.cl", FontSize::VMin(12.))));
+    commands.spawn((
+        ChildOf(cover),
+        text("santiaguito.cl", FontSize::VMin(12.)),
+        TextShadow {
+            offset: Vec2::new(1.5, 3.),
+            color: ink(0.85),
+        },
+    ));
     let track = commands
         .spawn((
             ChildOf(cover),
@@ -228,17 +240,20 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let prompt = commands
         .spawn((
             ChildOf(cover),
-            text("Enter para empezar", FontSize::VMin(3.6)),
+            BackgroundColor(ink(0.84)),
+            BootBackground(0.84),
+            text("Enter para empezar", FontSize::Vw(2.8)),
             Node {
                 display: Display::None,
                 margin: UiRect::top(px(12)),
+                padding: UiRect::axes(px(22), px(4)),
                 ..default()
             },
         ))
         .id();
     commands.spawn((
         ChildOf(cover),
-        text(&credits, FontSize::Px(16.)),
+        text(&credits, FontSize::Px(27.)),
         Node {
             position_type: PositionType::Absolute,
             bottom: px(0),
@@ -285,7 +300,7 @@ fn advance(
     mut nodes: Query<&mut Node>,
     mut backgrounds: Query<&mut BackgroundColor>,
     backing: Query<(Entity, &BootBackground)>,
-    mut labels: Query<&mut TextColor, With<BootText>>,
+    mut labels: Query<(&mut TextColor, Option<&mut TextShadow>), With<BootText>>,
     hidden: Query<(Entity, &HiddenHud)>,
     mut exit: MessageWriter<AppExit>,
 ) {
@@ -318,8 +333,11 @@ fn advance(
             for (entity, base) in &backing {
                 backgrounds.get_mut(entity).unwrap().0 = ink(base.0 * opacity);
             }
-            for mut color in &mut labels {
+            for (mut color, shadow) in &mut labels {
                 color.0.set_alpha(opacity);
+                if let Some(mut shadow) = shadow {
+                    shadow.color = ink(0.85 * opacity);
+                }
             }
             light.0 = Some(night * opacity);
             if opacity > 0. {
@@ -354,11 +372,18 @@ fn advance(
 fn place_window(
     mut commands: Commands,
     path: Res<WindowPlacement>,
+    mut restored: Local<bool>,
     mut window: Single<&mut Window, With<PrimaryWindow>>,
 ) {
     let Ok(rect) = fs::read_to_string(&path.0) else {
         return;
     };
+    // Winit applies maximization after size changes. Restore on its own frame.
+    if !*restored {
+        window.set_maximized(false);
+        *restored = true;
+        return;
+    }
     let v: Vec<i32> = rect
         .split_whitespace()
         .map(|s| s.parse().unwrap())
