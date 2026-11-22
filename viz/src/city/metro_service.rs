@@ -1,5 +1,5 @@
 //! Surface service lines for city overviews and the matched Metro replay.
-use super::{SubwayView, Surface, ground::ribbon, world};
+use super::{SubwayView, Surface, edits::MetroCorridor, ground::ribbon, world};
 use crate::{
     Rig,
     movers::clock::{CityClock, UpdateClock},
@@ -21,14 +21,14 @@ impl Plugin for MetroServicePlugin {
 #[derive(Component)]
 struct ServiceLines(f32);
 
-fn half_width(result: &Value, distance: f32) -> Option<f32> {
+fn half_width(result: &Value, distance: f32, proposed: bool) -> Option<f32> {
     if result.is_null() {
         None
     } else if distance >= 26_000. {
         Some(115.)
     } else if distance >= 7_000. {
         Some(34.)
-    } else if result["scene"]["layer"] == "metro_service" {
+    } else if result["scene"]["layer"] == "metro_service" || (proposed && distance >= 400.) {
         Some(8.)
     } else {
         None
@@ -95,6 +95,7 @@ fn fade(
     time: Res<Time<Real>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut state: Local<FadeState>,
+    corridors: Query<(), With<MetroCorridor>>,
     mut lines: Query<(
         &ServiceLines,
         &MeshMaterial3d<StandardMaterial>,
@@ -139,7 +140,7 @@ fn fade(
         state.started = None;
         1.0
     };
-    let active_width = half_width(&scenario.0, rig.distance);
+    let active_width = half_width(&scenario.0, rig.distance, !corridors.is_empty());
     for (line, handle, mut visibility) in &mut lines {
         if subway.0 || alpha == 0.0 || Some(line.0) != active_width {
             visibility.set_if_neq(Visibility::Hidden);

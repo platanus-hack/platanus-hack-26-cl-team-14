@@ -1,4 +1,5 @@
 pub(crate) mod materialize;
+mod metro_overlay;
 
 use super::{Buildings, NamedBuilding, SubwayView, Surface, ground::ribbon, world};
 use super::{ground::ribbon_faces, street_mask::StreetMask, streets};
@@ -15,6 +16,9 @@ pub(crate) struct SurfaceEdit;
 
 #[derive(Component)]
 pub(crate) struct FerryRoute;
+
+#[derive(Component)]
+pub(super) struct MetroCorridor;
 
 // The wide replay introduces the new service with a route line. At the pier,
 // the vessel, gangway and passengers identify the intervention at street scale.
@@ -34,7 +38,16 @@ pub(crate) fn ferry_routes(
 }
 
 #[derive(Component)]
-pub(crate) struct ClosureEnd(Vec3);
+pub(crate) struct MapPin {
+    position: Vec3,
+    kind: PinKind,
+}
+
+enum PinKind {
+    Closure,
+    ProposedStation,
+    ProposedAccess,
+}
 
 fn closure_ends(commands: &mut Commands, geometry: &Value, mask: &StreetMask) {
     let lines = &geometry["coordinates"];
@@ -61,7 +74,7 @@ fn closure_ends(commands: &mut Commands, geometry: &Value, mask: &StreetMask) {
         }
         commands.spawn((
             EditMesh,
-            ClosureEnd(position),
+            MapPin { position, kind: PinKind::Closure },
             Node {
                 position_type: PositionType::Absolute,
                 width: px(16),
@@ -83,16 +96,22 @@ fn closure_ends(commands: &mut Commands, geometry: &Value, mask: &StreetMask) {
     }
 }
 
-pub(crate) fn place_closure_ends(
+pub(crate) fn place_map_pins(
     camera: Single<(&Camera, &GlobalTransform), With<Camera3d>>,
     window: Single<&Window, With<bevy::window::PrimaryWindow>>,
     canvas: Query<&Sprite, With<crate::pixels::CityCanvas>>,
     mode: Res<SubwayView>,
-    mut ends: Query<(&ClosureEnd, &mut Node, &mut Visibility)>,
+    rig: Res<crate::Rig>,
+    mut pins: Query<(&MapPin, &mut Node, &mut Visibility)>,
 ) {
     let (camera, transform) = *camera;
-    for (end, mut node, mut visible) in &mut ends {
-        let Ok(mut p) = camera.world_to_viewport(transform, end.0) else {
+    for (pin, mut node, mut visible) in &mut pins {
+        let (show, offset) = match pin.kind {
+            PinKind::Closure => (!mode.0, Vec2::splat(8.)),
+            PinKind::ProposedStation => (rig.distance >= 400., Vec2::splat(6.)),
+            PinKind::ProposedAccess => (!mode.0 && rig.distance < 400., Vec2::new(9., 17.)),
+        };
+        let Ok(mut p) = camera.world_to_viewport(transform, pin.position) else {
             *visible = Visibility::Hidden;
             continue;
         };
@@ -101,9 +120,9 @@ pub(crate) fn place_closure_ends(
         {
             p = window.size() * 0.5 + (p / viewport - Vec2::splat(0.5)) * size;
         }
-        node.left = px(p.x - 8.);
-        node.top = px(p.y - 8.);
-        *visible = if mode.0 { Visibility::Hidden } else { Visibility::Inherited };
+        node.left = px(p.x - offset.x);
+        node.top = px(p.y - offset.y);
+        *visible = if show { Visibility::Inherited } else { Visibility::Hidden };
     }
 }
 
@@ -527,7 +546,11 @@ pub(crate) fn refresh(
             })
         })
         .clone();
+    let mut metro = metro_overlay::Corridors::default();
     for ((kind, id), (before, after)) in &final_state {
+        if kind == "line" && metro.add(before, after) {
+            continue;
+        }
         let transition = if kind == "building" {
             departures.get(id.as_str()).copied()
         } else {
@@ -636,5 +659,6 @@ pub(crate) fn refresh(
             }
         }
     }
+    metro.spawn(&mut commands, &mut meshes, path_material);
     *previous = current;
 }

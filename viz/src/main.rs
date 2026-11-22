@@ -387,7 +387,7 @@ fn main() -> AppExit {
         )
         .add_systems(
             PostUpdate,
-            city::edits::place_closure_ends
+            city::edits::place_map_pins
                 .after(TransformSystems::Propagate)
                 .before(bevy::ui::UiSystems::Layout),
         )
