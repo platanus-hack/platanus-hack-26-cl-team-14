@@ -6,6 +6,7 @@ pub(crate) mod follow;
 pub(crate) mod fan_travel;
 mod fleet;
 mod motion;
+mod intersection;
 mod car_geometry;
 mod road_water;
 mod road_edits;
@@ -1226,7 +1227,11 @@ fn draw(
     mut query: Query<(&mut Transform, &mut Visibility), With<Figure>>,
     mut pool: Local<Pool>,
     placed: Res<StreetMask>,
+    mut queues: Local<intersection::Queues>,
 ) {
+    if replay.is_changed() {
+        queues.rebuild(&replay);
+    }
     if rig.distance >= FIGURE_MAX_DISTANCE_M || replay.departures.is_empty() {
         for (_, mut visibility) in &mut query {
             visibility.set_if_neq(Visibility::Hidden);
@@ -1256,6 +1261,7 @@ fn draw(
         .0
         .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs() * rate.0)
         .rem_euclid(DAY);
+    queues.seek(now);
     let slot = (now / BIN) as i32;
     let mut trains = if replay
         .metro_closure
@@ -1279,9 +1285,10 @@ fn draw(
     } else {
         ((time.elapsed_secs() - replay.revision_started) / 1.2).clamp(0., 1.)
     };
-    for bin in slot - (replay.longest / BIN).ceil() as i32..=slot {
+    let lookback = ((replay.longest + queues.longest_wait) / BIN).ceil() as i32;
+    for bin in slot - lookback..=slot {
         let since_bin = now - bin as f32 * BIN;
-        for g in &replay.departures[bin.rem_euclid(48) as usize] {
+        for (group, g) in replay.departures[bin.rem_euclid(48) as usize].iter().enumerate() {
             let presence = match g.lifecycle {
                 Life::Stable => 1.,
                 Life::Enter => transition,
@@ -1290,7 +1297,7 @@ fn draw(
             if presence == 0. {
                 continue;
             }
-            if since_bin > BIN + g.duration {
+            if since_bin > BIN + g.duration + queues.longest_wait {
                 continue;
             }
             let copies = g.copies[tier];
@@ -1336,7 +1343,7 @@ fn draw(
                         None => None,
                     }
                 } else {
-                    g.path.trip_pose(age, j)
+                    g.path.trip_pose(queues.age(bin, group, j, age), j)
                 };
                 let Some((pos, dir, kind, metres)) = movement else {
                     continue;
