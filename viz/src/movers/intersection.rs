@@ -57,6 +57,7 @@ struct Incoming {
 struct Storage {
     waiting: usize,
     ready: u32,
+    exit_blocked: bool,
     first_arrivals: Vec<u32>,
     first_entered: usize,
     incoming: Vec<Incoming>,
@@ -64,31 +65,48 @@ struct Storage {
 }
 
 impl Storage {
-    fn demand(&self, arrive: u32) -> usize {
-        let arrivals = &self.first_arrivals[self.first_entered..];
-        let first = arrivals.partition_point(|&time| time <= arrive);
-        let booked = self.incoming.partition_point(|car| car.arrive <= arrive);
-        if self.waiting != 0 || booked != 0 {
-            return self.waiting + first + booked;
+    fn demand(&self, now: u32, arrive: u32) -> usize {
+        let first = &self.first_arrivals[self.first_entered..];
+        let first = &first[..first.partition_point(|&time| time <= arrive)];
+        let booked = &self.incoming[..self.incoming.partition_point(|car| car.arrive <= arrive)];
+        let total = self.waiting + first.len() + booked.len();
+        let mut ready = self.ready.max(now);
+        if self.exit_blocked || ready > arrive {
+            return total;
         }
-        // A free lane can serve first arrivals before the next car reaches it.
-        let mut ready = self.ready;
-        arrivals[..first]
-            .iter()
-            .filter(|&&time| {
-                let release = ready.max(time);
-                ready = release + HEADWAY;
-                release > arrive
-            })
-            .count()
+
+        // Do not assume a congested approach clears faster than one crossing per car.
+        let service = if self.waiting == 0 {
+            HEADWAY
+        } else {
+            CLEARANCE
+        };
+        let waiting_served = self.waiting.min((1 + (arrive - ready) / service) as usize);
+        ready += waiting_served as u32 * service;
+        let mut remaining = total - waiting_served;
+        let mut first = first.iter().copied().peekable();
+        let mut booked = booked.iter().map(|car| car.arrive).peekable();
+        while let Some(time) = match (first.peek(), booked.peek()) {
+            (Some(a), Some(b)) if a <= b => first.next(),
+            (Some(_), None) => first.next(),
+            _ => booked.next(),
+        } {
+            ready = ready.max(time);
+            if ready > arrive {
+                break;
+            }
+            remaining -= 1;
+            ready += service;
+        }
+        remaining
     }
 
-    fn has_room(&self, arrive: u32, capacity: usize) -> bool {
+    fn has_room(&self, now: u32, arrive: u32, capacity: usize) -> bool {
         let first = self.incoming.partition_point(|car| car.arrive < arrive);
-        self.demand(arrive) < capacity
+        self.demand(now, arrive) < capacity
             && self.incoming[first..]
                 .iter()
-                .all(|car| self.demand(car.arrive) < car.capacity)
+                .all(|car| self.demand(now, car.arrive) < car.capacity)
     }
 
     fn reserve(&mut self, incoming: Incoming) {
@@ -180,15 +198,17 @@ impl Site {
         let mut first = None;
         let mut ready = None;
         for (lane, queue) in self.lanes.iter().enumerate() {
+            storage[queue.slot].exit_blocked = false;
             let Some(pending) = queue.waiting.front().copied() else {
                 continue;
             };
             let trip = &trips[pending.trip];
             let approach = trip.approaches[pending.stop];
             if let Some(exit) = trip.approaches.get(pending.stop + 1) {
-                let receiving = &mut storage[exit.slot];
                 let arrive = now + ms(exit.stop_age - approach.stop_age);
-                if !receiving.has_room(arrive, approach.exit_capacity) {
+                if !storage[exit.slot].has_room(now, arrive, approach.exit_capacity) {
+                    storage[queue.slot].exit_blocked = true;
+                    let receiving = &mut storage[exit.slot];
                     if !receiving.waiters.contains(&junction) {
                         receiving.waiters.push(junction);
                     }
