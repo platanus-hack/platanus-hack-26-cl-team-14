@@ -3,7 +3,7 @@ use bevy::prelude::Vec3;
 use geo::{BooleanOps, BoundingRect, Coord, Intersects, LineString, Polygon, Rect, Relate};
 
 #[derive(Default, PartialEq)]
-pub(super) struct StreetMask(Vec<(Rect<f32>, Polygon<f32>)>);
+pub(crate) struct StreetMask(Vec<(Rect<f32>, Polygon<f32>)>);
 
 fn polygon(rings: &[Vec<Vec3>]) -> Polygon<f32> {
     let mut lines = rings

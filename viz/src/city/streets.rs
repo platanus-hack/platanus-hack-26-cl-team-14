@@ -82,7 +82,7 @@ impl StreetFace {
 }
 
 #[derive(Component)]
-pub(super) struct StreetTile {
+pub(crate) struct StreetTile {
     faces: Vec<StreetFace>,
     bounds: GeoRect<f32>,
     original: Handle<Mesh>,
