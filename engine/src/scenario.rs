@@ -702,10 +702,12 @@ impl Scenario {
         let mut s = self.state(&pop, &network, &mut origins);
         // Outside the window the stations keep their baseline entries.
         if let Some((a, z)) = window {
-            let resident_day = resident_reference.as_ref().map(|reference|
-                self.state(reference, &Network::new(&self.access), &mut []).day);
-            for (day, base) in s.day.iter_mut().zip(resident_day.as_ref().unwrap_or(&b.day)) {
+            let mut reopened_origins = vec![EntryOrigins::default(); self.stations.len()];
+            let reopened = self.state(window_base, &Network::new(&self.access), &mut reopened_origins);
+            for (i, ((day, base), open_origins)) in s.day.iter_mut().zip(reopened.day).zip(reopened_origins).enumerate() {
                 for t in (0..48).filter(|t| !(a..z).contains(t)) { day[t] = base[t]; }
+                // Closed stations have entries only outside the window, when their normal access routes apply.
+                if !network.open.contains(&self.stations[i].0) { origins[i] = open_origins; }
             }
         }
         let s = &s;
