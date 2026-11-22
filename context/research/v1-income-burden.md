@@ -15,6 +15,19 @@ In the [core RData](https://observatorio.ministeriodesarrollosocial.gob.cl/stora
 
 The sample has 19,841 workers (4,300,452 expanded). Fourteen report zero household income (2,613 expanded). A cost-to-income ratio for these workers is undefined. No selected row has missing income or weight. This is a regional worker reference. It includes workers outside the engine's fixed workplace commute scope. Lost wages require an individual earnings and contract assumption. For a one-day closure, use only the one-day cost.
 
+## Regional household draw
+
+For a household-level draw, select one CASEN head per RM household (`region = 13`, `pco1 = 1`). Keep the same four income thresholds. Use the weight totals below as the draw proportions. The medians and cutoffs use November 2024 pesos.
+
+| Band | Sample households | Expanded households | Weighted median |
+| --- | ---: | ---: | ---: |
+| 1 | 4,102 | 735,269 | CLP 500,000 |
+| 2 | 3,640 | 735,396 | CLP 1,004,167 |
+| 3 | 3,424 | 735,023 | CLP 1,718,133 |
+| 4 | 2,985 | 735,098 | CLP 3,600,000 |
+
+The 68 sampled households with zero income stay in band 1. Assign one draw to a known synthetic household, shared by its members. The current person records have no household identifier. A home block alone does not identify a household. A band assigned to a representative traveler therefore cannot establish that other travelers share that household.
+
 ## Income bands for a synthetic worker
 
 The same CASEN worker rows give the following weighted distribution. Group the eligible rows by age and the household income thresholds above. Include zero incomes in band 1 for this distribution. Divide each cell's `expr` sum by the sum for its age group.
