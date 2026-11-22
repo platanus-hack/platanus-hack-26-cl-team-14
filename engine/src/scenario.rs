@@ -236,10 +236,12 @@ impl Scenario {
             od[o * n + work[p.dest as usize]] += 1.0;
             modes[o][match p.mode { 2 => 0, 1 => 1, _ => 2 }] += 1;
         }
-        // A mode change reaches the stations: the comuna's public share moves with its public workers
-        // relative to the baseline (factor 1 at baseline, and while the baseline itself is built).
+        // A mode change reaches the stations: the comuna's public share moves with its share of public workers
+        // relative to the baseline (factor 1 at baseline, and while the baseline itself is built). A share ratio,
+        // not a count ratio, because the loop below already counts every worker once.
+        let public_share = |m: &[u32; 3]| f64::from(m[0]) / f64::from(m[0] + m[1] + m[2]);
         let factor: Vec<f64> = (0..n).map(|o| match self.base.modes.get(o) {
-            Some(base) if base[0] > 0 => f64::from(modes[o][0]) / f64::from(base[0]),
+            Some(base) if base[0] > 0 && modes[o].iter().sum::<u32>() > 0 => public_share(&modes[o]) / public_share(base),
             _ => 1.0,
         }).collect();
         for p in pop.persons.iter().filter(|p| !p.student) {
