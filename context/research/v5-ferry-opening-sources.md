@@ -14,15 +14,15 @@ DTPM recorded 1,218 B41 bus boarding stages on Saturday 8 November 2025. Their e
 
 NYC Ferry launched the Astoria line on 29 August 2017 with five landings. The opening timetable shows 25-minute peak and 50-minute midday spacing from Astoria. The scheduled end-to-end ride to Pier 11 takes 45 minutes. The city publishes hourly boardings by date, route, direction, and landing. [Launch notice](https://www.ferry.nyc/service-alerts/nyc-ferry-schedule-changes-effective-tuesday-august-29th/) · [Opening timetable](https://oana-ny.org/wp-content/uploads/2017/08/Web-Schedule_AST-1.pdf) · [NYC Open Data](https://data.cityofnewyork.us/Transportation/NYC-Ferry-Ridership/t5n6-gx8c/about_data)
 
-| Local date | Boardings on route AS |
-| --- | ---: |
-| 29 August 2017 | 1,792 |
-| 30 August 2017 | 3,576 |
-| 31 August 2017 | 3,087 |
-| 1 September 2017 | 3,642 |
-| **Total** | **12,097** |
+| Local date | NYC Open Data day type | Boardings on route AS |
+| --- | --- | ---: |
+| 29 August 2017 | Weekday | 1,792 |
+| 30 August 2017 | Weekday | 3,576 |
+| 31 August 2017 | Weekday | 3,087 |
+| 1 September 2017 | Weekend | 3,642 |
+| **Total** | | **12,097** |
 
-The four-day extract has 611 unique date, hour, landing, and direction rows. It covers all recorded boardings on the five landings. The source has no trip purpose or alighting field. Use it to compare service schedules or describe a ferry opening. A work-trip demand test still needs comparable origin and destination demand, alternative travel times, and counts for work trips. [NYC Open Data fields](https://data.cityofnewyork.us/api/views/t5n6-gx8c)
+The city labels Friday 1 September as Weekend. The three dates labeled Weekday account for 8,455 boardings. The four-day extract has 611 unique date, hour, landing, and direction rows. It covers all recorded boardings on the five landings. The source has no trip purpose or alighting field. Use it to compare service schedules or describe a ferry opening. A work-trip demand test still needs comparable origin and destination demand, alternative travel times, and counts for work trips. [NYC Open Data fields](https://data.cityofnewyork.us/api/views/t5n6-gx8c)
 
 The operator's February 2018 survey reports work and school together for Astoria. It covers a later period than these opening dates. [NYC Ferry survey, page 5](https://www.ferry.nyc/wp-content/uploads/2019/11/NYC-Ferry-Winter-2018-Survey-Results.pdf#page=5)
 
