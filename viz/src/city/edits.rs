@@ -231,7 +231,7 @@ pub(crate) fn refresh(
     old: Query<Entity, With<EditMesh>>,
     mut named: Query<(Entity, &NamedBuilding, Option<&super::StadiumSeating>, &mut Transform, &mut Visibility)>,
     mut road_tiles: Query<(&streets::StreetTile, &mut Mesh3d)>,
-    mut previous_mask: Local<StreetMask>,
+    mut previous_mask: ResMut<StreetMask>,
     mut origins: Local<HashMap<Entity, Vec3>>,
     mut material: Local<Option<Handle<StandardMaterial>>>,
 ) {

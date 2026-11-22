@@ -17,6 +17,7 @@ mod stations;
 mod street_people;
 use riders::{RideKey, RiderNetwork, RiderPlan, RiderState};
 use stations::Station;
+use crate::city::street_mask::StreetMask;
 use riders::bus_load;
 
 use crate::{
@@ -129,6 +130,10 @@ impl Path {
     fn single(points: Vec<Vec3>, vehicle: Vehicle) -> Arc<Self> {
         let end = points.len() - 1;
         Self::new(points, vec![Leg { end, vehicle, scheduled: None, walk_path: None }])
+    }
+
+    fn on_bridge(&self, metres: f32) -> bool {
+        self.crossings.iter().any(|&(start, end, kind)| kind == road_water::Crossing::Bridge && (start..end).contains(&metres))
     }
 
     fn walk_lane(&self, metres: f32) -> f32 {
@@ -1187,6 +1192,7 @@ fn draw(
     mut query: Query<(&mut Transform, &mut Visibility), With<Figure>>,
     mut pool: Local<Pool>,
     mut marks: ResMut<instanced::Marks>,
+    placed: Res<StreetMask>,
 ) {
     marks.clear();
     if replay.departures.is_empty() {
@@ -1321,6 +1327,10 @@ fn draw(
                     let Some(surface) = routes.water.surface_position(&g.path, metres, position, dir) else { continue; };
                     position = surface;
                 }
+                // Street movers keep their route and clock, but no one drives across a placed building at ground level.
+                if g.itineraries.is_empty() && placed.contains(position) && !g.path.on_bridge(metres) {
+                    continue;
+                }
                 let transform = pose(
                     position,
                     dir,
@@ -1446,3 +1456,4 @@ fn draw(
         }
     }
 }
+

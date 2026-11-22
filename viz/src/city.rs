@@ -4,7 +4,7 @@ mod facade;
 mod ground;
 pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
-mod street_mask;
+pub(crate) mod street_mask;
 mod streets;
 mod terrain;
 mod trees;

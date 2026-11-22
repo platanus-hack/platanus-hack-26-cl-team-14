@@ -346,6 +346,7 @@ fn main() -> AppExit {
             pixels::PixelMode,
         ))
         .init_resource::<city::SubwayView>()
+        .init_resource::<city::street_mask::StreetMask>()
         .add_systems(
             PreUpdate,
             city::toggle_subway.after(bevy::input::InputSystems).run_if(

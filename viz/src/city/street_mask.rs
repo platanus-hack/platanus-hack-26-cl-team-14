@@ -1,8 +1,8 @@
 use super::{Rgba, Surface, terrain::drape_land, terrain_from_xz};
-use bevy::prelude::Vec3;
+use bevy::prelude::{Resource, Vec3};
 use geo::{BooleanOps, BoundingRect, Coord, Intersects, LineString, Polygon, Rect, Relate};
 
-#[derive(Default, PartialEq)]
+#[derive(Default, PartialEq, Resource)]
 pub(crate) struct StreetMask(Vec<(Rect<f32>, Polygon<f32>)>);
 
 fn polygon(rings: &[Vec<Vec3>]) -> Polygon<f32> {
@@ -32,7 +32,7 @@ impl StreetMask {
         self.0.iter().any(|(rect, _)| rect.intersects(bounds))
     }
 
-    pub(super) fn contains(&self, point: Vec3) -> bool {
+    pub(crate) fn contains(&self, point: Vec3) -> bool {
         let p = Coord {
             x: point.x,
             y: point.z,
