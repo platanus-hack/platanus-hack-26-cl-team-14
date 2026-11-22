@@ -33,3 +33,30 @@ Reach at 13:30: Baquedano 0.824, Escuela Militar 0.114, Los Leones 0.555, Tobala
 - The Thursday reference is a different day; the observed change is not the effect of the suspension alone.
 - A cut section reuses its pattern's departure times at its own first stop.
 - The first wait is not in the reach minutes; the 2-minute transfer is an assumption.
+
+## Why Los Leones increases
+
+I ran the release CLI at main `370b090417987dfdf460a0ed516e6cae0a8ecb9e` on four variants of the frozen split. The first edit cuts the line. The remaining five edits close station entrances. Each run applied all its edits. The table gives modeled entries at Los Leones per half-hour. Scores use the same observed changes and Thursday denominators as above.
+
+| Request | 13:30 | 14:00 | Four cells | Eight cells |
+| --- | ---: | ---: | ---: | ---: |
+| No edits | 1,455.6 | 1,406.5 | 0.8830 | 0.6072 |
+| Five station closures | 2,865.2 | 2,768.4 | 1.0082 | 1.1256 |
+| Line cut | 807.1 | 779.8 | 0.6415 | 0.2479 |
+| Line cut and station closures | 1,588.7 | 1,535.0 | 0.3185 | 0.3464 |
+
+The line cut lowers the 13:30 count by 648.5. Adding station closures reallocates access and adds 781.6 after the same 0.555 reach multiplier. This leaves a net increase of 133.1, while the observed count fell by 655. Station access assigns each point's walking mass across its reachable open stations. When no station is within walking range, the model uses bus access if available. The reach multiplier then scales all the entry mass at each station together. The model has no rider destination for this step. [Access allocation](../../engine/src/station_access.rs) · [Reach calculation](../../engine/src/scenario.rs)
+
+The cut-only control gives a lower eight-cell error and a higher four-cell error than the full request. It leaves the closed station entrances open and is a diagnostic control. The observed combined-line counts and the Thursday reference cannot identify how many people transferred, used the shuttle or chose a different route. [Observations](v4-line1-interruption.md)
+
+Reproduce the four runs from the repository root after building `scenario` in release mode.
+
+```sh
+edits=context/research/v4_line1_split.json
+for filter in '[]' '.[1:]' '.[:1]' '.'; do
+  jq "$filter" "$edits" | engine/target/release/scenario data/mvp - |
+    jq '{applied: (.applied | length), stations: [.stations[] |
+      select(.id == "LE-LEN" or .id == "TB-TOB" or .id == "BA-BQ" or .id == "EM") |
+      {id, entries: .scenario_half_hour[27:29]}]}'
+done
+```
