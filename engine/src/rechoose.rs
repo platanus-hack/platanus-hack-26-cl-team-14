@@ -2,7 +2,7 @@
 //! The rules of choice.rs give quotas: workers by comuna pair, by job point and by mode of each pair. A worker
 //! keeps its job point and its mode while their quotas have room. Only the surplus moves. No random numbers.
 use crate::choice::Choice;
-use crate::population::{NEW_OTHER_MODE, Person, Population};
+use crate::population::{NEW_OTHER_MODE, Person, Population, UNKNOWN};
 use std::collections::HashMap;
 
 /// Integers near `total × share` that sum to `total` (rounding of the cumulative sum).
@@ -33,8 +33,17 @@ pub(super) fn class(m: i8) -> usize { match m { 2 => 0, 1 => 1, _ => 2 } }
 /// When a mode quota shrinks, a worker keeps its mode with a weight equal to this share for its group.
 pub struct Base { pair: Vec<i32>, mode: Vec<[i32; 3]>, point: Vec<i32>, stay: Vec<[f32; 3]> }
 
-/// Index of a worker's group in `Base::stay`: home comuna × 25 + age band × 5 + household size − 1.
-fn group(home: usize, p: &Person) -> usize { home * 25 + p.age_band as usize * 5 + p.household_size as usize - 1 }
+const HOUSEHOLD_GROUPS: usize = 6;
+const GROUPS_PER_COMUNA: usize = 5 * HOUSEHOLD_GROUPS;
+
+/// Keep workers with unknown household size in a separate group within their home comuna and age band.
+fn group(home: usize, p: &Person) -> usize {
+    let household = match p.household_size {
+        UNKNOWN => HOUSEHOLD_GROUPS - 1,
+        size => usize::from(size) - 1,
+    };
+    home * GROUPS_PER_COMUNA + usize::from(p.age_band) * HOUSEHOLD_GROUPS + household
+}
 
 impl Base {
     /// `pop`: the baseline population, before any change.
@@ -44,7 +53,7 @@ impl Base {
         let zero = Base { pair: vec![0; n * n], mode: vec![[0; 3]; n * n], point: vec![0; weights.len()], stay: vec![] };
         let (home, work, pair, mode, point) = quotas(c, pop, &weights, &c.minutes, &c.minutes, &zero);
         let mut b = Base { pair: pair.iter().map(|&q| -(q as i32)).collect(), mode: mode.iter().map(|m| [0, 1, 2].map(|j| -(m[j] as i32))).collect(),
-            point: point.iter().map(|&q| -(q as i32)).collect(), stay: vec![[0.0; 3]; n * 25] };
+            point: point.iter().map(|&q| -(q as i32)).collect(), stay: vec![[0.0; 3]; n * GROUPS_PER_COMUNA] };
         for p in pop.persons.iter().filter(|p| !p.student) {
             let od = home[p.home as usize] * n + work[p.dest as usize];
             b.pair[od] += 1;

@@ -1371,4 +1371,4 @@ Rebuild (needs rasterio, shapely, pyproj, numpy, certifi; reads the main OSM API
 - Source: INE Census 2024 person microdata, through `tools/pack/person_traits.py`. Brief: `context/research/person-age-household.md`.
 - `person_traits_workers.csv` (`origin_cut,destination_cut,mode,age_band,household_size,commuters`) splits each row of `mode_od.csv` by age band and household size. Its cells sum exactly to `mode_od.csv`. The engine reads it in place of `mode_od.csv`, so **regenerate it whenever `mode_od.csv` changes**.
 - `person_traits_students.csv` (`cut,age_band,household_size,students`): RM residents who attend basic or secondary school, by home comuna.
-- Age band: 0 under 15, 1 15–24, 2 25–44, 3 45–64, 4 65+. Household size 1 to 5, 5 = 5 or more.
+- Age band: 0 under 15, 1 15–24, 2 25–44, 3 45–64, 4 65+. Household size 1 to 5, 5 = 5 or more, 255 = unknown for non-private Census records.

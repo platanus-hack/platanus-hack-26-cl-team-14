@@ -17,7 +17,7 @@ pub struct Person { pub home: u32, pub dest: u32, pub student: bool, pub mode: i
 /// Age band: 0 under 15, 1 15-24, 2 25-44, 3 45-64, 4 65+. Household size: 1-5, 5 = 5 or more.
 /// Workers carry the observed Census 2024 joint of home comuna, work comuna, mode, age and household
 /// (`person_traits_workers.csv`). Students draw both from Census students of their home comuna.
-/// `UNKNOWN` marks persons a scenario adds, whose traits no source gives.
+/// `UNKNOWN` marks a missing trait, including household size for people outside private households.
 pub const UNKNOWN: u8 = u8::MAX;
 
 pub struct Point { pub id: String, pub cut: String, pub longitude: f64, pub latitude: f64, pub weight: f64 }

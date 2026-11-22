@@ -646,11 +646,14 @@ impl Scenario {
         // Per group: workers, changed mode, public transport (mode 2) before, left public transport.
         let mut by_trait = [[[0_u32; 4]; 5]; 2];
         for (p, &before) in pop.persons.iter().zip(&modes_before).filter(|(p, _)| !p.student && p.age_band != UNKNOWN) {
-            for (t, v) in [(0, p.age_band), (1, p.household_size - 1)] {
-                by_trait[t][v as usize][0] += 1;
-                by_trait[t][v as usize][1] += u32::from(crate::rechoose::class(p.mode) != crate::rechoose::class(before));
-                by_trait[t][v as usize][2] += u32::from(before == 2);
-                by_trait[t][v as usize][3] += u32::from(before == 2 && p.mode != 2);
+            let household = (p.household_size != UNKNOWN).then(|| p.household_size - 1);
+            for (rows, index) in by_trait.iter_mut().zip([Some(p.age_band), household]) {
+                let Some(index) = index else { continue; };
+                let counts = &mut rows[usize::from(index)];
+                counts[0] += 1;
+                counts[1] += u32::from(crate::rechoose::class(p.mode) != crate::rechoose::class(before));
+                counts[2] += u32::from(before == 2);
+                counts[3] += u32::from(before == 2 && p.mode != 2);
             }
         }
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
@@ -787,7 +790,7 @@ impl Scenario {
                 "age_band": rows(0, ["0-14", "15-24", "25-44", "45-64", "65+"]),
                 "household_size": rows(1, ["1", "2", "3", "4", "5+"]),
             });
-            result["assumptions"].as_array_mut().unwrap().push(json!("When a mode loses places, who keeps it is a deterministic weighted draw: the weight is the Census 2024 share of that mode among workers of the same home comuna, age band and household size. mode_change_by_person follows from this rule, not from an observed response. Workers that a residents change adds are not counted."));
+            result["assumptions"].as_array_mut().unwrap().push(json!("When a mode loses places, who keeps it is a deterministic weighted draw: the weight is the Census 2024 share of that mode among workers of the same home comuna, age band and household size. Unknown household size has its own group for the draw. These workers count in age summaries only. mode_change_by_person follows from this rule, not from an observed response. Workers that a residents change adds are not counted."));
         }
         if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
         if !car_shares.is_empty() {
