@@ -197,13 +197,12 @@ impl Station {
         &self,
         now: f32,
         subway: bool,
-        eye: Vec3,
         view_distance: f32,
         stadium: Option<&street_people::AccessFootprint>,
         visible: &impl Fn(Vec3, f32) -> bool,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
-        self.street_people.draw(now, eye, view_distance, stadium, visible, place);
+        self.street_people.draw(now, view_distance, stadium, visible, place);
         if !visible(self.centre, self.radius) {
             return;
         }
