@@ -6,21 +6,6 @@ Metro announced a station closure at 19:20 on Monday 21 April. The report says t
 
 I froze the two bins and the two neighboring stations before I opened the counts. Thursday 24 April is the same-week reference. Bins at 18:00 and 18:30 provide a same-station check on differences before the closure. The weekday mismatch limits the comparison. The model uses a normal weekday and the packed network. It does not simulate the incident or any associated travel disruption. [Frozen comparison](https://discord.com/channels/1573514576400752640/1573863187672207411/1573879972739682426)
 
-## Reproduce
-
-Use the two dated stage members from the DTPM ZIP. Count rows with `tipo_transporte = METRO`, the local date in `tiempo_subida`, the bin in `media_hora_subida`, and the listed station in `parada_subida`. The small boarding workbook pools 21–25 April as a weekday average. [DTPM catalog](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) · [Stages ZIP](https://www.dtpm.cl/descargas/modelos_y_matrices/Tabla-de-etapas-011025.zip)
-
-Run the release `scenario` binary at `84545dfca20d77127b53cd186a6d205bb7ee9f11` with its packed data.
-
-```sh
-printf '%s\n' '[{"kind":"station","op":"set","target":{"type":"station","id":"US"},"value":0,"half_hours":[39,41],"temporary":true}]' |
-  engine/target/release/scenario data/mvp - |
-  jq '.stations[] | select(.id == "EL" or .id == "AH" or .id == "US") |
-      {id, base: .base_half_hour[39:41], event: .scenario_half_hour[39:41]}'
-```
-
-The request closes the entrance for both bins and keeps service at all other stations. This approximates a skip for entry counts. It keeps the travel time through the station fixed.
-
 ## Observed and modeled entries
 
 Each row is one half-hour of Metro boarding stages. Every selected DTPM row has expansion factor 1. The engine change is the difference between the closure and baseline outputs.
@@ -36,7 +21,22 @@ Each row is one half-hour of Metro boarding stages. Every selected DTPM row has 
 
 The four open-station cells give **0.0755** for the model (229.1 / 3,035) and **0.2722** for no change (826 / 3,035). The numerator sums absolute differences between predicted and observed changes. The denominator sums the Thursday entries. Observed and modeled entries at the closed station are zero. Those cells stay outside the score.
 
-In the pre-closure bins, Monday minus Thursday was +326 and +54 at Estación Central and −7 and −23 at San Alberto Hurtado. The same no-change error formula gives 410 / 7,037 = 0.0583 in those bins. Monday was already higher at Estación Central. This is a descriptive comparison on a separate event. The model used the existing access rule and no 21 April counts as inputs. The day-to-day differences limit any estimate of the causal effect.
+In the pre-closure bins, Monday minus Thursday was +326 and +54 at Estación Central and −7 and −23 at San Alberto Hurtado. The same no-change error formula gives 410 / 7,037 = 0.0583 in those bins. Monday was already higher at Estación Central. This is a descriptive comparison on a separate event. The station profiles use April 2026 boardings. This run used the existing access rule and no 21 April 2025 counts as inputs. The day-to-day differences limit any estimate of the causal effect. [Engine data](../../engine/README.md)
+
+## Reproduce
+
+Use the two dated stage members from the DTPM ZIP. Count rows with `tipo_transporte = METRO`, the local date in `tiempo_subida`, the bin in `media_hora_subida`, and the listed station in `parada_subida`. The small boarding workbook pools 21–25 April as a weekday average. [DTPM catalog](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) · [Stages ZIP](https://www.dtpm.cl/descargas/modelos_y_matrices/Tabla-de-etapas-011025.zip)
+
+Run the release `scenario` binary at `84545dfca20d77127b53cd186a6d205bb7ee9f11` with its packed data.
+
+```sh
+printf '%s\n' '[{"kind":"station","op":"set","target":{"type":"station","id":"US"},"value":0,"half_hours":[39,41],"temporary":true}]' |
+  engine/target/release/scenario data/mvp - |
+  jq '.stations[] | select(.id == "EL" or .id == "AH" or .id == "US") |
+      {id, base: .base_half_hour[39:41], event: .scenario_half_hour[39:41]}'
+```
+
+The request closes the entrance for both bins and keeps service at all other stations. This approximates a skip for entry counts. It keeps the travel time through the station fixed.
 
 ### Source checks
 
@@ -54,7 +54,7 @@ awk -F '|' -v date="$dtpm_date" '
     time = substr($13, 1, 5)
     if (time ~ /^(18:00|18:30|19:30|20:00)$/) count[$23, time]++
   }
-  END { for (cell in count) print cell, count[cell] }
+  END { for (cell in count) { split(cell, key, SUBSEP); print key[1], key[2], count[cell] } }
 '
 ```
 
