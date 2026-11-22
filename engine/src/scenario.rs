@@ -32,6 +32,8 @@ mod line_riders;
 #[path = "scenario_stations.rs"]
 mod station_changes;
 use station_changes::Network;
+#[path = "optional_attendance.rs"]
+mod optional_attendance;
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -354,6 +356,23 @@ impl Scenario {
         let mut pending: Vec<_> = changes.iter().rev().cloned().map(|change| (change, false)).collect();
         while let Some((change, stock_child)) = pending.pop() {
             let raw = &change;
+            if raw["kind"] == "optional_attendance" {
+                let mut note = change.clone();
+                let receipt = serde_json::from_value::<optional_attendance::Request>(raw["request"].clone())
+                    .map_err(|_| "Supply a valid optional attendance request.")
+                    .and_then(|request| request.evaluate(&self.pop));
+                match receipt {
+                    Ok(receipt) => {
+                        note["understood"] = receipt;
+                        applied.push(note);
+                    }
+                    Err(reason) => {
+                        note["reason"] = json!(reason);
+                        not_modeled.push(note);
+                    }
+                }
+                continue;
+            }
             if raw["kind"] == "road" || raw["kind"] == "line" {
                 let is_line = raw["kind"] == "line";
                 let temporary = raw["temporary"] == true;
