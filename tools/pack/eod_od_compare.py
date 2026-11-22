@@ -52,15 +52,14 @@ for purpose, path, count in (("work", "data/mvp/mode_od.csv", "commuters"), ("st
 
 # Higher education (engine/src/population.rs): the travelling share of Census higher-education residents
 # (role 1 in person_traits_residents.csv) goes to SIES campuses with P(campus | home comuna) proportional to
-# (in-person + hybrid enrollment) x exp(-BETA x minutes). BETA and minutes follow engine/src/choice.rs
-# (work destination beta fitted to Census commutes, printed by the choice_fit binary).
+# (in-person + hybrid enrollment) x exp(-BETA x minutes). BETA and minutes follow engine/src/choice.rs:
+# BETA is fitted below from the same pack (jobs.csv, work_od.csv, travel times), as the engine does on each load.
 campus, enrolled = collections.Counter(), 0.0
 for r in csv.DictReader(open("data/mvp/higher_ed.csv")):
     campus[r["cut"]] += float(r["in_person"] or 0) + float(r["hybrid"] or 0)
     enrolled += float(r["enrollment"] or 0)
 travel = sum(campus.values()) / enrolled
 import math
-BETA = 0.06509
 com = list(csv.DictReader(open("data/mvp/communes.csv")))
 cuts = [r["cut"] for r in com]
 xy = {r["cut"]: (float(r["longitude"]), float(r["latitude"])) for r in com}
@@ -73,6 +72,29 @@ xs = [(km[k], t) for k, t in minutes.items()]
 m = len(xs); sx = sum(x for x,_ in xs); sy = sum(y for _,y in xs); sxx = sum(x*x for x,_ in xs); sxy = sum(x*y for x,y in xs)
 b = (m*sxy - sx*sy)/(m*sxx - sx*sx); a = (sy - b*sx)/m
 mins = lambda o, d: minutes.get((o, d), a + b*km[(o, d)])
+jobs, flows = collections.Counter(), collections.Counter()
+for r in csv.DictReader(open("data/mvp/jobs.csv")):
+    jobs[r["cut"]] += float(r["jobs"])
+for r in csv.DictReader(open("data/mvp/work_od.csv")):
+    if r["destination_cut"].startswith("13"):
+        flows[(r["origin_cut"], r["destination_cut"])] += float(r["workers"])
+
+
+def loglik(b):  # gravity P(d | o) proportional to jobs_d x exp(-b x minutes_od), as choice.rs
+    ll = 0.0
+    for o in cuts:
+        row = {d: jobs[d] * math.exp(-b * mins(o, d)) for d in cuts}
+        t = sum(row.values())
+        ll += sum(f * math.log(row[d] / t) for (oo, d), f in flows.items() if oo == o)
+    return ll
+
+
+lo, hi = 0.0, 1.0
+for _ in range(50):
+    a3, b3 = lo + (hi - lo) / 3, hi - (hi - lo) / 3
+    lo, hi = (a3, hi) if loglik(a3) < loglik(b3) else (lo, b3)
+BETA = (lo + hi) / 2
+print(f"campus beta (fitted as choice.rs) {BETA:.5f} per minute")
 share = {}
 for o in cuts:
     row = {d: w*math.exp(-BETA*mins(o, d)) for d, w in campus.items()}
