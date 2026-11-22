@@ -246,6 +246,9 @@ impl Scenario {
             v["example_worker"] = json!({ "person": workers[k], "home_comuna": c.cuts[homes[k]],
                 "job_block_base": self.pop.jobs[b.dest as usize].id, "job_block_scenario": pop.jobs[a.dest as usize].id,
                 "work_mode_base": b.mode, "work_mode_scenario": a.mode,
+                "household_income": b.household_income(workers[k]),
+                "spending_budget_clp": null,
+                "spending_budget_status": "Unmodeled. The aggregate choice uses a nonbinding budget.",
                 "visit_comuna_base": cut(visits.before[k]), "visit_comuna_scenario": cut(after[k]) });
         }
         v
