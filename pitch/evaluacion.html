@@ -53,19 +53,26 @@
     .head .q { margin: 0; padding: 1.2vh 1vw; background: #05090d; border: 1px solid #2c3d4f; border-radius: .3em; font: 400 clamp(1rem, min(2.1vw, 3.8vh), 2.7rem) / 1.2 JetBrainsMono, monospace; }
     .head .q span { color: #8dd0ff; }
     .head .date { margin: 0; color: #8dd0ff; font-size: clamp(1rem, min(2vw, 3.4vh), 2.6rem); }
-    .head .case { margin: 2vh 0 0; color: #8dd0ff; font-size: clamp(1.1rem, min(2.3vw, 4vh), 3rem); line-height: 1.15; }
-    .vs { display: grid; grid-template-columns: 1fr 1fr; align-content: center; column-gap: 3vw; }
-    .col { display: grid; align-content: end; }
-    .col.sim .k { color: #8dd0ff; }
-    .col .k { margin: 0; white-space: nowrap; color: #c3ccd5; font-size: clamp(1rem, min(2vw, 3.4vh), 2.6rem); }
-    .col .v { margin: 0; font-size: clamp(3.5rem, min(10vw, 19vh), 14rem); line-height: 1; }
-    .col.sim .v { color: #4aa8ff; }
-    .unit { grid-column: 1 / -1; margin: 2vh 0 0; color: #c3ccd5; font-size: clamp(1rem, min(2vw, 3.4vh), 2.6rem); }
+    .foot { display: flex; align-items: baseline; justify-content: space-between; gap: 2vw; }
+    .foot .case { color: #8dd0ff; text-align: right; font-size: clamp(.8rem, min(1.3vw, 2.3vh), 1.7rem); line-height: 1.15; }
+    /* One track per case. --sim and --real are drawn lengths in % of the track, set by hand. */
+    .vs { display: grid; align-content: center; gap: 1.6vh; }
+    .lbl { width: calc(var(--at) * 1%); text-align: right; white-space: nowrap; line-height: 1; letter-spacing: .08em; font-size: clamp(1rem, min(2.2vw, 3.8vh), 2.8rem); }
+    .lbl b { margin-left: .25em; font-weight: 400; letter-spacing: 0; font-size: clamp(3rem, min(7.5vw, 14vh), 11rem); }
+    .lbl.sim { --at: var(--sim); color: #4aa8ff; }
+    .lbl.real { --at: var(--real); }
+    .pista { position: relative; height: 6vh; }
+    .pista i { position: absolute; top: 0; bottom: 0; }
+    .pista .real { left: 0; width: calc(var(--real) * 1%); background: #fff; transition: width 1.2s ease-out .3s; }
+    .eval:not(.s1) .pista .real { width: 0; }
+    .pista .gap { left: calc(min(var(--sim), var(--real)) * 1%); width: calc((max(var(--sim), var(--real)) - min(var(--sim), var(--real))) * 1%); background: repeating-linear-gradient(135deg, #4aa8ff 0 .7vh, #4aa8ff55 .7vh 1.4vh); opacity: 0; transition: opacity .6s 1.5s; }
+    .eval.s1 .pista .gap { opacity: 1; }
+    .pista .mark { top: -1.6vh; bottom: -1.6vh; left: calc(var(--sim) * 1%); width: .8vw; margin-left: -.8vw; background: #4aa8ff; }
     .typed { font-weight: 400; }
     .typed.cursor::after { content: ""; display: inline-block; width: .55em; height: 1em; margin-left: .1em; vertical-align: -.12em; background: #fff; animation: blink 1s steps(1) infinite; }
     @keyframes blink { 50% { opacity: 0; } }
-    .head .case, .vs, .acc { opacity: 0; transition: opacity .6s; }
-    .eval.s1 .head .case, .eval.s1 .vs, .eval.s1 .acc { opacity: 1; }
+    .vs, .foot { opacity: 0; transition: opacity .6s; }
+    .eval.s1 .vs, .eval.s1 .foot { opacity: 1; }
     .acc { margin: 0; color: #c3ccd5; font-size: clamp(1.2rem, min(2.6vw, 4.4vh), 3.2rem); }
     .acc b { color: #fff; font-weight: 400; font-size: 2.2em; }
     .dots { display: flex; justify-content: center; gap: 1.2vw; }
@@ -107,28 +114,31 @@
   <video id="fondo" src="media/santiago-fondo.mp4" muted loop autoplay playsinline oncanplay="this.playbackRate = .15"></video>
   <main class="evals"><div class="track">
     <section class="eval">
-      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántos pasajeros más recibe Estación Central si cierran la USACH?"></b></p><p class="case">Lunes 21 abr 2025: Metro cerró Universidad de Santiago a las 19:20</p></header>
-      <div class="vs">
-        <div class="col sim"><p class="k">simulación santiaguito</p><p class="v">469</p></div>
-        <div class="col real"><p class="k">caso real</p><p class="v">662</p></div>
+      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántos pasajeros más recibe Estación Central si cierran la USACH?"></b></p></header>
+      <div class="vs" style="--sim: 92; --real: 100">
+        <p class="lbl sim">SANTIAGUITO<b>469</b></p>
+        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
+        <p class="lbl real">REAL<b>662</b></p>
       </div>
-      <p class="acc"><b>92 %</b> de precisión</p>
+      <div class="foot"><p class="acc"><b>92 %</b> de precisión</p><p class="case">* Lunes 21 abr 2025: Metro cerró Universidad de Santiago a las 19:20</p></div>
     </section>
     <section class="eval">
-      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántas entradas diarias tendrán las cuatro estaciones nuevas de la Línea 2?"></b></p><p class="case">Noviembre 2023: abrieron cuatro estaciones nuevas de la Línea 2</p></header>
-      <div class="vs">
-        <div class="col sim"><p class="k">simulación santiaguito</p><p class="v">59.798</p></div>
-        <div class="col real"><p class="k">caso real</p><p class="v">50.625</p></div>
+      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántas entradas diarias tendrán las cuatro estaciones nuevas de la Línea 2?"></b></p></header>
+      <div class="vs" style="--sim: 100; --real: 85">
+        <p class="lbl sim">SANTIAGUITO<b>59.798</b></p>
+        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
+        <p class="lbl real">REAL<b>50.625</b></p>
       </div>
-      <p class="acc"><b>82 %</b> de precisión</p>
+      <div class="foot"><p class="acc"><b>82 %</b> de precisión</p><p class="case">* Noviembre 2023: abrieron cuatro estaciones nuevas de la Línea 2</p></div>
     </section>
     <section class="eval">
-      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántos hinchas entran a Pedrero a las 18:00 después del partido?"></b></p><p class="case">Sábado 26 abr 2025: Colo-Colo vs Coquimbo en el Monumental, 17.756 hinchas</p></header>
-      <div class="vs">
-        <div class="col sim"><p class="k">simulación santiaguito</p><p class="v">1.956</p></div>
-        <div class="col real"><p class="k">caso real</p><p class="v">1.675</p></div>
+      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántos hinchas entran a Pedrero a las 18:00 después del partido?"></b></p></header>
+      <div class="vs" style="--sim: 100; --real: 86">
+        <p class="lbl sim">SANTIAGUITO<b>1.956</b></p>
+        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
+        <p class="lbl real">REAL<b>1.675</b></p>
       </div>
-      <p class="acc"><b>76 %</b> de precisión</p>
+      <div class="foot"><p class="acc"><b>76 %</b> de precisión</p><p class="case">* Sábado 26 abr 2025: Colo-Colo vs Coquimbo en el Monumental, 17.756 hinchas</p></div>
     </section>
   </div></main>
   <div class="dots"><i></i><i></i><i></i></div>
