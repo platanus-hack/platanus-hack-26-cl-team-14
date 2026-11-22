@@ -1,6 +1,7 @@
 // Print the opaque scene in categorical inks. Scenario edits draw over the print.
 @group(0) @binding(0) var scene: texture_2d<f32>;
 @group(0) @binding(1) var depth: texture_depth_2d;
+@group(0) @binding(2) var<uniform> title_light: vec4<f32>;
 
 const INKS = array<u32, 14>(
     0x242942u, 0x343957u, 0x50557au, 0x666d98u, 0x7a81adu, 0x9099c2u,
@@ -84,4 +85,8 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
 
 @fragment fn night(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
     return print_city(pos, true);
+}
+
+@fragment fn title(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+    return mix(print_city(pos, false), print_city(pos, true), title_light.x);
 }
