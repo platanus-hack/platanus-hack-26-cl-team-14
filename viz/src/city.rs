@@ -2,10 +2,12 @@ mod activity;
 pub(crate) mod edits;
 mod facade;
 mod ground;
+pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
 mod streets;
 mod terrain;
 mod trees;
+pub(crate) mod water;
 use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
@@ -638,13 +640,16 @@ pub(crate) fn setup_ground(
     for mesh in ground::mapped_trees(Path::new("web/data/city_trees.bin.gz")) {
         commands.spawn((ChildOf(root), Mesh3d(meshes.add(mesh)), MeshMaterial3d(foliage.clone())));
     }
-    for ((tile, i), base, mesh) in ground::named_buildings(Path::new(".")) {
-        commands.spawn((
+    for ((tile, i), base, mesh, seating) in ground::named_buildings(Path::new(".")) {
+        let mut entity = commands.spawn((
             NamedBuilding(tile, i),
             Mesh3d(meshes.add(mesh)),
             MeshMaterial3d(mat.clone()),
             Transform::from_xyz(0., base, 0.),
         ));
+        if let Some(seating) = seating {
+            entity.insert(seating);
+        }
     }
     let (terrain, scenery) = ground::load_ground(Path::new("."));
     for (name, mesh) in terrain {
