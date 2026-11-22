@@ -50,7 +50,7 @@ impl Plugin for SilhouettePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Silhouettes>().add_systems(
             PostUpdate,
-            (tag, face_camera).chain().before(TransformSystems::Propagate),
+            (tag, face_camera).chain().run_if(resource_exists::<Models>).before(TransformSystems::Propagate),
         );
     }
 }
