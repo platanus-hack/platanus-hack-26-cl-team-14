@@ -1215,6 +1215,8 @@ fn street_walker_scale(distance: f32) -> f32 {
     (distance / 135.).clamp(1., 3.)
 }
 
+const CAR_LANE_OFFSET: f32 = 1.9;
+
 fn right(dir: Vec3) -> Vec3 {
     Vec3::new(-dir.z, 0., dir.x)
 }
@@ -1384,7 +1386,11 @@ fn draw(
                 } else {
                     size_at(pos)
                 } * presence;
-                let lane = if kind == Vehicle::Walk { g.path.walk_lane(metres) } else { 1.6 };
+                let lane = match kind {
+                    Vehicle::Walk => g.path.walk_lane(metres),
+                    Vehicle::Car => CAR_LANE_OFFSET,
+                    _ => 1.6,
+                };
                 let mut position = pos + right(dir) * lane + Vec3::Y * 0.25;
                 if kind == Vehicle::Car {
                     let Some(surface) = routes.water.surface_position(&g.path, metres, position, dir) else { continue; };

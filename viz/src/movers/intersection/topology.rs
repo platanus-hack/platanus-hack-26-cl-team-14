@@ -1,11 +1,12 @@
-use super::{Approach, CLEARANCE, Path, Replay, STOP_DISTANCE, Site, ms};
-use crate::movers::{Vehicle, right, road_water};
+use super::{Approach, Path, Replay, STOP_DISTANCE, Site, ms};
+use crate::movers::{CAR_LANE_OFFSET, Vehicle, right, road_water};
 use bevy::prelude::*;
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, HashMap},
     fs::File,
     io::BufReader,
+    ops::RangeInclusive,
 };
 
 const MATCH_RADIUS: f32 = 5.;
@@ -210,24 +211,29 @@ pub(super) fn register(
     sites: &mut HashMap<usize, Site>,
 ) -> Approach {
     let sample = |metres: f32| {
-        let (p, dir, _) = path.at(metres, &path.metres).unwrap();
-        (p + right(dir) * 1.6).xz()
+        let (p, dir) = path
+            .road_pose(metres, Vehicle::Car, 0, path.points.len() - 1)
+            .unwrap();
+        (p + right(dir) * CAR_LANE_OFFSET).xz()
     };
     let entry = sample(first - 38.);
     let heading = (sample(first - 23.) - entry).normalize_or_zero();
     let stop = first - STOP_DISTANCE;
-    let mut curve: Vec<_> = (0..)
-        .map(|i| stop + i as f32 * 7.)
-        .take_while(|&metres| metres < last + 22.)
-        .map(sample)
-        .collect();
-    curve.push(sample(last + 22.));
     let speed = Vehicle::Car.speed();
-    let clearance = CLEARANCE + ms((last - first) / speed);
+    let limit = last + 22.;
+    let curve = (0..)
+        .map(|i| stop + i as f32 * 3.)
+        .take_while(|&metres| metres < limit)
+        .chain([limit])
+        .map(|metres| Sample {
+            position: sample(metres),
+            time: ms((metres - stop) / speed) as i32,
+        })
+        .collect();
     let movement = sites
         .entry(junction)
         .or_default()
-        .register(entry, heading, curve, clearance);
+        .register(entry, heading, curve);
     Approach {
         junction,
         movement,
@@ -247,24 +253,66 @@ fn project(p: Vec2, a: Vec2, b: Vec2) -> f32 {
     ((p - a).dot(d) / d.length_squared()).clamp(0., 1.)
 }
 
-pub(super) fn conflict(a: &[Vec2], b: &[Vec2]) -> bool {
-    let close = |p: Vec2, a: Vec2, b: Vec2| {
-        p.distance_squared(a.lerp(b, project(p, a, b))) < 3.5_f32.powi(2)
-    };
-    a.windows(2).any(|a| {
-        b.windows(2).any(|b| {
-            let (p, q, r, s) = (a[0], a[1], b[0], b[1]);
-            let ab = q - p;
-            let cd = s - r;
-            let cross = ab.perp_dot(cd);
-            if cross.abs() > 0.001 {
-                let alpha = (r - p).perp_dot(cd) / cross;
-                let beta = (r - p).perp_dot(ab) / cross;
-                if (0. ..=1.).contains(&alpha) && (0. ..=1.).contains(&beta) {
-                    return true;
-                }
+#[derive(Clone, Copy)]
+pub(super) struct Sample {
+    pub(super) position: Vec2,
+    pub(super) time: i32,
+}
+
+pub(super) type Window = RangeInclusive<u32>;
+
+// The two outputs are the unsafe start offsets for a after b, and b after a.
+pub(super) fn conflict_windows(a: &[Sample], b: &[Sample]) -> (Vec<Window>, Vec<Window>) {
+    // Both cars' half lengths at the rendered scale, rounded up to one second of travel.
+    const BODY_TIME_MS: i32 = 1_000;
+    let mut a_after_b = Vec::new();
+    let mut b_after_a = Vec::new();
+    for a in a.windows(2) {
+        for b in b.windows(2) {
+            if !segments_conflict(a[0].position, a[1].position, b[0].position, b[1].position) {
+                continue;
             }
-            close(p, r, s) || close(q, r, s) || close(r, p, q) || close(s, p, q)
-        })
-    })
+            let start = b[0].time - a[1].time - BODY_TIME_MS;
+            let end = b[1].time - a[0].time + BODY_TIME_MS;
+            if end >= 0 {
+                a_after_b.push(start.max(0) as u32..=end as u32);
+            }
+            if start <= 0 {
+                b_after_a.push((-end).max(0) as u32..=(-start) as u32);
+            }
+        }
+    }
+    (merge_windows(a_after_b), merge_windows(b_after_a))
+}
+
+fn merge_windows(mut windows: Vec<Window>) -> Vec<Window> {
+    windows.sort_unstable_by_key(|window| *window.start());
+    let mut merged: Vec<Window> = Vec::new();
+    for window in windows {
+        if let Some(last) = merged.last_mut()
+            && *window.start() <= *last.end() + 1
+        {
+            *last = *last.start()..=(*last.end()).max(*window.end());
+        } else {
+            merged.push(window);
+        }
+    }
+    merged
+}
+
+fn segments_conflict(p: Vec2, q: Vec2, r: Vec2, s: Vec2) -> bool {
+    let close = |p: Vec2, a: Vec2, b: Vec2| {
+        p.distance_squared(a.lerp(b, project(p, a, b))) < 3.6_f32.powi(2)
+    };
+    let ab = q - p;
+    let cd = s - r;
+    let cross = ab.perp_dot(cd);
+    if cross.abs() > 0.001 {
+        let alpha = (r - p).perp_dot(cd) / cross;
+        let beta = (r - p).perp_dot(ab) / cross;
+        if (0. ..=1.).contains(&alpha) && (0. ..=1.).contains(&beta) {
+            return true;
+        }
+    }
+    close(p, r, s) || close(q, r, s) || close(r, p, q) || close(s, p, q)
 }
