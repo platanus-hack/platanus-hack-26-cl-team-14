@@ -10,6 +10,96 @@ pub(crate) struct EditMesh;
 #[derive(Component)]
 pub(crate) struct SurfaceEdit;
 
+#[derive(Component)]
+pub(crate) struct FerryRoute;
+
+// The wide replay introduces the new service with a route line. At the pier,
+// the vessel, gangway and passengers identify the intervention at street scale.
+pub(crate) fn ferry_routes(
+    rig: Res<crate::Rig>,
+    mode: Res<SubwayView>,
+    mut lines: Query<&mut Visibility, With<FerryRoute>>,
+) {
+    let visible = if mode.0 || rig.distance < 1_200. {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    for mut line in &mut lines {
+        line.set_if_neq(visible);
+    }
+}
+
+#[derive(Component)]
+pub(crate) struct ClosureEnd(Vec3);
+
+fn closure_ends(commands: &mut Commands, geometry: &Value) {
+    let lines = &geometry["coordinates"];
+    fn ends(line: &Value) -> [&Value; 2] {
+        let points = line.as_array().unwrap();
+        [points.first().unwrap(), points.last().unwrap()]
+    }
+    let mut endpoints = Vec::new();
+    if geometry["type"] == "MultiLineString" {
+        for line in lines.as_array().unwrap() {
+            endpoints.extend(ends(line));
+        }
+    } else {
+        endpoints.extend(ends(lines));
+    }
+    // Shared endpoints join parts of the same feature. Mark its exposed ends.
+    for point in &endpoints {
+        if endpoints.iter().filter(|p| **p == *point).count() != 1 {
+            continue;
+        }
+        commands.spawn((
+            EditMesh,
+            ClosureEnd(world(point[0].as_f64().unwrap(), point[1].as_f64().unwrap())),
+            Node {
+                position_type: PositionType::Absolute,
+                width: px(16),
+                height: px(16),
+                border_radius: BorderRadius::MAX,
+                border: UiRect::all(px(1)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            BackgroundColor(Color::srgb_u8(164, 53, 47)),
+            Visibility::Hidden,
+            children![(
+                Node { width: px(10), height: px(3), ..default() },
+                BackgroundColor(Color::WHITE),
+            )],
+        ));
+    }
+}
+
+pub(crate) fn place_closure_ends(
+    camera: Single<(&Camera, &GlobalTransform), With<Camera3d>>,
+    window: Single<&Window, With<bevy::window::PrimaryWindow>>,
+    canvas: Query<&Sprite, With<crate::pixels::CityCanvas>>,
+    mode: Res<SubwayView>,
+    mut ends: Query<(&ClosureEnd, &mut Node, &mut Visibility)>,
+) {
+    let (camera, transform) = *camera;
+    for (end, mut node, mut visible) in &mut ends {
+        let Ok(mut p) = camera.world_to_viewport(transform, end.0) else {
+            *visible = Visibility::Hidden;
+            continue;
+        };
+        if let Ok(sprite) = canvas.single()
+            && let (Some(size), Some(viewport)) = (sprite.custom_size, camera.logical_viewport_size())
+        {
+            p = window.size() * 0.5 + (p / viewport - Vec2::splat(0.5)) * size;
+        }
+        node.left = px(p.x - 8.);
+        node.top = px(p.y - 8.);
+        *visible = if mode.0 { Visibility::Hidden } else { Visibility::Inherited };
+    }
+}
+
 fn rings(value: &Value) -> Vec<Vec<Vec3>> {
     value
         .as_array()
@@ -31,18 +121,17 @@ fn rings(value: &Value) -> Vec<Vec<Vec3>> {
 fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
     let mut mesh = Surface::default();
     let geometry = &feature["geometry"];
-    let color = if removed {
-        [0.9, 0.08, 0.05, 1.]
-    } else if kind == "line" {
-        [0.02, 0.75, 0.95, 1.]
-    } else {
-        [0.95, 0.55, 0.07, 1.]
-    };
+    // The transparent pass lays engine edits over the printed city.
+    let color = [0.85, 0.13, 0.09, 1.];
     match kind {
         "building" => mesh.polygon(
             &rings(&geometry["coordinates"]),
             0.3,
-            feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32,
+            if removed {
+                0.
+            } else {
+                feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32
+            },
             color,
             color,
         ),
@@ -59,6 +148,16 @@ fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
                     .iter()
                     .map(|pair| world(pair[0].as_f64().unwrap(), pair[1].as_f64().unwrap()))
                     .collect();
+                let points = if kind == "line" && feature["properties"]["mode"] == "boat" {
+                    let water = super::water::route(points.iter().map(|p| p.xz()).collect());
+                    let Some(water) = water else { continue };
+                    water
+                        .into_iter()
+                        .map(|p| Vec3::new(p.x, super::terrain_from_xz(p.x, p.y), p.y))
+                        .collect()
+                } else {
+                    points
+                };
                 ribbon(
                     &mut mesh,
                     &points,
@@ -78,6 +177,46 @@ fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
     mesh
 }
 
+// The detailed mesh has local heights but uses the city's horizontal coordinates.
+// Reuse it only when every footprint ring has the same horizontal displacement.
+fn landmark_offset(before: &Value, after: &Value) -> Option<Vec3> {
+    if before.is_null()
+        || after.is_null()
+        || before["properties"]["height_m"] != after["properties"]["height_m"]
+    {
+        return None;
+    }
+    let source = rings(&before["geometry"]["coordinates"]);
+    let target = rings(&after["geometry"]["coordinates"]);
+    if source.len() != target.len() {
+        return None;
+    }
+    let anchor = |ring: &[Vec3]| {
+        let center = ring.iter().copied().sum::<Vec3>() / ring.len() as f32;
+        Vec3::new(
+            center.x,
+            super::terrain_from_xz(center.x, center.z),
+            center.z,
+        )
+    };
+    let offset = anchor(target.first()?) - anchor(source.first()?);
+    // A closed ring may start at any vertex and run in either direction.
+    let same_ring = |a: &[Vec3], b: &[Vec3]| {
+        let close = |i: usize, j: usize| (b[j] - a[i] - offset).xz().length_squared() < 0.01;
+        let n = a.len();
+        n == b.len()
+            && (0..n).filter(|&start| close(0, start)).any(|start| {
+                (0..n).all(|i| close(i, (start + i) % n))
+                    || (0..n).all(|i| close(i, (start + n - i) % n))
+            })
+    };
+    (same_ring(&source[0], &target[0])
+        && source[1..]
+            .iter()
+            .all(|hole| target[1..].iter().any(|other| same_ring(hole, other))))
+    .then_some(offset)
+}
+
 // Every result is a full scenario. Keep only the last state of each edited object.
 pub(crate) fn refresh(
     mut commands: Commands,
@@ -87,17 +226,22 @@ pub(crate) fn refresh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     old: Query<Entity, With<EditMesh>>,
-    mut named: Query<(&NamedBuilding, &mut Visibility)>,
+    mut named: Query<(Entity, &NamedBuilding, &mut Transform, &mut Visibility)>,
+    mut origins: Local<std::collections::HashMap<Entity, Vec3>>,
     mut material: Local<Option<Handle<StandardMaterial>>>,
 ) {
     for entity in &old {
         commands.entity(entity).despawn();
     }
     let mut final_state = BTreeMap::<(String, String), (Value, Value)>::new();
+    let mut requested_moves = HashSet::new();
     for edit in scenario.0["city_edits"].as_array().into_iter().flatten() {
         let (Some(kind), Some(id)) = (edit["kind"].as_str(), edit["id"].as_str()) else {
             continue;
         };
+        if kind == "building" && edit["op"] == "move" {
+            requested_moves.insert(id);
+        }
         final_state
             .entry((kind.into(), id.into()))
             .and_modify(|state| state.1 = edit["after"].clone())
@@ -122,8 +266,19 @@ pub(crate) fn refresh(
         buildings.dirty[tile] = true;
     }
     buildings.hidden = hidden;
-    for (key, mut visibility) in &mut named {
-        *visibility = if buildings.hidden.contains(&(key.0, key.1)) {
+    let mut moved_landmarks = HashSet::new();
+    for (entity, key, mut transform, mut visibility) in &mut named {
+        let original = *origins.entry(entity).or_insert(transform.translation);
+        let id = format!("mesh:{}:{}", key.0, key.1);
+        let offset = final_state
+            .get(&("building".to_owned(), id.clone()))
+            .filter(|_| requested_moves.contains(id.as_str()))
+            .and_then(|(before, after)| landmark_offset(before, after));
+        transform.translation = original + offset.unwrap_or_default();
+        *visibility = if offset.is_some() {
+            moved_landmarks.insert(id);
+            Visibility::Inherited
+        } else if buildings.hidden.contains(&(key.0, key.1)) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
@@ -134,18 +289,20 @@ pub(crate) fn refresh(
             materials.add(StandardMaterial {
                 cull_mode: None,
                 unlit: true,
+                alpha_mode: AlphaMode::Blend,
                 ..default()
             })
         })
         .clone();
-    for ((kind, _), (before, after)) in final_state {
+    for ((kind, id), (before, after)) in final_state {
         if !before.is_null()
             && (after.is_null()
                 || before["geometry"] != after["geometry"]
-                || (kind == "line"
-                    && before["properties"]["mode"] != after["properties"]["mode"]))
-            && kind != "building"
+                || (kind == "line" && before["properties"]["mode"] != after["properties"]["mode"]))
         {
+            if kind == "road" && after.is_null() {
+                closure_ends(&mut commands, &before["geometry"]);
+            }
             let shape = draw(&before, &kind, true);
             if !shape.indices.is_empty() {
                 let mut entity = commands.spawn((
@@ -165,7 +322,7 @@ pub(crate) fn refresh(
                 }
             }
         }
-        if !after.is_null() {
+        if !after.is_null() && !(kind == "building" && moved_landmarks.contains(&id)) {
             let shape = draw(&after, &kind, false);
             if !shape.indices.is_empty() {
                 let mut entity = commands.spawn((
@@ -177,6 +334,9 @@ pub(crate) fn refresh(
                         path_material.clone()
                     }),
                 ));
+                if kind == "line" && after["properties"]["mode"] == "boat" {
+                    entity.insert(FerryRoute);
+                }
                 if kind == "road" || (kind == "line" && after["properties"]["mode"] != "metro") {
                     entity.insert((
                         SurfaceEdit,

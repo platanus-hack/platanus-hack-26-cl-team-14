@@ -10,7 +10,7 @@ const NORTH: f32 = -16_635.75;
 const DX: f32 = 92_915.0 / 1200.0;
 const DZ: f32 = 110_905.0 / 1200.0;
 const DATUM: f32 = 500.0;
-const SOIL: [f32; 4] = [0.54, 0.50, 0.41, 1.0];
+const SOIL: [f32; 4] = [0.839, 0.831, 0.913, 1.];
 type Rgba = [f32; 4];
 
 fn heights() -> &'static [i16] {
@@ -22,6 +22,31 @@ fn heights() -> &'static [i16] {
             .map(|b| i16::from_le_bytes([b[0], b[1]]))
             .collect()
     })
+}
+
+/// Integer terrain heights and grid transform used by the ferry depth shader.
+pub(crate) fn ferry_depth_grid() -> (Image, Vec4) {
+    use bevy::{
+        asset::RenderAssetUsages,
+        render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    };
+
+    let data = heights()
+        .iter()
+        .flat_map(|h| (h - DATUM as i16).to_le_bytes())
+        .collect();
+    let image = Image::new(
+        Extent3d {
+            width: W as u32,
+            height: H as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        data,
+        TextureFormat::R16Sint,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    (image, Vec4::new(WEST, NORTH, DX, DZ))
 }
 
 pub fn cursor_ground(ray: Ray3d) -> Option<Vec3> {

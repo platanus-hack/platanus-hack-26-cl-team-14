@@ -25,12 +25,25 @@ impl Fleet {
             [Shares; 2],
         ) = serde_json::from_slice(include_bytes!("../../assets/car_fleet.json")).unwrap();
         let rows = styles.div_ceil(columns);
-        let (mesh, image) = sprite_stack(
+        let (mesh, mut image) = sprite_stack(
             include_bytes!("../../assets/car_fleet.png"),
             slices.into(),
             [columns.into(), rows.into()],
         );
         let mesh = meshes.add(mesh);
+        if models.ink {
+            // Keep the body profile and cutouts from each source sprite. The paper
+            // windows separate the cabin from the bonnet at street zoom.
+            for pixel in image.data.as_mut().unwrap().chunks_exact_mut(4) {
+                if pixel[3] != 0 {
+                    let ink = match pixel[0..3] {
+                        [43, 62, 83] | [91, 126, 151] | [255, 225, 152] => super::PAPER,
+                        _ => super::CAR_INK,
+                    };
+                    pixel[..3].copy_from_slice(&ink);
+                }
+            }
+        }
         let texture = images.add(image);
         let step = Vec2::new(1. / columns as f32, 1. / rows as f32);
         for style in 0..styles {

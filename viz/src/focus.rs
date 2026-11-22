@@ -1,6 +1,6 @@
 //! Frame the place that the engine selected. A saved scene takes precedence over an edit.
 use crate::{FOV, Rig, city, net::Scenario};
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, time::Real, window::PrimaryWindow};
 use serde_json::Value;
 
 #[derive(Clone, Copy)]
@@ -24,7 +24,7 @@ impl Rig {
     }
 }
 
-pub(super) fn advance(time: Res<Time>, mut rig: ResMut<Rig>) {
+pub(super) fn advance(time: Res<Time<Real>>, mut rig: ResMut<Rig>) {
     let Some(mut flight) = rig.flight else { return };
     flight.elapsed += time.delta_secs();
     let t = flight.elapsed.min(1.);
@@ -108,6 +108,39 @@ fn frame(mut points: impl Iterator<Item = Vec3>, minimum: f32, aspect: f32) -> O
     let radius = center.distance(high);
     let half_angle = ((FOV / 2.).tan() * aspect.min(1.)).atan();
     Some((center, minimum.max(1.15 * radius / half_angle.sin())))
+}
+
+#[derive(Default, Resource)]
+pub(super) struct CueCaption(pub String);
+
+// A cue changes the caption and, when the camera is unlocked, starts a flight.
+pub(super) fn cue(
+    time: Res<Time<Real>>,
+    scenario: Res<Scenario>,
+    mut rig: ResMut<Rig>,
+    mut caption: ResMut<CueCaption>,
+    mut scene_revision: Local<Option<u64>>,
+    mut start: Local<f32>,
+    mut next: Local<usize>,
+) {
+    let scene = &scenario.0["scene"];
+    if scene["revision"].as_u64() != *scene_revision {
+        *scene_revision = scene["revision"].as_u64();
+        *start = time.elapsed_secs();
+        *next = 0;
+        caption.0.clear();
+    }
+    let Some(cue) = scene["cues"].get(*next) else { return };
+    if time.elapsed_secs() - *start < cue["after_seconds"].as_f64().unwrap() as f32 {
+        return;
+    }
+    caption.0 = cue["caption"].as_str().unwrap_or_default().to_owned();
+    if !rig.fixed {
+        let (target, distance) = (shot_position(cue).unwrap(), cue["distance"].as_f64().unwrap() as f32);
+        rig.fly_to(target, distance);
+        info!("Camera cue {} at {target:?}, distance {distance} m", *next);
+    }
+    *next += 1;
 }
 
 fn shot_position(row: &Value) -> Option<Vec3> {

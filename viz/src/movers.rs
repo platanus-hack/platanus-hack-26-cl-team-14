@@ -1,7 +1,13 @@
 //! Replay of an engine result. Positions between departure bins are display interpolation.
 #[path = "events.rs"]
 pub(crate) mod events;
+pub(crate) mod clock;
+pub(crate) mod follow;
 mod fleet;
+mod motion;
+mod road_water;
+mod road_edits;
+mod articulated;
 mod instanced;
 mod levels;
 mod riders;
@@ -9,6 +15,7 @@ mod stations;
 mod street_people;
 use riders::{RideKey, RiderNetwork, RiderPlan, RiderState};
 use stations::Station;
+use riders::bus_load;
 
 use crate::{
     city::{Surface, terrain_from_xz, world},
@@ -83,6 +90,7 @@ struct Leg {
 }
 
 struct Path {
+    crossings: Vec<(f32, f32, road_water::Crossing)>,
     points: Vec<Vec3>,
     metres: Vec<f32>,
     seconds: Vec<f32>,
@@ -104,6 +112,7 @@ impl Path {
             seconds.push(seconds[i - 1] + step / legs[leg].vehicle.speed());
         }
         Arc::new(Self {
+            crossings: Vec::new(),
             points,
             metres,
             seconds,
@@ -288,6 +297,7 @@ type Table = HashMap<String, Arc<Path>>;
 
 #[derive(Resource)]
 struct Routes {
+    water: road_water::Water,
     cars: Table,
     bikes: Table,
     public: Table,
@@ -391,7 +401,7 @@ fn gzip_json(file: &str) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-fn local_routes(riders: &RiderNetwork) -> HashMap<LocalKey, Arc<Path>> {
+fn local_routes(riders: &RiderNetwork, water: &road_water::Pack) -> HashMap<LocalKey, Arc<Path>> {
     let mut local = HashMap::new();
     let active = gzip_json("web/data/local_mover_routes.json.gz");
     for g in active["groups"].as_array().unwrap() {
@@ -404,7 +414,11 @@ fn local_routes(riders: &RiderNetwork) -> HashMap<LocalKey, Arc<Path>> {
         };
         let line = points(&active["paths"][g["route"].as_u64().unwrap() as usize]);
         let key = local_key(g["id"].as_u64().unwrap(), mode, &g["origin"], &g["destination"]);
-        local.insert(key, Path::single(line, kind));
+        let mut path = Path::single(line, kind);
+        if kind == Vehicle::Car {
+            road_water::set_crossings(&mut path, water.local.get(&g["route"].to_string()));
+        }
+        local.insert(key, path);
     }
     let gtfs = gzip_json("web/data/local_public_routes.json.gz");
     let records = gtfs["paths"].as_array().unwrap();
@@ -441,7 +455,10 @@ impl Routes {
             .iter()
             .map(|(key, row)| (key.clone(), public_path(row, &riders)))
             .collect();
-        let local = local_routes(&riders);
+        let water: road_water::Pack = serde_json::from_reader(flate2::read::GzDecoder::new(fs::File::open("web/data/car_water_spans.json.gz").unwrap())).unwrap();
+        let local = local_routes(&riders, &water);
+        let mut cars = table("web/data/car_routes.json", Vehicle::Car);
+        for (key, path) in &mut cars { road_water::set_crossings(path, water.od.get(key)); }
         Self {
             public,
             local,
@@ -449,7 +466,8 @@ impl Routes {
             riders,
             entrances,
             station_walk_routes: street_people::WalkRoutes::load(),
-            cars: table("web/data/car_routes.json", Vehicle::Car),
+            water: road_water::Water::new(water),
+            cars,
             bikes: table("web/data/bicycle_routes.json", Vehicle::Bicycle),
             streets: StreetIndex::load("data/mvp/roads.geojson", true),
             cycleways: StreetIndex::load("data/mvp/cycleways.geojson", false),
@@ -585,27 +603,43 @@ enum Paint {
 
 #[derive(Resource, Default)]
 struct Replay {
+    base_bus_loads: Option<bus_load::BaseBusLoads>,
+    road_edits: road_edits::TrafficEdits,
     departures: Vec<Vec<Group>>,
     platforms: Vec<Station>,
     longest: f32,
     clock_offset: Option<f32>,
+    metro_closure: Option<std::ops::Range<i32>>,
     revision_started: f32,
 }
 
 fn read_result(
     mut commands: Commands,
-    signs: Query<Entity, With<stations::ClosedSign>>,
+    signs: Query<Entity, With<stations::StationPin>>,
+    mut base_access: Local<Option<Value>>,
     time: Res<Time>,
     rate: Res<PlaybackRate>,
     result: Res<Scenario>,
     routes: Res<Routes>,
     fleet: Res<fleet::Fleet>,
     mut replay: ResMut<Replay>,
+    mut road_catalog: Local<road_edits::Catalog>,
 ) {
     if !result.is_changed() || result.0.is_null() {
         return;
     }
     let r = &result.0;
+    replay.road_edits = road_edits::TrafficEdits::from_result(r, &mut road_catalog);
+    let metro_removed = r["applied"].as_array().into_iter().flatten().any(|change| {
+        change["kind"] == "line"
+            && change["op"] == "remove"
+            && change["target"]["type"] == "mode"
+            && change["target"]["id"] == "metro"
+    });
+    replay.metro_closure = metro_removed.then(|| match r["closure_window"]["half_hours"].as_array() {
+        Some(window) => window[0].as_u64().unwrap() as i32..window[1].as_u64().unwrap() as i32,
+        None => 0..48,
+    });
     let stations = r["stations"].as_array().unwrap();
     let elapsed = time.elapsed_secs() * rate.0;
     if let Some(bin) = r["scene"]["half_hour"].as_u64() {
@@ -649,6 +683,9 @@ fn read_result(
     for station in stations.iter().filter(|s| closed.contains(s["id"].as_str().unwrap())) {
         stations::spawn_closed_sign(&mut commands, station);
     }
+    for row in stations.iter().filter(|s| matches!(s["id"].as_str(), Some("TB-TOB" | "GO" | "LE-LEN"))) {
+        stations::spawn_name(&mut commands, row);
+    }
     let mut deltas = HashMap::new();
     for d in r["trips_delta"].as_array().into_iter().flatten() {
         deltas.insert(
@@ -656,6 +693,7 @@ fn read_result(
             (d[1].as_f64().unwrap(), d[2].as_u64().unwrap()),
         );
     }
+    replay.base_bus_loads = (!deltas.is_empty()).then(|| bus_load::BaseBusLoads::new(r["trips_base"].as_array().unwrap(), &routes));
     replay.departures = (0..48).map(|_| Vec::new()).collect();
     replay.longest = 0.;
     replay.revision_started = time.elapsed_secs();
@@ -737,10 +775,22 @@ fn read_result(
             },
         });
     }
+    // Old cached replays contain scenario shares only. Use the matching engine baseline
+    // when the client opens directly on a closure. A live baseline supersedes the pack.
+    let reference = base_access.get_or_insert_with(|| gzip_json("web/data/station_access_baseline.json.gz"));
+    if r["applied"].as_array().is_some_and(Vec::is_empty) {
+        for row in stations.iter().filter(|s| matches!(s["id"].as_str(), Some("GO" | "LE-LEN" | "TB-TOB"))) {
+            reference[row["id"].as_str().unwrap()] = serde_json::json!({"bins": row["base_half_hour"], "origins": row["access_origins"]});
+        }
+    }
     replay.platforms = stations
         .iter()
         .filter(|station| routes.entrances.contains_key(station["id"].as_str().unwrap()))
-        .map(|station| Station::new(station, &routes))
+        .map(|row| {
+            let packed = &reference[row["id"].as_str().unwrap()];
+            let origins = row.get("base_access_origins").or_else(|| (packed["bins"] == row["base_half_hour"]).then(|| &packed["origins"]));
+            Station::new(row, origins, &routes)
+        })
         .collect();
 }
 
@@ -749,8 +799,15 @@ enum Model {
     Car(u16),
     CarChange,
     Bus,
+    BusTail,
+    BusJoint,
+    BusInterior,
+    BusPassenger,
+    StationEntries,
+    WalkTrace,
     Bike,
     Person,
+    Walking(u8),
     Coach,
     Window,
     Platform,
@@ -759,11 +816,15 @@ enum Model {
 
 #[derive(Resource)]
 struct Models {
+    ink: bool,
     mesh: HashMap<Model, Handle<Mesh>>,
     paint: HashMap<(Model, Paint), Handle<StandardMaterial>>,
 }
 
 type Rgb = [u8; 3];
+const CAR_INK: Rgb = [22, 75, 86];
+const PERSON_INK: Rgb = [113, 69, 117];
+const PAPER: Rgb = [249, 248, 244];
 const GLASS: Rgb = [36, 55, 70];
 // Same order as the atlas generated by tools/pack/car_sheets.py.
 const CAR_SWATCHES: [Rgb; 15] = [
@@ -805,8 +866,15 @@ fn shape(parts: impl IntoIterator<Item = Mesh>) -> Mesh {
 
 // Every art pixel is 12 cm in all three axes. One horizontal quad samples one PNG tile.
 const ART_PIXEL: f32 = 0.12;
+const BUS_FRONT_TO_HINGE: f32 = 5.6;
+const BUS_TAIL_FRACTION: f32 = 0.58;
+const BUS_TAIL_HALF: f32 = 96. * ART_PIXEL * BUS_TAIL_FRACTION * 0.5;
 
-fn sprite_stack(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2]) -> (Mesh, Image) {
+fn sprite_stack(bytes: &[u8], slices: u32, grid: [u32; 2]) -> (Mesh, Image) {
+    sprite_stack_width(bytes, slices, grid, 1.)
+}
+
+fn sprite_stack_width(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2], fraction: f32) -> (Mesh, Image) {
     let image = Image::from_buffer(
         bytes,
         ImageType::Extension("png"),
@@ -816,7 +884,7 @@ fn sprite_stack(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2]) -> (Mesh, 
         RenderAssetUsages::default(),
     )
     .unwrap();
-    let x = (image.width() / columns / slices) as f32 * ART_PIXEL / 2.;
+    let x = (image.width() / columns / slices) as f32 * ART_PIXEL * fraction / 2.;
     let z = (image.height() / rows) as f32 * ART_PIXEL / 2.;
     let mut positions = Vec::new();
     let mut uv = Vec::new();
@@ -824,7 +892,7 @@ fn sprite_stack(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2]) -> (Mesh, 
     for slice in 0..slices {
         let y = slice as f32 * ART_PIXEL;
         let u_left = slice as f32 / slices as f32;
-        let u_right = (slice + 1) as f32 / slices as f32;
+        let u_right = (slice as f32 + fraction) / slices as f32;
         positions.extend([[-x, y, -z], [-x, y, z], [x, y, z], [x, y, -z]]);
         uv.extend([[u_left, 0.], [u_left, 1.], [u_right, 1.], [u_right, 0.]]);
         let i = slice * 4;
@@ -863,31 +931,22 @@ fn setup(
     });
     assert!(rate.is_finite() && rate > 0., "Playback rate must be finite and positive");
     commands.insert_resource(PlaybackRate(rate));
-    let coat = [36, 134, 171];
-    let skin = [248, 189, 137];
-    let arm = |side: f32| {
-        oval([0.065, 0.325, 0.065], [0.; 3], coat)
-            .rotated_by(Quat::from_rotation_x(-0.20 * side))
-            .translated_by(Vec3::new(0.04 * side, 1.125, 0.22 * side))
-    };
-    let person = shape([
-        oval([0.10, 0.125, 0.095], [0., 1.625, 0.], skin),
-        block([0.105, 0.14, 0.11], [0., 1.485, 0.], skin),
-        oval([0.15, 0.36, 0.23], [0., 1.15, 0.], coat),
-        arm(1.),
-        arm(-1.),
-        oval([0.09, 0.43, 0.085], [-0.05, 0.49, 0.095], GLASS),
-        oval([0.09, 0.43, 0.085], [0.05, 0.49, -0.095], GLASS),
-        block([0.23, 0.10, 0.13], [-0.01, 0.05, 0.095], GLASS),
-        block([0.23, 0.10, 0.13], [0.09, 0.05, -0.095], GLASS),
-    ]);
-    let sprites: [(Model, &[u8], u32); 3] = [
+    let ink = std::env::var("SANTIAGO_PIXEL").as_deref() != Ok("0");
+    let sprites: [(Model, &[u8], u32); 4] = [
+        (Model::BusTail, include_bytes!("../assets/bus.png"), 27),
         (Model::Bus, include_bytes!("../assets/bus.png"), 27),
         (Model::Coach, include_bytes!("../assets/metro.png"), 28),
         (Model::Bike, include_bytes!("../assets/bicycle.png"), 16),
     ];
     let models = [
-        (Model::Person, person, None),
+        (Model::BusInterior, bus_load::interior_mesh(), None),
+        (Model::BusPassenger, bus_load::passenger_mesh(), None),
+        (Model::WalkTrace, block([1., 0.20, 1.], [0.; 3], [255; 3]), None),
+        (Model::StationEntries, street_people::entry_disc(), None),
+        (Model::Person, motion::pedestrian(None, ink), None),
+        (Model::BusJoint, shape((-2..=2).map(|i| {
+            block([0.22, 2.45, 2.45], [i as f32 * 0.21, 1.5, 0.], if i % 2 == 0 { GLASS } else { [70, 78, 82] })
+        })), None),
         // A pair of road marks carries the scenario colour beside the car's actual paint.
         (Model::CarChange, shape([-1.5, 1.5].map(|z| {
             painted(Plane3d::default().mesh().size(3.6, 0.28).build(), [0., 0.04, z], [255; 3])
@@ -914,8 +973,10 @@ fn setup(
         ),
     ]
     .into_iter()
+    .chain((0..motion::GAIT_FRAMES).map(|frame| (Model::Walking(frame), motion::pedestrian(Some(frame), ink), None)))
     .chain(sprites.into_iter().map(|(model, bytes, layers)| {
-        let (mesh, image) = sprite_stack(bytes, layers, [1, 1]);
+        let fraction = if model == Model::BusTail { BUS_TAIL_FRACTION } else { 1. };
+        let (mesh, image) = sprite_stack_width(bytes, layers, [1, 1], fraction);
         (model, mesh, Some(images.add(image)))
     }));
     let mut mesh = HashMap::new();
@@ -929,13 +990,24 @@ fn setup(
             (Paint::Rerouted, [144, 217, 255]),
         ] {
             let sprite = texture.is_some();
+            let person_ink = (ink && matches!(model, Model::Person | Model::Walking(_))) || matches!(model, Model::StationEntries | Model::BusPassenger);
+            let accent = ink && tint != Paint::Plain;
+            let color = if accent {
+                Color::linear_rgb(0.85, 0.13, 0.09)
+            } else if person_ink {
+                Color::srgb_u8(PERSON_INK[0], PERSON_INK[1], PERSON_INK[2])
+            } else {
+                Color::srgb_u8(r, g, b)
+            };
             paint.insert(
                 (model, tint),
                 mats.add(StandardMaterial {
-                    base_color: Color::srgb_u8(r, g, b),
+                    base_color: color,
                     base_color_texture: texture.clone(),
-                    unlit: sprite || model == Model::CarChange,
-                    alpha_mode: if sprite {
+                    unlit: sprite || person_ink || accent || matches!(model, Model::CarChange | Model::BusInterior),
+                    alpha_mode: if person_ink || accent {
+                        AlphaMode::Blend
+                    } else if sprite {
                         AlphaMode::Mask(0.5)
                     } else {
                         AlphaMode::Opaque
@@ -946,7 +1018,7 @@ fn setup(
             );
         }
     }
-    let mut models = Models { mesh, paint };
+    let mut models = Models { ink, mesh, paint };
     let fleet = fleet::Fleet::load(&mut models, &mut meshes, &mut mats, &mut images);
     commands.insert_resource(fleet);
     commands.insert_resource(models);
@@ -1102,7 +1174,16 @@ fn draw(
         .unwrap_or_else(|| replay.clock_offset.unwrap() + time.elapsed_secs() * rate.0)
         .rem_euclid(DAY);
     let slot = (now / BIN) as i32;
-    let mut trains = trains(&routes, now);
+    let mut trains = if replay
+        .metro_closure
+        .as_ref()
+        .is_some_and(|bins| bins.contains(&slot))
+    {
+        // Rider plans index the train lists by track, including while service is suspended.
+        (0..routes.tracks.len()).map(|_| Vec::new()).collect()
+    } else {
+        trains(&routes, now)
+    };
     let mut surface_load = std::collections::BTreeMap::new();
     for batch in pool.0.values_mut() {
         batch.used = 0;
@@ -1139,10 +1220,15 @@ fn draw(
                 };
                 let movement = if let Some(plan) = g.itineraries.get(j) {
                     match plan.at(age) {
-                        Some(RiderState::Walking(p, dir) | RiderState::Waiting(p, dir)) => {
+                        Some(state @ (RiderState::Walking(p, dir) | RiderState::Waiting(p, dir))) => {
                             if visible(p, 100.) && (subway.0 || p.y >= terrain_from_xz(p.x, p.z) - 0.6) {
                                 let scale = pedestrian_scale(eye.distance(p), 1.2) * presence;
-                                place(Model::Person, paint, pose(p, dir, Vec3::splat(scale)));
+                                let model = if matches!(state, RiderState::Walking(..)) {
+                                    plan.walking_model(age, scale)
+                                } else {
+                                    Model::Person
+                                };
+                                place(model, paint, pose(p, dir, Vec3::splat(scale)));
                             }
                             None
                         }
@@ -1157,7 +1243,8 @@ fn draw(
                         }
                         Some(RiderState::Riding(RideKey::Surface { template, start })) => {
                             let key = (template, start + bin.div_euclid(48) * DAY as i32);
-                            let applied = surface_load.entry(key).or_insert(Paint::Plain);
+                            let (applied, count) = surface_load.entry(key).or_insert((Paint::Plain, 0));
+                            if !matches!(g.lifecycle, Life::Leave) { *count += 1; }
                             if paint != Paint::Plain {
                                 *applied = paint;
                             }
@@ -1166,12 +1253,12 @@ fn draw(
                         None => None,
                     }
                 } else {
-                    g.path.at(age, &g.path.seconds)
+                    g.path.trip_pose(age, j)
                 };
-                let Some((pos, dir, kind)) = movement else {
+                let Some((pos, dir, kind, metres)) = movement else {
                     continue;
                 };
-                if !visible(pos, 100.) {
+                if !visible(pos, 100.) || (kind == Vehicle::Car && replay.road_edits.hides(pos, dir)) {
                     continue;
                 }
                 let model = match kind {
@@ -1190,16 +1277,21 @@ fn draw(
                     size_at(pos)
                 } * presence;
                 let lane = if kind == Vehicle::Walk { 3.4 } else { 1.6 };
+                let mut position = pos + right(dir) * lane + Vec3::Y * 0.25;
+                if kind == Vehicle::Car {
+                    let Some(surface) = routes.water.surface_position(&g.path, metres, position, dir) else { continue; };
+                    position = surface;
+                }
                 let transform = pose(
-                    pos + right(dir) * lane + Vec3::Y * 0.25,
+                    position,
                     dir,
                     Vec3::splat(scale),
                 );
                 if tier == 2 && matches!(kind, Vehicle::Car | Vehicle::Bicycle | Vehicle::Walk) {
                     let (rgb, radius) = match model {
-                        Model::Car(style) => (CAR_SWATCHES[style as usize % CAR_SWATCHES.len()], 2.5),
+                        Model::Car(style) => (if models.ink { CAR_INK } else { CAR_SWATCHES[style as usize % CAR_SWATCHES.len()] }, 2.5),
                         Model::Bike => ([55, 70, 76], 1.4),
-                        Model::Person => ([36, 134, 171], 1.25),
+                        Model::Person => (if models.ink { PERSON_INK } else { [36, 134, 171] }, 1.25),
                         _ => unreachable!(),
                     };
                     let tint = match paint {
@@ -1208,9 +1300,23 @@ fn draw(
                         Paint::Loss => Some([255, 136, 144]),
                         Paint::Rerouted => Some([144, 217, 255]),
                     };
-                    let center = transform.translation + Vec3::Y * scale;
+                    // Lift the billboard toward the eye along the lane's own projection ray.
+                    // This preserves the overview's depth clearance without shifting a bank
+                    // car sideways over the river on screen.
+                    let lane = transform.translation;
+                    let center = if kind == Vehicle::Car {
+                        let to_eye = eye - lane;
+                        lane + to_eye * (scale / to_eye.y.max(1.))
+                    } else {
+                        lane + Vec3::Y * scale
+                    };
                     if let Some([r, g, b]) = tint {
-                        marks.push(center, (radius + 1.) * presence, Color::srgb_u8(r, g, b).to_linear());
+                        let accent = if models.ink {
+                            Color::linear_rgb(0.85, 0.13, 0.09)
+                        } else {
+                            Color::srgb_u8(r, g, b)
+                        };
+                        marks.push(center, (radius + 1.) * presence, accent.to_linear());
                     }
                     let [r, g, b] = rgb;
                     marks.push(center, radius * presence, Color::srgb_u8(r, g, b).to_linear());
@@ -1222,12 +1328,17 @@ fn draw(
                         place(Model::CarChange, paint, transform);
                     }
                 } else {
+                    let model = if kind == Vehicle::Walk {
+                        Model::Walking(motion::gait_frame(metres, scale, j))
+                    } else {
+                        model
+                    };
                     place(model, paint, transform);
                 }
             }
         }
     }
-    for ((template, start), paint) in surface_load {
+    for ((template, start), (paint, count)) in surface_load {
         if let Some((p, dir, kind)) = routes.riders.surface_pose(template, start, now) {
             if visible(p, 100.) {
                 let model = if kind == Vehicle::Rail {
@@ -1235,15 +1346,18 @@ fn draw(
                 } else {
                     Model::Bus
                 };
-                place(
-                    model,
-                    paint,
-                    pose(
-                        p + right(dir) * 1.6 + Vec3::Y * 0.25,
-                        dir,
-                        Vec3::splat(size_at(p)),
-                    ),
-                );
+                let scale = size_at(p);
+                let front = p + right(dir) * 1.6 + Vec3::Y * 0.25;
+                place(model, paint, pose(front, dir, Vec3::splat(scale)));
+                if kind == Vehicle::Bus && count > 0 {
+                    let base = replay.base_bus_loads.as_ref().map_or(count, |loads| loads.count(template, start, now));
+                    bus_load::draw(count, base, front, dir, scale, &mut place);
+                }
+                if let Some((rear, rear_dir)) = routes.riders.bus_rear(template, start, now, p, dir) {
+                    let hinge = front - dir * BUS_FRONT_TO_HINGE * scale;
+                    place(Model::BusTail, paint, pose(front + (rear - p) * scale, rear_dir, Vec3::splat(scale)));
+                    place(Model::BusJoint, paint, pose(hinge, dir, Vec3::splat(scale)));
+                }
             }
         }
     }
@@ -1276,7 +1390,7 @@ fn draw(
         }
     }
     for station in &replay.platforms {
-        station.draw(now, subway.0, eye, &visible, &mut place);
+        station.draw(now, subway.0, eye, rig.distance, &visible, &mut place);
     }
     for batch in pool.0.values() {
         for &id in &batch.entities[batch.used..] {

@@ -11,11 +11,11 @@ description: >
 
 The team works as a swarm: one orchestrator session per laptop, coordinated in Discord.
 This command makes your session a working member of that swarm.
-The rules are in `context/discord-interaction.md` (the playbook). Read it now. If this file and the playbook disagree, the playbook is correct.
+Read `AGENTS.md` first. Then read `context/discord-interaction.md` (the playbook). If this file and the playbook disagree, the playbook is correct.
 
 Do these steps in order.
 
-1. Load the skill `ponytail` and keep it on.
+1. Apply the hackathon work and review rules in `AGENTS.md` to the session and its workers.
 2. Make sure that Discord works on this laptop, as section 1 of the playbook says:
    - Call `list_channels` one time. Save the IDs of `#agent-chat`, `#agent-status`, and `#results`. Do not call it again.
    - Start the inbox in the background: `node tools/discord-mcp/server.mjs --inbox`. The error "local port 43871 is in use" means that an inbox already runs. That is correct.
@@ -24,5 +24,11 @@ Do these steps in order.
 4. Post one message in the main `#agent-chat` channel, in Spanish: your name, your human, your spokesperson and backup, your receipt emoji, and your four ready slots with their roles.
 5. In the same message, state the overviewer. Take the role only if your model is Fable, Opus, or Astra and no other session holds it. Then follow section 4 of the playbook.
 6. Keep 4 subagent slots ready, as section 5 of the playbook says. Take tasks that appear in Discord threads. Start or wake an agent only when a slot has a task.
+   - As orchestrator, coordinate each task and delegate its execution to a worker.
+   - In Paseo, call `create_agent` with `title`, `provider` as `provider/model`, `initialPrompt`, `background: false` for a visible tab, and the orchestrator's existing `workspaceId`. A same-host agent-scoped call can omit `workspaceId` to inherit it. A top-level call must pass it explicitly. Verify that the returned `workspaceId` matches the orchestrator's.
+   - When workers need separate checkouts, pass the filesystem path to its Git worktree in `initialPrompt`. Keep all workers in the same Paseo workspace.
+   - Archive only extra workspaces created for this swarm and only with authorization for the specific workspace. Confirm with the owner which agents and terminals the archive will affect. Let active work finish or hand it off. Preserve uncommitted and unpushed work before calling `archive_workspace` with that `workspaceId`.
+   - Workers inspect files, logs, and detailed evidence in their own context. They return only the result, a link or path to the evidence, and any blockers to the orchestrator.
+   - Keep all required orchestrator checks. Follow the playbook's verification before claims and its review requirements before merge.
 7. Call `report_usage` in `#agent-status`.
 8. Continue to listen. Re-arm the monitor when it ends. An empty read is not a reason to stop. Stop only when a human tells you.

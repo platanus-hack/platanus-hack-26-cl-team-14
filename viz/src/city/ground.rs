@@ -9,10 +9,11 @@ type Color4 = [f32; 4];
 type GroundTiles = BTreeMap<(i32, i32), Surface>;
 
 // Half-widths are cartographic line widths in metres.
-const GRASS: Color4 = [0.23, 0.38, 0.18, 1.0];
-const WATER: Color4 = [0.16, 0.41, 0.44, 1.0];
-const STONE: Color4 = [0.62, 0.59, 0.48, 1.0];
-const ROOF: Color4 = [0.33, 0.40, 0.37, 1.0];
+// Ink on paper: blue-violet ink, light paper, strong blue water (Emerson, V2 thread).
+const GRASS: Color4 = [0.24, 0.54, 0.29, 1.];
+const WATER: Color4 = [0.025, 0.36, 0.77, 1.];
+const STONE: Color4 = [0.584, 0.558, 0.791, 1.];
+const ROOF: Color4 = [0.270, 0.238, 0.584, 1.];
 
 fn coordinates(line: &Value) -> Vec<Vec3> {
     line.as_array()
@@ -38,6 +39,12 @@ pub(super) fn ribbon(
     elevation: f32,
     color: Color4,
 ) {
+    ribbon_faces(points, half_width, |ring| {
+        super::terrain::drape_land(mesh, &[ring], elevation, color)
+    });
+}
+
+fn ribbon_faces(points: &[Vec3], half_width: f32, mut face: impl FnMut(Vec<Vec3>)) {
     let mut draped = Vec::with_capacity(points.len());
     for pair in points.windows(2) {
         let horizontal = Vec2::new(pair[1].x - pair[0].x, pair[1].z - pair[0].z).length();
@@ -68,8 +75,7 @@ pub(super) fn ribbon(
             edge
         });
         if let Some(previous) = previous_edges {
-            let ring = vec![previous[0], previous[1], edges[1], edges[0]];
-            super::terrain::drape_land(mesh, &[ring], elevation, color);
+            face(vec![previous[0], previous[1], edges[1], edges[0]]);
         }
         previous_edges = Some(edges);
     }
@@ -102,15 +108,15 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     for feature in data["features"].as_array().unwrap() {
         let kind = feature["properties"]["kind"].as_str().unwrap();
         let color = match kind {
-            "track" => [0.38, 0.13, 0.08, 1.0],
-            "pitch" => [0.18, 0.38, 0.21, 1.0],
-            "surface_parking" => [0.27, 0.28, 0.28, 1.0],
-            "parking_unspecified" => [0.32, 0.32, 0.31, 1.0],
-            "brownfield" => [0.32, 0.25, 0.17, 1.0],
-            "greenfield" => [0.35, 0.37, 0.21, 1.0],
-            "wood" => [0.12, 0.22, 0.105, 1.0],
-            "scrub" | "heath" | "nature_reserve" => [0.37, 0.40, 0.20, 1.0],
-            "grass" | "meadow" | "grassland" => [0.34, 0.43, 0.22, 1.0],
+            "track" => [0.474, 0.323, 0.275, 1.],
+            "pitch" => [0.376, 0.610, 0.462, 1.],
+            "surface_parking" => [0.434, 0.423, 0.631, 1.],
+            "parking_unspecified" => [0.497, 0.485, 0.687, 1.],
+            "brownfield" => [0.651, 0.624, 0.768, 1.],
+            "greenfield" => [0.32, 0.61, 0.36, 1.],
+            "wood" => [0.12, 0.34, 0.17, 1.],
+            "scrub" | "heath" | "nature_reserve" => [0.19, 0.42, 0.24, 1.],
+            "grass" | "meadow" | "grassland" => [0.22, 0.50, 0.27, 1.],
             _ => GRASS,
         };
         let rings = open_rings(&feature["geometry"]["coordinates"]);
@@ -140,6 +146,7 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
 fn mapocho(tiles: &mut GroundTiles, root: &Path) {
     let fc = read_geojson(&root.join("web/data/mapocho_detail.geojson"));
     let mut banks = Vec::new();
+    let mut water = super::water::Map::default();
     for feature in fc["features"].as_array().unwrap() {
         let props = &feature["properties"];
         let shape = &feature["geometry"]["coordinates"];
@@ -148,6 +155,7 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
             for polygon in shape.as_array().unwrap() {
                 let rings = open_rings(polygon);
                 super::terrain::drape_land(tile_for(tiles, rings[0][0]), &rings, 0.08, WATER);
+                water.add_polygon(&rings);
                 banks.push(rings[0].clone());
             }
         } else if kind == "bridge" {
@@ -166,7 +174,7 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
                 &points,
                 half_width,
                 crate::city::road_surface_lift(props["layer"].as_i64().unwrap() as i32) + 0.08,
-                [0.38, 0.38, 0.36, 1.0],
+                [0.18, 0.19, 0.20, 1.],
             );
         }
     }
@@ -178,6 +186,7 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
             continue;
         }
         let mut points = coordinates(&feature["geometry"]["coordinates"]);
+        water.add_channel(&points);
         for _ in 0..2 {
             let mut reach = vec![points[0]];
             for pair in points.windows(2) {
@@ -186,7 +195,11 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
                 let step = Vec2::new(b.x - a.x, b.z - a.z);
                 let mut meeting = f32::INFINITY;
                 for bank in &banks {
-                    for (c, d) in bank.iter().zip(bank.iter().cycle().skip(1)).take(bank.len()) {
+                    for (c, d) in bank
+                        .iter()
+                        .zip(bank.iter().cycle().skip(1))
+                        .take(bank.len())
+                    {
                         let edge = Vec2::new(d.x - c.x, d.z - c.z);
                         let denominator = step.perp_dot(edge);
                         if denominator == 0.0 {
@@ -206,10 +219,27 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
                 }
                 reach.push(b);
             }
-            ribbon(tile_for(tiles, reach[0]), &reach, 15.0, 0.08, WATER);
+            let tile = tile_for(tiles, reach[0]);
+            ribbon_faces(&reach, 15., |ring| {
+                let polygon = [ring];
+                water.add_polygon(&polygon);
+                super::terrain::drape_land(tile, &polygon, 0.08, WATER);
+            });
             points.reverse();
         }
     }
+    let route: Value = serde_json::from_str(include_str!(
+        "../../../context/research/mapocho/water-route.geojson"
+    ))
+    .unwrap();
+    let detailed: Vec<_> = route["features"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|leg| coordinates(&leg["geometry"]["coordinates"]))
+        .collect();
+    water.add_channel(&detailed);
+    water.install();
 }
 
 pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mesh)>) {
@@ -226,7 +256,6 @@ pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mes
         &root.join("web/data/open_surfaces.geojson.gz"),
     );
     mapocho(&mut tiles, root);
-    mapped_trees(&mut tiles, &root.join("web/data/city_trees.bin.gz"));
     let scenery = tiles
         .into_iter()
         .map(|((x, z), surface)| (format!("City ground {x} {z}"), surface.finish()))
@@ -234,66 +263,41 @@ pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mes
     (terrain.meshes(), scenery)
 }
 
-// Append these functions to the ground module. Tree size and foliage are display symbols.
-// The packed coordinates are individual OSM tree nodes.
-fn mapped_trees(tiles: &mut GroundTiles, path: &Path) {
+/// Camera-facing tree prints anchored to the packed OSM coordinates.
+pub(super) fn mapped_trees(path: &Path) -> impl Iterator<Item = Mesh> {
+    let mut tiles = GroundTiles::new();
     use std::io::Read;
     let mut bytes = Vec::new();
     GzDecoder::new(File::open(path).unwrap())
         .read_to_end(&mut bytes)
         .unwrap();
-    const LEAVES: [Color4; 4] = [
-        [0.16, 0.31, 0.10, 1.],
-        [0.10, 0.24, 0.085, 1.],
-        [0.24, 0.36, 0.12, 1.],
-        [0.13, 0.28, 0.15, 1.],
-    ];
-    let bark = [0.19, 0.13, 0.08, 1.];
     for pair in bytes.chunks_exact(4) {
         let x = u16::from_le_bytes([pair[0], pair[1]]) as u32;
         let y = u16::from_le_bytes([pair[2], pair[3]]) as u32;
         let base = world(-70.85 + x as f64 / 100_000., -33.65 + y as f64 / 100_000.);
-        let mesh = tile_for(tiles, base);
+        let mesh = tile_for(&mut tiles, base);
         let seed = x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663);
         let height = 5.8 + (seed % 41) as f32 * 0.10;
         let radius = height * (0.31 + ((seed >> 8) % 8) as f32 * 0.012);
-        let phase = (seed % 313) as f32 * 0.020;
-        let leaves = LEAVES[(seed as usize >> 7) % LEAVES.len()];
-        let mut ring = |sides: u32, width: f32, elevation: f32, normal_y: f32, color: Color4| {
-            let start = mesh.positions.len() as u32;
-            for n in 0..sides {
-                let (s, c) = (phase + n as f32 * std::f32::consts::TAU / sides as f32).sin_cos();
-                let dir = Vec3::new(c, 0., s);
-                mesh.positions
-                    .push((base + dir * width + Vec3::Y * elevation).to_array());
-                mesh.normals
-                    .push((dir + Vec3::Y * normal_y).normalize().to_array());
-                mesh.colors.push(color);
-            }
-            start
-        };
-        let trunk = ring(3, 0.17, 0.0, 0.0, bark);
-        ring(3, 0.14, height * 0.47, 0.0, bark);
-        let crown = ring(5, radius * 0.55, height * 0.32, -0.75, leaves);
-        ring(5, radius, height * 0.60, 0.0, leaves);
-        ring(5, radius * 0.65, height * 0.86, 0.64, leaves);
-        for (start, sides) in [(trunk, 3u32), (crown, 5), (crown + 5, 5)] {
-            for n in 0..sides {
-                let a = start + n;
-                let b = start + (n + 1) % sides;
-                mesh.indices
-                    .extend([a, a + sides, b, b, a + sides, b + sides]);
-            }
+        let right = Vec3::new(0.51, 0., -0.32).normalize() * radius;
+        let up = Vec3::Y * height;
+        let first = mesh.positions.len() as u32;
+        let u = (seed & 3) as f32 * 0.25;
+        mesh.textured = true;
+        for (position, uv) in [
+            (base - right, [u, 1.]),
+            (base + right, [u + 0.25, 1.]),
+            (base + right + up, [u + 0.25, 0.]),
+            (base - right + up, [u, 0.]),
+        ] {
+            mesh.positions.push(position.to_array());
+            mesh.normals.push(Vec3::Y.to_array());
+            mesh.colors.push([1.; 4]);
+            mesh.uvs.push(uv);
         }
-        let tip = mesh.positions.len() as u32;
-        mesh.positions.push((base + Vec3::Y * height).to_array());
-        mesh.normals.push(Vec3::Y.to_array());
-        mesh.colors.push(leaves);
-        for n in 0..5 {
-            mesh.indices
-                .extend([crown + 10 + n, tip, crown + 10 + (n + 1) % 5]);
-        }
+        mesh.indices.extend([0, 1, 2, 0, 2, 3].map(|i| first + i));
     }
+    tiles.into_values().map(Surface::finish)
 }
 
 fn arena(mesh: &mut Surface, rings: &[Vec<Vec3>], height: f32) {
@@ -493,13 +497,44 @@ fn inside(ring: &[Vec3], p: Vec2) -> bool {
     odd
 }
 
+/// The same cross-sections used to draw the terraces, in the landmark's local frame.
+#[derive(Component)]
+pub(crate) struct StadiumSeating {
+    outer: Vec<Vec3>,
+    inner: Vec<Vec3>,
+    heights: Vec<f32>,
+    floor: f32,
+}
+
+impl StadiumSeating {
+    pub(crate) fn contains(&self, local: Vec3) -> bool {
+        inside(&self.outer, local.xz())
+    }
+
+    // A turn follows the perimeter; depth runs from the infield edge to the outer wall.
+    pub(crate) fn terrace(&self, turn: f32, depth: f32) -> Vec3 {
+        let position = turn.rem_euclid(1.) * self.outer.len() as f32;
+        let i = position as usize % self.outer.len();
+        let j = (i + 1) % self.outer.len();
+        let inner = self.inner[i].lerp(self.inner[j], position.fract());
+        let outer = self.outer[i].lerp(self.outer[j], position.fract());
+        let mut point = inner.lerp(outer, depth);
+        point.y = self.floor + self.heights[i] * terrace_level(depth);
+        point
+    }
+}
+
+fn terrace_level(depth: f32) -> f32 {
+    0.07 + 0.90 * depth
+}
+
 fn stadium_bowl(
     mesh: &mut Surface,
     rings: &[Vec<Vec3>],
     floor: f32,
     height: f32,
     stands: &[(Vec<Vec3>, f32)],
-) -> Vec<bool> {
+) -> (Vec<bool>, StadiumSeating) {
     let mut used = vec![false; stands.len()];
     let mut center = rings[1].iter().copied().sum::<Vec3>() / rings[1].len() as f32;
     center.y = floor;
@@ -522,6 +557,7 @@ fn stadium_bowl(
             rim_point(&rings[1], center, d),
         ));
     }
+    let mut heights = Vec::with_capacity(N);
     for i in 0..N {
         let (outer, inner) = rim[i];
         let (next_outer, next_inner) = rim[(i + 1) % N];
@@ -542,6 +578,7 @@ fn stadium_bowl(
                 })
             })
             .map_or(height, |s| s.1);
+        heights.push(height);
         let bottom = |mut p: Vec3| {
             p.y = terrain_from_xz(p.x, p.z) - 0.05;
             p
@@ -575,7 +612,7 @@ fn stadium_bowl(
                 shade,
             );
         }
-        let row = |a: Vec3, b: Vec3, t: f32| at(a.lerp(b, t), height * (0.07 + 0.90 * t));
+        let row = |a: Vec3, b: Vec3, t: f32| at(a.lerp(b, t), height * terrace_level(t));
         for tier in 0..12 {
             let low = tier as f32 / 12.;
             let high = (tier + 1) as f32 / 12.;
@@ -612,7 +649,8 @@ fn stadium_bowl(
             );
         }
     }
-    used
+    let (outer, inner) = rim.into_iter().unzip();
+    (used, StadiumSeating { outer, inner, heights, floor })
 }
 
 fn field_line(mesh: &mut Surface, a: Vec3, b: Vec3, width: f32, color: Color4) {
@@ -720,7 +758,7 @@ fn floodlight(mesh: &mut Surface, p: Vec3, center: Vec3, height: f32) {
     }
 }
 
-fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
+fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) -> StadiumSeating {
     let fc = read_geojson(path);
     let parts = fc["features"].as_array().unwrap();
     let shell = parts
@@ -743,7 +781,7 @@ fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
         })
         .collect();
 
-    let used = stadium_bowl(
+    let (used, seating) = stadium_bowl(
         mesh,
         &rings,
         floor,
@@ -788,6 +826,7 @@ fn estadio_nacional(tiles: &mut GroundTiles, path: &Path, scale: f32) {
             _ => (),
         }
     }
+    seating
 }
 
 // These tile-local identities match the named OSM footprints in SGBX and SGB1.
@@ -806,7 +845,7 @@ pub(super) const HIDDEN: [(usize, usize); 10] = [
     (152, 1180),
     (152, 1181),
 ];
-pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
+pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh, Option<StadiumSeating>)> {
     let fc = read_geojson(&root.join("web/data/santiago_landmarks.geojson"));
     let mut objects = Vec::new();
     for feature in fc["features"].as_array().unwrap() {
@@ -823,6 +862,7 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
         };
         let rings = open_rings(&feature["geometry"]["coordinates"]);
         let mut shape = Surface::default();
+        let mut seating = None;
         match kind {
             "tower" => gran_torre(
                 &mut shape,
@@ -840,11 +880,11 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
             ),
             _ => {
                 let mut tiles = GroundTiles::new();
-                estadio_nacional(
+                seating = Some(estadio_nacional(
                     &mut tiles,
                     &root.join("web/data/estadio_nacional_parts.geojson"),
                     1.0,
-                );
+                ));
                 shape = tiles.into_values().next().unwrap();
             }
         }
@@ -852,7 +892,10 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
         for pos in &mut shape.positions {
             pos[1] -= base;
         }
-        objects.push((NAMED[index], base, shape.finish()));
+        if let Some(bowl) = &mut seating {
+            bowl.floor -= base;
+        }
+        objects.push((NAMED[index], base, shape.finish(), seating));
     }
     // Estadio Monumental, from tools/pack/pitch_sites.py; it replaces the footprints in NAMED[4] and HIDDEN.
     let path = root.join("web/data/estadio_monumental_parts.geojson");
@@ -865,11 +908,12 @@ pub(super) fn named_buildings(root: &Path) -> Vec<((usize, usize), f32, Mesh)> {
         .unwrap();
     let base = open_rings(&shell["geometry"]["coordinates"])[0][0].y;
     let mut tiles = GroundTiles::new();
-    estadio_nacional(&mut tiles, &path, 1.0);
+    let mut seating = estadio_nacional(&mut tiles, &path, 1.0);
+    seating.floor -= base;
     let mut shape = tiles.into_values().next().unwrap();
     for pos in &mut shape.positions {
         pos[1] -= base;
     }
-    objects.push((NAMED[4], base, shape.finish()));
+    objects.push((NAMED[4], base, shape.finish(), Some(seating)));
     objects
 }

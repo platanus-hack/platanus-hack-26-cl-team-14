@@ -2,7 +2,8 @@
 //! Synthetic person-level state of the RM (gentle-fox 11:52). One record per RM-internal commuter and student.
 //! Built deterministically from margins only: `mode_od.csv` (commuters by home comuna, work comuna and mode),
 //! `school_od.csv` (students by home and school comuna), `blocks.csv` (home weights), `jobs.csv` (work weights),
-//! `schools.csv` (`enrollment_no_preschool`, school weights). Inside a comuna, persons are placed on points by
+//! `schools.csv` (`enrollment_no_preschool`, school weights), and age and household size from
+//! `person_traits_workers.csv` / `person_traits_students.csv` (Census 2024 person records, `tools/pack/person_traits.py`). Inside a comuna, persons are placed on points by
 //! systematic sampling of the cumulative weights, so comuna flows are exact and point totals follow the weights.
 //! Label: "estado sintético a nivel de persona, consistente con los márgenes del Censo, no microdatos" — the
 //! joint of home point, destination point and mode is not observed in any file.
@@ -11,7 +12,13 @@ use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Clone, Copy)]
-pub struct Person { pub home: u32, pub dest: u32, pub student: bool, pub mode: i8 }
+pub struct Person { pub home: u32, pub dest: u32, pub student: bool, pub mode: i8, pub age_band: u8, pub household_size: u8 }
+
+/// Age band: 0 under 15, 1 15-24, 2 25-44, 3 45-64, 4 65+. Household size: 1-5, 5 = 5 or more.
+/// Workers carry the observed Census 2024 joint of home comuna, work comuna, mode, age and household
+/// (`person_traits_workers.csv`). Students draw both from Census students of their home comuna.
+/// `UNKNOWN` marks persons a scenario adds, whose traits no source gives.
+pub const UNKNOWN: u8 = u8::MAX;
 
 pub struct Point { pub id: String, pub cut: String, pub longitude: f64, pub latitude: f64, pub weight: f64 }
 
@@ -24,7 +31,9 @@ struct Job { block_id: String, cut: String, longitude: f64, latitude: f64, jobs:
 #[derive(Deserialize)]
 struct School { rbd: String, cut: String, longitude: f64, latitude: f64, enrollment_no_preschool: f64 }
 #[derive(Deserialize)]
-struct ModeOd { origin_cut: String, destination_cut: String, mode: i8, commuters: f64 }
+struct WorkerTraits { origin_cut: String, destination_cut: String, mode: i8, age_band: u8, household_size: u8, commuters: f64 }
+#[derive(Deserialize)]
+struct StudentTraits { cut: String, age_band: u8, household_size: u8, students: f64 }
 #[derive(Deserialize)]
 struct SchoolOd { origin_cut: String, destination_cut: String, students: f64 }
 
@@ -71,21 +80,37 @@ impl Population {
         let (mut hw, mut hst) = (Sampler::by_cut(&homes), Sampler::by_cut(&homes));
         let (mut js, mut ss) = (Sampler::by_cut(&jobs), Sampler::by_cut(&schools));
         let internal = |d: &str| d.starts_with("13");
-        let workers: Vec<ModeOd> = rows::<ModeOd>(&data.join("mode_od.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
+        // Same cells and order as mode_od.csv, split by age and household, so the samplers take the same points.
+        let workers: Vec<WorkerTraits> = rows::<WorkerTraits>(&data.join("person_traits_workers.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
         let students: Vec<SchoolOd> = rows::<SchoolOd>(&data.join("school_od.csv")).into_iter().filter(|r| internal(&r.destination_cut)).collect();
         let mut persons = Vec::with_capacity(4_100_000);
-        for r in &workers {
-            let Some(home) = hw.get_mut(r.origin_cut.as_str()) else { continue };
-            let Some(dest) = js.get_mut(r.destination_cut.as_str()) else { continue };
-            for _ in 0..r.commuters as u32 {
-                persons.push(Person { home: home.take(home_step), dest: dest.take(destination_step), student: false, mode: r.mode });
+        let trait_order = 5_f64.sqrt() - 2.0;
+        for cell in workers.chunk_by(|a, b| (&a.origin_cut, &a.destination_cut, a.mode) == (&b.origin_cut, &b.destination_cut, b.mode)) {
+            let Some(home) = hw.get_mut(cell[0].origin_cut.as_str()) else { continue };
+            let Some(dest) = js.get_mut(cell[0].destination_cut.as_str()) else { continue };
+            // The file lists a cell by age, then household. Interleave them, so person order inside a cell
+            // (which rechoose.rs uses to pick who moves) does not follow age or household.
+            let mut traits: Vec<(f64, u8, u8)> = cell.iter().flat_map(|r| (0..r.commuters as u32).map(|_| (r.age_band, r.household_size)))
+                .enumerate().map(|(i, (a, h))| (((i as f64 + 0.5) * trait_order).fract(), a, h)).collect();
+            traits.sort_by(|x, y| x.0.total_cmp(&y.0));
+            for (_, age_band, household_size) in traits {
+                persons.push(Person { home: home.take(home_step), dest: dest.take(destination_step), student: false, mode: cell[0].mode,
+                    age_band, household_size });
             }
         }
+        let traits: Vec<StudentTraits> = rows(&data.join("person_traits_students.csv"));
+        let trait_points: Vec<Point> = traits.iter()
+            .map(|t| Point { id: String::new(), cut: t.cut.clone(), longitude: 0.0, latitude: 0.0, weight: t.students }).collect();
+        let mut ts = Sampler::by_cut(&trait_points);
+        let trait_step = 3_f64.sqrt() - 1.0;
         for r in &students {
             let Some(home) = hst.get_mut(r.origin_cut.as_str()) else { continue };
             let Some(dest) = ss.get_mut(r.destination_cut.as_str()) else { continue };
+            let t = ts.get_mut(r.origin_cut.as_str()).unwrap();
             for _ in 0..r.students as u32 {
-                persons.push(Person { home: home.take(home_step), dest: dest.take(destination_step), student: true, mode: -1 });
+                let s = &traits[t.take(trait_step) as usize];
+                persons.push(Person { home: home.take(home_step), dest: dest.take(destination_step), student: true, mode: -1,
+                    age_band: s.age_band, household_size: s.household_size });
             }
         }
         Population { homes, jobs, schools, persons }
@@ -95,7 +120,7 @@ impl Population {
 #[path = "population/trips.rs"]
 mod trips;
 #[allow(unused_imports)] // Each binary imports only the population outputs it needs.
-pub use trips::{TripDelta, TripGroup, TripPlan, sample_trips, trip_deltas};
+pub use trips::{TripDelta, TripGroup, TripPlan, person_departure, sample_trips, trip_deltas};
 
 #[path = "population/fine_modes.rs"]
 mod fine_modes;

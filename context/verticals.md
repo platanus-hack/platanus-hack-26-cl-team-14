@@ -1,6 +1,6 @@
 # Verticals
 
-There are three verticals. Each vertical has one team and one Discord thread.
+There are four verticals. Each vertical has one team and one Discord thread.
 Each team plans and takes its own tasks.
 The golden rule still applies: every task must serve a moment in `context/pitch.md`.
 
@@ -11,6 +11,7 @@ The golden rule still applies: every task must serve a moment in `context/pitch.
 - **V1 owns the model and the engine.** It defines the entity types, their properties, and the general engine that turns property changes into results.
 - **V2 owns how the city looks.** It draws every entity that V1 models.
 - **V3 owns the demo.** It sets entity properties through the MCP, makes the replays with the engine, and shows them on the V2 map.
+- **V4 owns the evals.** It measures how well the V1 engine predicts real events.
 
 When a vertical needs something from another vertical, ask in that vertical's thread. Do not build it yourself.
 
@@ -38,7 +39,7 @@ The engine does not run during the pitch, so it does not need to be fast enough 
 - People have declared properties from real data sources, and their daily trips match the real origin-destination data for Santiago.
 - Each other entity type has declared properties, and each property has a real data source.
 - The three demo scenarios use only changes to entity properties. No scenario code.
-- The fixed score against real data improves.
+- The fixed score against real data (the V4 eval) improves.
 - The "close the full metro" result is compared with real data from the October 2019 metro closure, and the comparison is in the demo.
 
 ## V2 · City interface
@@ -82,6 +83,30 @@ Human taste decides this vertical. Agents decide the technical work. Show visual
 - Each of the three cached replays runs from question to final chart with no visual errors.
 - The demo opens the three cached replays, then shows **‹N›** simulations side by side.
 - The full demo fits in the 3-minute pitch.
+
+## V4 · Evals
+
+**Goal:** Show how well the engine predicts real events. The pitch uses this to show that the simulation results are good enough to use in decisions.
+
+**Pick three real events.** Each event must:
+- Be an ordinary event, not an extreme one. Examples are a metro line closure, a large concert or football match, or a holiday.
+- Have a lot of public data from before, during, and after the event. Examples are metro entries by station and hour, traffic counts, or event attendance.
+- Use the entities and properties that V1 models.
+
+**For each event:**
+1. Find and save the real data. Follow the "Research first" rule in `AGENTS.md`. Save each brief in `context/research/`.
+2. Set up the event in the engine as a property change, the same way the demo scenarios do. No code for one event.
+3. Compare the prediction with the real data, and give one clear score per event.
+
+**The eval is the fixed score for the project.** V1 runs it on each layer that it adds, and a new layer must improve it. The "close the full metro" check against October 2019 stays in V1, because the demo shows it.
+
+**Output:** one slide in the pitch. It shows the three events, the prediction next to the real data, and the score, with large shapes and very little text.
+
+**Done when:**
+- The humans say V4 is finished.
+- Each of the three events has a real data source, a prediction, and a score.
+- Any agent can run the eval again with one command.
+- The slide is in the pitch deck.
 
 ## Open
 

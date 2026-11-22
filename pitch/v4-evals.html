@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Santiaguito · Cómo pondremos a prueba el modelo</title>
+<style>
+  :root {
+    color-scheme: dark;
+    background: #101b34;
+    color: #faf4df;
+    font: 500 clamp(18px, 2.05vw, 42px)/1.2 system-ui, sans-serif;
+  }
+
+  body {
+    box-sizing: border-box;
+    display: grid;
+    align-content: center;
+    gap: 1.5rem;
+    min-height: 100svh;
+    margin: 0;
+    padding: 5vw;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 2.45rem;
+    line-height: 1.02;
+    letter-spacing: -.045em;
+  }
+
+  p { margin: 0; }
+  .status { color: #ffdc78; font-size: .82rem; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+
+  th, td {
+    padding: .82rem .52rem;
+    border-bottom: 2px solid #4b6186;
+    text-align: left;
+  }
+
+  thead th {
+    color: #c5d0e7;
+    font-size: .78rem;
+    vertical-align: bottom;
+  }
+
+  tbody th { width: 36%; font-weight: 750; }
+  tbody td { width: 20%; }
+  tbody td:last-child { color: #ffdc78; }
+
+  @media (max-width: 700px) {
+    body { padding: 4vw; }
+    h1 { font-size: 1.65rem; }
+    th, td { padding-inline: .25rem; }
+    tbody td:last-child { font-size: .82rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <p class="status">Casos propuestos</p>
+  <h1 id="title">Cómo pondremos a prueba el modelo</h1>
+</header>
+<table aria-labelledby="title">
+  <thead>
+    <tr>
+      <th scope="col">Evento</th>
+      <th scope="col">Predicción</th>
+      <th scope="col">Dato real</th>
+      <th scope="col">Puntaje</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">Corte en Línea 1 · 18 nov 2024</th>
+      <td aria-label="Sin verificar">—</td>
+      <td aria-label="Sin verificar">—</td>
+      <td>Pendiente</td>
+    </tr>
+    <tr>
+      <th scope="row">Monumental · 26 abr 2025</th>
+      <td aria-label="Sin verificar">—</td>
+      <td aria-label="Sin verificar">—</td>
+      <td>Pendiente</td>
+    </tr>
+    <tr>
+      <th scope="row">Monumental · 8 nov 2025</th>
+      <td aria-label="Sin verificar">—</td>
+      <td aria-label="Sin verificar">—</td>
+      <td>Pendiente</td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>

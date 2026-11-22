@@ -1,0 +1,141 @@
+//! Surface service lines for the matched Metro replay shots.
+use super::{SubwayView, Surface, ground::ribbon, world};
+use crate::{
+    movers::clock::{CityClock, UpdateClock},
+    net::Scenario,
+};
+use bevy::prelude::*;
+use serde_json::Value;
+use std::{fs::File, ops::Range};
+
+pub(crate) struct MetroServicePlugin;
+
+impl Plugin for MetroServicePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (setup.run_if(resource_changed::<Scenario>), fade)
+                .chain()
+                .after(UpdateClock),
+        );
+    }
+}
+
+#[derive(Component)]
+struct ServiceLines;
+
+fn setup(
+    scenario: Res<Scenario>,
+    lines: Query<(), With<ServiceLines>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if scenario.0["scene"]["layer"] != "metro_service" || !lines.is_empty() {
+        return;
+    }
+    let routes: Vec<Value> =
+        serde_json::from_reader(File::open("web/data/transit_paths.json").unwrap()).unwrap();
+    let mut mesh = Surface::default();
+    for route in routes
+        .iter()
+        .filter(|route| route["mode"] == "metro" && route["direction"] == 0)
+    {
+        let points: Vec<_> = route["path"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| world(p[0].as_f64().unwrap(), p[1].as_f64().unwrap()))
+            .collect();
+        ribbon(&mut mesh, &points, 8.0, 1.2, [1.; 4]);
+    }
+    commands.spawn((
+        ServiceLines,
+        Mesh3d(meshes.add(mesh.finish())),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: service_color(1.0),
+            unlit: true,
+            cull_mode: None,
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        })),
+        Visibility::Hidden,
+    ));
+}
+
+fn service_color(alpha: f32) -> Color {
+    Color::srgba(0.08, 0.45, 0.65, alpha)
+}
+
+#[derive(Default)]
+struct FadeState {
+    enabled: bool,
+    closure: Option<Range<i32>>,
+    started: Option<f64>,
+}
+
+fn fade(
+    scenario: Res<Scenario>,
+    clock: Res<CityClock>,
+    subway: Res<SubwayView>,
+    time: Res<Time<Real>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut state: Local<FadeState>,
+    mut lines: Query<(&MeshMaterial3d<StandardMaterial>, &mut Visibility), With<ServiceLines>>,
+) {
+    let Ok((handle, mut visibility)) = lines.single_mut() else {
+        return;
+    };
+    if scenario.is_changed() {
+        let result = &scenario.0;
+        let closure = result["applied"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|change| {
+                change["kind"] == "line"
+                    && change["op"] == "remove"
+                    && change["target"]["type"] == "mode"
+                    && change["target"]["id"] == "metro"
+            });
+        *state = FadeState {
+            enabled: result["scene"]["layer"] == "metro_service",
+            closure: closure.then(|| match result["closure_window"]["half_hours"].as_array() {
+                Some(window) => {
+                    window[0].as_u64().unwrap() as i32..window[1].as_u64().unwrap() as i32
+                }
+                None => 0..48,
+            }),
+            started: None,
+        };
+    }
+
+    if !state.enabled {
+        visibility.set_if_neq(Visibility::Hidden);
+        return;
+    }
+    let closed = clock.0.is_some_and(|seconds| {
+        let slot = (seconds.rem_euclid(86_400.) / 1800.) as i32;
+        state
+            .closure
+            .as_ref()
+            .is_some_and(|bins| bins.contains(&slot))
+    });
+    let alpha = if closed {
+        let now = time.elapsed_secs_f64();
+        let start = *state.started.get_or_insert(now);
+        (1.0 - (now - start) as f32).max(0.0)
+    } else {
+        state.started = None;
+        1.0
+    };
+    visibility.set_if_neq(if !subway.0 && alpha > 0.0 {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    });
+    let color = service_color(alpha);
+    if materials.get(&handle.0).unwrap().base_color != color {
+        materials.get_mut(&handle.0).unwrap().base_color = color;
+    }
+}

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Santiaguito · Cómo trabajó el enjambre</title>
+<link rel="stylesheet" href="santiaguito.css">
+<style>
+  body { grid-template-columns: .88fr 1.12fr; align-items: center; gap: 2vw; }
+  h1 { width: auto; padding: 0; background: none; font-size: 1.9rem; line-height: 1.04; }
+  h1 strong { display: block; color: var(--blue); font-weight: 700; margin-top: .32em; }
+  .narrative { padding: .96rem; }
+  .repo { margin-top: .74rem; border-top: 2px solid #737b82; padding-top: .58rem; }
+  .repo p { margin-top: .26rem; font-size: .78rem; color: var(--muted); }
+  code { color: var(--blue); }
+  .thread { border-top: .12rem solid var(--blue); }
+  .thread h2 a { text-decoration: none; }
+  ol { padding: .34rem 0 0; list-style: none; }
+  li { display: grid; grid-template-columns: 4.2em 1fr; column-gap: .48rem; padding: .23rem 0; border-top: 1px solid #737b82; font-size: .81rem; }
+  li a { color: var(--blue); }
+  time { color: var(--muted); }
+  figure { margin: .42rem 0 0; }
+  figure img { display: block; width: 100%; max-height: 37vh; object-fit: contain; background: #0d1217; }
+  figcaption { padding-top: .18rem; font-size: .65rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<section class="panel narrative">
+  <h1>Solo abrimos Claude Code y Codex para iniciar los enjambres.<strong>Desde ahí, todo el trabajo se coordinó en Discord.</strong></h1>
+  <div class="repo">
+    <h2>Un repositorio compartido</h2>
+    <p><code>context/</code> Guion y decisiones · <code>data/</code> Datos y replays</p>
+    <p><code>engine/</code> Motor en Rust · <code>viz/</code> Visor de Santiago</p>
+  </div>
+</section>
+<section class="panel thread" aria-label="Secuencia de mensajes de Discord">
+  <h2><a href="https://discord.com/channels/1573514576400752640/1573809606277337280">#agent-chat</a> · Subtítulos de la demo</h2>
+  <ol>
+    <li><time>20:38</time><p><a href="https://discord.com/channels/1573514576400752640/1573809606277337280/1573845007998259331">Projection Codex</a> detecta que el texto se sale del panel.</p></li>
+    <li><time>20:39</time><p><a href="https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/445">Bright-agent</a> ajusta el texto al ancho de cada ventana.</p></li>
+    <li><time>20:45</time><p><a href="https://discord.com/channels/1573514576400752640/1573809606277337280/1573846740262588568">Maitén</a> comprueba el arreglo en Linux y publica la evidencia.</p></li>
+  </ol>
+  <figure>
+    <a href="https://discord.com/channels/1573514576400752640/1573561159955648553/1573846303052398693"><img src="captura-maiten.jpg" alt="Captura de Maitén con Mapocho y Metro en dos ventanas. Los dos subtítulos caben."></a>
+    <figcaption>Captura publicada en Discord · Mapocho y Metro · 950 × 1161 px por ventana</figcaption>
+  </figure>
+</section>
+<p class="credits">© OpenStreetMap contributors · Google Research, Open Buildings 2.5D Temporal · Copernicus WorldDEM-90 © DLR e.V. 2010–2014 and Airbus Defence and Space GmbH 2014–2018, provided by the European Union and ESA.</p>
+<a class="slide-link" href="santiaguito-parametros.html">‹ Parámetros</a>
+<script>
+  document.addEventListener("keydown", event => {
+    if (!["ArrowLeft", "PageUp"].includes(event.key) || event.altKey || event.metaKey || event.ctrlKey) return;
+    event.preventDefault();
+    window.location.href = "santiaguito-parametros.html";
+  });
+</script>
+</body>
+</html>
