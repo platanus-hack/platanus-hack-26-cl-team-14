@@ -22,3 +22,25 @@ The earlier draw by age only (#497) gave the same response in every band: the ba
 The bus removal moves a 43% larger share of band 1 than of band 4. The Metro closure moves a slightly larger share of the upper bands. No change gives zero in every row.
 
 The band is an imputed household trait. It does not enter any choice, and it does not measure a person's income, wage or cash for a trip.
+
+## Extra cash per workday
+
+Each band row also gives the change in daily round-trip cash for the workers who change work mode: `extra_cash_clp_per_workday` (sum), `extra_cash_clp_per_priced_changer` (mean) and `extra_cash_20_days_pct_of_band_median_income`. Prices, in 2026 CLP:
+
+| Mode | Daily round trip | Source |
+| --- | --- | --- |
+| Public | 2 × 795 | Red bus fare with transfers, 2026 ([v1-optional-visit-fares.md](v1-optional-visit-fares.md)) |
+| Car | 2 × km × 1,414 / 16.9 | Gasoline 93, Región Metropolitana, September 2026: 1,414 CLP/l ([CNE monthly report, October 2026, p. 13](https://www.cne.cl/wp-content/uploads/2026/10/RMensual_v202610.pdf)). New light vehicles 2025: 16.9 km/l ([ICCT](https://theicct.org/chile-acelera-su-transicion-hacia-un-transporte-mas-limpio-el-reto-ahora-es-no-perder-impulso-sept26/)). km = engine straight-line distance home comuna → job comuna |
+| Walk, bicycle | 0 | |
+| Taxi, colectivo, other | no price | counted in `work_mode_changes_unpriced` |
+
+Car cost is a floor: road distance is longer than straight-line, the fleet is older than new vehicles, and parking and tolls are not included. Metro peak fares (+100) are not included. The percentage converts the 2026 mean to November 2024 CLP (IPC 105.83 / 114.13) and divides 20 workdays of it by the band's worker-weighted median household income ([v1-income-burden.md](v1-income-burden.md)).
+
+| Metro closed 07:00–10:00 | Band 1 | Band 2 | Band 3 | Band 4 |
+| --- | ---: | ---: | ---: | ---: |
+| Workers who change mode | 12,409 | 25,271 | 35,552 | 36,096 |
+| Mean extra cash per priced changer, CLP/day | 601 | 595 | 570 | 343 |
+| 20 days, % of band median income | 1.99% | 1.07% | 0.61% | 0.18% |
+| Unpriced changers | 1,870 | 3,557 | 5,042 | 4,128 |
+
+With all buses removed, the mean cash change is negative in every band (−81 to −11 CLP/day): many changers walk, which costs no cash. The engine does not price the extra time.
