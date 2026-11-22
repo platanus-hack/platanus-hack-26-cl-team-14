@@ -5,7 +5,12 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 repo=$PWD
 case $(uname -s) in
-    Darwin) export SANTIAGO_EMBEDDED_CHAT=1 SANTIAGO_CHAT_CLI="${SANTIAGO_CHAT_CLI:-codex}" ;;
+    Darwin)
+        export SANTIAGO_EMBEDDED_CHAT=1
+        if [[ -z ${SANTIAGO_CHAT_CLI:-} ]] && command -v codex >/dev/null; then
+            export SANTIAGO_CHAT_CLI=codex
+        fi
+        ;;
     Linux)  source "$repo/tools/city-terminal-linux.sh" ;;
     *) echo "The city launcher supports macOS and Linux." >&2; exit 1 ;;
 esac
