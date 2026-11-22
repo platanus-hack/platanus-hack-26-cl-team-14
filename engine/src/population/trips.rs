@@ -222,6 +222,16 @@ pub fn sample_trips(pop: &Population, n: usize) -> Vec<TripGroup> {
     TripPlan::new(pop, n).sample(pop)
 }
 
+/// Departure half-hour of worker `i` on a normal weekday: the EOD 2012 profile of its mode at a fixed quantile.
+/// The quantile is a SplitMix64 hash of the person index, independent of the home and job samplers.
+pub fn person_departure(mode: i8, i: usize) -> usize {
+    let mut z = (i as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    departure_half_hour(match mode { 1..=4 => (mode - 1) as usize, _ => 4 }, (z >> 11) as f64 / (1u64 << 53) as f64)
+}
+
 fn departure_half_hour(mode: usize, quantile: f64) -> usize {
     use std::sync::OnceLock;
     static PROFILE: OnceLock<[[f64; 48]; 5]> = OnceLock::new();
