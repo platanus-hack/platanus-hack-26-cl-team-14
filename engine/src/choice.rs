@@ -16,6 +16,8 @@ pub struct Choice {
     pub jobs: Vec<f64>,
     /// Baseline public-transport door-to-door minutes. travel_times.csv, or the distance fit where it has no row.
     pub minutes: Vec<f64>,
+    /// Pairs with an available GTFS estimate before distance-fit filling.
+    pub gtfs_minutes: Vec<bool>,
     /// Number of pairs that have minutes from the distance fit (the diagonal is included).
     pub filled: usize,
     /// Observed workers (work_od.csv, destinations in the RM only, as main.rs).
@@ -72,10 +74,12 @@ impl Choice {
         // Minutes: the GTFS matrix, then a straight-line fit minutes = a + b × km on its own pairs
         // for the pairs it does not have.
         let mut minutes = vec![f64::NAN; n * n];
+        let mut gtfs_minutes = vec![false; n * n];
         let (mut m, mut sx, mut sy, mut sxx, mut sxy) = (0.0, 0.0, 0.0, 0.0, 0.0);
         for r in records(&data.join("travel_times.csv")) {
             let (o, d, t) = (ix(&r[0]), ix(&r[1]), r[2].parse::<f64>().unwrap());
             minutes[o * n + d] = t;
+            gtfs_minutes[o * n + d] = t.is_finite();
             let x = km[o * n + d];
             (m, sx, sy, sxx, sxy) = (m + 1.0, sx + x, sy + t, sxx + x * x, sxy + x * t);
         }
@@ -142,7 +146,7 @@ impl Choice {
         }).collect();
 
         let names = com.iter().map(|r| r[1].to_string()).collect();
-        Choice { n, cuts, names, jobs, minutes, km, filled: n * n - m as usize, flows, mode_flows, beta, mode_coef, k, mode_k }
+        Choice { n, cuts, names, jobs, minutes, gtfs_minutes, km, filled: n * n - m as usize, flows, mode_flows, beta, mode_coef, k, mode_k }
     }
 
     /// n×n probabilities P(work comuna | home comuna). Rows sum to 1.

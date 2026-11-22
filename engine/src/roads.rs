@@ -92,6 +92,11 @@ fn metres(a: [f64; 2], b: [f64; 2]) -> f64 {
 }
 
 impl RoadEdits<'_> {
+    pub fn comuna_minutes(&self) -> Option<(&[String], &[f64])> {
+        let (data, baseline) = self.graph.baseline().ok()?;
+        Some((&data.cuts, self.minutes.as_deref().unwrap_or(baseline)))
+    }
+
     pub fn apply(&mut self, change: &Value) -> Result<Value, String> {
         let id = change["target"]["id"]
             .as_str()

@@ -23,7 +23,7 @@ const selector = {
 
 export const buildingPlacementChange = {
   type: 'object',
-  description: 'Place the real mapped shape of a building or group at another map location. Copy keeps the original. Relocate moves it. Replace removes the selected destination building and either copies or relocates the source, as agreed. First ask which experiment the user wants and what to measure. Clarify any uncertain source, destination, or source retention. Ask once about optional total added jobs. Describe the geometry and weekday scope, then wait for explicit confirmation. Report estimated Metro entries by station for a full weekday. The camera hour does not schedule this change. Do not estimate total visitors or hourly effects. Leave unknown building uses and stocks unknown.',
+  description: 'Place the real mapped shape of a building or group at another map location. Copy keeps the original. Relocate moves it. Replace removes the selected destination building and either copies or relocates the source, as agreed. First ask which experiment the user wants and what to measure. Clarify any uncertain source, destination, or source retention. Ask once about optional total added jobs. Describe the geometry and weekday scope, then wait for explicit confirmation. Report estimated Metro entries by station for a full weekday. The camera hour does not schedule this change. Do not estimate total visitors or hourly effects. Leave unknown building uses and stocks unknown. Agreed jobs create a separate worksite. Report worksite_cohorts when asked how assigned workers arrive: counts by mode and coverage of commune-pair time proxies. Use query_result for follow-up worksite breakdowns.',
   required: ['kind', 'op', 'source'],
   additionalProperties: false,
   properties: {
@@ -162,7 +162,11 @@ export async function expandBuildingPlacements(changes, places, engineJSON, scen
       });
     }
     if (jobs > 0) {
-      expanded.push({ kind: 'jobs', op: 'add', target: { type: 'point', longitude: at[0], latitude: at[1] }, value: jobs });
+      const building_id = move ? origin.parts[0].id : `${id}-1`;
+      expanded.push({
+        kind: 'jobs', op: 'add', value: jobs,
+        target: { type: 'worksite', building_id, name: source.name ?? 'Placed building' },
+      });
     }
   }
   return expanded;

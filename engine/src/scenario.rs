@@ -41,6 +41,8 @@ mod station_changes;
 use station_changes::Network;
 #[path = "optional_attendance.rs"]
 mod optional_attendance;
+#[path = "worksite.rs"]
+mod worksite;
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -408,6 +410,7 @@ impl Scenario {
         let mut job_transit_reference = HashMap::new();
         let mut resident_stock_edits = 0;
         let mut city_edits = Vec::new();
+        let mut worksites: Vec<worksite::Worksite> = Vec::new();
         let mut car_shares = BTreeMap::new();
         let mut requests = vec![];
         let mut shops = self.shopping.shops.clone();
@@ -525,14 +528,19 @@ impl Scenario {
                                     .map_or(0.0, |p| p.weight) + delta < -1e-8
                             })
                         });
-                        if conflict {
+                        let moves_worksite = worksites.iter().any(|site| site.conflicts_with(&edit));
+                        if conflict || moves_worksite {
                             // Restore the footprint overlay from the earlier accepted edits in this request.
                             let mut restored = self.buildings.as_ref().unwrap().edits();
                             for previous in applied.iter().filter(|v: &&Value| v["kind"] == "building") {
                                 restored.apply(previous).unwrap();
                             }
                             building_edits = Some(restored);
-                            note["reason"] = json!("The building would withdraw more jobs or residents than remain on its block.");
+                            note["reason"] = json!(if moves_worksite {
+                                "Place a worksite at its final location before adding its jobs."
+                            } else {
+                                "The building would withdraw more jobs or residents than remain on its block."
+                            });
                             not_modeled.push(note);
                             continue;
                         }
@@ -555,6 +563,21 @@ impl Scenario {
                         note["understood"] = json!({"id":edit["id"],"city_edit_index":city_edits.len()});
                         applied.push(note);
                         city_edits.push(edit);
+                    }
+                    Err(reason) => {
+                        note["reason"] = json!(reason);
+                        not_modeled.push(note);
+                    }
+                }
+                continue;
+            }
+            if raw["kind"] == "jobs" && raw["target"]["type"] == "worksite" {
+                let mut note = raw.clone();
+                match worksite::Worksite::add(raw, &city_edits, &mut pop.jobs) {
+                    Ok(site) => {
+                        note["understood"] = site.receipt(&pop);
+                        applied.push(note);
+                        worksites.push(site);
                     }
                     Err(reason) => {
                         note["reason"] = json!(reason);
@@ -704,11 +727,11 @@ impl Scenario {
                     Target::Block { id } => { let i = v.iter().position(|p| p.id == *id).unwrap(); (vec![i], v[i].cut.clone()) }
                     Target::Comuna { id } => ((0..v.len()).filter(|&i| v[i].cut == *id).collect(), id.clone()),
                     Target::Point { longitude, latitude } => {
-                        if let Some(i) = v.iter().position(|p| r6(p.longitude) == r6(*longitude) && r6(p.latitude) == r6(*latitude)) { return (vec![i], v[i].cut.clone()); }
+                        if let Some(i) = v.iter().position(|p| !worksite::is_worksite(&p.id) && r6(p.longitude) == r6(*longitude) && r6(p.latitude) == r6(*latitude)) { return (vec![i], v[i].cut.clone()); }
                         // A change that leaves an empty point empty (remove, reduce, scale) means an existing place: the nearest point within 500 m.
                         if op(0.0) == 0.0 {
                             let d = |p: &Point| ((p.longitude - longitude) * 0.835).powi(2) + (p.latitude - latitude).powi(2);
-                            if let Some(i) = (0..v.len()).filter(|&i| d(&v[i]) < (500.0f64 / 111_320.0).powi(2)).min_by(|&a, &b| d(&v[a]).total_cmp(&d(&v[b]))) { return (vec![i], v[i].cut.clone()); }
+                            if let Some(i) = (0..v.len()).filter(|&i| !worksite::is_worksite(&v[i].id) && d(&v[i]) < (500.0f64 / 111_320.0).powi(2)).min_by(|&a, &b| d(&v[a]).total_cmp(&d(&v[b]))) { return (vec![i], v[i].cut.clone()); }
                         }
                         let cut = self.cut_at(*longitude, *latitude);
                         v.push(Point { id: format!("new{}", v.len()), cut: cut.clone(), longitude: *longitude, latitude: *latitude, weight: 0.0 });
@@ -886,7 +909,7 @@ impl Scenario {
             for (i, p) in v.iter().enumerate() {
                 let d = p.weight - old.get(i).map_or(0.0, |q| q.weight);
                 if d.abs() <= 1e-9 { continue; }
-                let id = (!p.id.starts_with("new")).then_some(&p.id);
+                let id = (!p.id.starts_with("new") && !worksite::is_worksite(&p.id)).then_some(&p.id);
                 let key = id.cloned().unwrap_or_else(|| format!("{} {}", r6(p.longitude), r6(p.latitude)));
                 let j = *at.entry(key).or_insert_with(|| {
                     rows.push((json!({ "id": id, "cut": p.cut, "longitude": p.longitude, "latitude": p.latitude }), [0.0; 2]));
@@ -997,6 +1020,19 @@ impl Scenario {
                 }
             }
         }
+        let scheduled_minutes = (window.is_none() && !worksites.is_empty()).then(|| {
+            let mut scheduled: Vec<_> = c.minutes.iter().zip(&c.gtfs_minutes)
+                .map(|(&minutes, &known)| known.then_some(minutes)).collect();
+            for edit in city_edits.iter().filter(|edit| edit["kind"] == "line") {
+                for pair in edit["effects"]["pairs"].as_array().into_iter().flatten() {
+                    let o = self.ix(pair["origin_cut"].as_str().unwrap());
+                    let d = self.ix(pair["destination_cut"].as_str().unwrap());
+                    scheduled[o * n + d] = pair["after_minutes"].as_f64();
+                }
+            }
+            scheduled
+        });
+        let worksite_cohorts = worksite::results(&worksites, &pop, c, &road_edits, scheduled_minutes.as_deref());
         let mut result = json!({
             "applied": applied,
             "city_edits": city_edits,
@@ -1025,6 +1061,7 @@ impl Scenario {
             "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         });
+        if !worksite_cohorts.is_empty() { result["worksite_cohorts"] = json!(worksite_cohorts); }
         if !point_visits.is_empty() { result["optional_point_visits"] = json!(point_visits); }
         if by_trait[0].iter().any(|b| b[1] > 0) {
             let rows = |t: usize, labels: [&str; 5]| -> Vec<Value> { labels.iter().zip(by_trait[t])

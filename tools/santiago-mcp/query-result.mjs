@@ -1,12 +1,13 @@
+import { worksiteDatasets, worksiteMetrics } from './worksite-metrics.mjs';
 import { shoppingMetrics, shoppingSiteDatasets, shoppingSiteMetrics } from './shopping-metrics.mjs';
 
 const operations = ['sum', 'count', 'mean', 'share', 'percentile', 'histogram'];
 const states = ['base', 'scenario', 'delta', 'compare'];
 const comunaDimensions = ['origin_cut', 'destination_cut'];
-const dimensions = ['station_id', 'station', 'half_hour', ...comunaDimensions, 'mode'];
+const dimensions = ['station_id', 'station', 'half_hour', ...comunaDimensions, 'mode', 'residence'];
 const comparisons = ['eq', 'lt', 'lte', 'gt', 'gte'];
-const weights = ['equal', 'value', 'census_public_workers'];
-const datasets = ['metro_entries', 'commute_flows', 'route_minutes', 'shopping_trips', ...shoppingSiteDatasets];
+const weights = ['equal', 'value', 'census_public_workers', 'assigned_workers'];
+const datasets = ['metro_entries', 'commute_flows', 'route_minutes', 'shopping_trips', ...shoppingSiteDatasets, ...worksiteDatasets];
 
 const field = (values) => ({ enum: values });
 const object = (required, properties) => ({ type: 'object', additionalProperties: false, required, properties });
@@ -20,7 +21,8 @@ const filterArray = { type: 'array', items: filterSchema };
 export const queryResultTool = {
   name: 'query_result',
   description: 'Answer a measurement question about an already published scenario or a saved replay without running it. Use raw results only. metro_entries counts modeled Metro entries by station_id, station or half_hour (0 is midnight, 47 is 23:30). Use grain day for exact daily station totals, or half_hour for 30-minute bins. commute_flows counts modeled workers by origin_cut and destination_cut for up to 200 changed comuna pairs. shopping_trips counts modeled weekday outbound shopping trips in the reported changed destination comunas. route_minutes uses one city_edit_index and measures modeled minutes by directed comuna pair. For route minutes, base and scenario mean immediately before and after the selected edit. Read state_labels. Compare uses the same valid rows for both states. Use sum for totals of entries, workers or trips. Count measures records or their declared weight. Route weights are equal by default. census_public_workers is allowed for transit routes and uses fixed Census 2024 counts, not scenario passengers. Use group_by and filters to match the user’s scope. For shares, select a weight explicitly: value counts entries, workers or trips, and equal counts table rows. Read unit, population, and coverage before answering. Results are text or tables. This tool does not open or chart a replay. ' +
-    'For an edited shopping site, shopping_site_total gives the reported total. shopping_site_origins, shopping_site_modes and shopping_site_departures use origin_cut, mode and half_hour separately. Use scenario for added sites and base for removed sites. A site has only one reported variant. Use shopping_site coordinates to select one when several sites are present. If coordinates and variant match more than one, use the reported zero-based index from this result. The origin rows are a top five list. Rounded breakdowns can differ from the reported total. Shares use only the selected reported rows.',
+    'For an edited shopping site, shopping_site_total gives the reported total. shopping_site_origins, shopping_site_modes and shopping_site_departures use origin_cut, mode and half_hour separately. Use scenario for added sites and base for removed sites. A site has only one reported variant. Use shopping_site coordinates to select one when several sites are present. If coordinates and variant match more than one, use the reported zero-based index from this result. The origin rows are a top five list. Rounded breakdowns can differ from the reported total. Shares use only the selected reported rows. ' +
+    'For newly placed worksites with jobs, use worksite_workers for counts or mode shares and worksite_minutes for worker-weighted travel-time proxies. Both use scenario and select one worksite_id when several are present. Filter residence=outside for workers who live outside the destination comuna. Group by mode or origin_cut, or both. Sum workers for counts. Public and car durations use comuna-pair proxies, not trips to the exact building. Report covered and missing workers by mode. Other modes keep their worker counts even when no times are available.',
   inputSchema: object(['source', 'data', 'state', 'aggregate'], {
     source: object(['type'], { type: field(['current', 'replay']), id: { type: 'string' } }),
     data: field(datasets),
@@ -32,6 +34,7 @@ export const queryResultTool = {
       longitude: { type: 'number' }, latitude: { type: 'number' }, variant: field(['base', 'scenario']),
       index: { type: 'integer', minimum: 0, description: 'Zero-based shopping row index in the queried result.' },
     }),
+    worksite_id: { type: 'string', description: 'ID from this result. Omit when it contains exactly one worksite.' },
     filters: filterArray,
     group_by: { type: 'array', items: field(dimensions), uniqueItems: true, maxItems: 2 },
     weight: field(weights),
@@ -80,6 +83,7 @@ function dataset(raw, q) {
       may_be_truncated: raw.flows.length >= 200,
     };
   }
+  if (worksiteDatasets.includes(q.data)) return worksiteMetrics(raw, q);
   if (q.data === 'shopping_trips') return shoppingMetrics(raw);
   if (shoppingSiteDatasets.includes(q.data)) return shoppingSiteMetrics(raw, q);
   const edits = (raw.city_edits ?? []).flatMap((edit, index) =>
@@ -142,6 +146,10 @@ function validate(q) {
       (q.city_edit_index !== undefined && (q.data !== 'route_minutes' || !Number.isInteger(q.city_edit_index) || q.city_edit_index < 0))) {
     throw new Error('Invalid weight, limit, station grain, or route edit index.');
   }
+  if ((q.worksite_id !== undefined && (!worksiteDatasets.includes(q.data) || typeof q.worksite_id !== 'string' || !q.worksite_id)) ||
+      (q.weight === 'assigned_workers' && q.data !== 'worksite_minutes')) {
+    throw new Error('Use a worksite ID from this result and assigned worker weights only for worksite minutes.');
+  }
   const site = q.shopping_site;
   if (site !== undefined && (!shoppingSiteDatasets.includes(q.data) ||
       !finite(site?.longitude) || !finite(site?.latitude) ||
@@ -163,7 +171,7 @@ function validate(q) {
   } else if (q.share_value !== undefined || q.share_filters !== undefined) {
     throw new Error('Use numerator filters only for shares.');
   }
-  if (q.weight === 'value' && (q.aggregate !== 'share' || q.state === 'delta' || q.data === 'route_minutes')) {
+  if (q.weight === 'value' && (q.aggregate !== 'share' || q.state === 'delta' || ['route_minutes', 'worksite_minutes'].includes(q.data))) {
     throw new Error('Value weights are for shares of nonnegative entries or workers.');
   }
   if (q.order !== undefined && (!['value_asc', 'value_desc'].includes(q.order) || q.aggregate === 'histogram')) {
@@ -196,10 +204,10 @@ function statistic(values, q) {
 }
 
 export function queryResult(raw, args, loadPublicWorkers) {
-  if (args.aggregate === 'share' && args.weight === undefined) {
+  if (args.aggregate === 'share' && args.weight === undefined && args.data !== 'worksite_minutes') {
     throw new Error('Choose the denominator for the share: equal for rows, value for entries or workers, or Census public workers for transit routes.');
   }
-  const q = { filters: [], group_by: [], weight: 'equal', limit: 100, ...args };
+  const q = { filters: [], group_by: [], weight: args.data === 'worksite_minutes' ? 'assigned_workers' : 'equal', limit: 100, ...args };
   validate(q);
   const data = dataset(raw, q);
   validateFilters(q.filters, data.dimensions);
@@ -222,7 +230,11 @@ export function queryResult(raw, args, loadPublicWorkers) {
   }
   const comparable = selected.filter(valid);
   const rows = census ? comparable.filter(row => census.has(pairKey(row))) : comparable;
-  const weightOf = (row, state) => census ? census.get(pairKey(row)) : q.weight === 'value' ? value(row, state) : 1;
+  const weightOf = (row, state) => {
+    if (census) return census.get(pairKey(row));
+    if (q.weight === 'assigned_workers') return row.workers;
+    return q.weight === 'value' ? value(row, state) : 1;
+  };
   const eligible = new Set(rows);
   const byGroup = new Map();
   for (const row of selected) {
@@ -241,6 +253,7 @@ export function queryResult(raw, args, loadPublicWorkers) {
     groups.push({
       group: Object.fromEntries(JSON.parse(key).map((v, i) => [q.group_by[i], v])),
       selected_rows: members.length, valid_rows: items.length,
+      ...(data.worksite && { selected_workers: sum(members.map(row => row.workers)), covered_workers: sum(items.map(row => row.workers)) }),
       valid_weight: q.state === 'compare' ? { base: totalWeight('base'), scenario: totalWeight('scenario') } : totalWeight(q.state),
       value: q.state === 'compare' ? { base: stat('base'), scenario: stat('scenario') } : stat(q.state),
     });
@@ -258,13 +271,19 @@ export function queryResult(raw, args, loadPublicWorkers) {
     });
   }
   const results = groups.slice(0, q.limit);
-  const weightUnit = census ? 'observed Census 2024 public work commuters' : q.weight === 'value' ? data.unit : data.rowUnit;
+  const weightUnit = census ? 'observed Census 2024 public work commuters'
+    : q.weight === 'assigned_workers' ? 'modeled workers' : q.weight === 'value' ? data.unit : data.rowUnit;
   const coverage = {
     raw_rows: data.rows.length, selected_rows: selected.length, valid_rows: rows.length,
     missing_or_unreachable_rows: selected.length - comparable.length,
     may_be_truncated: data.may_be_truncated ?? false,
     groups: byGroup.size, groups_returned: results.length,
   };
+  if (data.worksite) {
+    coverage.selected_workers = sum(selected.map(row => row.workers));
+    coverage.covered_workers = sum(rows.map(row => row.workers));
+    coverage.missing_workers = coverage.selected_workers - coverage.covered_workers;
+  }
   if (census) {
     coverage.pairs_without_positive_public_weight = comparable.length - rows.length;
     coverage.commuters_with_paired_times = sum(rows.map(row => weightOf(row)));
@@ -273,9 +292,10 @@ export function queryResult(raw, args, loadPublicWorkers) {
   return {
     data: q.data, state: q.state, aggregate: q.aggregate, revision: raw.revision ?? null, city_edit_index: data.city_edit_index,
     unit: q.aggregate === 'share' ? 'percent' : ['count', 'histogram'].includes(q.aggregate) ? weightUnit : data.unit,
-    measured_unit: data.unit, weight_unit: weightUnit, state_labels: data.stateLabels,
+    measured_unit: data.unit, weight_unit: weightUnit, state_labels: data.stateLabels, worksite: data.worksite,
     population: data.population, scope: data.scope,
     weighting: census ? 'Fixed observed Census 2024 public work commuters by directed comuna pair, across the workday. These are not scenario passenger counts.'
+      : q.weight === 'assigned_workers' ? 'Weight each reported time by the workers assigned to that worksite in the same origin and mode row.'
       : q.weight === 'value' ? 'Weight each selected row by its modeled count.' : 'Each selected row contributes equally.',
     method: {
       percentile: 'First value whose cumulative weight reaches the requested percentile.',

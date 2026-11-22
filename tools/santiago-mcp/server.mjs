@@ -513,7 +513,10 @@ async function runScenario(args, requireAll, scene) {
 
 // The agent's copy: the 5 largest station gains and losses and the 5 largest zone job changes.
 function shortResult(full, asked, placesUsed) {
-    const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, activity, ...result } = full;
+    const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, activity, worksite_cohorts, ...result } = full;
+    if (worksite_cohorts) {
+      result.worksite_cohorts = worksite_cohorts.map(({ rows, ...summary }) => summary);
+    }
     if (activity) {
       const { start_minute, end_minute, step_minutes, mode, steps } = activity;
       const { entered, exited, remaining } = steps.at(-1);
