@@ -31,21 +31,25 @@ reproduced the table above without a new fit. The model error is
 The two closed-station bins are zero and stay outside the score.
 
 Use the command in [Reproduce](#reproduce) with a release `scenario`
-binary from this SHA. The [run receipt and scorer](https://discord.com/channels/1573514576400752640/1573943617813348484/1573944809926828082)
-use binary SHA-256 `cc51651abdabbd054f1c690b221d6e33dfb5e86530e1fe715e90a6ae385dd9e4`.
+binary from this SHA. See the [run receipt](https://discord.com/channels/1573514576400752640/1573943617813348484/1573944733146021968).
+The run used binary SHA-256 `cc51651abdabbd054f1c690b221d6e33dfb5e86530e1fe715e90a6ae385dd9e4`.
 
 ## Reproduce
 
 Use the two dated stage members from the DTPM ZIP. Count rows with `tipo_transporte = METRO`, the local date in `tiempo_subida`, the bin in `media_hora_subida`, and the listed station in `parada_subida`. The small boarding workbook pools 21–25 April as a weekday average. [DTPM catalog](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) · [Stages ZIP](https://www.dtpm.cl/descargas/modelos_y_matrices/Tabla-de-etapas-011025.zip)
 
-Run the release `scenario` binary at `84545dfca20d77127b53cd186a6d205bb7ee9f11` with its packed data.
+Run the release `scenario` binary at `b611722bc503472996480f0fb55bc95829b7195d` with its packed data.
+The original run used `84545dfca20d77127b53cd186a6d205bb7ee9f11`.
 
 ```sh
 printf '%s\n' '[{"kind":"station","op":"set","target":{"type":"station","id":"US"},"value":0,"half_hours":[39,41],"temporary":true}]' |
-  engine/target/release/scenario data/mvp - |
-  jq '.stations[] | select(.id == "EL" or .id == "AH" or .id == "US") |
-      {id, base: .base_half_hour[39:41], event: .scenario_half_hour[39:41]}'
+  engine/target/release/scenario data/mvp - > usach.json
+jq '.stations[] | select(.id == "EL" or .id == "AH" or .id == "US") |
+    {id, base: .base_half_hour[39:41], event: .scenario_half_hour[39:41]}' usach.json
 ```
+
+Run the [attached scorer](https://discord.com/channels/1573514576400752640/1573943617813348484/1573944809926828082)
+with the full `usach.json` output.
 
 The request closes the entrance for both bins and keeps service at all other stations. This approximates a skip for entry counts. It keeps the travel time through the station fixed.
 
