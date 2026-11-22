@@ -35,7 +35,7 @@ open_city_terminal_mac() {
 ObjC.import('AppKit')
 function run(argv) {
 const screens = $.NSScreen.screens
-// Both Winit and Terminal measure global y down from the primary screen's top.
+// Both Winit and Terminal measure global y down from the top of the primary screen.
 const top = screens.firstObject.frame.size.height
 let screen
 for (let i = 0; i < screens.count; i++) {
