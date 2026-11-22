@@ -64,7 +64,7 @@ impl ScenarioActivity {
 }
 
 fn validate_activity_geometry(activity: &Value) -> Result<(), &'static str> {
-    const INVALID_ROUTE: &str = "Each activity step must match the route segment IDs. Give each segment one valid WGS84 polyline.";
+    const INVALID_ROUTE: &str = "Keep segment IDs in the same order in every activity step. Give each segment one valid WGS84 polyline.";
     let route = activity["segments"].as_array().ok_or(INVALID_ROUTE)?;
     let mut route_ids = HashSet::new();
     for segment in route {
@@ -92,14 +92,20 @@ fn validate_activity_geometry(activity: &Value) -> Result<(), &'static str> {
         }
     }
 
-    let steps = activity["steps"].as_array().ok_or(INVALID_ROUTE)?;
-    if route_ids.is_empty() || steps.is_empty() {
+    let (first, remaining) = activity["steps"]
+        .as_array()
+        .and_then(|steps| steps.split_first())
+        .ok_or(INVALID_ROUTE)?;
+    let first_segments = first["segments"].as_array().ok_or(INVALID_ROUTE)?;
+    let order: Option<Vec<_>> = first_segments.iter().map(|segment| segment["id"].as_str()).collect();
+    let order = order.ok_or(INVALID_ROUTE)?;
+    if order.is_empty() || order.len() != route_ids.len() || order.iter().any(|id| !route_ids.remove(*id)) {
         return Err(INVALID_ROUTE);
     }
-    for step in steps {
+    for step in remaining {
         let segments = step["segments"].as_array().ok_or(INVALID_ROUTE)?;
-        let ids: Option<HashSet<_>> = segments.iter().map(|segment| segment["id"].as_str()).collect();
-        if segments.len() != route_ids.len() || ids.as_ref() != Some(&route_ids) {
+        let ids = segments.iter().map(|segment| segment["id"].as_str());
+        if ids.ne(order.iter().copied().map(Some)) {
             return Err(INVALID_ROUTE);
         }
     }
