@@ -44,7 +44,7 @@
     h2 { margin-bottom: 4vh; color: #8d9aa8; font-size: clamp(1.2rem, min(2.4vw, 4.2vh), 3.2rem); }
     h2 b { color: #fff; font-weight: 400; }
     section { opacity: 0; animation: in .8s forwards; }
-    section + section { animation-delay: .8s; padding-left: 6vw; border-left: 1px solid #2c3d4f; }
+    section + section { animation-delay: .8s; padding-left: 6vw; }
     /* Left: what the simulation holds. One number per line. */
     .engine p { margin-bottom: 3vh; color: #dce4ef; font-size: clamp(1rem, min(2vw, 3.6vh), 2.6rem); line-height: 1.1; }
     .engine b { display: block; color: #4aa8ff; font-weight: 400; font-size: 3.6em; line-height: .95; }
@@ -53,7 +53,7 @@
     .scroll { overflow: hidden; min-height: 0; mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent); }
     .list { animation: up 90s linear infinite; }
     @keyframes up { to { transform: translateY(-50%); } }
-    .src { padding: 1.6vh 0; border-bottom: 1px solid #2c3d4f; line-height: 1.1; }
+    .src { padding: 1.6vh 0; line-height: 1.1; }
     .src p { font-size: clamp(1rem, min(1.9vw, 3.4vh), 2.4rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .src small { display: block; margin-top: .6vh; color: #8d9aa8; font-size: clamp(.8rem, min(1.4vw, 2.6vh), 1.8rem); }
     .src small b { color: #4aa8ff; font-weight: 400; }
