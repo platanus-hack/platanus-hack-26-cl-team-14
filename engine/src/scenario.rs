@@ -418,7 +418,22 @@ impl Scenario {
         let mut next_shop = shops.len() as u32;
 
         // Apply derived stock changes at the parent edit’s position in the request.
-        let mut pending: Vec<_> = changes.iter().rev().cloned().map(|change| (change, false)).collect();
+        let mut grouped: Vec<Value> = Vec::new();
+        for change in changes {
+            if let Some(id) = change["properties"]["metro_project_id"].as_str().filter(|_| change["kind"] == "line") {
+                if let Some(batch) = grouped.last_mut().filter(|batch| {
+                    batch["target"]["type"] == "metro_project" && batch["target"]["id"] == id
+                }) {
+                    batch["properties"]["edits"].as_array_mut().unwrap().push(change.clone());
+                } else {
+                    grouped.push(json!({"kind":"line", "op":"add", "target":{"type":"metro_project","id":id},
+                        "properties":{"edits":[change]}}));
+                }
+            } else {
+                grouped.push(change.clone());
+            }
+        }
+        let mut pending: Vec<_> = grouped.into_iter().rev().map(|change| (change, false)).collect();
         let mut point_visit_requests = Vec::new();
         while let Some((change, stock_child)) = pending.pop() {
             let raw = &change;
@@ -502,7 +517,11 @@ impl Scenario {
                         }
                         note["understood"] = json!({"id":edit["id"],"city_edit_index":city_edits.len()});
                         applied.push(note);
-                        city_edits.push(edit);
+                        if let Some(parts) = edit["parts"].as_array() {
+                            city_edits.extend(parts.iter().cloned());
+                        } else {
+                            city_edits.push(edit);
+                        }
                     }
                     Err(reason) => {
                         note["reason"] = json!(reason);
@@ -883,6 +902,9 @@ impl Scenario {
             }
             e
         }).collect();
+        let metro_project_demand: Vec<Value> = line_edits.as_ref()
+            .map(|edits| edits.metro_projects()).unwrap_or_default().into_iter()
+            .map(|(id, lines)| line_riders::project_metro(&id, &lines, &self.pop, c, &self.data_dir)).collect();
         let added_lines = line_edits.as_ref().map(|edits| edits.added()).unwrap_or_default();
         let line_riders: Vec<Value> = added_lines.iter()
             .map(|line| line_riders::project(line, &pop, car_choice.as_ref().unwrap_or(c), &minutes, &self.data_dir)).collect();
@@ -1074,6 +1096,7 @@ impl Scenario {
             result["assumptions"].as_array_mut().unwrap().push(json!("When a mode loses places, who keeps it is a deterministic weighted draw: the weight is the Census 2024 share of that mode among workers of the same home comuna, age band and household size. Unknown household size has its own group for the draw. These workers count in age summaries only. mode_change_by_person follows from this rule, not from an observed response. Workers that a residents change adds are not counted."));
         }
         if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
+        if !metro_project_demand.is_empty() { result["metro_project_demand"] = json!(metro_project_demand); }
         if !reach.is_empty() {
             result["metro_reach"] = json!(reach);
             result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a Metro line edit, each station's entries are multiplied by its remaining accessibility: the other open stations weighted by baseline entries and exp(-beta x scheduled Metro minutes), divided by the same sum on the baseline network. beta is the job-choice coefficient fitted on the Census. Changing trains costs an assumed 2 minutes; the first wait is not counted. Riders who lose accessibility leave the Metro (bus or other); they are not counted at another station."));
