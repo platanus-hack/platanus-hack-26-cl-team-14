@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Santiaguito · Evaluación</title>
+  <style>
+    @font-face {
+      font-family: JetBrainsMono;
+      src: url("../tools/terminal-font/JetBrainsMonoNerdFontMono-Regular.ttf") format("truetype");
+    }
+    @font-face {
+      font-family: Barlow;
+      src: url("../viz/assets/barlow/Barlow-Regular.ttf") format("truetype");
+    }
+    * { box-sizing: border-box; }
+    body {
+      overflow: hidden;
+      height: 100svh;
+      margin: 0;
+      padding: 6vh 4vw 2vh;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 5vh;
+      color: #fff;
+      background: #101923;
+      font-family: Barlow, system-ui, sans-serif;
+    }
+    #fondo {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: blur(3px) brightness(.22);
+      
+    }
+    /* Slow panoramic drift across the city. */
+    @keyframes pan {
+      from { transform: scale(1.3) translate(-10%, 4%); }
+      to { transform: scale(1.3) translate(10%, -4%); }
+    }
+    h1 { margin: 0; font-size: clamp(1.8rem, min(4.6vw, 8vh), 6rem); font-weight: 400; line-height: 1.02; }
+    .lede { margin: 1.2vh 0 0; color: #fff; font-size: clamp(1rem, min(2vw, 3.5vh), 2.6rem); }
+    .lede b { color: #4aa8ff; font-weight: 400; }
+    body { grid-template-columns: minmax(0, 1fr); }
+    .evals { min-height: 0; min-width: 0; }
+    .track { display: flex; gap: 3vw; height: 100%; transition: transform .9s cubic-bezier(.6, 0, .2, 1); }
+    .track .eval { transition: opacity .9s, transform .9s; opacity: .3; transform: scale(.88); }
+    .track .eval.on { opacity: 1; transform: none; }
+    .track .eval { flex: 0 0 80%; display: grid; grid-template-rows: auto 1fr auto; gap: 2vh; padding: 4vh 3vw; }
+    .head .q { margin: 0; padding: 1.2vh 1vw; background: #05090d; border: 1px solid #2c3d4f; border-radius: .3em; font: 400 clamp(1rem, min(2.1vw, 3.8vh), 2.7rem) / 1.2 JetBrainsMono, monospace; }
+    .head .q span { color: #8dd0ff; }
+    .head .date { margin: 0; color: #8dd0ff; font-size: clamp(1rem, min(2vw, 3.4vh), 2.6rem); }
+    .head .case { margin: 2vh 0 0; color: #8dd0ff; font-size: clamp(1.1rem, min(2.3vw, 4vh), 3rem); line-height: 1.15; }
+    .vs { display: grid; grid-template-columns: 1fr 1fr; align-content: center; column-gap: 3vw; }
+    .col { display: grid; align-content: end; }
+    .col.sim .k { color: #8dd0ff; }
+    .col .k { margin: 0; white-space: nowrap; color: #c3ccd5; font-size: clamp(1rem, min(2vw, 3.4vh), 2.6rem); }
+    .col .v { margin: 0; font-size: clamp(3.5rem, min(10vw, 19vh), 14rem); line-height: 1; }
+    .col.sim .v { color: #4aa8ff; }
+    .unit { grid-column: 1 / -1; margin: 2vh 0 0; color: #c3ccd5; font-size: clamp(1rem, min(2vw, 3.4vh), 2.6rem); }
+    .typed { font-weight: 400; }
+    .typed.cursor::after { content: ""; display: inline-block; width: .55em; height: 1em; margin-left: .1em; vertical-align: -.12em; background: #fff; animation: blink 1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .head .case, .vs, .acc { opacity: 0; transition: opacity .6s; }
+    .eval.s1 .head .case, .eval.s1 .vs, .eval.s1 .acc { opacity: 1; }
+    .acc { margin: 0; color: #c3ccd5; font-size: clamp(1.2rem, min(2.6vw, 4.4vh), 3.2rem); }
+    .acc b { color: #fff; font-weight: 400; font-size: 2.2em; }
+    .dots { display: flex; justify-content: center; gap: 1.2vw; }
+    .dots i { width: 1.4vh; height: 1.4vh; border-radius: 50%; background: #4b5a69; transition: background .4s; }
+    .dots i.on { background: #4aa8ff; }
+    p { margin: 0; }
+    .eval {
+      padding: 3vh 1.8vw;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 1.6vh;
+      background: #0b1219d9;
+      border-top: .5vh solid #4aa8ff;
+    }
+    .date { color: #8dd0ff; font-size: clamp(1rem, min(2.2vw, 3.8vh), 2.8rem); }
+    .case { font-size: clamp(1.6rem, min(3.6vw, 7vh), 5rem); line-height: 1.05; }
+    .what { color: #8dd0ff; font-size: clamp(1.1rem, min(2.6vw, 4.4vh), 3.2rem); line-height: 1.2; }
+    .nums { margin: 0; display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 1vh 1vw; align-self: center; }
+    .nums dt { color: #c3ccd5; font-size: clamp(1.2rem, min(2.8vw, 4.8vh), 3.4rem); }
+    .nums dd { margin: 0; text-align: right; font-size: clamp(2.6rem, min(6.5vw, 14vh), 10rem); line-height: 1; }
+    .nums dd.sim { color: #4aa8ff; }
+    .err { color: #c3ccd5; font-size: clamp(1.2rem, min(2.8vw, 4.8vh), 3.4rem); border-top: 1px solid #2c3d4f; padding-top: 1.5vh; }
+    .err b { color: #fff; font-weight: 400; font-size: 1.8em; }
+    .chart { width: 100%; height: 100%; min-height: 0; overflow: visible; }
+    .k { display: inline-block; width: .8em; height: .8em; vertical-align: -.05em; }
+    .k.real { background: #fff; } .k.sim { background: #4aa8ff; }
+    .bars { display: grid; gap: 1.2vh; align-self: end; }
+    .bar { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: .3vh 1vw; font-size: clamp(.8rem, min(1.6vw, 2.8vh), 2rem); }
+    .bar i { grid-column: 1 / -1; height: 3.2vh; background: #4aa8ff; width: 0; transition: width 1.2s ease-out; }
+    .bar.base { color: #8d9aa8; }
+    .bar.base i { background: #4b5a69; }
+    .bar b { font-weight: 400; font-size: 2.4em; line-height: 1; }
+    .bar:not(.base) b { color: #4aa8ff; }
+    .tag { color: #ffb057; }
+    footer { color: #dce4ef; font-size: clamp(.55rem, 1vw, 1rem); line-height: 1.2; }
+  </style>
+</head>
+<body>
+  <video id="fondo" src="media/santiago-fondo.mp4" muted loop autoplay playsinline oncanplay="this.playbackRate = .15"></video>
+  <main class="evals"><div class="track">
+    <section class="eval">
+      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántos pasajeros más recibe Estación Central si cierran la USACH?"></b></p><p class="case">Lunes 21 abr 2025: Metro cerró Universidad de Santiago a las 19:20</p></header>
+      <div class="vs">
+        <div class="col sim"><p class="k">simulación santiaguito</p><p class="v">469</p></div>
+        <div class="col real"><p class="k">caso real</p><p class="v">662</p></div>
+      </div>
+      <p class="acc"><b>92 %</b> de precisión</p>
+    </section>
+    <section class="eval">
+      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántas entradas diarias tendrán las cuatro estaciones nuevas de la Línea 2?"></b></p><p class="case">Noviembre 2023: abrieron cuatro estaciones nuevas de la Línea 2</p></header>
+      <div class="vs">
+        <div class="col sim"><p class="k">simulación santiaguito</p><p class="v">59.798</p></div>
+        <div class="col real"><p class="k">caso real</p><p class="v">50.625</p></div>
+      </div>
+      <p class="acc"><b>82 %</b> de precisión</p>
+    </section>
+    <section class="eval">
+      <header class="head"><p class="q"><span>❯</span> <b class="typed" data-text="¿Cuántos hinchas entran a Pedrero a las 18:00 después del partido?"></b></p><p class="case">Sábado 26 abr 2025: Colo-Colo vs Coquimbo en el Monumental, 17.756 hinchas</p></header>
+      <div class="vs">
+        <div class="col sim"><p class="k">simulación santiaguito</p><p class="v">1.956</p></div>
+        <div class="col real"><p class="k">caso real</p><p class="v">1.675</p></div>
+      </div>
+      <p class="acc"><b>76 %</b> de precisión</p>
+    </section>
+  </div></main>
+  <div class="dots"><i></i><i></i><i></i></div>
+  <script>
+    // Carousel: the active case sits in the center, its neighbours peek at the sides.
+    const track = document.querySelector('.track'), cards = [...track.children], dots = document.querySelectorAll('.dots i');
+    const show = i => {
+      const offset = track.parentElement.offsetWidth / 2 - (cards[i].offsetLeft - cards[0].offsetLeft + cards[i].offsetWidth / 2);
+      track.style.transform = `translateX(${offset}px)`;
+      cards.forEach((c, j) => c.classList.toggle('on', j === i));
+      dots.forEach((d, j) => d.classList.toggle('on', j === i));
+      play(cards[i]);
+    };
+    // Type the question, press Enter, then reveal the real case, the simulation and the accuracy together.
+    let timers = [];
+    function play(card) {
+      timers.forEach(clearTimeout); timers = [];
+      cards.forEach(c => {
+        c.classList.add('s1');
+        c.querySelector('.typed').textContent = c.querySelector('.typed').dataset.text;
+      });
+      card.classList.remove('s1');
+      const q = card.querySelector('.typed'), text = q.dataset.text;
+      q.textContent = ''; q.classList.add('cursor');
+      [...text].forEach((_, n) => timers.push(setTimeout(() => q.textContent = text.slice(0, n + 1), 250 + n * 18)));
+      const enter = 250 + text.length * 18 + 300;
+      timers.push(setTimeout(() => { q.classList.remove('cursor'); card.classList.add('s1'); }, enter));
+    }
+    show(Number(location.hash.slice(1)) || 0);
+    addEventListener('message', event => show(event.data));
+  </script>
+</body>
+</html>

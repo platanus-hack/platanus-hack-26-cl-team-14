@@ -17,7 +17,7 @@
       font-family: Barlow, system-ui, sans-serif;
     }
     #slide { width: 100vw; height: 100svh; }
-    #slide > iframe, #slide > img, #slide > video {
+    #slide > iframe, #slide > img {
       display: block;
       width: 100%;
       height: 100%;
@@ -25,16 +25,6 @@
       object-fit: contain;
     }
     #slide > iframe { pointer-events: none; }
-    .welcome {
-      display: grid;
-      place-content: center;
-      justify-items: center;
-      gap: 1rem;
-      height: 100%;
-      background: linear-gradient(#10192370, #101923b0), url("jury/santiago.jpg") center / cover;
-      text-align: center;
-    }
-    .welcome h1 { margin: 0; font-size: clamp(3rem, 10vw, 12rem); font-weight: 400; }
     button {
       padding: .35em .8em;
       font: inherit;
@@ -43,16 +33,6 @@
       border: 1px solid #85b9dd;
       border-radius: .25em;
       cursor: pointer;
-    }
-    .welcome button { font-size: clamp(1.25rem, 2.5vw, 2.5rem); }
-    .sample {
-      position: fixed;
-      top: .8rem;
-      right: 1rem;
-      margin: 0;
-      padding: .3em .55em;
-      background: #101923;
-      font-size: clamp(.8rem, 1.25vw, 1.2rem);
     }
     nav {
       position: fixed;
@@ -72,21 +52,15 @@
     <button id="back" type="button">Atrás</button>
     <button id="next" type="button">Siguiente</button>
   </nav>
-  <template id="inicio">
-    <div class="welcome">
-      <h1>santiaguito.cl</h1>
-      <button type="button" data-start>Comenzar</button>
-    </div>
-  </template>
   <script>
     const slides = [
-      { id: 'inicio', title: 'Bienvenida' },
-      { id: 'mut', title: 'MUT y Monumental', video: 'media/mut-ensayo.mp4' },
       { id: 'mapocho-metro', title: 'Mapocho y Metro', page: 'mapocho-metro.html' },
-      { id: 'evaluacion', title: 'Evaluación de ensayo', image: 'media/evaluacion.png' },
-      { id: 'qr', title: 'QR para descargar santiaguito.cl', image: 'media/santiaguito-qr.png' },
-      { id: 'datos', title: 'Datos y parámetros', page: 'jury/santiaguito-parametros.html' },
-      { id: 'enjambre', title: 'Cómo trabajó el enjambre', page: 'jury/enjambre.html' },
+      { id: 'evaluacion', title: 'Evaluación: cierre de la USACH', page: 'evaluacion.html', step: 0 },
+      { id: 'evaluacion-2', title: 'Evaluación: extensión de Línea 2', page: 'evaluacion.html', step: 1 },
+      { id: 'evaluacion-3', title: 'Evaluación: partido en el Monumental', page: 'evaluacion.html', step: 2 },
+      { id: 'qr', title: 'QR para descargar santiaguito.cl', page: 'qr.html' },
+      { id: 'datos', title: 'Datos y parámetros', page: 'datos.html' },
+      { id: 'enjambre', title: 'Cómo trabajó el enjambre', page: 'swarm/index.html' },
     ];
 
     const stage = document.querySelector('#slide');
@@ -104,31 +78,23 @@
       history.replaceState(null, '', '#' + slide.id);
       stage.setAttribute('aria-label', slide.title);
 
-      if (slide.page) {
+      const current = stage.querySelector('iframe');
+      if (current && current.dataset.page === slide.page && slide.step !== undefined) {
+        // Same page, next carousel step: slide the cards instead of reloading.
+        current.contentWindow.postMessage(slide.step, '*');
+      } else if (slide.page) {
         const frame = document.createElement('iframe');
-        frame.src = slide.page;
+        frame.src = slide.page + '?' + Date.now() + '#' + (slide.step || 0);
+        frame.dataset.page = slide.page;
         frame.title = slide.title;
         frame.tabIndex = -1;
         frame.allow = 'autoplay';
         stage.replaceChildren(frame);
-      } else if (slide.video) {
-        const video = document.createElement('video');
-        video.src = slide.video;
-        video.muted = true;
-        video.autoplay = true;
-        video.playsInline = true;
-        const label = document.createElement('p');
-        label.className = 'sample';
-        label.textContent = 'Grabación del ensayo';
-        stage.replaceChildren(video, label);
-      } else if (slide.image) {
+      } else {
         const image = document.createElement('img');
         image.src = slide.image;
         image.alt = slide.title;
         stage.replaceChildren(image);
-      } else {
-        stage.replaceChildren(document.querySelector('#inicio').content.cloneNode(true));
-        stage.querySelector('[data-start]').onclick = () => show(1);
       }
 
       back.disabled = index === 0;
