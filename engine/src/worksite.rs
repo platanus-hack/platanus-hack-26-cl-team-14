@@ -1,7 +1,7 @@
 //! Keep scenario worksite jobs distinct from the census-block stock.
 use crate::choice::Choice;
 use crate::population::{Point, Population};
-use santiago_scenario_core::roads::RoadEdits;
+use santiago_scenario_core::{buildings::footprint_center, roads::RoadEdits};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap};
 
@@ -32,14 +32,13 @@ impl Worksite {
         let cut = placed["after"]["properties"]["cut"]
             .as_str()
             .ok_or("The worksite has no destination comuna.")?;
-        let longitude = target["longitude"]
-            .as_f64()
-            .filter(|x| (-180.0..=180.0).contains(x))
-            .ok_or("Use a WGS84 longitude.")?;
-        let latitude = target["latitude"]
-            .as_f64()
-            .filter(|x| (-90.0..=90.0).contains(x))
-            .ok_or("Use a WGS84 latitude.")?;
+        if target.get("longitude").is_some() || target.get("latitude").is_some() {
+            return Err(
+                "The worksite location comes from its placed building. Omit target coordinates.",
+            );
+        }
+        let [longitude, latitude] = footprint_center(&placed["after"]["geometry"])
+            .map_err(|_| "The placed building has no usable footprint center.")?;
         let value = raw["value"]
             .as_u64()
             .filter(|&x| x > 0 && x <= u32::MAX as u64)

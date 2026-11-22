@@ -130,6 +130,6 @@ pub(super) fn area_m2(geometry: &Value) -> Result<f64, String> {
     Ok(measure(geometry)?.0)
 }
 
-pub(super) fn centroid(geometry: &Value) -> Result<Point, String> {
+pub fn centroid(geometry: &Value) -> Result<[f64; 2], String> {
     Ok(measure(geometry)?.1)
 }

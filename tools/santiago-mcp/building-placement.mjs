@@ -165,7 +165,7 @@ export async function expandBuildingPlacements(changes, places, engineJSON, scen
       const building_id = move ? origin.parts[0].id : `${id}-1`;
       expanded.push({
         kind: 'jobs', op: 'add', value: jobs,
-        target: { type: 'worksite', building_id, name: source.name ?? 'Placed building', longitude: at[0], latitude: at[1] },
+        target: { type: 'worksite', building_id, name: source.name ?? 'Placed building' },
       });
     }
   }

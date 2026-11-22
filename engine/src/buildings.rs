@@ -7,6 +7,7 @@ mod geometry;
 mod occupancy;
 
 use catalog::Catalog;
+pub use geometry::centroid as footprint_center;
 use occupancy::Occupancy;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
