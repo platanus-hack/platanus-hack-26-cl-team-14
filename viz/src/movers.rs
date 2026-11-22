@@ -35,10 +35,10 @@ use bevy::{
 use serde_json::Value;
 use std::{collections::HashMap, fs, io::Read, sync::Arc};
 
-// Base sample sizes before applying the mode's density.
+// At street level one walker represents 48 workers and other figures represent 96.
 const PERSONS_PER_STREET_WALKER: f64 = 48.0;
 const PERSONS_PER_MOVER: f64 = 96.0;
-// Walkers and bicycles use a denser sample at 1 km and 5 km.
+// From 1 km and 5 km, use 4× and 12× as many street figures from the same group count.
 const STREET_DENSITY: [f64; 3] = [1., 4., 12.];
 const CITY_SECONDS_PER_SECOND: f32 = 8.;
 const BIN: f32 = 1800.0;
@@ -755,9 +755,7 @@ fn read_result(
             PERSONS_PER_MOVER
         };
         let density = match row["mode"].as_str() {
-            // Keep each car from the city overview visible when the camera follows it in.
-            Some("car") => [STREET_DENSITY[2]; 3],
-            Some("walk" | "bicycle") => STREET_DENSITY,
+            Some("car" | "walk" | "bicycle") => STREET_DENSITY,
             _ => [1.; 3],
         };
         let count = row["count"].as_f64().unwrap();
