@@ -5,7 +5,7 @@ use bevy::{
         Extract, ExtractSchedule, RenderApp,
         render_resource::*,
         renderer::{RenderContext, RenderQueue, ViewQuery},
-        view::{ViewDepthStencilTexture, ViewTarget},
+        view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
     },
 };
 
@@ -13,16 +13,27 @@ use bevy::{
 struct DarkPaper {
     night: bool,
     title: Option<f32>,
+    to_sun: Vec3,
+}
+
+#[derive(Default, Clone, Copy, PartialEq, ShaderType)]
+struct PrintView {
+    up_and_focal: Vec4,
+    sun_and_title: Vec4,
 }
 
 fn extract_paper(
     night: Extract<Res<crate::Night>>,
     title: Extract<Res<crate::boot::TitleLight>>,
     subway: Extract<Res<crate::city::SubwayView>>,
+    sun: Extract<Query<&GlobalTransform, With<DirectionalLight>>>,
     mut paper: ResMut<DarkPaper>,
 ) {
     paper.night = night.0 || subway.0;
     paper.title = title.0;
+    if let Ok(sun) = sun.single() {
+        paper.to_sun = sun.back().into();
+    }
 }
 
 #[derive(Resource)]
@@ -43,7 +54,7 @@ pub fn install(app: &mut App) {
             (
                 binding_types::texture_2d(TextureSampleType::Float { filterable: false }),
                 binding_types::texture_depth_2d(),
-                binding_types::uniform_buffer::<Vec4>(false),
+                binding_types::uniform_buffer::<PrintView>(false),
             ),
         ),
     );
@@ -60,17 +71,17 @@ pub fn install(app: &mut App) {
 }
 
 fn draw(
-    view: ViewQuery<(&ViewTarget, &ViewDepthStencilTexture)>,
+    view: ViewQuery<(&ViewTarget, &ViewDepthStencilTexture, &ExtractedView)>,
     mut ctx: RenderContext,
     cache: Res<PipelineCache>,
     pass: Res<VotePass>,
     fullscreen: Res<FullscreenShader>,
     paper: Res<DarkPaper>,
     queue: Res<RenderQueue>,
-    mut blend: Local<UniformBuffer<Vec4>>,
+    mut uniform: Local<UniformBuffer<PrintView>>,
     mut selected: Local<Option<((TextureFormat, &'static str), CachedRenderPipelineId)>>,
 ) {
-    let (target, depth) = view.into_inner();
+    let (target, depth, camera) = view.into_inner();
     let format = target.main_texture_format();
     let entry = if paper.title.is_some() {
         "title"
@@ -105,16 +116,21 @@ fn draw(
     let Some(z) = depth.attachment.depth_stencil_views().depth_only_view() else {
         return;
     };
-    let value = Vec4::splat(paper.title.unwrap_or_default());
-    if blend.binding().is_none() || *blend.get() != value {
-        blend.set(value);
-        blend.write_buffer(ctx.render_device(), &queue);
+    let view_rotation = camera.world_from_view.rotation().inverse();
+    let focal = 0.5 * camera.viewport.w as f32 * camera.clip_from_view.y_axis.y;
+    let value = PrintView {
+        up_and_focal: (view_rotation * Vec3::Y).extend(focal),
+        sun_and_title: (view_rotation * paper.to_sun).extend(paper.title.unwrap_or_default()),
+    };
+    if uniform.binding().is_none() || *uniform.get() != value {
+        uniform.set(value);
+        uniform.write_buffer(ctx.render_device(), &queue);
     }
     let post = target.post_process_write();
     let bindings = ctx.render_device().create_bind_group(
         "city pixel vote",
         &cache.get_bind_group_layout(&pass.layout),
-        &BindGroupEntries::sequential((post.source, z, blend.binding().unwrap())),
+        &BindGroupEntries::sequential((post.source, z, uniform.binding().unwrap())),
     );
     let mut render = ctx
         .command_encoder()

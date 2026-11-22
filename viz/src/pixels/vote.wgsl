@@ -1,7 +1,11 @@
 // Print the opaque scene in categorical inks. Scenario edits draw over the print.
 @group(0) @binding(0) var scene: texture_2d<f32>;
 @group(0) @binding(1) var depth: texture_depth_2d;
-@group(0) @binding(2) var<uniform> title_light: vec4<f32>;
+struct PrintView {
+    up_and_focal: vec4<f32>,
+    sun_and_title: vec4<f32>,
+}
+@group(0) @binding(2) var<uniform> view: PrintView;
 
 const INKS = array<u32, 14>(
     0x242942u, 0x343957u, 0x50557au, 0x666d98u, 0x7a81adu, 0x9099c2u,
@@ -29,19 +33,24 @@ fn light(p: vec2<i32>) -> f32 {
     return dot(rgb, vec3<f32>(.30,.55,.15));
 }
 
-// The second depth difference vanishes on a planar roof or street. Its sign
-// selects one side of the silhouette or fold, keeping the line one sample wide.
-fn depth_line(c: f32, a: f32, b: f32) -> bool {
-    return 2.*c - a - b > max(.00022*c, 1e-9);
-}
-
-fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
+fn print_city(pos: vec4<f32>, dark: bool, hatch: bool) -> vec4<f32> {
     let p = vec2<i32>(pos.xy);
     let z = z_at(p);
     if z == 0. { return textureLoad(scene, p, 0); }
     let dx = vec2<i32>(1,0);
     let dy = vec2<i32>(0,1);
-    let crease = depth_line(z, z_at(p-dx), z_at(p+dx)) || depth_line(z, z_at(p-dy), z_at(p+dy));
+    // One-sided curvature traces the edge once. Reuse the same samples for planar faces.
+    let horizontal = vec2<f32>(z_at(p-dx), z_at(p+dx));
+    let tolerance = max(.00022*z, 1e-9);
+    let bend_x = 2.*z - horizontal.x - horizontal.y;
+    var crease = bend_x > tolerance;
+    var vertical = vec2<f32>(z);
+    var bend_y = 0.;
+    if !crease {
+        vertical = vec2<f32>(z_at(p-dy), z_at(p+dy));
+        bend_y = 2.*z - vertical.x - vertical.y;
+        crease = bend_y > tolerance;
+    }
     let rgb = textureLoad(scene, p, 0).rgb;
     let l = dot(rgb, vec3<f32>(.30,.55,.15));
     let neutral = max(max(rgb.r,rgb.g),rgb.b) - min(min(rgb.r,rgb.g),rgb.b) < .20*max(l,.001);
@@ -63,6 +72,20 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
         level = u32(clamp(mix(shadow, 13.2, value) + rank, 0., 13.));
         outline = select(5u, 3u, crease);
         if structure { outline -= 1u; }
+        if hatch && violet && l < .32 && !boundary && max(abs(bend_x), abs(bend_y)) <= tolerance {
+            // Reverse depth on a perspective-projected plane is affine in pixel coordinates.
+            // Its two slopes give the geometric normal, including for the coarse building boxes.
+            let slope = .5 * vec2<f32>(horizontal.y-horizontal.x, vertical.y-vertical.x);
+            let center = .5 * vec2<f32>(textureDimensions(depth));
+            let n = normalize(vec3<f32>(view.up_and_focal.w * vec2<f32>(-slope.x, slope.y),
+                                         z - dot(pos.xy-center, slope)));
+            let sun = dot(n, view.sun_and_title.xyz);
+            if abs(dot(n, view.up_and_focal.xyz)) < .25 && sun < .15 {
+                let stripe = (grid.x + grid.y) % 6u == 0u;
+                let crossed = sun < -.35 && l < .12 && ((grid.x - grid.y) & 7u) == 0u;
+                level = select(min(level + 2u, 12u), level - 2u, stripe || crossed);
+            }
+        }
     }
     let shade = select(level, outline, crease || boundary);
     let base = ink(shade);
@@ -87,13 +110,13 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
 }
 
 @fragment fn day(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
-    return print_city(pos, false);
+    return print_city(pos, false, true);
 }
 
 @fragment fn night(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
-    return print_city(pos, true);
+    return print_city(pos, true, false);
 }
 
 @fragment fn title(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
-    return mix(print_city(pos, false), print_city(pos, true), title_light.x);
+    return mix(print_city(pos, false, false), print_city(pos, true, false), view.sun_and_title.w);
 }
