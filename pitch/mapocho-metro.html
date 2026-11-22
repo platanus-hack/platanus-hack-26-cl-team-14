@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Santiaguito · Mapocho y Metro</title>
+  <title>Santiaguito · Mapocho y torre</title>
   <style>
     @font-face {
       font-family: Barlow;
@@ -88,11 +88,6 @@
       font-size: clamp(.85rem, min(2.15vw, 3.7vh), 2.55rem);
       line-height: 1.14;
     }
-    #auto-result:not([hidden]) {
-      display: block;
-      color: #fff;
-      font-size: .76em;
-    }
     #fondo {
       position: fixed;
       inset: 0;
@@ -121,31 +116,21 @@
     <div class="scenarios">
       <section aria-labelledby="mapocho-question">
         <h2 id="mapocho-question"><span class="prompt">❯ </span><span class="typed" data-text="¿Y si hubiera un ferry en el Mapocho?"></span><span class="run"></span></h2>
-        <video id="ferry" src="media/mapocho-muelle.mp4" muted loop playsinline preload="auto"
-          aria-label="Embarque y zarpe del ferry simulado en el Mapocho"></video>
-        <p class="detail">Embarque y zarpe</p>
+        <video id="ferry" src="media/mapocho-muelle-ferry.mp4" muted loop playsinline preload="auto"
+          aria-label="Replay completo del ferry simulado en el Mapocho"></video>
+        <p class="detail">10 muelles · un ferry cada 10 minutos</p>
       </section>
-      <section aria-labelledby="metro-question">
-        <h2 id="metro-question"><span class="prompt">❯ </span><span class="typed" data-text="¿Y si cerrara todo el Metro de 7 a 10?"></span><span class="run"></span></h2>
-        <video id="metro" src="media/metro-tobalaba.mp4" muted loop playsinline preload="auto"
-          aria-label="Trenes en Tobalaba antes y durante el cierre simulado"></video>
-        <p class="detail">
-          <span id="metro-status">Servicio habitual</span>
-          <span id="auto-result" hidden>Salidas estimadas al trabajo en auto de 504.342 a 591.740</span>
-        </p>
+      <section aria-labelledby="torre-question">
+        <h2 id="torre-question"><span class="prompt">❯ </span><span class="typed" data-text="¿Y si copiamos la Gran Torre en Puente Alto?"></span><span class="run"></span></h2>
+        <video id="torre" src="media/torre-puente-alto.mp4" muted loop playsinline preload="auto"
+          aria-label="Replay de una copia de la Gran Torre Costanera en Puente Alto"></video>
+        <p class="detail">5.863 empleos · de 06:00 a 09:00</p>
       </section>
     </div>
   </main>
   <script>
     const ferry = document.querySelector('#ferry');
-    const metro = document.querySelector('#metro');
-    const status = document.querySelector('#metro-status');
-    const result = document.querySelector('#auto-result');
-
-    metro.addEventListener('timeupdate', () => {
-      status.textContent = metro.currentTime >= 6.9 ? 'Cierre simulado de 07:00 a 10:00' : 'Servicio habitual';
-      result.hidden = metro.currentTime < 11.9;
-    });
+    const torre = document.querySelector('#torre');
 
     const spinner = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
     let timer;
@@ -161,7 +146,7 @@
         section.querySelector('.run').textContent = '';
         section.querySelector('.run').className = 'run';
       }
-      for (const video of [ferry, metro]) {
+      for (const video of [ferry, torre]) {
         video.pause();
         video.currentTime = 0;
       }
@@ -187,7 +172,7 @@
         }
         if (tick === longest + 53) {
           clearInterval(timer);
-          for (const video of [ferry, metro]) {
+          for (const video of [ferry, torre]) {
             video.playbackRate = 1.25;
             video.play().catch(() => {});
           }
