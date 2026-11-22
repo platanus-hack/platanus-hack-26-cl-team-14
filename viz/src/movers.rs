@@ -606,6 +606,7 @@ impl StreetIndex {
 }
 
 struct Group {
+    car_bounds: Vec<(Vec3, f32)>,
     cars: Vec<u16>,
     itineraries: Vec<RiderPlan>,
     duration: f32,
@@ -795,6 +796,7 @@ fn read_result(
             .fold(*path.seconds.last().unwrap(), f32::max);
         replay.longest = replay.longest.max(duration);
         replay.departures[bin].push(Group {
+            car_bounds: if row["mode"] == "car" { car_geometry::section_bounds(&path) } else { Vec::new() },
             cars: if row["mode"] == "car" {
                 fleet.cars(row["origin_cut"].as_str().unwrap(), id, copies[2])
             } else {
@@ -1255,6 +1257,10 @@ fn draw(
                 continue;
             }
             if since_bin > BIN + g.duration {
+                continue;
+            }
+            // The same padding as the per-figure check keeps cars visible at the frame edge.
+            if !g.car_bounds.is_empty() && !g.car_bounds.iter().any(|&(p, r)| visible(p, r + 100.)) {
                 continue;
             }
             let copies = g.copies[tier];

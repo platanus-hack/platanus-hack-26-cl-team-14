@@ -53,3 +53,21 @@ pub(super) fn restore<'a>(cars: impl Iterator<Item = &'a mut Arc<Path>>) {
         path.seconds = seconds;
     }
 }
+
+// Each sphere covers a continuous section including its last edge.
+pub(super) fn section_bounds(path: &Path) -> Vec<(Vec3, f32)> {
+    (0..path.points.len() - 1)
+        .step_by(32)
+        .map(|start| {
+            let end = (start + 32).min(path.points.len() - 1);
+            let points = &path.points[start..=end];
+            let mut low = points[0];
+            let mut high = points[0];
+            for &point in points {
+                low = low.min(point);
+                high = high.max(point);
+            }
+            ((low + high) * 0.5, low.distance(high) * 0.5)
+        })
+        .collect()
+}
