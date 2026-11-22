@@ -1,6 +1,6 @@
 //! Large label of a side-by-side tile, from the `label` that tools/replay-relay.mjs adds.
-use crate::{focus::{self, CueCaption}, net::Scenario};
-use bevy::{prelude::*, text::FontSize};
+use crate::{focus::{self, CueCaption, CueStep}, net::Scenario};
+use bevy::{prelude::*, text::FontSize, ui::RelativeCursorPosition};
 
 // The darkest blue-violet ink of the city print, opaque so text stays legible over white roofs.
 pub(crate) const PANEL_INK: Color = Color::srgb_u8(0x24, 0x29, 0x42);
@@ -9,9 +9,11 @@ pub struct LabelPlugin;
 impl Plugin for LabelPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CueCaption>()
+            .init_resource::<CueStep>()
             .add_systems(Startup, spawn_caption)
             .add_systems(Update, (
                 draw.run_if(resource_changed::<Scenario>),
+                click_arrow.before(focus::cue),
                 show_caption.after(focus::cue).run_if(resource_changed::<CueCaption>),
             ));
     }
@@ -74,6 +76,10 @@ struct CaptionBand;
 #[derive(Component)]
 struct CaptionText;
 
+// A caption arrow and its step: -1 back, 1 forward.
+#[derive(Component)]
+struct CueArrow(i32);
+
 // Full-width subtitle bar: the projector audience reads one large line per camera cue.
 fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let font = fonts.add(Font::from_bytes(include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec()));
@@ -93,6 +99,38 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             },
         ))
         .with_children(|band| {
+            // Step arrows above the band: a click works when the chat has the keyboard.
+            band.spawn(Node {
+                position_type: PositionType::Absolute,
+                bottom: percent(100),
+                right: px(40),
+                column_gap: px(12),
+                margin: UiRect::bottom(px(12)),
+                ..default()
+            })
+            .with_children(|row| {
+                for (step, glyph) in [(-1, "<"), (1, ">")] {
+                    row.spawn((
+                        CueArrow(step),
+                        RelativeCursorPosition::default(),
+                        BackgroundColor(PANEL_INK),
+                        Node {
+                            width: px(96),
+                            height: px(96),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                    ))
+                    .with_children(|arrow| {
+                        arrow.spawn((
+                            Text::new(glyph),
+                            TextFont { font: font.clone().into(), font_size: FontSize::Px(64.), ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+                }
+            });
             // Accent strip in the red of the stadium stands.
             band.spawn((
                 BackgroundColor(Color::srgb_u8(0xD6, 0x58, 0x4B)),
@@ -115,4 +153,18 @@ fn show_caption(
 ) {
     text.0.clone_from(&caption.0);
     **band = if caption.0.is_empty() { Visibility::Hidden } else { Visibility::Inherited };
+}
+
+fn click_arrow(
+    mouse: Res<ButtonInput<MouseButton>>,
+    band: Single<&Visibility, With<CaptionBand>>,
+    arrows: Query<(&CueArrow, &RelativeCursorPosition)>,
+    mut step: ResMut<CueStep>,
+) {
+    if !mouse.just_pressed(MouseButton::Left) || **band == Visibility::Hidden {
+        return;
+    }
+    if let Some((arrow, _)) = arrows.iter().find(|(_, cursor)| cursor.cursor_over()) {
+        step.0 = arrow.0;
+    }
 }
