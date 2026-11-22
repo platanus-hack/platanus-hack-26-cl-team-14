@@ -95,6 +95,6 @@ pub(crate) fn fade(
     } else {
         Visibility::Hidden
     };
-    let material = materials.get_mut(&wash.0.0).unwrap();
+    let mut material = materials.get_mut(&wash.0.0).unwrap();
     material.base_color = sky.0.with_alpha(opacity);
 }
