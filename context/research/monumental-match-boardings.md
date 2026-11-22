@@ -19,16 +19,22 @@ Use the April 2025 workbook with SHA-256 `570d643a01c677386a2814e678433562f3c7e6
 
 ## A second match on 8 November 2025
 
-Colo-Colo Femenino played Palestino at the Monumental at 20:00 on Saturday 8 November 2025. The dated DTPM stages show a peak at Pedrero at 22:00. The four other stations in this table each had fewer recorded boardings in that half-hour than in the preceding half-hour. The counts give a second reference for the location and timing of a station peak. Match attendance, the final whistle time and a comparable Saturday without a match remain unverified. [ANFP match record](https://www.campeonatochileno.cl/match/colo-colo-femenino-palestino-femenino-2025-11-08/) · [DTPM stages](https://www.dtpm.cl/descargas/modelos_y_matrices/Etapas_Nov_2025.zip)
+Colo-Colo Femenino played Palestino at the Monumental on Saturday 8 November 2025. The ANFP lists the match at 20:00. DaleAlbo reported kickoff at 20:02, 3,746 controlled attendees and full time at 21:56. Use 22:00–23:00 for entries after full time. The 21:30 half-hour includes the final whistle. [ANFP match record](https://www.campeonatochileno.cl/match/colo-colo-femenino-palestino-femenino-2025-11-08/) · [DaleAlbo live log](https://dalealbo.cl/colocolo/colo-colo-femenino-vs-palestino-en-vivo-minuto-a-minuto-por-los-cuartos-de-final)
 
-| Station | 21:30 | 22:00 | 22:30 |
+| Station | 8 Nov 2025 entries at 21:30 / 22:00 / 22:30 | 23 Nov 2024 entries at 21:30 / 22:00 / 22:30 | Difference at 22:00–23:00 |
 | --- | ---: | ---: | ---: |
-| Pedrero | 144 | 814 | 128 |
-| Mirador | 297 | 212 | 94 |
-| Macul | 276 | 213 | 167 |
-| San Joaquín | 89 | 73 | 50 |
-| Camino Agrícola | 56 | 50 | 40 |
+| Pedrero | 144 / 814 / 128 | 72 / 56 / 41 | +845 |
+| Mirador | 297 / 212 / 94 | 211 / 118 / 86 | +102 |
+| Macul | 276 / 213 / 167 | 212 / 179 / 142 | +59 |
+| San Joaquín | 89 / 73 / 50 | 52 / 38 / 42 | +43 |
+| Camino Agrícola | 56 / 50 / 40 | 81 / 43 / 39 | +8 |
+
+The dated 2024 Saturday gives a descriptive comparison of all-rider entries at the same stations and times. At Pedrero, DTPM recorded 942 entries after full time in 2025 and 97 in the same hour in 2024. The 2024 date was the eve of the regional runoff. Archived GTFS schedules Line 5 every 280 seconds in each direction at Pedrero and Mirador from 21:30 to 23:00 on both dates. Actual service and local demand remain unverified. Keep the November score pending until a verified match-free Saturday with comparable service and matched predictions are available. Use the separate alighting measure for arrivals. [DTPM November 2024 stages](https://www.dtpm.cl/descargas/modelos_y_matrices/Tabla-de-Etapas-%20Nov24.zip) · [Servel runoff regions](https://www.servel.cl/biblioteca-de-documentos/procesos-electorales/elecciones-2024/documentos-elecciones-2024/regiones-con-segunda-vuelta-de-gobernadores-regionales/) · [DTPM GTFS archive](https://www.dtpm.cl/index.php/programas-de-operaciones/gtfs-historicos) · [Pre-match alightings](monumental-pre-match-alightings.md)
 
 In the November stages ZIP, extract `Tabla de Etapas/2025-11-08.etapas.csv.gz` (SHA-256 `4a72cab5324db62c9824c84a84be6e893f8548547869d43392f47b189ba9c230`). Filter the pipe-delimited records to `tipo_transporte = METRO`, the five stations in `parada_subida`, and 8 November in `tiempo_subida`. Count rows by `parada_subida` and `media_hora_subida`. Across the five stations and all hours, 44,906 rows each had service expansion factor 1. No two rows shared station, boarding timestamp, operator, encrypted ID and both trip and stage counters.
 
-The [DTPM catalog](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) lists 8–14 November 2025. The [companion workbook](https://www.dtpm.cl/descargas/modelos_y_matrices/Subidas_Paradero_Estacion_2025.11.xlsx) gives 15–16 November for its weekend rows in `FICHA_DATOS`. Use the dated stages for 8 November. The workbook's Saturday rows have no date column and do not serve as a comparison here.
+In the November 2024 ZIP, use the dated 23 November gzip member (SHA-256 `eade0af519cbd7d425dfcf177ce187c173e455ba69898f8e8c90482a71ed1525`). Apply the same filters for 23 November 2024. Mirtha checked the ZIP member CRC and reported 38,953 dated entry rows across the five stations, each with expansion factor 1. The extracted table and source notes are in the V4 handoff. [V4 source handoff](https://discord.com/channels/1573514576400752640/1573813174694846566/1573861223798407333)
+
+The [DTPM catalog](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) lists 8–14 November 2025. The [companion workbook](https://www.dtpm.cl/descargas/modelos_y_matrices/Subidas_Paradero_Estacion_2025.11.xlsx) gives 15–16 November for its weekend rows in `FICHA_DATOS`. Use the dated stages for 8 November. The workbook's Saturday rows carry day type only, so their date remains unverified. Contemporary reporting also identifies the Monumental as a polling site for that election. [Polling-site report](https://dalealbo.cl/colocolo/elecciones-presidenciales-modifican-el-plan-de-colo-colo-para-enfrentar-a-union-la-calera)
+
+To reproduce the schedule comparison, use Saturday service S in `GTFS_20241109.zip` and `GTFS_20251108.zip`. Apply date exceptions and shift the Line 5 frequency windows by the departure offset at parent stops PE and MA. The resulting windows cover all three half-hours in the table. [GTFS check and source notes](https://discord.com/channels/1573514576400752640/1573813174694846566/1573862265583566848)

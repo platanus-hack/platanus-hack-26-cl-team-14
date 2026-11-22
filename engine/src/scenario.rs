@@ -89,7 +89,7 @@ const ASSUMPTIONS: [&str; 10] = [
     "Persons are synthetic and consistent with the Census 2024 margins. They are not microdata.",
     "The station model (L9) is fitted on the baseline. Its scale, classes and profiles do not change.",
     "Travel times are comuna to comuna and lower than survey times. The effect of a time change is an unvalidated sensitivity; the size and direction of its error are unknown.",
-    "A mode change does not reach the stations yet: stations use the baseline public share of the home comuna.",
+    "Stations use the baseline public share of the home comuna, scaled by the change in its public-transport workers.",
     "Open city for residents: more or fewer residents change the total of workers, with the baseline workers per resident of the comuna.",
     "Station access (L9): a walk within 1,000 m, or else one bus. A closed station does not change the travel minutes between comunas or the job choice.",
     "Students do not choose again.",
@@ -270,8 +270,19 @@ impl Scenario {
             let o = home[p.home as usize];
             od[o * n + work[p.dest as usize]] += 1.0;
             modes[o][match p.mode { 2 => 0, 1 => 1, _ => 2 }] += 1;
-            h[p.home as usize] += share[o];
-            j[p.dest as usize] += share[o];
+        }
+        // A mode change reaches the stations: the comuna's public share moves with its share of public workers
+        // relative to the baseline (factor 1 at baseline, and while the baseline itself is built). A share ratio,
+        // not a count ratio, because the loop below already counts every worker once.
+        let public_share = |m: &[u32; 3]| f64::from(m[0]) / f64::from(m[0] + m[1] + m[2]);
+        let factor: Vec<f64> = (0..n).map(|o| match self.base.modes.get(o) {
+            Some(base) if base[0] > 0 && modes[o].iter().sum::<u32>() > 0 => public_share(&modes[o]) / public_share(base),
+            _ => 1.0,
+        }).collect();
+        for p in pop.persons.iter().filter(|p| !p.student) {
+            let o = home[p.home as usize];
+            h[p.home as usize] += share[o] * factor[o];
+            j[p.dest as usize] += share[o] * factor[o];
         }
         let pts = |v: &[Point], m: &[f64]| v.iter().zip(m).map(|(p, &x)| (p.longitude, p.latitude, x)).collect::<Vec<_>>();
         self.access.weight_job_masses(pop.jobs.iter().map(|p| (p.id.as_str(), p.cut.as_str())), &mut j);
@@ -764,6 +775,25 @@ impl Scenario {
         let mut origins = vec![EntryOrigins::default(); self.stations.len() + network.additions.len()];
         let b = &self.base;
         let mut s = self.state(&pop, &network, &mut origins);
+        // Network reach: after a line edit that splits the Metro, a station keeps only the share of its riders
+        // (weighted by baseline station entries) whose stations it still reaches on the operating Metro graph.
+        let mut reach = vec![];
+        if let Some(edits) = &line_edits {
+            let (now, then) = (edits.metro_components(), self.lines.get().unwrap().as_ref().unwrap().edits().metro_components());
+            if now != then {
+                let w: Vec<f64> = b.day.iter().map(|bins| bins.iter().sum()).collect();
+                let ids: Vec<&String> = self.stations.iter().map(|st| &st.0).collect();
+                let open = |d: usize| network.open.contains(ids[d]);
+                for (i, day) in s.day.iter_mut().enumerate().take(ids.len()) {
+                    let (Some(&c_now), Some(&c_then)) = (now.get(ids[i]), then.get(ids[i])) else { continue };
+                    let kept: f64 = (0..ids.len()).filter(|&d| d != i && open(d) && now.get(ids[d]) == Some(&c_now)).map(|d| w[d]).sum();
+                    let total: f64 = (0..ids.len()).filter(|&d| d != i && then.get(ids[d]) == Some(&c_then)).map(|d| w[d]).sum();
+                    let r = kept / total;
+                    day.iter_mut().for_each(|x| *x *= r);
+                    reach.push(json!({"id": ids[i], "reach": (r * 1000.0).round() / 1000.0}));
+                }
+            }
+        }
         // Outside the window the stations keep their baseline entries.
         if let Some((a, z)) = window {
             let mut reopened_origins = vec![EntryOrigins::default(); self.stations.len()];
@@ -863,6 +893,10 @@ impl Scenario {
             result["assumptions"].as_array_mut().unwrap().push(json!("When a mode loses places, who keeps it is a deterministic weighted draw: the weight is the Census 2024 share of that mode among workers of the same home comuna, age band and household size. Unknown household size has its own group for the draw. These workers count in age summaries only. mode_change_by_person follows from this rule, not from an observed response. Workers that a residents change adds are not counted."));
         }
         if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
+        if !reach.is_empty() {
+            result["metro_reach"] = json!(reach);
+            result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a line edit splits the Metro, each station's entries are multiplied by the share of baseline entries at the other open stations it still reaches on the operating Metro graph. Riders who lose reach leave the Metro (bus or other); they are not counted at another station."));
+        }
         if !car_shares.is_empty() {
             let cars = self.car_ownership.as_ref().unwrap();
             let counts = |[public, car, other]: [u32; 3]| json!({

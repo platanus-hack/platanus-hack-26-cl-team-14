@@ -1,0 +1,509 @@
+osm_id,name,osm_type,osm_version,osm_shop,osm_brand,osm_operator,osm_brand_wikidata
+n252957709,Unimarc,node,9,supermarket,Unimarc,,Q6156244
+n252991803,Jumbo,node,8,supermarket,Jumbo,,Q6310864
+n254252117,Santa Isabel,node,6,supermarket,Santa Isabel,,Q7419620
+n256041610,Santa Isabel,node,10,supermarket,Santa Isabel,CENCOSUD,Q7419620
+n267183559,Lider Express,node,6,supermarket,Lider,,Q6711261
+n312090416,Mall Chino,node,5,supermarket,,,
+n312090484,Santa Isabel,node,7,supermarket,Santa Isabel,,Q7419620
+n312300679,Jumbo,node,3,supermarket,Jumbo,,Q6310864
+n336164144,Unimarc,node,5,supermarket,Unimarc,,Q6156244
+n350553062,Tottus,node,10,supermarket,Tottus,,Q7828510
+n355352149,Unimarc,node,7,supermarket,Unimarc,,Q6156244
+n358792465,Lider,node,5,supermarket,Lider,,Q6711261
+n445000554,Santa Isabel,node,10,supermarket,Santa Isabel,,Q7419620
+n447556358,Jumbo,node,7,supermarket,Jumbo,,Q6310864
+n482800548,Lider,node,9,supermarket,Lider,Walmart,Q6711261
+n484815460,Los Alpes,node,6,supermarket,,,
+n583469161,Jumbo,node,8,supermarket,Jumbo,,Q6310864
+n588163134,Lider Express,node,7,supermarket,Lider,,Q6711261
+n603970791,Ekono,node,3,supermarket,,,
+n612587351,Unimarc,node,11,supermarket,Unimarc,,Q6156244
+n616745230,Santa Isabel,node,8,supermarket,Santa Isabel,,Q7419620
+n671601415,Jumbo,node,12,supermarket,Jumbo,,Q6310864
+n711014511,Lider Express,node,4,supermarket,Lider,,Q6711261
+n737158484,Granjero Productos Naturales,node,2,supermarket,,,
+n762573806,Lider Express,node,5,supermarket,Lider,,Q6711261
+n823646578,Mass,node,8,supermarket,,,
+n830539475,Unimarc,node,9,supermarket,Unimarc,,Q6156244
+n842071351,Jumbo,node,6,supermarket,Jumbo,,Q6310864
+n889745743,Lider,node,10,supermarket,Lider,Lider,Q6711261
+n890724897,Lider,node,9,supermarket,Lider,,Q6711261
+n1012495840,Santa Isabel,node,5,supermarket,Santa Isabel,Cencosud,Q7419620
+n1018360266,Santa Isabel,node,8,supermarket,Santa Isabel,,Q7419620
+n1019372609,Punto Rabié,node,1,supermarket,,,
+n1019374161,Lider,node,7,supermarket,Lider,,Q6711261
+n1019374207,Tottus,node,11,supermarket,Tottus,,Q7828510
+n1038517049,Santa Isabel,node,5,supermarket,Santa Isabel,,Q7419620
+n1064723013,Lider,node,2,supermarket,Lider,,Q6711261
+n1100625673,Santa Isabel,node,4,supermarket,Santa Isabel,,Q7419620
+n1114558044,Santa Isabel,node,6,supermarket,Santa Isabel,,Q7419620
+n1116111213,Manolo,node,8,supermarket,,,
+n1117902499,Lider Express,node,4,supermarket,Lider,,Q6711261
+n1119559405,Jumbo,node,11,supermarket,Jumbo,,Q6310864
+n1128666787,Productor,node,3,supermarket,,,
+n1157169748,O2 deportes,node,4,supermarket,,,
+n1175292949,Santa Isabel,node,5,supermarket,Santa Isabel,,Q7419620
+n1235315676,Don Salva,node,8,supermarket,,,
+n1237824799,Lider Express,node,5,supermarket,Lider,,Q6711261
+n1242124352,Lider,node,3,supermarket,Lider,,Q6711261
+n1261419454,Santa Isabel,node,6,supermarket,Santa Isabel,,Q7419620
+n1309372868,Lider,node,8,supermarket,Lider,,Q6711261
+n1319668462,,node,2,supermarket,,,
+n1345751011,Lider,node,3,supermarket,Lider,,Q6711261
+n1654480570,Tottus,node,6,supermarket,Tottus,,Q7828510
+n1722083139,Santa Isabel,node,7,supermarket,Santa Isabel,,Q7419620
+n1779926218,Jumbo,node,13,supermarket,Jumbo,,Q6310864
+n1930893444,Unimarc El Abrazo de Maipú,node,2,supermarket,,,
+n2026340014,Santa Isabel,node,12,supermarket,Santa Isabel,Cencosud,Q7419620
+n2027945287,Ekono,node,1,supermarket,,,
+n2067561689,Comercial China,node,2,supermarket,,,
+n2084126381,Unimarc,node,5,supermarket,Unimarc,,Q6156244
+n2158118972,Tottus,node,4,supermarket,Tottus,,Q7828510
+n2181876025,Express de Líder,node,2,supermarket,,Walmart Chile,
+n2186763396,Santa Isabel,node,4,supermarket,Santa Isabel,,Q7419620
+n2232185889,Jumbo,node,6,supermarket,Jumbo,,Q6310864
+n2312997196,Mayorista 10,node,7,supermarket,,,
+n2313310841,Alvi,node,2,supermarket,,,
+n2390120636,Santa Isabel,node,2,supermarket,Santa Isabel,,Q7419620
+n2390241614,SuperBodega Acuenta,node,2,supermarket,,,
+n2401634378,Santa Isabel,node,3,supermarket,Santa Isabel,,Q7419620
+n2410387944,Jumbo,node,4,supermarket,Jumbo,,Q6310864
+n2437230277,Los Alpes,node,8,supermarket,,,
+n2463431710,Alvi,node,1,supermarket,,,
+n2465537538,Mayorista 10,node,5,supermarket,,SMU,
+n2528090148,Santa Isabel,node,6,supermarket,Santa Isabel,Cencosud,Q7419620
+n2546265929,Lider Express,node,2,supermarket,Lider,,Q6711261
+n2592756526,Santa Isabel,node,2,supermarket,Santa Isabel,,Q7419620
+n2868691570,Lider Express,node,2,supermarket,Lider,,Q6711261
+n2887451142,Felipe - Almacén,node,2,supermarket,,,
+n2970887049,Unimarc,node,4,supermarket,Unimarc,,Q6156244
+n3053548850,Tottus,node,8,supermarket,Tottus,,Q7828510
+n3068695379,Los Alpes,node,3,supermarket,,,
+n3086202908,Lider Express,node,2,supermarket,Lider,,Q6711261
+n3198433190,Supermercado Alvi,node,2,supermarket,,,
+n3299838426,Emporio Verde,node,2,supermarket,,,
+n3362741578,Almacen Ancud,node,3,supermarket,,,
+n3455702537,Unimarc,node,5,supermarket,Unimarc,,Q6156244
+n3708646052,Mall Chino,node,6,supermarket,,,
+n3721001495,Santa Isabel,node,6,supermarket,Santa Isabel,,Q7419620
+n3893561161,Ekono,node,3,supermarket,,,
+n3898537090,Anita,node,2,supermarket,,,
+n3937088972,Almacen el Lucho,node,2,supermarket,,El Lucho,
+n4018074573,Santa Isabel,node,6,supermarket,Santa Isabel,,Q7419620
+n4073647468,El Maulén,node,1,supermarket,,,
+n4289752355,R Y J Almacén y botillería,node,3,supermarket,,,
+n4317064591,Super 10,node,2,supermarket,,,
+n4317064693,Santa Isabel,node,5,supermarket,Santa Isabel,,Q7419620
+n4317064697,Unimarc,node,2,supermarket,Unimarc,,Q6156244
+n4317069394,Lider Express,node,3,supermarket,Lider,,Q6711261
+n4317102790,Lider Express,node,10,supermarket,Lider,,Q6711261
+n4317105491,Ekono,node,1,supermarket,,,
+n4317109489,Super 10,node,1,supermarket,,,
+n4317109591,Ekono,node,5,supermarket,Ekono,,Q2842729
+n4317109790,Tottus Express,node,4,supermarket,Tottus,,Q7828510
+n4347800569,OK market,node,8,supermarket,,,
+n4350362391,Tottus,node,8,supermarket,Tottus,Tottus,Q7828510
+n4362565289,Santa Isabel,node,2,supermarket,Santa Isabel,,Q7419620
+n4375393989,Unimarc,node,5,supermarket,Unimarc,,Q6156244
+n4385068089,Lider Express,node,8,supermarket,Lider,,Q6711261
+n4423986892,Lider Express,node,6,supermarket,Lider,,Q6711261
+n4423999009,Lider Express,node,7,supermarket,Lider,,Q6711261
+n4425395707,Lider Express,node,6,supermarket,Lider,,Q6711261
+n4434966629,Unimarc,node,9,supermarket,Unimarc,,Q6156244
+n4444772236,Lider Express,node,6,supermarket,Lider,,Q6711261
+n4444970069,Supermarket Al Toque,node,4,supermarket,,,
+n4448467434,Lider Express,node,7,supermarket,Lider,,Q6711261
+n4453878939,Supermercado Los Zuluagas,node,5,supermarket,Farmacias Ahumada,,
+n4454128736,La Oferta,node,2,supermarket,,,
+n4454128737,Comercial Siad Taleb,node,3,supermarket,,,
+n4455686091,El Triunfo,node,2,supermarket,,,
+n4455805402,El Dragón,node,3,supermarket,,,
+n4457208650,Unimarc,node,3,supermarket,Unimarc,,Q6156244
+n4462579994,Supermercado Chino,node,2,supermarket,,,
+n4463786186,Jumbo,node,4,supermarket,Jumbo,,Q6310864
+n4472218091,Zona de Quesos,node,2,supermarket,,,
+n4473814548,Lider Express,node,5,supermarket,Lider,,Q6711261
+n4474186488,Ahorra Food Depot,node,6,supermarket,,,
+n4497765227,Sabropan,node,1,supermarket,,,
+n4503166698,Jumbo,node,10,supermarket,Jumbo,Cencosud,Q6310864
+n4507330506,Unimarc,node,4,supermarket,Unimarc,,Q6156244
+n4530314390,Nature Market,node,2,supermarket,,,
+n4613283971,Catalina,node,2,supermarket,,,
+n4743727827,Juanita,node,3,supermarket,,,
+n4828895822,AriMarket,node,2,supermarket,,,
+n4981497876,Lotte Mart,node,2,supermarket,,Seung Hwan Kim,
+n4981497887,China House Market,node,2,supermarket,,,
+n4998764368,Mayorista 10,node,2,supermarket,,,
+n5129510036,Lider Express,node,12,supermarket,Lider,Walmart Chile,Q6711261
+n5197618549,Ekono,node,1,supermarket,,,
+n5262149422,Chinese Mark,node,2,supermarket,,,
+n5359511621,Tottus,node,4,supermarket,Tottus,,Q7828510
+n5473097676,Ekono,node,1,supermarket,,,
+n5473133944,Ekono,node,1,supermarket,,,
+n5473287258,Lider Express,node,3,supermarket,Lider,,Q6711261
+n5512677233,Lider Express,node,5,supermarket,Lider,,Q6711261
+n5548856525,Santa Isabel,node,2,supermarket,Santa Isabel,,Q7419620
+n5654466921,Los No Hay Ná,node,3,supermarket,,,
+n5656357822,Lider Express,node,7,supermarket,Lider,,Q6711261
+n5689198257,Unimarc,node,5,supermarket,Unimarc,,Q6156244
+n6056127068,Grocery Store,node,2,supermarket,,,
+n6120249486,,node,1,supermarket,,,
+n6145478888,Santa Isabel,node,2,supermarket,Santa Isabel,,Q7419620
+n6347499140,Santa Isabel,node,4,supermarket,Santa Isabel,,Q7419620
+n6484524874,Supermercados Erbi Núcleo Ochagavía,node,6,supermarket,Supermercados Erbi,,
+n6631486050,Comercial Castro,node,4,supermarket,,,
+n6712195186,La Bakería,node,3,supermarket,,,
+n6765350509,Lider Express,node,2,supermarket,Lider,,Q6711261
+n6935414695,Minimercado,node,1,supermarket,,,
+n7012698385,Tottus,node,4,supermarket,Tottus,,Q7828510
+n7049315534,Lider Express,node,2,supermarket,Lider,,Q6711261
+n7590854235,Emporio Market,node,2,supermarket,,Emporio Market,
+n7697437736,Minimarket el porvenir,node,1,supermarket,,,
+n8858730117,Jumbo,node,7,supermarket,Jumbo,Cencosud,Q6310864
+n9074371952,Lider Express,node,2,supermarket,Lider,,Q6711261
+n9115319377,Almacén y verdulería,node,1,supermarket,,,
+n9115373562,,node,1,supermarket,,,
+n9115405477,Don Edu,node,1,supermarket,,,
+n9115408805,Almacén Ex- Jacinto,node,1,supermarket,,,
+n9188092275,Jumbo,node,3,supermarket,Jumbo,,Q6310864
+n9243957427,Minimarket sub,node,3,supermarket,,,
+n9472633786,Supermercado Erbi,node,2,supermarket,,,
+n9930037526,Santa Isabel,node,1,supermarket,Santa Isabel,CENCOSUD S.A.,Q7419620
+n9930102853,Tottus,node,2,supermarket,Tottus,,Q7828510
+n10028500675,Santa Isabel,node,1,supermarket,Santa Isabel,,Q7419620
+n10054909318,Jumbo,node,3,supermarket,Jumbo,CENCOSUD S.A.,Q6310864
+n10132034327,Minimarket Cumbre,node,1,supermarket,,,
+n10774289745,Tottus,node,2,supermarket,Tottus,,Q7828510
+n11151556497,Santa Isabel,node,1,supermarket,Santa Isabel,,Q7419620
+n11231050958,Mass,node,4,supermarket,,,
+n11373789948,Lider Express,node,1,supermarket,Lider,,Q6711261
+n11484157879,wowi,node,1,supermarket,,wowi ventas,
+n11515260369,China House Market,node,2,supermarket,,,
+n11515426270,King Market,node,1,supermarket,,,
+n11765217551,Lider Express,node,2,supermarket,Lider,,Q6711261
+n11976918097,Tottus,node,2,supermarket,Tottus,,Q7828510
+n12472914853,Santa Isabel,node,2,supermarket,Santa Isabel,,Q7419620
+n12513635486,Spid,node,1,supermarket,,,
+n12549271058,Lider Express,node,1,supermarket,Lider,,Q6711261
+n12623321429,Jumbo,node,1,supermarket,Jumbo,,Q6310864
+n12851359736,Lider Express,node,1,supermarket,Lider,,Q6711261
+n13124056563,Comercial Castro,node,1,supermarket,,,
+n13259817908,Los Alpes,node,2,supermarket,,,
+n13259827501,Los Alpes,node,1,supermarket,,,
+n13416458701,Supercongelados. Sta Isabel,node,1,supermarket,,,
+n13710148303,Súper 10,node,1,supermarket,,,
+n13805009396,Lider,node,2,supermarket,Lider,,Q6711261
+n13824216294,Santa Isabel,node,1,supermarket,,,
+n13932546588,Supermercado Don Salva,node,1,supermarket,,,
+n13993527152,Unimarc,node,1,supermarket,Unimarc,,Q6156244
+n14000945673,Mass,node,1,supermarket,,,
+n14002898273,Unimarc,node,2,supermarket,Unimarc,,Q6156244
+n14379485161,Don Salva,node,1,supermarket,,,
+w23675225,Lider,way,8,supermarket,Lider,,Q6711261
+w24402037,Lider,way,8,supermarket,Lider,D&S,Q6711261
+w28593302,Lider Express,way,7,supermarket,Lider,,Q6711261
+w30594714,Lider,way,12,supermarket,Lider,D&S,Q6711261
+w30594778,Lider Express,way,11,supermarket,Lider,,Q6711261
+w31587008,Lider,way,10,supermarket,Lider,,Q6711261
+w33102634,Lider,way,5,supermarket,Lider,Walmart,Q6711261
+w33972819,Lider,way,8,supermarket,Lider,,Q6711261
+w34152274,Jumbo,way,10,supermarket,Jumbo,,Q6310864
+w36821710,Lider,way,4,supermarket,Lider,,Q6711261
+w37845016,Lider Express,way,8,supermarket,Lider,,Q6711261
+w37854464,Jumbo,way,11,supermarket,Jumbo,,Q6310864
+w37854487,Lider,way,5,supermarket,Lider,,Q6711261
+w37912141,Unimarc,way,5,supermarket,Unimarc,,Q6156244
+w38622391,Unimarc,way,6,supermarket,Unimarc,,Q6156244
+w39533365,Lider,way,17,supermarket,Lider,,Q6711261
+w39619589,Lider,way,7,supermarket,Lider,,Q6711261
+w40520280,Lider Express,way,5,supermarket,Lider,,Q6711261
+w45331840,Lider Express,way,6,supermarket,Lider,,Q6711261
+w51441804,Lider,way,10,supermarket,Lider,Walmart,Q6711261
+w51961428,Unimarc,way,8,supermarket,Unimarc,,Q6156244
+w54381478,Lider,way,15,supermarket,Lider,,Q6711261
+w83638633,Tottus,way,9,supermarket,Tottus,,Q7828510
+w86328867,Lider,way,7,supermarket,Lider,,Q6711261
+w87609055,Lider,way,5,supermarket,Lider,,Q6711261
+w90439830,Lider,way,10,supermarket,Lider,,Q6711261
+w92997061,Unimarc,way,7,supermarket,Unimarc,,Q6156244
+w94978188,Santa Isabel,way,7,supermarket,Santa Isabel,,Q7419620
+w95475010,Lider Express,way,8,supermarket,Lider,,Q6711261
+w112075728,Santa Isabel,way,4,supermarket,Santa Isabel,,Q7419620
+w112519024,Lider,way,3,supermarket,Lider,,Q6711261
+w116018070,Lider,way,10,supermarket,Lider,,Q6711261
+w131014311,Mayorista 10,way,5,supermarket,,,
+w146212430,Santa Isabel,way,5,supermarket,Santa Isabel,,Q7419620
+w151967309,Lider,way,12,supermarket,Lider,,Q6711261
+w154151046,Ekono,way,5,supermarket,,,
+w154246244,Lider Express,way,7,supermarket,Lider,,Q6711261
+w156425306,Acuenta,way,4,supermarket,,,
+w157974537,Lider Express,way,9,supermarket,Lider,,Q6711261
+w158130609,Unimarc,way,5,supermarket,Unimarc,,Q6156244
+w158307218,Santa Isabel,way,5,supermarket,Santa Isabel,,Q7419620
+w158768952,Lider,way,8,supermarket,Lider,,Q6711261
+w158794288,Mass,way,8,supermarket,OK Market,,
+w168084777,Unimarc,way,6,supermarket,Unimarc,,Q6156244
+w168523166,Tottus,way,7,supermarket,Tottus,,Q7828510
+w169473875,Santa Isabel,way,3,supermarket,Santa Isabel,,Q7419620
+w169473991,Vega Mercado,way,1,supermarket,,,
+w170292965,Supermercado Alvi,way,4,supermarket,,,
+w171141118,Lider Express,way,5,supermarket,Lider,,Q6711261
+w171412821,Lider Express,way,6,supermarket,Lider,Walmart Chile,Q6711261
+w172868715,Tottus,way,5,supermarket,Tottus,Tottus,Q7828510
+w172869545,Acuenta,way,4,supermarket,,,
+w173386249,Santa Isabel,way,9,supermarket,Santa Isabel,,Q7419620
+w173535066,Alvi,way,2,supermarket,,,
+w173535082,Lider,way,6,supermarket,Lider,,Q6711261
+w175934782,Mall Chino,way,8,supermarket,,COM.CHINA SHOPPING LTDA,
+w177708304,Ekono,way,2,supermarket,Ekono,,Q2842729
+w180081156,Unimarc,way,9,supermarket,Unimarc,,Q6156244
+w180348760,Unimarc,way,7,supermarket,Unimarc,,Q6156244
+w180348763,Unimarc,way,4,supermarket,Unimarc,,Q6156244
+w180396584,Unimarc,way,7,supermarket,Unimarc,Unimarc,Q6156244
+w180833833,Santa Isabel,way,4,supermarket,Santa Isabel,,Q7419620
+w184994821,Lider Express,way,8,supermarket,Lider,,Q6711261
+w186352957,Santa Isabel,way,6,supermarket,Santa Isabel,,Q7419620
+w186984738,Ekono,way,6,supermarket,,,
+w188151851,Mayorista 10,way,4,supermarket,,,
+w190593471,Lider,way,6,supermarket,Lider,,Q6711261
+w190640949,Lider Express,way,11,supermarket,Lider,,Q6711261
+w192122674,Lider Express,way,9,supermarket,Lider,,Q6711261
+w192294470,Santa Isabel,way,9,supermarket,Santa Isabel,,Q7419620
+w192629928,Lider,way,12,supermarket,Lider,,Q6711261
+w193166720,Jumbo,way,13,supermarket,Jumbo,,Q6310864
+w194211363,Alvi,way,5,supermarket,,,
+w194986832,Unimarc,way,7,supermarket,Unimarc,,Q6156244
+w194986834,Lider Express,way,10,supermarket,Lider,,Q6711261
+w195917365,SuperBodega aCuenta,way,5,supermarket,,,
+w208636006,Santa Isabel,way,7,supermarket,Santa Isabel,,Q7419620
+w208769690,Lider,way,4,supermarket,Lider,,Q6711261
+w215875067,Jumbo,way,8,supermarket,Jumbo,,Q6310864
+w222921239,Acuenta,way,3,supermarket,,,
+w230453247,Santa Isabel,way,5,supermarket,Santa Isabel,,Q7419620
+w236073918,Lider,way,4,supermarket,Lider,,Q6711261
+w237055591,Alvi,way,6,supermarket,,,
+w238753393,Súper 10,way,5,supermarket,,,
+w238753399,Unimarc,way,9,supermarket,Unimarc,,Q6156244
+w243171412,Unimarc,way,2,supermarket,Unimarc,,Q6156244
+w247973434,Montserrat,way,3,supermarket,,,
+w251114077,Alvi,way,6,supermarket,,,
+w255819748,Mayorista 10,way,3,supermarket,,,
+w255819749,Alvi,way,2,supermarket,,,
+w263488146,Ekono,way,3,supermarket,,Ekono,
+w263495031,Ekono,way,2,supermarket,,Ekono,
+w263495032,Ekono,way,3,supermarket,,Ekono,
+w263495034,Ekono,way,1,supermarket,,Ekono,
+w266209190,oxxo,way,5,supermarket,,,
+w273274038,Santa Isabel,way,6,supermarket,Santa Isabel,,Q7419620
+w274716994,Unimarc,way,10,supermarket,Unimarc,,Q6156244
+w276589870,Tottus Express,way,5,supermarket,Tottus,,Q7828510
+w280589912,Santa Isabel,way,8,supermarket,Santa Isabel,,Q7419620
+w281021167,Lider Express,way,10,supermarket,Lider,,Q6711261
+w281398829,Supermercado Mayorista 10,way,10,supermarket,,,
+w291858670,Mayorista 10,way,5,supermarket,,,
+w299942737,Supermercado Litz,way,8,supermarket,Scotiabank,,
+w300550627,Santa Isabel,way,6,supermarket,Santa Isabel,CENCOSUD,Q7419620
+w302321629,Lider Express,way,5,supermarket,Lider,,Q6711261
+w306739285,,way,4,supermarket,,,
+w306739287,Mayorista 10,way,5,supermarket,,,
+w319554384,Santa Isabel,way,14,supermarket,Santa Isabel,Cencosud,Q7419620
+w319951697,Lider Express,way,3,supermarket,Lider,Walmart,Q6711261
+w330405536,Tottus,way,9,supermarket,Tottus,,Q7828510
+w332758585,Lider,way,8,supermarket,Lider,,Q6711261
+w341026345,Lider Express,way,6,supermarket,Lider,,Q6711261
+w344714930,Unimarc,way,4,supermarket,Unimarc,,Q6156244
+w351410662,Acuenta,way,2,supermarket,,Super Bodega aCuenta,
+w355511670,Supermercado La Africana,way,4,supermarket,,,
+w363025782,Santa Isabel,way,6,supermarket,Santa Isabel,,Q7419620
+w368713220,Unimarc,way,4,supermarket,Unimarc,,Q6156244
+w368713686,Santa Isabel,way,7,supermarket,Santa Isabel,,Q7419620
+w371296095,Ekono,way,2,supermarket,,,
+w371547631,Unimarc,way,5,supermarket,Unimarc,,Q6156244
+w377787381,Supermercado Acuenta,way,3,supermarket,,,
+w378252765,Super 10,way,3,supermarket,,,
+w378252796,Santa Isabel,way,4,supermarket,Santa Isabel,,Q7419620
+w386199337,Unimarc,way,3,supermarket,Unimarc,,Q6156244
+w389241368,Santa Isabel,way,3,supermarket,Santa Isabel,,Q7419620
+w389291896,Unimarc,way,4,supermarket,Unimarc,,Q6156244
+w395875196,Unimarc,way,2,supermarket,Unimarc,,Q6156244
+w396952125,Alimentos Hitecsa,way,4,supermarket,,,
+w400624097,Jumbo,way,4,supermarket,Jumbo,,Q6310864
+w400778465,Tottus,way,4,supermarket,Tottus,,Q7828510
+w401417388,Tottus,way,7,supermarket,Tottus,,Q7828510
+w401431616,Unimarc,way,7,supermarket,Unimarc,,Q6156244
+w406319494,Unimarc,way,6,supermarket,Unimarc,,Q6156244
+w422538592,Unimarc,way,6,supermarket,Unimarc,,Q6156244
+w427205127,Minimarket La palmera,way,2,supermarket,,,
+w435204564,La Verbena,way,4,supermarket,,,
+w439265921,Super 10,way,3,supermarket,,,
+w444605981,Lider Express,way,7,supermarket,Lider,,Q6711261
+w444933583,Supermercado Mayorista 10,way,6,supermarket,,,
+w444953040,Tottus Express,way,7,supermarket,Tottus,,Q7828510
+w444979258,Mayorista 10,way,4,supermarket,,,
+w445112539,Supermercado Dandy,way,4,supermarket,,,
+w445127711,Supermercado Mayorista 10,way,6,supermarket,Súper 10,SMU,
+w445564086,San Lorenzo,way,2,supermarket,,,
+w445739848,Santa Isabel,way,6,supermarket,Santa Isabel,,Q7419620
+w445964112,Tottus,way,14,supermarket,Tottus,Falabella,Q7828510
+w445971978,Santa Isabel,way,4,supermarket,Santa Isabel,,Q7419620
+w445985957,Lider,way,11,supermarket,Lider,,Q6711261
+w446009485,Supermercado Mayorista 10,way,4,supermarket,,,
+w446093407,Comercial Castro,way,3,supermarket,,,
+w446168139,Lider Express,way,4,supermarket,Lider,,Q6711261
+w446171646,Super10,way,9,supermarket,,SMU,
+w446174894,Lider Express,way,5,supermarket,Lider,,Q6711261
+w446179472,Santa Isabel,way,6,supermarket,Santa Isabel,,Q7419620
+w446185966,Naturalist,way,3,supermarket,,,
+w446188745,Ahorra Food Depot,way,4,supermarket,,,
+w446220129,Rotiserías del Río,way,3,supermarket,,,
+w446222156,Fruna,way,2,supermarket,,,
+w446362100,Distribuidora J&M,way,4,supermarket,,,
+w446365692,Supermercado Alvi,way,11,supermarket,,,
+w446455856,Santa Isabel,way,5,supermarket,Santa Isabel,,Q7419620
+w446611574,Tottus,way,8,supermarket,Tottus,,Q7828510
+w446893323,Mayorista 10,way,7,supermarket,,,
+w446899446,Lider Express,way,9,supermarket,Lider,,Q6711261
+w446913193,Lider,way,11,supermarket,Lider,,Q6711261
+w446919866,Acuenta,way,3,supermarket,,,
+w446923735,Unimarc,way,4,supermarket,Unimarc,,Q6156244
+w447031979,Lider Express,way,3,supermarket,Lider,,Q6711261
+w447052154,Lider,way,8,supermarket,Lider,,Q6711261
+w447081500,Ekono,way,5,supermarket,,,
+w447255046,Supermercado Andrade,way,2,supermarket,,,
+w447300741,Santa Isabel,way,4,supermarket,Santa Isabel,,Q7419620
+w447301749,Alvi,way,3,supermarket,,,
+w447311521,Ekono,way,5,supermarket,,,
+w447548984,Supermercado San José,way,4,supermarket,,,
+w447550579,Acuenta,way,6,supermarket,,,
+w447778740,Santa Isabel,way,6,supermarket,Santa Isabel,,Q7419620
+w447778742,Lider Express,way,8,supermarket,Lider,,Q6711261
+w447779281,Santa Isabel,way,6,supermarket,Santa Isabel,,Q7419620
+w447779491,Lider Express,way,5,supermarket,Lider,,Q6711261
+w448180877,Lider Express,way,6,supermarket,Lider,,Q6711261
+r6652683,Vegamercado,relation,1,supermarket,,,
+w448196184,Mayorista,way,3,supermarket,,,
+w448219719,Tottus,way,6,supermarket,Tottus,,Q7828510
+w448224139,Montserrat,way,3,supermarket,,,
+w448374131,Lider Express,way,8,supermarket,Lider,,Q6711261
+w448396049,Lider Express,way,6,supermarket,Lider,,Q6711261
+w448515626,Lider Express,way,8,supermarket,Lider,,Q6711261
+w448524974,La Caserita,way,3,supermarket,,,
+w448525615,Lider Express,way,7,supermarket,Lider,,Q6711261
+w448535081,RoyRoy,way,3,supermarket,,,
+w448555890,Alvi,way,4,supermarket,,,
+w448567495,Santa Isabel,way,5,supermarket,Santa Isabel,,Q7419620
+w448578028,,way,3,supermarket,,,
+w448594739,Lider Express,way,3,supermarket,Lider,D&S,Q6711261
+w448692387,Super 10,way,6,supermarket,,,
+w448710659,Lubba,way,4,supermarket,,,
+w448710662,Mayorista 10,way,7,supermarket,,,
+w448846438,Lider Express,way,10,supermarket,Lider,,Q6711261
+w449257225,La Oferta,way,5,supermarket,,,
+w449462773,KMayorista,way,2,supermarket,,,
+w449580381,Lider Express,way,3,supermarket,Lider,,Q6711261
+w449751744,SuperMercado Lo Prado,way,3,supermarket,,,
+w449893718,Santa Isabel,way,5,supermarket,Santa Isabel,,Q7419620
+w449909237,Lider,way,3,supermarket,,Walmart,
+w449912359,Acuenta,way,3,supermarket,,,
+w449919293,Unimarc,way,3,supermarket,,,
+w449922020,Ekono,way,8,supermarket,,,
+w449928731,Unimarc 2º Transversal,way,6,supermarket,,,
+w449934063,Ekono,way,2,supermarket,,,
+w449940221,Express de Lider,way,5,supermarket,,,
+w449940604,Lider,way,5,supermarket,Lider,,Q6711261
+w449972334,Santa Isabel,way,4,supermarket,Santa Isabel,,Q7419620
+w449984515,Supermercados Pansol,way,3,supermarket,,,
+w450084120,Erbi,way,3,supermarket,,,
+w450090120,Erbi,way,3,supermarket,,,
+w450090157,Supermercado Alvi,way,5,supermarket,,,
+w450373787,Unimarc,way,7,supermarket,Unimarc,Unimarc,Q6156244
+w450399541,Ekono,way,2,supermarket,,,
+w450616330,Santa Isabel,way,3,supermarket,Santa Isabel,,Q7419620
+w450812208,Ahorra Food Depot,way,4,supermarket,,,
+w450812656,Alvi,way,3,supermarket,,,
+w450860761,Italla,way,3,supermarket,,,
+w450867407,Mayorista 10,way,4,supermarket,,,
+w450895941,Supermercado Mayorista 10,way,3,supermarket,,,
+w450896759,Alvi Mayorista,way,7,supermarket,,,
+w451160376,Tottus Express,way,4,supermarket,,,
+w451267330,Don Pepe,way,2,supermarket,,,
+w451383226,Ekono,way,2,supermarket,,,
+w451390759,Ekono,way,2,supermarket,,,
+w451422053,Alvi,way,2,supermarket,,,
+w451470161,Mayorista 10,way,2,supermarket,,,
+w451470166,Santa Isabel,way,4,supermarket,Santa Isabel,Cencosud,Q7419620
+w451959132,Ekono,way,2,supermarket,,,
+w452582964,Da Carla,way,4,supermarket,,,
+w453854081,Lider Express,way,4,supermarket,Lider,,Q6711261
+w454056043,Lider Express,way,3,supermarket,Lider,,Q6711261
+w454099327,SuperBodega aCuenta,way,4,supermarket,SuperBodega aCuenta,Walmart Chile,Q18419817
+w454105442,Montserrat,way,3,supermarket,,,
+w454313926,Ekono,way,4,supermarket,,,
+w458736372,,way,3,supermarket,,,
+w498116800,Tottus,way,5,supermarket,Tottus,,Q7828510
+w500268914,Santa Isabel,way,2,supermarket,Santa Isabel,,Q7419620
+w500286907,Lider,way,4,supermarket,Lider,,Q6711261
+w537218273,Unimarc,way,4,supermarket,Unimarc,,Q6156244
+w543511691,Super Vecino,way,2,supermarket,,,
+w550430494,Aldea Nativa,way,4,supermarket,,,
+w552004645,aCuenta,way,5,supermarket,,,
+w572749063,Super10,way,3,supermarket,,,
+w579998051,Ok Market,way,1,supermarket,,,
+w589899698,Erbi,way,4,supermarket,,,
+w595182894,Lider,way,3,supermarket,Lider,,Q6711261
+w595646948,Santa Isabel,way,3,supermarket,Santa Isabel,,Q7419620
+w601901771,Unimarc,way,3,supermarket,Unimarc,,Q6156244
+w602305147,Supermercado Acuenta,way,6,supermarket,,,
+w602782244,Minimarket el porvenir,way,3,supermarket,,,
+w605960309,Mayorista 10,way,3,supermarket,,,
+w607830858,SuperBodega aCuenta,way,2,supermarket,,,
+w607848511,Unimarc,way,5,supermarket,Unimarc,,Q6156244
+w608011897,aCuenta,way,1,supermarket,,,
+w617480279,Erbi,way,2,supermarket,,,
+w618398101,FADA Mall Chino,way,3,supermarket,,FADA,
+w619763130,Tottus,way,4,supermarket,Tottus,,Q7828510
+w620991175,Alvi,way,3,supermarket,,,
+w621229240,Lider Express,way,3,supermarket,Lider,,Q6711261
+w621308772,Santa Isabel,way,3,supermarket,Santa Isabel,Cencosud,Q7419620
+w629097655,Santa Isabel,way,6,supermarket,Santa Isabel,,Q7419620
+w636117971,Ekono,way,1,supermarket,,,
+w638079450,Tu Hogar,way,2,supermarket,,,
+w718637277,Lider Express,way,1,supermarket,Lider,,Q6711261
+w724737663,Tottus,way,3,supermarket,Tottus,,Q7828510
+w742345375,Lider Express,way,4,supermarket,Lider,,Q6711261
+w776124986,Lider Express,way,7,supermarket,Lider,,Q6711261
+w818514990,Super Bodega Acuenta,way,2,supermarket,,,
+w818932790,Lider Express,way,4,supermarket,Lider,,Q6711261
+w835875015,Alvi,way,2,supermarket,,,
+w843701429,Central Mayorista,way,5,supermarket,,Walmart,
+w859698643,Lider Express,way,2,supermarket,Lider,,Q6711261
+w860033657,Unimarc,way,4,supermarket,Unimarc,,Q6156244
+w897353487,Lider Express,way,1,supermarket,Lider,,Q6711261
+w950260048,,way,1,supermarket,,,
+w970431002,Lider Express,way,3,supermarket,Lider,,Q6711261
+w1015709121,Santa Isabel,way,1,supermarket,Santa Isabel,,Q7419620
+w1024625866,Ahorra Food Depot,way,3,supermarket,,,
+w1046509924,Santa Isabel,way,1,supermarket,Santa Isabel,,Q7419620
+w1054331636,Alvi Mayorista,way,2,supermarket,,,
+w1062224123,SuperBodega aCuenta,way,2,supermarket,SuperBodega aCuenta,Walmart Chile,Q18419817
+w1078932563,Lider Express,way,2,supermarket,Lider,,Q6711261
+w1082790814,Lider,way,5,supermarket,Lider,Walmart,Q6711261
+w1106730268,Lider,way,1,supermarket,Lider,,Q6711261
+w1124584416,Super Bodega Acuenta,way,3,supermarket,,,
+w1134392604,Unimarc,way,2,supermarket,Unimarc,,Q6156244
+w1174866326,Erbi,way,1,supermarket,,,
+w1188129153,Lider Express,way,1,supermarket,Lider,,Q6711261
+w1197779676,China House Market,way,2,supermarket,,,
+w1200985911,Central Mayorista,way,3,supermarket,,,
+w1238763484,Ahorra Food Depot,way,2,supermarket,,,
+w1238765054,Ahorra Food Depot,way,1,supermarket,,,
+w1274298422,Ekono,way,1,supermarket,Ekono,,Q2842729
+w1286823826,Santa Isabel,way,2,supermarket,Santa Isabel,,Q7419620
+w1301022449,Unimarc,way,1,supermarket,Unimarc,,Q6156244
+w1308693444,Santa Isabel,way,2,supermarket,Santa Isabel,,Q7419620
+w1312692659,Lider Express,way,1,supermarket,Lider,,Q6711261
+w1313834523,Unimarc,way,2,supermarket,Unimarc,,Q6156244
+w1328444377,Tottus,way,1,supermarket,Tottus,,Q7828510
+w1340669117,Supermercado Mayorista 10,way,1,supermarket,,,
+w1518726437,Lider Express,way,1,supermarket,Lider,Walmart Chile,Q6711261

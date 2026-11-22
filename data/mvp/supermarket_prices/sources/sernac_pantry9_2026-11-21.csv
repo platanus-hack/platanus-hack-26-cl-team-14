@@ -1,0 +1,181 @@
+retrieved_chile,region,comuna,comuna_id,chain,chain_url,item,spec,packs,unit_clp,available_in_app,chain_missing_total,source_url
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1690,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Azúcar,Azúcar 1 kilo,1,910,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Sal fina,Sal fina 1 kilo,1,380,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1500,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Fideos,Fideos Espiral 400 gramos,1,610,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2930,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3140,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Harina,Harina 1 kilo,1,820,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,ALVI,https://www.alvi.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1190,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1650,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Azúcar,Azúcar 1 kilo,1,910,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Sal fina,Sal fina 1 kilo,1,510,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1490,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Fideos,Fideos Espiral 400 gramos,1,810,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2490,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,790,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Harina,Harina 1 kilo,1,870,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,UNIMARC,https://www.unimarc.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1090,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1590,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Azúcar,Azúcar 1 kilo,1,850,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Sal fina,Sal fina 1 kilo,1,650,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1000,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Fideos,Fideos Espiral 400 gramos,1,760,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2590,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,2650,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Harina,Harina 1 kilo,1,880,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,TOTTUS,https://www.tottus.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,900,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1650,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Azúcar,Azúcar 1 kilo,1,1150,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Sal fina,Sal fina 1 kilo,1,480,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1930,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Fideos,Fideos Espiral 400 gramos,1,1050,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,3050,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3650,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Harina,Harina 1 kilo,1,960,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,SANTA ISABEL,https://www.santaisabel.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,990,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1590,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Azúcar,Azúcar 1 kilo,1,1190,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Sal fina,Sal fina 1 kilo,1,450,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1150,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Fideos,Fideos Espiral 400 gramos,1,520,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,4390,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,2650,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Harina,Harina 1 kilo,1,950,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,LIDER,https://www.lider.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1000,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1690,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Azúcar,Azúcar 1 kilo,1,1190,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Sal fina,Sal fina 1 kilo,1,490,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1890,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Fideos,Fideos Espiral 400 gramos,1,1050,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,3180,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3860,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Harina,Harina 1 kilo,1,1390,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Santiago,345,JUMBO,https://www.jumbo.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1070,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1690,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Azúcar,Azúcar 1 kilo,1,910,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Sal fina,Sal fina 1 kilo,1,380,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1500,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Fideos,Fideos Espiral 400 gramos,1,610,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2930,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3140,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Harina,Harina 1 kilo,1,820,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ALVI,https://www.alvi.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1190,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1650,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Azúcar,Azúcar 1 kilo,1,910,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Sal fina,Sal fina 1 kilo,1,510,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1490,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Fideos,Fideos Espiral 400 gramos,1,810,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2490,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,790,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Harina,Harina 1 kilo,1,870,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,UNIMARC,https://www.unimarc.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1090,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1690,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Azúcar,Azúcar 1 kilo,1,1190,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Sal fina,Sal fina 1 kilo,1,450,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1150,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Fideos,Fideos Espiral 400 gramos,1,1050,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,4390,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,2650,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Harina,Harina 1 kilo,1,950,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,LIDER,https://www.lider.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1000,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1550,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Azúcar,Azúcar 1 kilo,1,840,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Sal fina,Sal fina 1 kilo,1,390,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1650,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Fideos,Fideos Espiral 400 gramos,1,430,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2990,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3390,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Harina,Harina 1 kilo,1,760,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,ACUENTA,https://www.acuenta.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1000,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1650,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Azúcar,Azúcar 1 kilo,1,930,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Sal fina,Sal fina 1 kilo,1,480,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1930,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Fideos,Fideos Espiral 400 gramos,1,990,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,3050,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3650,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Harina,Harina 1 kilo,1,960,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,SANTA ISABEL,https://www.santaisabel.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,990,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1590,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Azúcar,Azúcar 1 kilo,1,850,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Sal fina,Sal fina 1 kilo,1,550,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1890,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Fideos,Fideos Espiral 400 gramos,1,760,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2590,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,2890,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Harina,Harina 1 kilo,1,880,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,TOTTUS,https://www.tottus.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,900,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1690,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Azúcar,Azúcar 1 kilo,1,1050,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Sal fina,Sal fina 1 kilo,1,490,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1890,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Fideos,Fideos Espiral 400 gramos,1,1050,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,3180,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3860,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Harina,Harina 1 kilo,1,990,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Maipú,332,JUMBO,https://www.jumbo.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1070,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1690,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Azúcar,Azúcar 1 kilo,1,910,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Sal fina,Sal fina 1 kilo,1,380,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1500,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Fideos,Fideos Espiral 400 gramos,1,610,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2930,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3140,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Harina,Harina 1 kilo,1,820,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ALVI,https://www.alvi.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1190,True,4,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1650,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Azúcar,Azúcar 1 kilo,1,910,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Sal fina,Sal fina 1 kilo,1,510,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1490,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Fideos,Fideos Espiral 400 gramos,1,810,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2490,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,790,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Harina,Harina 1 kilo,1,870,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,UNIMARC,https://www.unimarc.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1090,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1650,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Azúcar,Azúcar 1 kilo,1,1190,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Sal fina,Sal fina 1 kilo,1,450,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1150,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Fideos,Fideos Espiral 400 gramos,1,490,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2990,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,2990,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Harina,Harina 1 kilo,1,950,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,LIDER,https://www.lider.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1000,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1550,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Azúcar,Azúcar 1 kilo,1,840,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Sal fina,Sal fina 1 kilo,1,390,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1150,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Fideos,Fideos Espiral 400 gramos,1,430,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2990,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3390,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Harina,Harina 1 kilo,1,760,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,ACUENTA,https://www.acuenta.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1000,True,1,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1590,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Azúcar,Azúcar 1 kilo,1,850,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Sal fina,Sal fina 1 kilo,1,450,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1000,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Fideos,Fideos Espiral 400 gramos,1,760,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,2590,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,2650,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Harina,Harina 1 kilo,1,880,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,TOTTUS,https://www.tottus.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,900,True,0,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1790,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Azúcar,Azúcar 1 kilo,1,1250,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Sal fina,Sal fina 1 kilo,1,480,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1930,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Fideos,Fideos Espiral 400 gramos,1,990,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,3050,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3650,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Harina,Harina 1 kilo,1,960,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,SANTA ISABEL,https://www.santaisabel.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,990,True,3,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Aceite vegetal,Aceite vegetal 900 ml,1,1690,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Azúcar,Azúcar 1 kilo,1,1050,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Sal fina,Sal fina 1 kilo,1,490,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Arroz blanco,Arroz blanco 1 kilo,1,1890,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Fideos,Fideos Espiral 400 gramos,1,1050,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Garbanzos sin piel,Garbanzos sin piel 1 kilo,1,3180,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Lentejas 6mm,Lentejas 6mm 1 kilo,1,3860,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Harina,Harina 1 kilo,1,990,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos
+2026-11-21T21:31:11-03:00,RM,Puente Alto,298,JUMBO,https://www.jumbo.cl/,Leche líquida entera caja,Leche líquida entera caja 1 litro,1,1070,True,2,https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos

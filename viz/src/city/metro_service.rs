@@ -1,6 +1,7 @@
-//! Surface service lines for the matched Metro replay shots.
+//! Surface service lines for city overviews and the matched Metro replay.
 use super::{SubwayView, Surface, ground::ribbon, world};
 use crate::{
+    Rig,
     movers::clock::{CityClock, UpdateClock},
     net::Scenario,
 };
@@ -12,26 +13,38 @@ pub(crate) struct MetroServicePlugin;
 
 impl Plugin for MetroServicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (setup.run_if(resource_changed::<Scenario>), fade)
-                .chain()
-                .after(UpdateClock),
-        );
+        app.add_systems(Update, (setup, fade).chain().after(UpdateClock));
     }
 }
 
 #[derive(Component)]
-struct ServiceLines;
+struct ServiceLines(f32);
+
+fn half_width(result: &Value, distance: f32) -> Option<f32> {
+    if distance >= 26_000. {
+        Some(115.)
+    } else if distance >= 7_000. {
+        Some(34.)
+    } else if result["scene"]["layer"] == "metro_service" {
+        Some(8.)
+    } else {
+        None
+    }
+}
 
 fn setup(
     scenario: Res<Scenario>,
-    lines: Query<(), With<ServiceLines>>,
+    rig: Res<Rig>,
+    subway: Res<SubwayView>,
+    lines: Query<&ServiceLines>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if scenario.0["scene"]["layer"] != "metro_service" || !lines.is_empty() {
+    let Some(width) = half_width(&scenario.0, rig.distance) else {
+        return;
+    };
+    if scenario.0.is_null() || subway.0 || lines.iter().any(|line| line.0 == width) {
         return;
     }
     let routes: Vec<Value> =
@@ -47,10 +60,17 @@ fn setup(
             .iter()
             .map(|p| world(p[0].as_f64().unwrap(), p[1].as_f64().unwrap()))
             .collect();
-        ribbon(&mut mesh, &points, 8.0, 1.2, [1.; 4]);
+        let color = Srgba::hex(route["color"].as_str().unwrap()).unwrap();
+        ribbon(
+            &mut mesh,
+            &points,
+            width,
+            1.2,
+            Color::from(color).to_linear().to_f32_array(),
+        );
     }
     commands.spawn((
-        ServiceLines,
+        ServiceLines(width),
         Mesh3d(meshes.add(mesh.finish())),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: service_color(1.0),
@@ -64,12 +84,11 @@ fn setup(
 }
 
 fn service_color(alpha: f32) -> Color {
-    Color::srgba(0.08, 0.45, 0.65, alpha)
+    Color::linear_rgba(1., 1., 1., alpha)
 }
 
 #[derive(Default)]
 struct FadeState {
-    enabled: bool,
     closure: Option<Range<i32>>,
     started: Option<f64>,
 }
@@ -77,15 +96,17 @@ struct FadeState {
 fn fade(
     scenario: Res<Scenario>,
     clock: Res<CityClock>,
+    rig: Res<Rig>,
     subway: Res<SubwayView>,
     time: Res<Time<Real>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut state: Local<FadeState>,
-    mut lines: Query<(&MeshMaterial3d<StandardMaterial>, &mut Visibility), With<ServiceLines>>,
+    mut lines: Query<(
+        &ServiceLines,
+        &MeshMaterial3d<StandardMaterial>,
+        &mut Visibility,
+    )>,
 ) {
-    let Ok((handle, mut visibility)) = lines.single_mut() else {
-        return;
-    };
     if scenario.is_changed() {
         let result = &scenario.0;
         let closure = result["applied"]
@@ -99,7 +120,6 @@ fn fade(
                     && change["target"]["id"] == "metro"
             });
         *state = FadeState {
-            enabled: result["scene"]["layer"] == "metro_service",
             closure: closure.then(|| match result["closure_window"]["half_hours"].as_array() {
                 Some(window) => {
                     window[0].as_u64().unwrap() as i32..window[1].as_u64().unwrap() as i32
@@ -110,10 +130,6 @@ fn fade(
         };
     }
 
-    if !state.enabled {
-        visibility.set_if_neq(Visibility::Hidden);
-        return;
-    }
     let closed = clock.0.is_some_and(|seconds| {
         let slot = (seconds.rem_euclid(86_400.) / 1800.) as i32;
         state
@@ -129,13 +145,16 @@ fn fade(
         state.started = None;
         1.0
     };
-    visibility.set_if_neq(if !subway.0 && alpha > 0.0 {
-        Visibility::Inherited
-    } else {
-        Visibility::Hidden
-    });
-    let color = service_color(alpha);
-    if materials.get(&handle.0).unwrap().base_color != color {
-        materials.get_mut(&handle.0).unwrap().base_color = color;
+    let active_width = half_width(&scenario.0, rig.distance);
+    for (line, handle, mut visibility) in &mut lines {
+        if subway.0 || alpha == 0.0 || Some(line.0) != active_width {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        }
+        let color = service_color(alpha);
+        if materials.get(&handle.0).unwrap().base_color != color {
+            materials.get_mut(&handle.0).unwrap().base_color = color;
+        }
+        visibility.set_if_neq(Visibility::Inherited);
     }
 }

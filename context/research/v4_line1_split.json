@@ -1,0 +1,71 @@
+[
+ {
+  "kind": "line",
+  "op": "cut",
+  "target": {
+   "type": "route",
+   "id": "L1"
+  },
+  "properties": {
+   "stop_ids": [
+    "SA",
+    "MM",
+    "PV",
+    "LE-LEN",
+    "TB-TOB",
+    "GO",
+    "AL"
+   ]
+  },
+  "temporary": true,
+  "half_hours": [
+   27,
+   29
+  ]
+ },
+ {
+  "kind": "station",
+  "target": {
+   "type": "station",
+   "id": "SALVADOR"
+  },
+  "op": "set",
+  "value": 0
+ },
+ {
+  "kind": "station",
+  "target": {
+   "type": "station",
+   "id": "MANUEL MONTT"
+  },
+  "op": "set",
+  "value": 0
+ },
+ {
+  "kind": "station",
+  "target": {
+   "type": "station",
+   "id": "PEDRO DE VALDIVIA"
+  },
+  "op": "set",
+  "value": 0
+ },
+ {
+  "kind": "station",
+  "target": {
+   "type": "station",
+   "id": "EL GOLF"
+  },
+  "op": "set",
+  "value": 0
+ },
+ {
+  "kind": "station",
+  "target": {
+   "type": "station",
+   "id": "ALCANTARA"
+  },
+  "op": "set",
+  "value": 0
+ }
+]
