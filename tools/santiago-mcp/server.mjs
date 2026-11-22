@@ -76,7 +76,7 @@ const featureChanges = [
   },
   {
     kind: 'line',
-    description: 'Edit one directed bus, Metro or boat service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. A two-way service is two adds. Stops outside the catalog go in new_stops. Each added line returns line_riders: workers near both ends, trips to work by stop and half hour, and the mode they leave. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing. Target {type:"mode",id:"metro"} with op remove removes every Metro pattern. Also close the stations with kind station. Set temporary true to change mode choice for one day.',
+    description: 'Target {type:"route",id:"L1"} with op cut and properties.stop_ids splits every pattern of the route into the sections that avoid those stops (a line cut in two). Edit one directed bus, Metro or boat service pattern by catalog ID. Add with a new ID, mode, ordered stop_ids, one segment_minutes value per leg, and headway_minutes. A two-way service is two adds. Stops outside the catalog go in new_stops. Each added line returns line_riders: workers near both ends, trips to work by stop and half hour, and the mode they leave. Supply segment_minutes when changing stop order. A geometry-only move changes the drawing. Target {type:"mode",id:"metro"} with op remove removes every Metro pattern. Also close the stations with kind station. Set temporary true to change mode choice for one day.',
     target: idTarget, geometries: ['LineString'],
     properties: lineProperties,
   },
@@ -85,7 +85,7 @@ const featureChanges = [
   if: { properties: { op: { const: 'set' } } },
   then: { required: ['properties'], properties: { properties: { minProperties: 1 } } },
   properties: {
-    kind: { enum: [kind] }, target, op: { enum: ['add', 'set', 'move', 'remove'] },
+    kind: { enum: [kind] }, target, op: { enum: ['add', 'set', 'move', 'remove', ...(kind === 'line' ? ['cut'] : [])] },
     ...(kind === 'line' && { temporary: { type: 'boolean', description: 'True: the change lasts one day, so it moves mode choice only.' } }),
     ...(kind === 'line' && { half_hours: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 48 }, minItems: 2, maxItems: 2, description: 'Closure window [start, end) in half-hours from 00:00, with temporary true. Example [14, 20] = 07:00 to 10:00. Only workers who leave home inside it face the change; read closure_window for workers by mode in the window. Station entries change only inside it.' } }),
     properties: { type: 'object', properties, additionalProperties: false },
