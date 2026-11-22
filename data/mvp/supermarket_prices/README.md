@@ -1,0 +1,28 @@
+# Santiago supermarket price references
+
+[Point CSV](supermarket_points_prices.csv) joins all 508 supermarket objects in the activity pack to 40 comuna codes and a price reference. Join on `osm_id`, including its node, way or relation prefix. These are mapped objects. Branch prices, stock and the share of operating Santiago supermarkets covered by OpenStreetMap remain unverified. [Activity pack](../activity_points.md) · [Existing V1 evidence](https://discord.com/channels/1573514576400752640/1573819834809057381/1573858348745359431)
+
+| Measure | Unit and period | Use |
+| --- | --- | --- |
+| Common 17-product basket | CLP per one basket, one pack of each product, 19–21 Nov 2026 | Chain reference at 228 exact-banner objects. Median reference of CLP 31,635 at the other 280. |
+| SERNAC nine-spec pantry basket | CLP per one basket, one pack per specification, retrieved 21 Nov 2026 | Separate chain–comuna table. 20 pairs representing seven chains and 61 matching mapped objects. |
+| ODEPA RM partial CBA | CLP per person per month, 28 categories priced 16–20 Nov 2026 | RM reference of CLP 47,965.59, rounded to 47,966 in the point CSV. |
+| Official national CBA | CLP per person per month, Oct 2026 | National reference of CLP 93,678. |
+
+## Assign a price reference to a point
+
+The [source tags](sources/osm_supermarket_tags.csv) preserve the tags used in the join, plus the OSM version and type. They came from a stable-ID lookup in the Geofabrik Chile snapshot with replication timestamp 2026-11-20 21:21:21 UTC, sequence 4980. To audit the tag extraction, supply the pack's supermarket IDs to `osmium getid -i ids.txt chile-261120.osm.pbf -o supermarkets.osm`. Compare the source name, shop, brand, operator and brand Wikidata tags with the committed input. The pack supplies coordinates and CUT. [Snapshot](https://download.geofabrik.de/south-america/chile/chile-261120.osm.pbf) · [© OpenStreetMap contributors and ODbL](https://www.openstreetmap.org/copyright)
+
+The lookup normalizes case, accents and whitespace and uses explicit banner aliases. It keeps Líder Express and Tottus Express separate from the named price banners. Parent company names do not establish the retail banner. The 96 unresolved points include 88 with unrecognized names or tags, seven with no name, brand or operator, and one with conflicting recognized tags. A legacy Mayorista 10 name alone cannot determine the replacement banner. SMU converted all stores to Alvi or Super10 in 2025. [SMU report, p. 7](https://assets.ctfassets.net/63tonbtz0lhl/1RzAgxn9leW6nPwf8EIjTA/82fc1be3515ad62643a252e033d31669/SMU_-_3T26_Reporte_Resultados.pdf#page=7)
+
+The [102 captured price rows](sources/lukisi_food17_2026-11-19_to_21.csv) use the same 17 product listings and quantities at six banners. Product URLs identify the fixed listings. The feed mixes site and contributed observations and includes advertised offers. Store stock, checkout totals and local offer eligibility are unverified. One-pack totals are aCuenta CLP 30,060, Tottus 30,450, Santa Isabel 30,500, Jumbo 32,770, Líder 33,710 and Unimarc 36,440. Assign the banner total when the point matches the priced banner. Use the median of these six totals for the other points, with `common_basket_basis=estimated_same_basket_chain_median`. [Source comparison](https://lukisi.cl/comparar-supermercados)
+
+## Separate pantry and monthly references
+
+[The SERNAC comparison](sernac_pantry9_by_comuna.csv) uses 180 captured quotes for the same nine pantry specs in Santiago, Maipú and Puente Alto. Join using `cut` and `banner_key`. The 61 matching objects include 17 in Santiago, 28 in Maipú and 16 in Puente Alto. Four match Alvi. The [source rows](sources/sernac_pantry9_2026-11-21.csv) include retrieval times and app status. SERNAC omits the individual price observation date, GTIN and branch. The Alvi catalog quote requires a validated merchant and a CLP 80,000 online minimum including VAT. This pantry basket has its own product specifications and totals. It can give a different chain ranking from the 17-product basket. [SERNAC cotizador](https://www.sernac.cl/app/cotizador-precios/cotizador_alimentos) · [Source extraction and limits](https://discord.com/channels/1573514576400752640/1573819834809057381/1573858953270665256) · [Alvi terms](https://fe-browse-alvi-gcp-alvi-prod.alvi.cl/static/terminos-condiciones)
+
+The [28-category mapping](sources/odepa_cba28_2026w47.csv) uses monthly amounts per person from the official CBA methodology, §6.2. The [140 source records](sources/odepa_cba28_2026w47_observations.csv) cover the same five ODEPA supermarket sectors in RM. Take the equal mean of their published sector mean prices for each product and unit. Multiply by the monthly CBA quantity divided by the ODEPA pack weight or volume. Round each row to cents and sum. ODEPA supplies no banner or individual store price in these rows. The official national amount comes from the October report. [ODEPA data](https://datos.odepa.gob.cl/dataset/precios-consumidor/resource/9f885df4-afeb-4b75-8bab-9334f79db00f) · [CBA quantities, pp. 42–44](https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Metodologia_de_Medicion_de_la_Pobreza_por_Ingresos_2024.pdf#page=42) · [Official October CBA](https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/cba/nueva_serie/2026/Informe_CBA_2026_10.pdf)
+
+## Rebuild
+
+Run `python3 -I tools/pack/supermarket_prices.py` from the repository root. It uses the tracked activity CSV and the frozen source CSVs in this folder to emit both derived CSVs. A snapshot update requires a matching activity pack and source tag capture. The script uses the Python standard library.
