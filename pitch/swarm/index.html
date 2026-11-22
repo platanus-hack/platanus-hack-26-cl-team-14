@@ -41,10 +41,10 @@
   .aname { font-size: 32px; padding: 0 10px; background: rgba(16,25,35,.85); white-space: nowrap; transform: translateY(-50%); opacity: 0; }
   .head { left: 959px; width: 3px; background: #fff; }
   .now { left: 960px; transform: translateX(-50%); font-size: 52px; line-height: 1; padding: 6px 18px; background: #101923; border: 3px solid #fff; border-radius: 12px; white-space: nowrap; }
-  .final { left: 0; width: 1920px; top: 560px; text-align: center; opacity: 0; }
-  .final b { display: block; font-size: 200px; font-weight: 400; line-height: 1; color: #4aa8ff; }
-  .final span { position: static !important; display: block; margin-top: 36px; font-size: 48px; color: #fff; }
-  .final em { position: static; display: block; margin-top: 20px; font-style: normal; font-size: 30px; color: #c3ccd5; }
+  .final { left: 0; width: 1920px; top: 300px; text-align: center; opacity: 0; }
+  .final b { display: block; font-size: 300px; font-weight: 400; line-height: 1; color: #4aa8ff; }
+  .final span { position: static !important; display: block; margin-top: 20px; font-size: 64px; color: #fff; }
+  .final em { position: static; display: block; margin-top: 90px; font-style: normal; font-size: 72px; color: #4aa8ff; }
 </style>
 </head>
 <body>
@@ -59,9 +59,9 @@
   </div>
   <div class="view" id="lanes"><div class="track" id="track"></div></div>
   <div class="final" id="final">
-    <b>23,3 B tokens</b>
-    <span>US$ 7.307 a precio de lista · 135.485 requests · 27 % del total de la hack</span>
-    <em>hack.platan.us · santiaguito.cl · 5 personas</em>
+    <b>23,3 B</b>
+    <span>tokens usados por el equipo</span>
+    <em>santiaguito.cl</em>
   </div>
 </div>
 <script src="prs.js"></script>
@@ -224,7 +224,8 @@ function frame() {
   }
   // Hold, then fade the lanes and show the real LLM usage.
   const fade = Math.min(1, Math.max(0, raw - SECONDS - 1.5));
-  lanes.style.opacity = 1 - fade * .92;
+  // The final screen keeps only the city, the team's tokens and the site.
+  for (const el of [lanes, document.getElementById('arc'), document.querySelector('.stats')]) el.style.opacity = 1 - fade;
   document.getElementById('final').style.opacity = fade;
   if (raw < SECONDS + 3) setTimeout(frame, 33);
 }
