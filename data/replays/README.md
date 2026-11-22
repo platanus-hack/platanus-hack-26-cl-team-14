@@ -1,8 +1,7 @@
 # Cached replays
 
 The presenter can use the six checked-in replay files from a clean checkout.
-Start the viewer with `SANTIAGO_PLAYBACK_RATE=240 ./run.sh` for the live MUT
-comparison. Press Enter on the welcome screen. In the chat, ask:
+Start the viewer with `./run.sh`. Press Enter on the welcome screen. In the chat, ask:
 
 > ¿Qué pasaría si intercambiamos de lugar el MUT y el Estadio Monumental de Colo-Colo?
 
