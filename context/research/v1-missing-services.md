@@ -5,7 +5,7 @@ Request from Bruno: find the basic service buildings (needs and interests) that 
 ## What the model has now
 
 - `data/mvp/activity_points.csv` has 16,697 OSM objects in 6 kinds: shop 14,946, public_office 540, supermarket 508, clinic 453, mall 151, hospital 99 ([activity_points.md](../../data/mvp/activity_points.md)).
-- `engine/src` reads `schools.csv` (3,220 schools) and `event_venues.json`. On `main`, no code reads `activity_points.csv`. PR #416 (merged) adds shopping and selects only shop, supermarket and mall.
+- `engine/src` reads `schools.csv` (3,220 schools) and `event_venues.json`. Since #416 merged, main reads `activity_points.csv` for shopping: it uses the shop, supermarket and mall kinds as shopping destinations. The other kinds (hospital, clinic, public office) are still packed but not chosen.
 - No code on `main` selects hospital, clinic or public_office as a destination.
 - `higher_ed.csv` (137 campuses) exists, but `engine/src` does not read it. `blocks.csv` students exclude higher education. Since #475, main counts 301,724 higher-education residents at home (role in `Population.residents`), but they make no study trip.
 - The viewer draws 4,666 park polygons (`web/data/green_areas.geojson.gz`). The engine does not send persons to parks.
@@ -39,7 +39,7 @@ Sources and counts: OSM is the Geofabrik Chile snapshot of 2026-11-20, clipped t
 | Recreation, cinema / theatre | none | cinema, theatre | cinema Diuca 42 / 42 / 1; theatre 112 | MINCAP: 13 RM cinema rows (2021 seed list) | Low | Evening and weekend trips. No demo scenario needs it. |
 | Recreation, sport | stadiums as fixed events | sports centre, gym | sports_centre 449, fitness_centre 216 | IND facility list: unverified | Low | Small volume. Not in a scenario. |
 | Food out | none | restaurant, fast food, café | restaurant 3,060, fast_food 1,481, cafe 980 | none checked | Medium | Part of "leisure" (code 9); 16:00–20:00 share 6.3%. Near the MUT 17:00 match end. |
-| Food shopping | supermarket 508, mall 151, shop 14,946 (used after #416) | feria libre | marketplace 99 (under-counts ferias) | Feria count: unverified (ASOF / municipal lists) | Low | #416 covers shopping volume. Ferias run on fixed weekdays, not in the demo windows. |
+| Food shopping | supermarket 508, mall 151, shop 14,946 (used on main since #416) | feria libre | marketplace 99 (under-counts ferias) | Feria count: unverified (ASOF / municipal lists) | Low | #416 covers shopping volume. Ferias run on fixed weekdays, not in the demo windows. |
 | Education, higher | `higher_ed.csv` 137 campuses (packed, not used) | none, needs engine use | university 215, college 74 | MINEDUC / SIES campus data already in `higher_ed.csv` | Medium | Study is 31.9% of morning trips. The 301,724 higher-education residents (#475) exist at home but make no trip to a campus. Only a subset travels (enrollment includes remote study). Large morning volume. |
 | Care, nursery | none | kindergarten (jardín infantil) | kindergarten 1,206 | JUNJI / Integra directory: unverified | Medium | Code 8 (drop off someone) is in "other", 8.1% of morning trips. Link to nursery trips is an inference. |
 | Worship | none | place of worship | 1,030 | none checked | Low | Weekend trips. No scenario needs it. |
