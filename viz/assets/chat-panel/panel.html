@@ -19,21 +19,20 @@
     height: 100dvh;
     background: rgba(17, 30, 49, .94);
     border: 1px solid #60758a;
-    border-radius: 12px;
+    border-radius: 10px 0 0 10px;
     overflow: hidden;
   }
   header {
     display: flex;
-    flex: 0 0 44px;
+    flex: 0 0 34px;
     align-items: center;
     justify-content: space-between;
-    padding: 0 12px 0 16px;
   }
-  header strong { font-size: 15px; font-weight: 650; }
+  header strong { margin-left: 10px; font-size: 15px; font-weight: 650; }
   button {
     width: 106px;
     min-height: 30px;
-    padding: 0 11px;
+    padding: 0;
     color: inherit;
     background: #23364d;
     border: 1px solid #60758a;
@@ -44,10 +43,31 @@
   button:hover { background: #334b63; }
   button:focus-visible { outline: 2px solid #a9d8d1; outline-offset: 2px; }
   .panel.open header { border-bottom: 1px solid #465a70; }
-  .panel:not(.open) header { justify-content: flex-end; }
-  .panel:not(.open) header strong { display: none; }
+  .panel:not(.open) { background: none; border: 0; border-radius: 0; }
+  .panel:not(.open) header { flex-basis: 30px; justify-content: flex-end; }
+  .panel:not(.open) header strong,
+  .panel:not(.open) #grip { display: none; }
   .panel:not(.open) #terminal { visibility: hidden; }
-  #terminal { flex: 1; min-height: 0; padding: 11px 12px; }
+  #terminal { flex: 1; min-height: 0; }
+  #grip {
+    position: absolute;
+    z-index: 1;
+    inset: 34px auto 0 0;
+    width: 8px;
+    cursor: ew-resize;
+    touch-action: none;
+  }
+  #grip::after {
+    content: "";
+    position: absolute;
+    top: calc(50% - 18px);
+    left: 1px;
+    width: 3px;
+    height: 36px;
+    border-radius: 2px;
+    background: #8197aa;
+  }
+  #grip:hover::after, #grip:focus-visible::after { background: #b7d8e2; }
   .xterm-viewport { background: transparent !important; }
   .session-brand { visibility: hidden; }
   .composer-hint { position: relative; }
@@ -69,6 +89,8 @@
     <button id="toggle" type="button" aria-controls="terminal" aria-expanded="true">Ocultar chat</button>
   </header>
   <div id="terminal" aria-label="Terminal"></div>
+  <div id="grip" role="separator" aria-orientation="vertical"
+       aria-label="Ajustar ancho del chat" tabindex="0"></div>
 </div>
 <script>/* XTERM_JS */</script>
 <script>/* FIT_JS */</script>
@@ -77,6 +99,25 @@
   const panel = document.querySelector('.panel');
   const mount = document.querySelector('#terminal');
   const toggle = document.querySelector('#toggle');
+  const grip = document.querySelector('#grip');
+  const resizePanel = width => send({ kind: 'panel_width', width });
+  let drag;
+  grip.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    drag = { x: event.screenX, width: window.innerWidth };
+    grip.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  grip.addEventListener('pointermove', event => {
+    if (drag) resizePanel(drag.width + drag.x - event.screenX);
+  });
+  grip.addEventListener('lostpointercapture', () => { drag = undefined; });
+  grip.addEventListener('keydown', event => {
+    const step = { ArrowLeft: 24, ArrowRight: -24 }[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    resizePanel(window.innerWidth + step);
+  });
   const term = new Terminal({
     allowTransparency: true,
     cursorBlink: true,
