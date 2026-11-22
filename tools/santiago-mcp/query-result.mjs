@@ -1,11 +1,12 @@
-import { shoppingMetrics } from './shopping-metrics.mjs';
+import { shoppingMetrics, shoppingSiteDatasets, shoppingSiteMetrics } from './shopping-metrics.mjs';
 
 const operations = ['sum', 'count', 'mean', 'share', 'percentile', 'histogram'];
 const states = ['base', 'scenario', 'delta', 'compare'];
-const dimensions = ['station_id', 'station', 'half_hour', 'origin_cut', 'destination_cut'];
+const comunaDimensions = ['origin_cut', 'destination_cut'];
+const dimensions = ['station_id', 'station', 'half_hour', ...comunaDimensions, 'mode'];
 const comparisons = ['eq', 'lt', 'lte', 'gt', 'gte'];
 const weights = ['equal', 'value', 'census_public_workers'];
-const datasets = ['metro_entries', 'commute_flows', 'route_minutes', 'shopping_trips'];
+const datasets = ['metro_entries', 'commute_flows', 'route_minutes', 'shopping_trips', ...shoppingSiteDatasets];
 
 const field = (values) => ({ enum: values });
 const object = (required, properties) => ({ type: 'object', additionalProperties: false, required, properties });
@@ -18,7 +19,8 @@ const filterArray = { type: 'array', items: filterSchema };
 
 export const queryResultTool = {
   name: 'query_result',
-  description: 'Answer a measurement question about an already published scenario or a saved replay without running it. Use raw results only. metro_entries counts modeled Metro entries by station_id, station or half_hour (0 is midnight, 47 is 23:30). Use grain day for exact daily station totals, or half_hour for 30-minute bins. commute_flows counts modeled workers by origin_cut and destination_cut for up to 200 changed comuna pairs. shopping_trips counts modeled weekday outbound shopping trips in the reported changed destination comunas. route_minutes uses one city_edit_index and measures modeled minutes by directed comuna pair. For route minutes, base and scenario mean immediately before and after the selected edit. Read state_labels. Compare uses the same valid rows for both states. Use sum for totals of entries, workers or trips. Count measures records or their declared weight. Route weights are equal by default. census_public_workers is allowed for transit routes and uses fixed Census 2024 counts, not scenario passengers. Use group_by and filters to match the user’s scope. For shares, select a weight explicitly: value counts entries or workers, equal counts table rows. Read unit, population, and coverage before answering. Results are text or tables. This tool does not open or chart a replay.',
+  description: 'Answer a measurement question about an already published scenario or a saved replay without running it. Use raw results only. metro_entries counts modeled Metro entries by station_id, station or half_hour (0 is midnight, 47 is 23:30). Use grain day for exact daily station totals, or half_hour for 30-minute bins. commute_flows counts modeled workers by origin_cut and destination_cut for up to 200 changed comuna pairs. shopping_trips counts modeled weekday outbound shopping trips in the reported changed destination comunas. route_minutes uses one city_edit_index and measures modeled minutes by directed comuna pair. For route minutes, base and scenario mean immediately before and after the selected edit. Read state_labels. Compare uses the same valid rows for both states. Use sum for totals of entries, workers or trips. Count measures records or their declared weight. Route weights are equal by default. census_public_workers is allowed for transit routes and uses fixed Census 2024 counts, not scenario passengers. Use group_by and filters to match the user’s scope. For shares, select a weight explicitly: value counts entries, workers or trips, and equal counts table rows. Read unit, population, and coverage before answering. Results are text or tables. This tool does not open or chart a replay. ' +
+    'For an edited shopping site, shopping_site_total gives the reported total. shopping_site_origins, shopping_site_modes and shopping_site_departures use origin_cut, mode and half_hour separately. Use scenario for added sites and base for removed sites. A site has only one reported variant. Use shopping_site coordinates to select one when several sites are present. The origin rows are a top five list. Rounded breakdowns can differ from the reported total. Shares use only the selected reported rows.',
   inputSchema: object(['source', 'data', 'state', 'aggregate'], {
     source: object(['type'], { type: field(['current', 'replay']), id: { type: 'string' } }),
     data: field(datasets),
@@ -26,6 +28,9 @@ export const queryResultTool = {
     aggregate: field(operations),
     grain: field(['day', 'half_hour']),
     city_edit_index: { type: 'integer', minimum: 0, description: 'Zero-based raw city edit index. For route minutes only. May omit if only one edit has route pairs.' },
+    shopping_site: object(['longitude', 'latitude'], {
+      longitude: { type: 'number' }, latitude: { type: 'number' }, variant: field(['base', 'scenario']),
+    }),
     filters: filterArray,
     group_by: { type: 'array', items: field(dimensions), uniqueItems: true, maxItems: 2 },
     weight: field(weights),
@@ -68,13 +73,14 @@ function dataset(raw, q) {
     if (!Array.isArray(raw.flows)) throw new Error('This result has no reported commuter flows.');
     return {
       rows: raw.flows.map(row => ({ origin_cut: row.origin, destination_cut: row.destination, base: row.base, scenario: row.scenario })),
-      dimensions: dimensions.slice(3), unit: 'modeled workers', rowUnit: 'reported changed directed comuna pairs',
+      dimensions: comunaDimensions, unit: 'modeled workers', rowUnit: 'reported changed directed comuna pairs',
       population: 'Modeled weekday workers in the reported changed home-to-work comuna pairs, across all modes.',
       scope: 'Up to 200 largest changed pairs. Changes below one worker are excluded. Missing pairs cannot be counted as zero.',
       may_be_truncated: raw.flows.length >= 200,
     };
   }
   if (q.data === 'shopping_trips') return shoppingMetrics(raw);
+  if (shoppingSiteDatasets.includes(q.data)) return shoppingSiteMetrics(raw, q);
   const edits = (raw.city_edits ?? []).flatMap((edit, index) =>
     ['road', 'line'].includes(edit.kind) && edit.effects?.pairs?.length ? [{ edit, index }] : []);
   const selected = q.city_edit_index === undefined && edits.length === 1 ? edits[0] :
@@ -90,7 +96,7 @@ function dataset(raw, q) {
   }));
   if (new Set(rows.map(pairKey)).size !== rows.length) throw new Error('The selected edit repeats a directed route pair.');
   return {
-    rows, dimensions: dimensions.slice(3), transit, city_edit_index: index, unit: 'modeled minutes',
+    rows, dimensions: comunaDimensions, transit, city_edit_index: index, unit: 'modeled minutes',
     rowUnit: 'reported directed comuna route pairs',
     population: transit ? 'Public transport routes between fixed comuna points departing at 08:00 in the routing model.'
       : 'Free-flow car routes between fixed comuna points.',
@@ -134,6 +140,13 @@ function validate(q) {
       (q.grain !== undefined && (q.data !== 'metro_entries' || !['day', 'half_hour'].includes(q.grain))) ||
       (q.city_edit_index !== undefined && (q.data !== 'route_minutes' || !Number.isInteger(q.city_edit_index) || q.city_edit_index < 0))) {
     throw new Error('Invalid weight, limit, station grain, or route edit index.');
+  }
+  const site = q.shopping_site;
+  if (site !== undefined && (!shoppingSiteDatasets.includes(q.data) ||
+      !finite(site?.longitude) || !finite(site?.latitude) ||
+      (site.variant !== undefined && !['base', 'scenario'].includes(site.variant)) ||
+      Object.keys(site).some(field => !['longitude', 'latitude', 'variant'].includes(field)))) {
+    throw new Error('Use reported shopping site coordinates and an optional base or scenario variant for a shopping site query.');
   }
   if ((q.aggregate === 'percentile' ? !finite(q.percentile) || q.percentile < 0 || q.percentile > 100 : q.percentile !== undefined) ||
       (q.aggregate === 'histogram' ? !Array.isArray(q.breaks) || q.breaks.length < 1 || q.breaks.length > 12 ||
