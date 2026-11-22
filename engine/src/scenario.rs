@@ -248,16 +248,29 @@ impl Scenario {
         let mut v = shopping::visits::summary(&c.cuts, &visits.before, &after);
         v["baseline_check"] = json!({ "destination_tv_vs_shopping_layer": (visits.tv_vs_shopping_layer * 10000.0).round() / 10000.0 });
         // Workers by imputed CASEN household income band (#497): band size and how many change. Index 4 = unmodeled.
+        // Daily round-trip cash by work mode (1 car, 2 public, 3 walk, 4 bicycle; other = taxi/colectivo, no price).
+        // Public: Red bus fare 2026 incl. transfers (v1-optional-visit-fares.md). Car: illustrative fuel-only proxy, CNE RM
+        // gasoline 93 September 2026 1,414 CLP/l ÷ ICCT 2025 new light vehicles 16.9 km/Lge (assumed), times engine km.
+        let cash = |mode: i8, km: f64| match mode { 1 => Some(2.0 * km * 1414.0 / 16.9), 2 => Some(2.0 * 795.0), 3 | 4 => Some(0.0), _ => None };
+        let mut extra = [(0.0f64, 0u64, 0u64); 5];
         let mut bands = [(0u64, 0u64, 0u64, 0u64, 0u32, None); 5];
         for (k, &i) in workers.iter().enumerate() {
-            let x = match self.pop.persons[i].household_income(i, &income[homes[k]]) {
+            let j = match self.pop.persons[i].household_income(i, &income[homes[k]]) {
                 HouseholdIncome::Imputed { band, monthly_clp_min, monthly_clp_max, .. } => {
-                    let x = &mut bands[band as usize - 1];
-                    (x.4, x.5) = (monthly_clp_min, monthly_clp_max);
-                    x
+                    (bands[band as usize - 1].4, bands[band as usize - 1].5) = (monthly_clp_min, monthly_clp_max);
+                    band as usize - 1
                 }
-                HouseholdIncome::Unmodeled { .. } => &mut bands[4],
+                HouseholdIncome::Unmodeled { .. } => 4,
             };
+            let (b, a) = (&self.pop.persons[i], &pop.persons[i]);
+            if b.mode != a.mode {
+                let km = |p: &Person, jobs: &[Point]| c.km[homes[k] * c.n + self.ix(&jobs[p.dest as usize].cut)];
+                match (cash(b.mode, km(b, &self.pop.jobs)), cash(a.mode, km(a, &pop.jobs))) {
+                    (Some(before), Some(after)) => { extra[j].0 += after - before; extra[j].1 += 1; }
+                    _ => extra[j].2 += 1,
+                }
+            }
+            let x = &mut bands[j];
             x.0 += 1;
             x.1 += (self.pop.persons[i].mode != pop.persons[i].mode) as u64;
             x.2 += (visits.before[k].is_some() && after[k].is_none()) as u64;
@@ -265,12 +278,17 @@ impl Scenario {
         }
         let share = |n: u64, d: u64| (n as f64 / d.max(1) as f64 * 10000.0).round() / 100.0;
         v["workers_by_household_income_band"] = json!({
-            "bands": bands.iter().enumerate().map(|(b, &(n, mode, stopped, visit, min, max))| json!({
+            "bands": bands.iter().zip(extra).enumerate().map(|(b, (&(n, mode, stopped, visit, min, max), (clp, priced, unpriced)))| json!({
                 "band": if b < 4 { json!(b + 1) } else { json!("unmodeled") },
                 "monthly_clp_min": if b < 4 { json!(min) } else { Value::Null }, "monthly_clp_max": max,
                 "workers": n, "work_mode_changed": mode, "stopped_shopping": stopped, "shopping_changed": visit,
                 "work_mode_changed_pct": share(mode, n), "stopped_shopping_pct": share(stopped, n), "shopping_changed_pct": share(visit, n),
+                "extra_cash_clp_per_workday": clp.round(), "extra_cash_clp_per_priced_changer": (clp / priced.max(1) as f64).round(),
+                // One workday of the mean change (a closure lasts one day), in November 2024 CLP (IPC 105.83 / 114.13), over the band's monthly worker-weighted median (v1-income-burden.md).
+                "extra_cash_1_day_pct_of_band_median_monthly_income": if b < 4 { json!((clp / priced.max(1) as f64 * 105.83 / 114.13 / [560_000.0, 1_030_000.0, 1_745_000.0, 3_584_702.0][b] * 100000.0).round() / 1000.0) } else { Value::Null },
+                "work_mode_changes_unpriced": unpriced,
             })).collect::<Vec<_>>(),
+            "cash": "Illustrative daily round trip, 2026 CLP, same mode out and back: public 2 × 795 (Red bus with transfers); car, fuel-only proxy, 2 × engine comuna-pair km × 1,414 CLP/l (CNE RM gasoline 93, Sep 2026) ÷ 16.9 km/Lge (ICCT, 2025 new light vehicles of all technologies, assumed for a gasoline commuter car); walk and bicycle 0. Engine km is straight-line between comuna points (same comuna: half the distance to the nearest other comuna), not a measured trip distance. Parking, tolls and Metro peak fares (+100) are not included. Taxi/colectivo and other modes have no price and are counted as unpriced.",
             "unit": "workers (synthetic persons with a modeled work trip); pct = count / workers in the band. Band = imputed CASEN 2024 monthly household monetary income, November 2024 CLP, drawn from the CASEN workers of the home comuna (commune is not a CASEN survey domain). Unmodeled: unknown private household or age outside the source.",
         });
         let cut = |x: Option<u8>| x.map(|d| c.cuts[d as usize].clone());

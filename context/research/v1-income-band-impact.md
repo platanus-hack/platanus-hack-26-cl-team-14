@@ -22,3 +22,25 @@ The earlier draw by age only (#497) gave the same response in every band: the ba
 The bus removal moves a 43% larger share of band 1 than of band 4. The Metro closure moves a slightly larger share of the upper bands. No change gives zero in every row.
 
 The band is an imputed household trait. It does not enter any choice, and it does not measure a person's income, wage or cash for a trip.
+
+## Extra cash per workday
+
+Each band row also gives an illustrative change in daily round-trip cash, assuming the same mode out and back, for the workers who change work mode: `extra_cash_clp_per_workday` (sum), `extra_cash_clp_per_priced_changer` (mean) and `extra_cash_1_day_pct_of_band_median_monthly_income`. Prices, in 2026 CLP:
+
+| Mode | Daily round trip | Source |
+| --- | --- | --- |
+| Public | 2 × 795 | Red bus fare with transfers, 2026 ([v1-optional-visit-fares.md](v1-optional-visit-fares.md)) |
+| Car, fuel-only proxy | 2 × km × 1,414 / 16.9 | Gasoline 93, Región Metropolitana, September 2026: 1,414 CLP/l ([CNE monthly report, October 2026, p. 13](https://www.cne.cl/wp-content/uploads/2026/10/RMensual_v202610.pdf)). New light vehicles of all technologies, 2025: 16.9 km/Lge ([ICCT](https://theicct.org/chile-acelera-su-transicion-hacia-un-transporte-mas-limpio-el-reto-ahora-es-no-perder-impulso-sept26/)), assumed here for a gasoline commuter car. km = engine `choice.km`, straight-line between the home and job comuna points; same comuna: half the distance to the nearest other comuna point |
+| Walk, bicycle | 0 | |
+| Taxi, colectivo, other | no price | counted in `work_mode_changes_unpriced` |
+
+These are illustrative proxies, not measured costs or bounds. Engine km is not a measured trip distance, the fleet is older than new vehicles, and parking, tolls and Metro peak fares (+100) are not included. The closure is in the morning, but the daily figure assumes the same mode for the return. The percentage is for one workday, because a closure lasts one day. It converts the 2026 mean to November 2024 CLP (IPC 105.83 / 114.13) and divides it by the band's worker-weighted median monthly household income ([v1-income-burden.md](v1-income-burden.md)).
+
+| Metro closed 07:00–10:00 | Band 1 | Band 2 | Band 3 | Band 4 |
+| --- | ---: | ---: | ---: | ---: |
+| Workers who change mode | 12,409 | 25,271 | 35,552 | 36,096 |
+| Mean extra cash per priced changer, CLP/day | 601 | 595 | 570 | 343 |
+| One day, % of band median monthly income | 0.100% | 0.054% | 0.030% | 0.009% |
+| Unpriced changers | 1,870 | 3,557 | 5,042 | 4,128 |
+
+With all buses removed, the mean cash change is negative in every band (−81 to −11 CLP/day): many changers walk, which costs no cash. The engine does not price the extra time.
