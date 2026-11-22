@@ -14,6 +14,8 @@ PURPOSE = {
     "6": "leisure", "7": "home", "8": "other", "9": "leisure", "10": "other",
     "11": "shopping", "12": "errands", "13": "leisure", "14": "other", "": "other",
 }
+PUBLIC_MODES = {"2", "3", "4", "5", "6", "7", "9", "10", "11", "12"}
+PUBLIC_DEPARTURE_PURPOSES = ("health", "shopping")
 LENGTHS = ("0-1", "1-3", "3-5", "5-10", "10-20", "20+", "imputed", "unknown")
 BINS = {
     "mode_eod": tuple(str(i) for i in range(1, 19)),
@@ -85,9 +87,18 @@ def aggregate(survey, output):
     homes, person_weights, residents = survey_inputs(survey)
     lengths = {r["Viaje"]: distance_bin(r) for r in rows(survey / "DistanciaViaje.csv")}
     counts, expanded = Counter(), Counter()
+    known_mode_time = Counter()
     for r, home, purpose, weight in iter_weekday_trips(survey, homes, person_weights):
+        departure = start_bin(r["HoraIni"])
+        mode = r["ModoAgregado"]
+        if purpose in PUBLIC_DEPARTURE_PURPOSES and departure != "unknown" and mode in BINS["mode_eod"]:
+            known_mode_time[home, purpose] += weight
+            if mode in PUBLIC_MODES:
+                cell = home, purpose, "public_start_half_hour", departure
+                counts[cell] += 1
+                expanded[cell] += weight
         for key in ((home, purpose), (home, purpose, "mode_eod", r["ModoAgregado"]),
-                    (home, purpose, "start_half_hour", start_bin(r["HoraIni"])),
+                    (home, purpose, "start_half_hour", departure),
                     (home, purpose, "distance_km", lengths[r["Viaje"]])):
             counts[key] += 1
             expanded[key] += weight
@@ -110,6 +121,11 @@ def aggregate(survey, output):
                         n, value = counts[cell], expanded[cell]
                         share = f"{value/total:.9f}" if total else ""
                         profiles.writerow([*cell, n, int(n < 30), f"{value:.6f}", share])
+        for (home, purpose), total in sorted(known_mode_time.items()):
+            for half_hour in range(48):
+                cell = home, purpose, "public_start_half_hour", str(half_hour)
+                n, value = counts[cell], expanded[cell]
+                profiles.writerow([*cell, n, int(n < 30), f"{value:.6f}", f"{value/total:.9f}"])
 
 
 if __name__ == "__main__":
