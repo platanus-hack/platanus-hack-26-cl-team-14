@@ -4,6 +4,9 @@
 struct PrintView {
     up_and_focal: vec4<f32>,
     sun_and_title: vec4<f32>,
+    world_from_clip: mat4x4<f32>,
+    land: vec4<f32>,
+    sky_and_reach: vec4<f32>,
 }
 @group(0) @binding(2) var<uniform> view: PrintView;
 
@@ -118,6 +121,12 @@ fn print_city(pos: vec4<f32>, dark: bool, hatch: bool) -> vec4<f32> {
         let gray = vec3<f32>(.90, .92, .94) * v;
         color = select(mix(gray, base, .35), gray, dark);
     }
+    // Past the surveyed rectangle the mirrored land dissolves into the sky.
+    let ndc = vec2<f32>(pos.x, -pos.y) / vec2<f32>(textureDimensions(depth)) * 2. + vec2<f32>(-1., 1.);
+    let world = view.world_from_clip * vec4<f32>(ndc, z, 1.);
+    let ground = world.xz / world.w;
+    let beyond = length(max(max(view.land.xy - ground, ground - view.land.zw), vec2<f32>(0.)));
+    color = mix(color, view.sky_and_reach.rgb, smoothstep(0., view.sky_and_reach.w, beyond));
     return vec4<f32>(color, 1.);
 }
 

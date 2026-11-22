@@ -2,8 +2,7 @@ mod activity;
 pub(crate) mod edits;
 mod facade;
 mod ground;
-pub(crate) mod horizon;
-mod outskirts;
+pub(crate) mod outskirts;
 pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
 pub(crate) mod route_activity;
@@ -12,10 +11,11 @@ mod streets;
 mod terrain;
 mod trees;
 pub(crate) mod water;
+use bevy::camera::primitives::MeshAabb;
 use bevy::mesh::morph::{MeshMorphWeights, MorphAttributes};
 use bevy::prelude::*;
 use std::path::Path;
-pub(crate) use terrain::ferry_depth_grid;
+pub(crate) use terrain::{extent, ferry_depth_grid};
 pub use terrain::{cursor_ground, ground_on_line, terrain_from_xz};
 
 /// Drawing offset in metres above the DEM. OSM layers describe crossing order.
@@ -674,9 +674,12 @@ pub(crate) fn setup_ground(
     }
     let (terrain, scenery, bridges) = ground::load_ground(Path::new("."));
     for (name, mesh) in terrain {
+        let bounds = mesh.get_aabb().unwrap();
+        let mesh = meshes.add(mesh);
+        outskirts::spawn(&mut commands, root, extent(), bounds, &mesh, &terrain_mat);
         commands.spawn((
             Name::new(name),
-            Mesh3d(meshes.add(mesh)),
+            Mesh3d(mesh),
             MeshMaterial3d(terrain_mat.clone()),
         ));
     }

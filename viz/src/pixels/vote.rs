@@ -23,6 +23,11 @@ struct DarkPaper {
 struct PrintView {
     up_and_focal: Vec4,
     sun_and_title: Vec4,
+    world_from_clip: Mat4,
+    // West, north, east and south limits of the surveyed land.
+    land: Vec4,
+    // Linear sky colour, and the metres over which the outskirts dissolve into it.
+    sky_and_reach: Vec4,
 }
 
 fn extract_paper(
@@ -81,6 +86,7 @@ fn draw(
     pass: Res<VotePass>,
     fullscreen: Res<FullscreenShader>,
     paper: Res<DarkPaper>,
+    sky: Res<ClearColor>,
     queue: Res<RenderQueue>,
     mut uniform: Local<UniformBuffer<PrintView>>,
     mut selected: Local<Option<((TextureFormat, &'static str), CachedRenderPipelineId)>>,
@@ -122,9 +128,13 @@ fn draw(
     };
     let view_rotation = camera.world_from_view.rotation().inverse();
     let focal = 0.5 * camera.viewport.w as f32 * camera.clip_from_view.y_axis.y;
+    let land = crate::city::extent();
     let value = PrintView {
         up_and_focal: (view_rotation * Vec3::Y).extend(focal),
         sun_and_title: (view_rotation * paper.to_sun).extend(paper.title.unwrap_or_default()),
+        world_from_clip: camera.world_from_view.to_matrix() * camera.clip_from_view.inverse(),
+        land: Vec4::new(land.min.x, land.min.y, land.max.x, land.max.y),
+        sky_and_reach: sky.to_linear().to_vec3().extend(crate::city::outskirts::REACH),
     };
     if uniform.binding().is_none() || *uniform.get() != value {
         uniform.set(value);
