@@ -1,5 +1,5 @@
 //! Display-only yielding at UOCT junction J071171 (Tobalaba/Larraín).
-use super::{BIN, DAY, Path, Replay, Vehicle, departure_offset, world};
+use super::{BIN, DAY, Life, Path, Replay, Vehicle, departure_offset, world};
 use std::{collections::HashMap, sync::Arc};
 
 // City seconds between entries into the junction. At 9 m/s, the preceding
@@ -42,7 +42,10 @@ impl Queues {
         let mut routes = HashMap::new();
         for (bin, groups) in replay.departures.iter().enumerate() {
             for (group, flow) in groups.iter().enumerate() {
-                if flow.cars.is_empty() || flow.path.origin_preview {
+                if matches!(flow.lifecycle, Life::Leave)
+                    || flow.cars.is_empty()
+                    || flow.path.origin_preview
+                {
                     continue;
                 }
                 let approach = routes
