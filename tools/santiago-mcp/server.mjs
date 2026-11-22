@@ -276,7 +276,12 @@ async function setScene({ place, half_hour }) {
   switch (type) {
     case 'station':
       latest = await engineJSON('/api/scenario-latest');
-      entry = catalogEntry(latest?.stations ?? stationCatalog, id);
+      try {
+        entry = catalogEntry(latest?.stations ?? stationCatalog, id);
+      } catch (error) {
+        const state = latest ? 'The previous scenario remains active.' : 'No scenario is active.';
+        throw new Error(`${error.message} The requested station change was not applied. ${state}`);
+      }
       break;
     case 'place':
       entry = catalogEntry(placeRows.map(r => ({ id: r[0], name: r[1], ...places[r[0]] })), id);
