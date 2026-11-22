@@ -158,6 +158,11 @@ const replayFile = (id) => {
   return new URL(`${id}.json`, replays);
 };
 const readReplay = (id) => JSON.parse(readFileSync(replayFile(id), 'utf8'));
+function replayMetadataForChat({ activity, ...meta }) {
+  if (!activity) return meta;
+  const { start_minute, step_minutes, steps, mode } = activity;
+  return { ...meta, activity: { start_minute, step_minutes, steps, mode } };
+}
 const listReplaysTool = {
   name: 'list_replays',
   description: 'List the cached demo replays: id, title, the presenter question, the changes, the scene place and start half hour, the duration and what to analyze. Use it to match the presenter question to a replay.',
@@ -195,7 +200,7 @@ const createReplayTool = {
           step_minutes: { type: 'integer', minimum: 1 },
           steps: { type: 'integer', minimum: 1, description: 'Number of open steps. The activity ends within the same local day.' },
           mode: { type: 'string', description: 'Participant mode for display, such as bike or walk.' },
-          motor_access: { description: 'Known motor access rule during the activity. This describes access and does not apply a road edit.' },
+          motor_access: { type: 'string', description: 'Known motor access rule during the activity. This describes access and does not apply a road edit.' },
           segments: {
             type: 'array', minItems: 1,
             items: {
@@ -442,13 +447,13 @@ async function dispatch({ method, params }) {
       if (!raw) throw new Error('There is no published result. Confirm and run an experiment, or select a saved replay.');
       text = { source, ...queryResult(raw, args, publicWorkerWeights) };
     }
-    else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
+    else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => replayMetadataForChat(readReplay(f.slice(0, -5)).meta));
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
       if (meta.cues) result.scene.cues = meta.cues;
       if (meta.chart) result.chart = chartValues(meta);
       await engineJSON('/api/replay', result);
-      text = { replay: meta, result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
+      text = { replay: replayMetadataForChat(meta), result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
     } else if (params.name === createReplayTool.name) {
       const { scene, changes, stations = [], ...meta } = args;
       replayFile(meta.id);
@@ -470,7 +475,7 @@ async function dispatch({ method, params }) {
       }
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
-      text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
+      text = { saved: `data/replays/${meta.id}.json`, replay: replayMetadataForChat(replay.meta), result: short };
     } else text = (await runScenario(args, placement)).short;
     return { content: [{ type: 'text', text: JSON.stringify(text) }] };
   } catch (error) {
