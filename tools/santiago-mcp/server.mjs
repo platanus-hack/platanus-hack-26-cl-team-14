@@ -115,7 +115,7 @@ const featureChanges = [
 
 const routeActivity = {
   type: 'object',
-  description: 'Confirmed route activity. Use an empty changes list for activity only. Step 0 starts at start_minute. Use stated assumptions for any arrivals, capacities or visits without measured inputs.',
+  description: 'Confirmed route activity. Use an empty changes list for activity only. Step 0 starts at start_minute. Use stated assumptions for any arrivals, capacities or visits without measured inputs. The activity result reports visit starts and person-minutes spent waiting or visiting.',
   required: ['start_minute', 'step_minutes', 'steps', 'segments', 'arrivals', 'geometry'],
   properties: {
     start_minute: { type: 'integer', minimum: 0, maximum: 1439, description: 'Exact local minute from midnight. 495 is 08:15.' },
@@ -516,9 +516,23 @@ async function runScenario(args, requireAll, scene) {
 function shortResult(full, asked, placesUsed) {
     const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, activity, ...result } = full;
     if (activity) {
-      const { start_minute, end_minute, mode, steps } = activity;
+      const { start_minute, end_minute, step_minutes, mode, steps } = activity;
       const { entered, exited, remaining } = steps.at(-1);
-      result.activity = { start_minute, end_minute, mode, entered, exited, remaining };
+      let visits_started = 0;
+      let wait_person_minutes = 0;
+      let visit_person_minutes = 0;
+      for (const step of steps) {
+        if (!step.open) continue;
+        for (const segment of step.segments) {
+          visits_started += segment.visits_started;
+          wait_person_minutes += segment.queued * step_minutes;
+          visit_person_minutes += segment.visiting * step_minutes;
+        }
+      }
+      result.activity = {
+        start_minute, end_minute, mode, entered, exited, remaining,
+        visits_started, wait_person_minutes, visit_person_minutes,
+      };
     }
     if (result.city_edits?.length) {
       result.city_edits = result.city_edits.map(editSummary);
