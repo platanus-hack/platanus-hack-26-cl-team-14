@@ -255,8 +255,17 @@ def classified(rows, water, tunnels, curves):
         if key in sections:
             # The runtime maps these fractions to the original distance and
             # clock of each anchor, using the same planar length ratios.
-            spans[key] = [[anchor_index(start), anchor_index(end), kind]
-                          for start, end, kind in sections[key]]
+            ranges = []
+            for start, end, kind in sections[key]:
+                lo, hi = anchor_index(start), anchor_index(end)
+                if hi <= lo:
+                    continue
+                if ranges and ranges[-1][1] == lo and ranges[-1][2] == kind:
+                    ranges[-1][1] = hi
+                else:
+                    ranges.append([lo, hi, kind])
+            if ranges:
+                spans[key] = ranges
     return spans
 
 
