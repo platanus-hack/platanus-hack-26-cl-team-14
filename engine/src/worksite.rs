@@ -67,6 +67,10 @@ impl Worksite {
         })
     }
 
+    pub fn conflicts_with(&self, edit: &Value) -> bool {
+        edit["id"] == self.building_id && matches!(edit["op"].as_str(), Some("move" | "remove"))
+    }
+
     pub fn receipt(&self, pop: &Population) -> Value {
         let site = &pop.jobs[self.job];
         json!({"worksite_id":site.id, "building_id":self.building_id,
@@ -94,7 +98,7 @@ pub fn results(
     pop: &Population,
     choice: &Choice,
     roads: &RoadEdits<'_>,
-    public_minutes: Option<(&[f64], &[bool])>,
+    public_minutes: Option<&[Option<f64>]>,
 ) -> Vec<Value> {
     if worksites.is_empty() {
         return Vec::new();
@@ -131,10 +135,10 @@ pub fn results(
                     let value = minutes[o * cuts.len() + d];
                     value.is_finite().then_some(value)
                 }),
-                (2, true) => public_minutes.and_then(|(minutes, unreachable)| {
+                (2, true) => public_minutes.and_then(|minutes| {
                     let o = choice.cuts.iter().position(|cut| cut == origin)?;
                     let pair = o * choice.n + dest;
-                    (choice.gtfs_minutes[pair] && !unreachable[pair]).then_some(minutes[pair])
+                    minutes[pair]
                 }),
                 _ => None,
             };
@@ -168,7 +172,7 @@ pub fn results(
             "unit":"modeled workers",
             "scope":"A typical weekday. Counts follow synthetic workers assigned to this exact scenario worksite. Outside means the modeled home comuna differs from the placed building's primary census-block comuna.",
             "time_unit":"minutes",
-            "time_scope":"Travel times are comuna-pair proxies for the same assigned workers. Car uses the scenario road graph at free flow between comuna anchors. Public uses the scenario's scheduled-transit pair minutes for the morning routing reference (GTFS baseline coverage only, no imputed distance-fit pairs or timed transit scenarios). The Census public category includes bus, Metro, train, taxi and colectivo. The time proxy uses scheduled transit. Other modes and local journeys have no time in this result. These are not door-to-door times to the building.",
+            "time_scope":"Travel times are comuna-pair proxies for the same assigned workers. Car uses the scenario road graph at free flow between comuna anchors. Public uses the morning GTFS pair table and scheduled route times from full-day transit edits. Behavioral time assumptions and imputed distance-fit pairs do not supply route times. Timed transit scenarios have no public-travel times in this result. The Census public category includes bus, Metro, train, taxi and colectivo. The time proxy uses scheduled transit. Other modes and local journeys have no time in this result. These are not door-to-door times to the building.",
         })
     }).collect()
 }

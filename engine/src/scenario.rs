@@ -410,7 +410,7 @@ impl Scenario {
         let mut job_transit_reference = HashMap::new();
         let mut resident_stock_edits = 0;
         let mut city_edits = Vec::new();
-        let mut worksites = Vec::new();
+        let mut worksites: Vec<worksite::Worksite> = Vec::new();
         let mut car_shares = BTreeMap::new();
         let mut requests = vec![];
         let mut shops = self.shopping.shops.clone();
@@ -528,14 +528,19 @@ impl Scenario {
                                     .map_or(0.0, |p| p.weight) + delta < -1e-8
                             })
                         });
-                        if conflict {
+                        let moves_worksite = worksites.iter().any(|site| site.conflicts_with(&edit));
+                        if conflict || moves_worksite {
                             // Restore the footprint overlay from the earlier accepted edits in this request.
                             let mut restored = self.buildings.as_ref().unwrap().edits();
                             for previous in applied.iter().filter(|v: &&Value| v["kind"] == "building") {
                                 restored.apply(previous).unwrap();
                             }
                             building_edits = Some(restored);
-                            note["reason"] = json!("The building would withdraw more jobs or residents than remain on its block.");
+                            note["reason"] = json!(if moves_worksite {
+                                "Place a worksite at its final location before adding its jobs."
+                            } else {
+                                "The building would withdraw more jobs or residents than remain on its block."
+                            });
                             not_modeled.push(note);
                             continue;
                         }
@@ -1015,8 +1020,19 @@ impl Scenario {
                 }
             }
         }
-        let public_minutes = window.is_none().then_some((minutes.as_slice(), unreachable.as_slice()));
-        let worksite_cohorts = worksite::results(&worksites, &pop, c, &road_edits, public_minutes);
+        let scheduled_minutes = (window.is_none() && !worksites.is_empty()).then(|| {
+            let mut scheduled: Vec<_> = c.minutes.iter().zip(&c.gtfs_minutes)
+                .map(|(&minutes, &known)| known.then_some(minutes)).collect();
+            for edit in city_edits.iter().filter(|edit| edit["kind"] == "line") {
+                for pair in edit["effects"]["pairs"].as_array().into_iter().flatten() {
+                    let o = self.ix(pair["origin_cut"].as_str().unwrap());
+                    let d = self.ix(pair["destination_cut"].as_str().unwrap());
+                    scheduled[o * n + d] = pair["after_minutes"].as_f64();
+                }
+            }
+            scheduled
+        });
+        let worksite_cohorts = worksite::results(&worksites, &pop, c, &road_edits, scheduled_minutes.as_deref());
         let mut result = json!({
             "applied": applied,
             "city_edits": city_edits,
