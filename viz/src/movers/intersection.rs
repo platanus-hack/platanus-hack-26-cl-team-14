@@ -5,7 +5,8 @@ use std::{collections::HashMap, sync::Arc};
 // City seconds between entries into the junction. At 9 m/s, the preceding
 // car has passed the centre by 26 m before the next one reaches its stop line.
 const CLEARANCE: f32 = 4.5;
-const HEADWAY: f32 = 0.9;
+// At the close camera scale this leaves room for the full rendered body.
+const HEADWAY: f32 = 1.3;
 const STOP_DISTANCE: f32 = 14.;
 
 type Car = (usize, usize, usize);
