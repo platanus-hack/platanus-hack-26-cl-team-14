@@ -67,17 +67,27 @@ end run
 APPLESCRIPT
     ) || return
     read -r city_terminal_window_id city_terminal_tty <<<"$owner"
+    # Terminal echoes do script input. Keep the launch environment in the private
+    # run directory, then clear just this tab before drawing the provider UI.
+    local chat_launcher="$launch_dir/chat"
+    {
+        printf '%s\n' "printf '\033[2J\033[3J\033[H'"
+        printf 'cd %q || exit 1\n' "$repo"
+        printf 'export PATH=%q SANTIAGO_ENGINE=%q\n' "$PATH" "$SANTIAGO_ENGINE"
+        if [[ -n ${SANTIAGO_CHAT_CLI:-} ]]; then
+            printf 'export SANTIAGO_CHAT_CLI=%q\n' "$SANTIAGO_CHAT_CLI"
+        else
+            printf '%s\n' 'unset SANTIAGO_CHAT_CLI'
+        fi
+        printf '%s\n' 'exec /bin/bash ./tools/city-chat.sh'
+    } > "$chat_launcher" || return
     # Keep ownership for cleanup even if Terminal rejects a style change.
     /usr/bin/osascript - "$city_terminal_window_id" "$city_terminal_tty" \
         "$terminal_left" "$terminal_top" "$terminal_right" "$terminal_bottom" \
-        "$repo" "$SANTIAGO_ENGINE" "${SANTIAGO_CHAT_CLI:-}" "$PATH" "$font_name" <<'APPLESCRIPT'
+        "$chat_launcher" "$font_name" <<'APPLESCRIPT'
 on run argv
-    set {ownedID, ownedTTY, x1, y1, x2, y2, repoDir, engineURL, providerName, commandPath, chatFont} to argv
-    set providerArg to "-u SANTIAGO_CHAT_CLI"
-    if providerName is not "" then set providerArg to quoted form of ("SANTIAGO_CHAT_CLI=" & providerName)
-    set cmd to "cd " & quoted form of repoDir & " && exec /usr/bin/env " & ¬
-        providerArg & " " & quoted form of ("PATH=" & commandPath) & " " & ¬
-        quoted form of ("SANTIAGO_ENGINE=" & engineURL) & " /bin/bash ./tools/city-chat.sh"
+    set {ownedID, ownedTTY, x1, y1, x2, y2, launcher, chatFont} to argv
+    set cmd to "exec /bin/bash " & quoted form of launcher
     tell application "Terminal"
         set win to window id (ownedID as integer)
         set ownedTab to first tab of win whose tty is ownedTTY
