@@ -16,11 +16,9 @@ const STOP_DISTANCE: f32 = 14.;
 const QUEUE_RADIUS: f32 = 125.;
 
 // Shared OSM nodes, matched to UOCT inventory locations.
-// Grecia is one east-side merge, not an aggregate roundabout node.
-const LOCATIONS: [(f64, f64); 3] = [
+const LOCATIONS: [(f64, f64); 2] = [
     (-70.558968, -33.4521462),  // J071171 · Tobalaba/Larraín
     (-70.6141251, -33.4379143), // J005181 · Antonio Varas/Pocuro
-    (-70.5757932, -33.4691852), // J175111 · Grecia Oriente
 ];
 
 type Car = (usize, usize, usize);

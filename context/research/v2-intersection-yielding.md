@@ -19,13 +19,14 @@ to clear an intersection between conflicting movements.
 | --- | --- | --- |
 | J071171, Tobalaba/Larraín | 256366826 | Crossing streams |
 | J005181, Antonio Varas/Pocuro | 332274486 | Crossing streams |
-| J175111, Grecia Oriente/Américo Vespucio | 310951822 | Merge into the same exit |
 
 The viewer reserves each site separately. A wait carries forward to the next
-site on the same route. Grecia covers one mapped merge. Other approaches in
-the roundabout keep their existing movement. The current locations passed a
+site on the same route. The current locations passed a
 route check for two conflicting approaches in saved MUT A. This rule has no
 coverage at other nodes, for buses or for event traffic. A preliminary test
 at busy Tobalaba/Apoquindo estimated a maximum wait of 856 seconds under
-single occupancy, so that location stays outside this rule. The public
-inventory supplies locations only.
+single occupancy, so that location stays outside this rule. A mapped merge at
+Grecia Oriente (J175111, OSM 310951822) also stays outside the rule. In the
+saved Metro-closure result, separate upstream queues can occupy the same
+pavement on that merge. It needs shared-lane admission. The public inventory
+supplies locations only.
