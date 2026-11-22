@@ -179,7 +179,7 @@ fn click_arrow(
         if request.action == Action::Click
             && **band != Visibility::Hidden
             && let Some((_, arrow, _)) = arrows.iter().find(|(entity, arrow, _)| {
-                NodeId(entity.to_bits()) == request.target && step.can_step(arrow.0)
+                NodeId(entity.to_bits()) == request.target_node && step.can_step(arrow.0)
             })
         {
             step.click = arrow.0;
