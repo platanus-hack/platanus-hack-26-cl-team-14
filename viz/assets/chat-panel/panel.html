@@ -49,12 +49,13 @@
   .panel:not(.open) #terminal { visibility: hidden; }
   #terminal { flex: 1; min-height: 0; padding: 11px 12px; }
   .xterm-viewport { background: transparent !important; }
+  .session-brand { visibility: hidden; }
 </style>
 </head>
 <body>
 <div class="panel open">
   <header>
-    <strong id="provider">Codex</strong>
+    <strong>Chat</strong>
     <button id="toggle" type="button" aria-controls="terminal" aria-expanded="true">Ocultar chat</button>
   </header>
   <div id="terminal" aria-label="Terminal"></div>
@@ -77,6 +78,15 @@
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
   term.open(mount);
+  // The CLI emits its name in a formatted session header and status card.
+  // Hide those rows in the view. Keep the terminal buffer and conversation intact.
+  const sessionBrand = /^\s*(?:│\s*)?>_ OpenAI Codex \(v[\w.+-]+\)\s*│?\s*$/;
+  term.onRender(({ start, end }) => {
+    const rows = mount.querySelector('.xterm-rows').children;
+    for (let row = start; row <= end; row++) {
+      rows[row].classList.toggle('session-brand', sessionBrand.test(rows[row].textContent));
+    }
+  });
   term.onData(text => send({ kind: 'input', text }));
   term.onResize(({ cols, rows }) => send({ kind: 'resize', cols, rows }));
   toggle.addEventListener('click', () => send({ kind: 'toggle' }));
@@ -87,9 +97,8 @@
   window.chatOutput = data => {
     term.write(Uint8Array.from(atob(data), character => character.charCodeAt(0)));
   };
-  window.chatOpen = (visible, provider) => {
+  window.chatOpen = visible => {
     panel.classList.toggle('open', visible);
-    document.querySelector('#provider').textContent = provider;
     toggle.textContent = visible ? 'Ocultar chat' : 'Abrir chat';
     toggle.setAttribute('aria-expanded', visible);
     if (visible) {

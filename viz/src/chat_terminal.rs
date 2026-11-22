@@ -45,7 +45,6 @@ struct Panel {
     input: Box<dyn Write + Send>,
     output: Receiver<Vec<u8>>,
     events: Receiver<Event>,
-    provider: &'static str,
     window_size: Vec2,
     ready: bool,
     open: bool,
@@ -105,10 +104,6 @@ impl Panel {
                 }
             }
         });
-        let provider = match std::env::var("SANTIAGO_CHAT_CLI").as_deref() {
-            Ok("codex") => "Codex",
-            _ => "Chat",
-        };
         Ok(Self {
             view,
             child,
@@ -116,7 +111,6 @@ impl Panel {
             input,
             output,
             events,
-            provider,
             window_size,
             ready: false,
             open: true,
@@ -158,10 +152,8 @@ impl Panel {
         if self.open {
             self.view.focus()?;
         }
-        self.view.evaluate_script(&format!(
-            "window.chatOpen({}, '{}')",
-            self.open, self.provider
-        ))?;
+        self.view
+            .evaluate_script(&format!("window.chatOpen({})", self.open))?;
         if !self.open {
             self.view.focus_parent()?;
         }
