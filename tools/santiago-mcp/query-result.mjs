@@ -18,7 +18,7 @@ const filterArray = { type: 'array', items: filterSchema };
 
 export const queryResultTool = {
   name: 'query_result',
-  description: 'Answer a measurement question about an already published scenario or a saved replay without running it. Use raw results only. metro_entries counts modeled Metro entries by station_id, station or half_hour (0 is midnight, 47 is 23:30). Use grain day for exact daily station totals, or half_hour for 30-minute bins. commute_flows counts modeled workers by origin_cut and destination_cut for up to 200 changed comuna pairs. shopping_trips counts modeled weekday outbound shopping trips in the reported changed destination comunas. route_minutes uses one city_edit_index and measures modeled minutes by directed comuna pair. Compare uses the same valid rows for both states. Route weights are equal by default. census_public_workers is allowed for transit routes and uses fixed Census 2024 counts, not scenario passengers. Use group_by and filters to match the user’s scope. For shares, select a weight explicitly: value counts entries or workers, equal counts table rows. Read unit, population, and coverage before answering. Results are text or tables. This tool does not open or chart a replay.',
+  description: 'Answer a measurement question about an already published scenario or a saved replay without running it. Use raw results only. metro_entries counts modeled Metro entries by station_id, station or half_hour (0 is midnight, 47 is 23:30). Use grain day for exact daily station totals, or half_hour for 30-minute bins. commute_flows counts modeled workers by origin_cut and destination_cut for up to 200 changed comuna pairs. shopping_trips counts modeled weekday outbound shopping trips in the reported changed destination comunas. route_minutes uses one city_edit_index and measures modeled minutes by directed comuna pair. For route minutes, base and scenario mean immediately before and after the selected edit. Read state_labels. Compare uses the same valid rows for both states. Use sum for totals of entries, workers or trips. Count measures records or their declared weight. Route weights are equal by default. census_public_workers is allowed for transit routes and uses fixed Census 2024 counts, not scenario passengers. Use group_by and filters to match the user’s scope. For shares, select a weight explicitly: value counts entries or workers, equal counts table rows. Read unit, population, and coverage before answering. Results are text or tables. This tool does not open or chart a replay.',
   inputSchema: object(['source', 'data', 'state', 'aggregate'], {
     source: object(['type'], { type: field(['current', 'replay']), id: { type: 'string' } }),
     data: field(datasets),
@@ -94,7 +94,12 @@ function dataset(raw, q) {
     rowUnit: 'reported directed comuna route pairs',
     population: transit ? 'Public transport routes between fixed comuna points departing at 08:00 in the routing model.'
       : 'Free-flow car routes between fixed comuna points.',
-    scope: 'Only route pairs reported by the selected edit. Base and scenario use pairs with finite times on both sides. This is not a distribution of individual journey times.',
+    stateLabels: {
+      base: 'Immediately before the selected route edit',
+      scenario: 'Immediately after the selected route edit',
+      delta: 'Change from the selected route edit',
+    },
+    scope: 'The selected edit may follow earlier edits. Both sides use the same reported pairs with finite times. The distribution represents modeled routes, not individual journey times.',
   };
 }
 
@@ -253,7 +258,7 @@ export function queryResult(raw, args, loadPublicWorkers) {
   return {
     data: q.data, state: q.state, aggregate: q.aggregate, revision: raw.revision ?? null, city_edit_index: data.city_edit_index,
     unit: q.aggregate === 'share' ? 'percent' : ['count', 'histogram'].includes(q.aggregate) ? weightUnit : data.unit,
-    measured_unit: data.unit, weight_unit: weightUnit,
+    measured_unit: data.unit, weight_unit: weightUnit, state_labels: data.stateLabels,
     population: data.population, scope: data.scope,
     weighting: census ? 'Fixed observed Census 2024 public work commuters by directed comuna pair, across the workday. These are not scenario passenger counts.'
       : q.weight === 'value' ? 'Weight each selected row by its modeled count.' : 'Each selected row contributes equally.',
