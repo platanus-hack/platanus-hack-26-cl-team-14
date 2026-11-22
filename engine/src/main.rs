@@ -11,6 +11,7 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
     routing::{get, post},
 };
+use santiago_scenario_core::activity::Activity;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{path::Path, sync::Arc};
@@ -27,6 +28,38 @@ struct GeneralScenarioRequest {
     #[serde(default)]
     require_all: bool,
     scene: Option<SceneRequest>,
+    activity: Option<ScenarioActivity>,
+}
+
+#[derive(Deserialize)]
+struct ScenarioActivity {
+    #[serde(flatten)]
+    model: Activity,
+    mode: Option<String>,
+    motor_access: Option<Value>,
+    #[serde(default)]
+    geometry: Vec<ActivityGeometry>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct ActivityGeometry {
+    id: String,
+    #[serde(alias = "coordinates")]
+    geometry: Vec<[f64; 2]>,
+}
+
+impl ScenarioActivity {
+    fn result(&self) -> Result<Value, &'static str> {
+        let mut result = json!(self.model.run()?);
+        result["segments"] = json!(self.geometry);
+        if let Some(mode) = &self.mode {
+            result["mode"] = json!(mode);
+        }
+        if let Some(access) = &self.motor_access {
+            result["motor_access"] = access.clone();
+        }
+        Ok(result)
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -97,18 +130,29 @@ async fn general_scenario(
     if let Some(scene) = &request.scene {
         scene.validate().map_err(|(status, reason)| (status, reason.to_owned()))?;
     }
+    let activity = request.activity.as_ref()
+        .map(ScenarioActivity::result)
+        .transpose()
+        .map_err(|reason| (StatusCode::UNPROCESSABLE_ENTITY, reason.to_owned()))?;
     let mut result = core.scenario.run(&request.changes);
     let rejected = result["not_modeled"].as_array().unwrap();
-    if request.require_all && !rejected.is_empty() {
+    if (request.require_all || activity.is_some()) && !rejected.is_empty() {
         let reasons = rejected.iter().filter_map(|edit| edit["reason"].as_str()).collect::<Vec<_>>();
+        let change = if activity.is_some() { "activity" } else { "placement" };
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            format!("The placement was not applied. {}", reasons.join(" ")),
+            format!("The {change} was not applied. {}", reasons.join(" ")),
         ));
+    }
+    if let Some(activity) = activity {
+        result["activity"] = activity;
     }
     core.scenario_events.send_modify(|latest| {
         let revision = next_revision(latest);
         result["revision"] = json!(revision);
+        if let Some(activity) = result.get_mut("activity") {
+            activity["playback_revision"] = json!(revision);
+        }
         if let Some(scene) = request.scene {
             result["scene"] = scene.value(revision);
         } else if let Some(scene) = latest.get("scene") {
@@ -125,7 +169,10 @@ async fn play_replay(State(core): State<Arc<Core>>, Json(mut result): Json<Value
         let revision = json!(next_revision(latest));
         result["revision"] = revision.clone();
         // The viewer flies the camera on a new scene revision.
-        result["scene"]["revision"] = revision;
+        result["scene"]["revision"] = revision.clone();
+        if let Some(activity) = result.get_mut("activity").and_then(Value::as_object_mut) {
+            activity.insert("playback_revision".into(), revision);
+        }
         *latest = result.clone();
     });
     Json(json!({"revision": result["revision"], "scene": result["scene"]}))
