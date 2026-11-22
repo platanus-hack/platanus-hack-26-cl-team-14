@@ -1,0 +1,15 @@
+{
+  "changes": "context/research/v4_line1_split.json",
+  "bins": [27, 28],
+  "closed_stations": ["SA", "MM", "PV", "GO", "AL"],
+  "panels": {
+    "original": ["BA-BQ", "EM"],
+    "expanded": ["BA-BQ", "EM", "LE-LEN", "TB-TOB"]
+  },
+  "stations": {
+    "BA-BQ": {"reference": [706, 712], "event": [1242, 1590]},
+    "EM": {"reference": [909, 1041], "event": [175, 215]},
+    "LE-LEN": {"reference": [1404, 1433], "event": [749, 962]},
+    "TB-TOB": {"reference": [1846, 1882], "event": [846, 951]}
+  }
+}
