@@ -508,6 +508,36 @@ impl StadiumSeating {
         inside(&self.outer, local.xz())
     }
 
+    /// Fraction along the segment at its first inward crossing in local XZ.
+    pub(crate) fn first_entry(&self, from: Vec3, to: Vec3) -> Option<f32> {
+        let start = from.xz();
+        let step = to.xz() - start;
+        let n = self.outer.len();
+        let side = |p: Vec3| step.perp_dot(p.xz() - start);
+        let mut first = None;
+        for i in 0..n {
+            let a = self.outer[i];
+            let b = self.outer[(i + 1) % n];
+            let (left, right) = (side(a), side(b));
+            // The sampled rim winds counterclockwise in XZ. An entry crosses
+            // an edge from its right to its left; skip exits and tangencies.
+            if left < 0. || right >= 0. {
+                continue;
+            }
+            if left == 0. && side(self.outer[(i + n - 1) % n]) <= 0. {
+                continue;
+            }
+            let edge = b.xz() - a.xz();
+            let fraction = (a.xz() - start).perp_dot(edge) / (right - left);
+            if (0.0..=1.0).contains(&fraction)
+                && first.is_none_or(|nearest| fraction < nearest)
+            {
+                first = Some(fraction);
+            }
+        }
+        first
+    }
+
     // A turn follows the perimeter; depth runs from the infield edge to the outer wall.
     pub(crate) fn terrace(&self, turn: f32, depth: f32) -> Vec3 {
         let position = turn.rem_euclid(1.) * self.outer.len() as f32;

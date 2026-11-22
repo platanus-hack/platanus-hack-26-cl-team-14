@@ -1,13 +1,23 @@
-//! Weighted groups travel between a venue and the general direction of their comuna.
-//! The geometry and playback duration are schematic. The result supplies the counts.
+//! Stadium arrivals use the same weighted journeys and city clock as their vehicles.
+//! Other neighborhood events retain their schematic local animation.
+#[path = "events/walk.rs"]
+mod walk;
 use super::*;
+use super::{
+    clock::{CityClock, UpdateClock},
+    fan_travel::{FanJourneys, FanMode, RefreshFanJourneys},
+};
 use crate::{
     Rig,
     city::{StadiumSeating, SubwayView},
 };
 use bevy::{text::FontSize, time::Real};
+use walk::{OriginWalk, WalkPath};
 
 const PHASE_SECONDS: f32 = 10.;
+// These are display transitions in replay seconds, not a measured gate capacity.
+const GATE_FADE_SECONDS: f32 = 30.;
+const SOLID: usize = 12;
 const GROUP_SIZE: f64 = 192.;
 const COLORS: [Color; 3] = [
     Color::srgb(0.09, 0.90, 0.82),
@@ -24,9 +34,10 @@ impl Plugin for EventsPlugin {
                 Update,
                 refresh
                     .after(crate::city::draw_buildings)
+                    .after(RefreshFanJourneys)
                     .run_if(resource_changed::<Scenario>),
             )
-            .add_systems(Update, animate.after(refresh));
+            .add_systems(Update, animate.after(refresh).after(UpdateClock));
     }
 }
 
@@ -34,7 +45,7 @@ impl Plugin for EventsPlugin {
 struct Art {
     figure: Handle<Mesh>,
     modes: [Handle<Mesh>; 3],
-    paint: [Handle<StandardMaterial>; 3],
+    paint: [[Handle<StandardMaterial>; SOLID + 1]; 3],
 }
 
 #[derive(Component)]
@@ -54,20 +65,22 @@ enum GroupPath {
         from: Vec3,
         to: Vec3,
     },
-    Stadium {
-        entrance: f32,
-        seat_turn: f32,
-        row: f32,
-        approach: f32,
+    Arrival {
+        origin: Option<OriginWalk>,
+        walk: WalkPath,
+        alight: f32,
+        gate: f32,
+        seat: Vec3,
+        facing: Vec3,
     },
 }
 
 struct Event {
     center: Vec3,
-    stadium: Option<Entity>,
     end: f32,
     started: f32,
     captions: [String; 2],
+    routed: bool,
     progress: Option<(usize, f32)>,
 }
 
@@ -109,12 +122,13 @@ fn setup(
         ],
         figure,
         paint: COLORS.map(|color| {
-            materials.add(StandardMaterial {
-                base_color: color,
-                // Draw the legend colors in the city pass after ink quantization.
-                alpha_mode: AlphaMode::Blend,
-                unlit: true,
-                ..default()
+            std::array::from_fn(|step| {
+                materials.add(StandardMaterial {
+                    base_color: color.with_alpha(step as f32 / SOLID as f32),
+                    alpha_mode: AlphaMode::Blend,
+                    unlit: true,
+                    ..default()
+                })
             })
         }),
     });
@@ -167,33 +181,26 @@ fn setup(
         });
 }
 
-// Keep the same crowd for both directions. The fan model supplies joint counts;
-// generic events supply return marginals, so each mode shares the overall home mix.
-fn spawn_groups(
+fn spawn_local_groups(
     commands: &mut Commands,
     art: &Art,
     zones: &[Value],
     event: &Value,
     center: Vec3,
     venue: usize,
-    at_stadium: bool,
 ) -> [String; 2] {
-    let fan = &event["fan_base"];
-    let fans = fan["by_home"].is_array();
-    let census = &event["attendees_by_census_mode"];
-    let totals = if fans {
-        ["public", "car", "other"].map(|key| fan["by_mode"][key].as_f64().unwrap_or_default())
-    } else {
-        let mut counts = [0.; 3];
-        for (key, count) in census.as_object().into_iter().flatten() {
-            counts[match key.as_str() {
-                "2" => 0,
-                "1" => 1,
-                _ => 2,
-            }] += count.as_f64().unwrap_or_default();
-        }
-        counts
-    };
+    let mut totals = [0.; 3];
+    for (key, count) in event["attendees_by_census_mode"]
+        .as_object()
+        .into_iter()
+        .flatten()
+    {
+        totals[match key.as_str() {
+            "2" => 0,
+            "1" => 1,
+            _ => 2,
+        }] += count.as_f64().unwrap_or_default();
+    }
     let total: f64 = totals.iter().sum();
     if total <= 0. {
         return Default::default();
@@ -201,12 +208,6 @@ fn spawn_groups(
     let groups = (total / GROUP_SIZE).round().clamp(1., 512.) as usize;
     let mut mass = 0.;
     let mut used = 0;
-    let fan_rows: HashMap<_, _> = fan["by_home"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|row| Some((row["cut"].as_str()?, row)))
-        .collect();
     for (mode, count) in totals.into_iter().enumerate() {
         mass += count;
         let boundary = (mass / total * groups as f64).round() as usize;
@@ -217,11 +218,7 @@ fn spawn_groups(
             .iter()
             .filter_map(|zone| {
                 let id = zone["id"].as_str()?;
-                let weight = if fans {
-                    fan_rows.get(id)?[["public", "car", "other"][mode]].as_f64()?
-                } else {
-                    event["attendees_by_return_comuna"][id].as_f64()?
-                };
+                let weight = event["attendees_by_return_comuna"][id].as_f64()?;
                 let home = world(zone["longitude"].as_f64()?, zone["latitude"].as_f64()?);
                 let bearing = (home.x - center.x).atan2(home.z - center.z);
                 home_mass += weight;
@@ -241,23 +238,9 @@ fn spawn_groups(
                 })
                 + scatter;
             let direction = Vec3::new(theta.sin(), 0., theta.cos());
-            let path = if at_stadium {
-                // Each group enters at a schematic point on the outer rim. Seats are
-                // distributed independently of home and mode; the engine supplies no seating plan.
-                let entrance = direction.z.atan2(direction.x) / std::f32::consts::TAU;
-                let rank = (boundary - n + i) as f32;
-                let seat = (rank + 0.5) * 0.618034;
-                GroupPath::Stadium {
-                    entrance,
-                    seat_turn: (seat - entrance + 0.5).rem_euclid(1.) - 0.5,
-                    row: 0.32 + 0.50 * (rank * 0.414214).fract(),
-                    approach: 34. + 37. * (q as f32 * 23.).fract(),
-                }
-            } else {
-                GroupPath::Local {
-                    from: center + direction * (122. + 47. * (q as f32 * 23.).fract()),
-                    to: center + direction * (18. + 24. * (q as f32 * 13.).fract()),
-                }
+            let path = GroupPath::Local {
+                from: center + direction * (122. + 47. * (q as f32 * 23.).fract()),
+                to: center + direction * (18. + 24. * (q as f32 * 13.).fract()),
             };
             commands.spawn((
                 Group {
@@ -267,31 +250,32 @@ fn spawn_groups(
                     delay: (i as f32 * 0.414214 + mode as f32 * 0.15).fract() * 0.49,
                 },
                 Mesh3d(art.figure.clone()),
-                MeshMaterial3d(art.paint[mode].clone()),
+                MeshMaterial3d(art.paint[mode][SOLID].clone()),
                 Visibility::Hidden,
             ));
         }
     }
-    let public = totals[0].round() as u64;
-    let formatted = if public >= 1000 {
-        format!("{}.{:03}", public / 1000, public % 1000)
-    } else {
-        public.to_string()
-    };
-    let labels = if fans {
-        ["Llegada estimada", "Regreso ilustrativo"]
-    } else {
-        ["Llegada ilustrativa", "Regreso estimado"]
-    };
+    let formatted = people_label(totals[0]);
+    let labels = ["Llegada ilustrativa", "Regreso estimado"];
     labels.map(|label| format!(
         "{label} · {formatted} en transporte público\nFlujo esquemático · 1 figura ≈ {:.0} personas",
         total / groups as f64
     ))
 }
 
+fn people_label(people: f64) -> String {
+    let n = people.round() as u64;
+    if n >= 1000 {
+        format!("{}.{:03}", n / 1000, n % 1000)
+    } else {
+        n.to_string()
+    }
+}
+
 fn refresh(
     mut commands: Commands,
     scenario: Res<Scenario>,
+    journeys: Res<FanJourneys>,
     art: Res<Art>,
     mut playback: ResMut<Playback>,
     time: Res<Time<Real>>,
@@ -328,25 +312,90 @@ fn refresh(
                 .transform_point3(center);
             (*visibility != Visibility::Hidden && bowl.contains(local)).then_some(id)
         });
-        let captions = spawn_groups(
-            &mut commands,
-            &art,
-            zones,
-            row,
-            center,
-            playback.events.len(),
-            stadium.is_some(),
-        );
+        let venue = playback.events.len();
+        let routed = stadium.is_some() || row["fan_base"]["by_home"].is_array();
+        let captions = if routed {
+            let groups = journeys.for_venue(venue);
+            let mut represented = 0.;
+            let mut figures = 0usize;
+            if let Some((_, bowl, landmark, _)) = stadium.and_then(|id| bowls.get(id).ok()) {
+                for group in groups {
+                    let Some(walk) = WalkPath::to_gate(group.walk_path.clone(), bowl, landmark)
+                    else {
+                        continue;
+                    };
+                    let mode = match group.mode {
+                        FanMode::Public => 0,
+                        FanMode::Car => 1,
+                        FanMode::Other => 2,
+                    };
+                    let turn = ((group.index as f32 + 0.5) * 0.618034).fract();
+                    let row = 0.32 + 0.50 * (group.index as f32 * 0.414214).fract();
+                    let seat = landmark.transform_point(bowl.terrace(turn, row));
+                    represented += group.people;
+                    figures += 1;
+                    commands.spawn((
+                        Name::new(format!(
+                            "Hinchas {} · grupo {}",
+                            group.home_cut, group.index
+                        )),
+                        Group {
+                            venue,
+                            mode,
+                            delay: 0.,
+                            path: GroupPath::Arrival {
+                                origin: group.origin_walk.as_ref().and_then(|leg| {
+                                    Some(OriginWalk {
+                                        path: WalkPath::along(leg.path.clone())?,
+                                        start: leg.start_seconds,
+                                        end: leg.end_seconds,
+                                    })
+                                }),
+                                walk,
+                                alight: group.alight_seconds,
+                                gate: group.gate_seconds,
+                                seat,
+                                facing: center - seat,
+                            },
+                        },
+                        Mesh3d(art.figure.clone()),
+                        MeshMaterial3d(art.paint[mode][SOLID].clone()),
+                        Visibility::Hidden,
+                    ));
+                }
+            }
+            let public = row["fan_base"]["by_mode"]["public"]
+                .as_f64()
+                .or_else(|| row["attendees_by_census_mode"]["2"].as_f64())
+                .unwrap_or_default();
+            let coverage = if figures > 0 {
+                format!(
+                    "{} de {} con viaje · promedio de {} por figura\ningreso al estadio: esquemático",
+                    people_label(represented),
+                    people_label(row["attendance"].as_f64().unwrap_or_default()),
+                    people_label(represented / figures as f64)
+                )
+            } else {
+                "Sin recorridos de llegada en este replay".to_owned()
+            };
+            let caption = format!(
+                "Llegada estimada · {} en transporte público\n{coverage}",
+                people_label(public)
+            );
+            [caption.clone(), caption]
+        } else {
+            spawn_local_groups(&mut commands, &art, zones, row, center, venue)
+        };
         let started = previous
             .iter()
             .find(|e| !replay_restarted && e.center == center && e.end == end)
             .map_or(time.elapsed_secs(), |e| e.started);
         playback.events.push(Event {
             center,
-            stadium,
             end,
             started,
             captions,
+            routed,
             progress: None,
         });
     }
@@ -356,15 +405,28 @@ fn animate(
     art: Res<Art>,
     real: Res<Time<Real>>,
     fixed: Res<FixedClock>,
+    city_clock: Res<CityClock>,
     mut playback: ResMut<Playback>,
     subway: Res<SubwayView>,
     rig: Res<Rig>,
-    mut groups: Query<(&Group, &mut Transform, &mut Visibility, &mut Mesh3d), Without<Key>>,
-    bowls: Query<(&StadiumSeating, &Transform), Without<Group>>,
+    mut groups: Query<
+        (
+            &Group,
+            &mut Transform,
+            &mut Visibility,
+            &mut Mesh3d,
+            &mut MeshMaterial3d<StandardMaterial>,
+        ),
+        Without<Key>,
+    >,
     mut panel: Single<&mut Visibility, With<Key>>,
     mut caption: Single<&mut Text, With<Caption>>,
 ) {
     for event in &mut playback.events {
+        if event.routed {
+            event.progress = (!subway.0 && city_clock.0.is_some()).then_some((0, 0.));
+            continue;
+        }
         // The event sequence reconstructs the two journeys within the presentation shot.
         // Only a fixed capture clock selects a specific time relative to the assumed end.
         let t = fixed.0.map_or_else(
@@ -397,51 +459,48 @@ fn animate(
     {
         caption.0.clone_from(text);
     }
-    for (group, mut transform, mut visibility, mut mesh) in &mut groups {
+    for (group, mut transform, mut visibility, mut mesh, mut paint) in &mut groups {
         let Some((phase, t)) = playback.events[group.venue].progress else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
-        let time = if phase == 0 { t } else { 1. - t };
         let map_scale = (rig.distance * 0.0035).clamp(1.1, 3.8);
         let (point, heading, transit, scale) = match group.path {
-            GroupPath::Stadium {
-                entrance,
-                seat_turn,
-                row,
-                approach,
+            GroupPath::Arrival {
+                ref origin,
+                ref walk,
+                alight,
+                gate,
+                seat,
+                facing,
             } => {
-                let u = ((time - group.delay) / 0.40).min(1.);
-                if u < 0. {
-                    visibility.set_if_neq(Visibility::Hidden);
-                    continue;
-                }
-                let (bowl, landmark) = bowls
-                    .get(playback.events[group.venue].stadium.unwrap())
-                    .unwrap();
-                let (z, x) = (entrance * std::f32::consts::TAU).sin_cos();
-                let outward = Vec3::new(x, 0., z);
-                let rim = landmark.transform_point(bowl.terrace(entrance, 1.));
-                let point = if u < 0.50 {
-                    let walk = u / 0.50;
-                    let mut p = rim + outward * approach * (1. - walk);
-                    let ground = terrain_from_xz(p.x, p.z) + 0.3;
-                    p.y = ground + (rim.y - ground) * walk.powi(4);
-                    p
+                let now = city_clock.0.unwrap().rem_euclid(DAY);
+                let admitted = now - gate;
+                let ((point, heading), opacity) = if now < alight {
+                    let Some(pose) = origin.as_ref().and_then(|leg| leg.at(now)) else {
+                        visibility.set_if_neq(Visibility::Hidden);
+                        continue;
+                    };
+                    (pose, 1.)
+                } else if admitted < 0. {
+                    (walk.walk((now - alight) / (gate - alight)), 1.)
+                } else if admitted < GATE_FADE_SECONDS {
+                    (walk.walk(1.), 1. - admitted / GATE_FADE_SECONDS)
                 } else {
-                    // Follow the curved terrace, not a chord between stands. Keep
-                    // each group in its seat until its turn to leave on the return.
-                    let seated = (u - 0.50) * 2.;
-                    landmark.transform_point(
-                        bowl.terrace(entrance + seat_turn * seated, 1. + (row - 1.) * seated),
+                    // The admitted group fills its seat without a fictitious interior walk.
+                    (
+                        (seat, facing),
+                        ((admitted - GATE_FADE_SECONDS) / GATE_FADE_SECONDS).min(1.),
                     )
                 };
-                let size = if u < 0.35 {
-                    map_scale
+                let step = (opacity * SOLID as f32).round() as usize;
+                paint.set_if_neq(MeshMaterial3d(art.paint[group.mode][step].clone()));
+                let scale = if admitted < GATE_FADE_SECONDS {
+                    pedestrian_scale(rig.distance, map_scale)
                 } else {
                     map_scale.min(1.15)
                 };
-                (point, -outward, u < 0.35, size)
+                (point, heading, false, scale)
             }
             GroupPath::Local { from, to } => {
                 let p = (t - group.delay) / 0.51;
