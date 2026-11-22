@@ -87,7 +87,9 @@ impl Panel {
 
         let pair = native_pty_system().openpty(pty_size(80, 24))?;
         let mut command = CommandBuilder::new("/bin/bash");
-        command.arg("./tools/city-chat.sh");
+        let root = std::env::current_dir()?;
+        command.arg(root.join("tools/city-chat.sh"));
+        command.cwd(root);
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
         let child = pair.slave.spawn_command(command)?;
