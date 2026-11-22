@@ -1348,7 +1348,12 @@ fn draw(
                         None => None,
                     }
                 } else {
-                    g.path.trip_pose(queues.age(bin, group, j, age), j)
+                    let age = if g.cars.is_empty() {
+                        age
+                    } else {
+                        queues.age(bin, group, j, age)
+                    };
+                    g.path.trip_pose(age, j)
                 };
                 let Some((pos, dir, kind, metres)) = movement else {
                     continue;
