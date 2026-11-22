@@ -14,7 +14,7 @@ use axum::{
 use santiago_scenario_core::activity::Activity;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::{path::Path, sync::Arc};
+use std::{collections::HashSet, path::Path, sync::Arc};
 use tower_http::cors::CorsLayer;
 
 struct Core {
@@ -58,8 +58,58 @@ impl ScenarioActivity {
         if let Some(access) = &self.motor_access {
             result["motor_access"] = access.clone();
         }
+        validate_activity_geometry(&result)?;
         Ok(result)
     }
+}
+
+fn validate_activity_geometry(activity: &Value) -> Result<(), &'static str> {
+    const INVALID_ROUTE: &str = "Keep segment IDs in the same order in every activity step. Give each segment one valid WGS84 polyline.";
+    let route = activity["segments"].as_array().ok_or(INVALID_ROUTE)?;
+    let mut route_ids = HashSet::new();
+    for segment in route {
+        let id = segment["id"]
+            .as_str()
+            .filter(|id| !id.is_empty())
+            .ok_or(INVALID_ROUTE)?;
+        let line = segment["geometry"].as_array().ok_or(INVALID_ROUTE)?;
+        if !route_ids.insert(id) {
+            return Err(INVALID_ROUTE);
+        }
+        let mut first = None;
+        let mut moves = false;
+        for point in line {
+            let Some([lon, lat]) = point.as_array().map(Vec::as_slice) else {
+                return Err(INVALID_ROUTE);
+            };
+            let lon = lon.as_f64().filter(|x| (-180.0..=180.0).contains(x)).ok_or(INVALID_ROUTE)?;
+            let lat = lat.as_f64().filter(|y| (-90.0..=90.0).contains(y)).ok_or(INVALID_ROUTE)?;
+            let coordinate = [lon, lat];
+            moves |= *first.get_or_insert(coordinate) != coordinate;
+        }
+        if !moves {
+            return Err(INVALID_ROUTE);
+        }
+    }
+
+    let (first, remaining) = activity["steps"]
+        .as_array()
+        .and_then(|steps| steps.split_first())
+        .ok_or(INVALID_ROUTE)?;
+    let first_segments = first["segments"].as_array().ok_or(INVALID_ROUTE)?;
+    let order: Option<Vec<_>> = first_segments.iter().map(|segment| segment["id"].as_str()).collect();
+    let order = order.ok_or(INVALID_ROUTE)?;
+    if order.is_empty() || order.len() != route_ids.len() || order.iter().any(|id| !route_ids.remove(*id)) {
+        return Err(INVALID_ROUTE);
+    }
+    for step in remaining {
+        let segments = step["segments"].as_array().ok_or(INVALID_ROUTE)?;
+        let ids = segments.iter().map(|segment| segment["id"].as_str());
+        if ids.ne(order.iter().copied().map(Some)) {
+            return Err(INVALID_ROUTE);
+        }
+    }
+    Ok(())
 }
 
 #[derive(Deserialize, Serialize)]
@@ -164,7 +214,14 @@ async fn general_scenario(
 }
 
 // A cached replay: publish a saved engine result to the viewer without a new run.
-async fn play_replay(State(core): State<Arc<Core>>, Json(mut result): Json<Value>) -> Json<Value> {
+async fn play_replay(
+    State(core): State<Arc<Core>>,
+    Json(mut result): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, &'static str)> {
+    if let Some(activity) = result.get("activity").filter(|value| !value.is_null()) {
+        validate_activity_geometry(activity)
+            .map_err(|reason| (StatusCode::UNPROCESSABLE_ENTITY, reason))?;
+    }
     core.scenario_events.send_modify(|latest| {
         let revision = json!(next_revision(latest));
         result["revision"] = revision.clone();
@@ -175,7 +232,7 @@ async fn play_replay(State(core): State<Arc<Core>>, Json(mut result): Json<Value
         }
         *latest = result.clone();
     });
-    Json(json!({"revision": result["revision"], "scene": result["scene"]}))
+    Ok(Json(json!({"revision": result["revision"], "scene": result["scene"]})))
 }
 
 async fn set_scene(
