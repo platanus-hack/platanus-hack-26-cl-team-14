@@ -34,7 +34,7 @@ export const buildingPlacementChange = {
       oneOf: [
         { type: 'object', required: ['point'], additionalProperties: false, properties: { point } },
         { type: 'object', required: ['name'], additionalProperties: false, properties: { name: { type: 'string' } } },
-        { type: 'object', required: ['current_point'], additionalProperties: false, properties: { current_point: { const: true } } },
+        { type: 'object', required: ['current_point'], additionalProperties: false, properties: { current_point: { const: true, description: 'Use the active map point. When saving a replay with an explicit scene point, use that point.' } } },
       ],
     },
     replacing: selector,
@@ -107,7 +107,7 @@ async function resolveSource(selector, places, lookup, needsNative, clearDestina
   return { parts, anchor: place ? asPoint(place) : center(parts) };
 }
 
-export async function expandBuildingPlacements(changes, places, engineJSON) {
+export async function expandBuildingPlacements(changes, places, engineJSON, scenePlace) {
   const expanded = [];
   const lookup = locator => engineJSON('/api/building-footprint', locator);
   for (const change of changes) {
@@ -118,7 +118,7 @@ export async function expandBuildingPlacements(changes, places, engineJSON) {
     const { op, source, destination, replacing, keep_source, jobs = 0 } = change;
     const replacingSite = op === 'replace';
     const move = op === 'relocate' || (replacingSite && keep_source === false);
-    const origin = await resolveSource(source, places, lookup, move);
+    const origin = await resolveSource(source, places, lookup, move || replacingSite);
     const removed = replacingSite ? await resolveSource(replacing, places, lookup, true, true) : undefined;
     let at = destination?.point ?? removed?.anchor;
     if (destination?.name) {
@@ -127,14 +127,18 @@ export async function expandBuildingPlacements(changes, places, engineJSON) {
         center(site.group?.parts ?? [site.landmark || site.building].filter(Boolean));
     }
     if (destination?.current_point) {
-      const snapshot = await engineJSON('/api/scenario-latest');
-      if (snapshot?.scene?.place?.type !== 'point') throw new Error('Select a destination point on the map first.');
-      at = asPoint(snapshot.scene.place);
+      const place = scenePlace?.type === 'point'
+        ? scenePlace : (await engineJSON('/api/scenario-latest'))?.scene?.place;
+      if (place?.type !== 'point') throw new Error('Select a destination point on the map first.');
+      at = asPoint(place);
     }
     if (!at?.every(Number.isFinite)) throw new Error('Give a mapped destination name or point.');
     if (!Number.isSafeInteger(jobs) || jobs < 0) throw new Error('Use one nonnegative whole number for total jobs.');
-    const nativeIds = new Set(origin.parts.map(part => part.id));
-    if (removed?.parts.some(part => nativeIds.has(part.id))) throw new Error('Select a different building to replace.');
+    const sourceIds = origin.parts.map(part => part.id).filter(Boolean);
+    if (new Set(sourceIds).size !== sourceIds.length) throw new Error('Select one point per source building.');
+    const destinationIds = removed?.parts.map(part => part.id) ?? [];
+    if (new Set(destinationIds).size !== destinationIds.length) throw new Error('Select one point per destination building.');
+    if (destinationIds.some(id => sourceIds.includes(id))) throw new Error('Select a different building to replace.');
     const id = move ? undefined : `copy-${randomUUID()}`;
     for (const part of removed?.parts ?? []) {
       expanded.push({ kind: 'building', op: 'remove', target: { id: part.id } });

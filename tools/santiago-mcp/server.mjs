@@ -362,7 +362,7 @@ async function dispatch({ method, params }) {
     const args = params.arguments ?? {};
     if (args.changes?.some(change => change.kind === 'building_placement')) {
       const namedPlaces = placeRows.map(r => ({ id: r[0], name: r[1], ...places[r[0]] }));
-      args.changes = await expandBuildingPlacements(args.changes, namedPlaces, engineJSON);
+      args.changes = await expandBuildingPlacements(args.changes, namedPlaces, engineJSON, args.scene?.place);
     }
     let text;
     if (params.name === sceneTool.name) text = await setScene(args);
