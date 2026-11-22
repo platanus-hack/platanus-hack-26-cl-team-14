@@ -49,7 +49,8 @@ pub(crate) fn ferry_depth_grid() -> (Image, Vec4) {
     (image, Vec4::new(WEST, NORTH, DX, DZ))
 }
 
-pub(super) fn extent() -> Rect {
+/// The surveyed rectangle: west and north in `min`, east and south in `max`.
+pub(crate) fn extent() -> Rect {
     Rect::new(WEST, NORTH, WEST + (W - 1) as f32 * DX, NORTH + (H - 1) as f32 * DZ)
 }
 
