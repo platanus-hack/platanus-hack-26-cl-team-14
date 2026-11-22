@@ -363,10 +363,11 @@ impl LineEdits<'_> {
             .filter(|(id, _)| !self.changes.contains_key(*id))
             .chain(self.changes.iter().filter_map(|(id, p)| p.as_ref().map(|p| (id, p))))
             .filter(|(_, p)| p.route_id.as_deref() == Some(route))
+            .filter(|(_, p)| p.stop_ids.iter().any(|s| cut.contains(&s.as_str())))
             .map(|(id, p)| (id.clone(), p.clone()))
             .collect();
         if active.is_empty() {
-            return Err(format!("No active line has route {route}."));
+            return Err(format!("No active pattern of route {route} calls at the cut stops."));
         }
         let mut sections = 0;
         for (id, pattern) in active {
