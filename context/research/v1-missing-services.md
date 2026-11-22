@@ -40,7 +40,7 @@ Sources and counts: OSM is the Geofabrik Chile snapshot of 2026-11-20, clipped t
 | Recreation, sport | stadiums as fixed events | sports centre, gym | sports_centre 449, fitness_centre 216 | IND facility list: unverified | Low | Small volume. Not in a scenario. |
 | Food out | none | restaurant, fast food, café | restaurant 3,060, fast_food 1,481, cafe 980 | none checked | Medium | Part of "leisure" (code 9); 16:00–20:00 share 6.3%. Near the MUT 17:00 match end. |
 | Food shopping | supermarket 508, mall 151, shop 14,946 (used after #416) | feria libre | marketplace 99 (under-counts ferias) | Feria count: unverified (ASOF / municipal lists) | Low | #416 covers shopping volume. Ferias run on fixed weekdays, not in the demo windows. |
-| Education, higher | `higher_ed.csv` 137 campuses (packed, not used) | none, needs engine use | university 215, college 74 | MINEDUC / SIES campus data already in `higher_ed.csv` | Medium | Study is 31.9% of morning trips. The 301,724 higher-education residents (#475) exist at home but make no trip to a campus. Large morning volume. |
+| Education, higher | `higher_ed.csv` 137 campuses (packed, not used) | none, needs engine use | university 215, college 74 | MINEDUC / SIES campus data already in `higher_ed.csv` | Medium | Study is 31.9% of morning trips. The 301,724 higher-education residents (#475) exist at home but make no trip to a campus. Only a subset travels (enrollment includes remote study). Large morning volume. |
 | Care, nursery | none | kindergarten (jardín infantil) | kindergarten 1,206 | JUNJI / Integra directory: unverified | Medium | Code 8 (drop off someone) is in "other", 8.1% of morning trips. Link to nursery trips is an inference. |
 | Worship | none | place of worship | 1,030 | none checked | Low | Weekend trips. No scenario needs it. |
 
@@ -50,7 +50,7 @@ Counts not used: `leisure=swimming_pool` 10,498 (mostly private pools); `healthc
 
 1. Witness for the demo: one synthetic person walks to the Parquemet gate at Pedro de Valdivia Norte, or skips the visit when the time limit does not allow it (Diuca). Parquemet is drawn from OSM way w168227059. Needs the MINVU entrance point and PR #402.
 2. Send morning health trips (3.3% of 07:00–10:00) to the packed hospital and clinic points, with DEIS CESFAM/SAPU as the primary care kind. Same choice rule as #416. This makes the Metro closure scene include patients.
-3. Give the 301,724 higher-education residents (#475) a morning study trip to the campuses in `higher_ed.csv`. Morning study volume is large and both inputs exist.
+3. Give an eligible subset of the 301,724 higher-education residents (#475) a morning study trip to the campuses in `higher_ed.csv`. Enrollment includes remote and evening study, so not every enrolled person travels to a campus each morning. Take the travelling share from EOD 2012 study trips to higher education, not from enrollment.
 
 ## Unverified
 
