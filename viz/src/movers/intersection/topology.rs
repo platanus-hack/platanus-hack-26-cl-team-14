@@ -11,6 +11,8 @@ use std::{
 
 const MATCH_RADIUS: f32 = 5.;
 const CELL: f32 = 40.;
+const EDGE_PROBE: f32 = 3.;
+const SHORT_LINK_LIMIT: f32 = EDGE_PROBE + 0.5;
 type Cell = (i32, i32);
 type Node = u64;
 
@@ -45,6 +47,7 @@ pub(super) struct Topology {
     cells: HashMap<Cell, Vec<usize>>,
     edges: Vec<DirectedEdge>,
     edge_cells: HashMap<Cell, Vec<usize>>,
+    short_links: HashMap<Node, [Vec<usize>; 2]>,
 }
 
 impl Topology {
@@ -61,6 +64,7 @@ impl Topology {
             .collect();
         let mut links: BTreeMap<Node, Vec<Node>> = BTreeMap::new();
         let mut edges = Vec::new();
+        let mut short_links = HashMap::<_, [Vec<_>; 2]>::new();
         let mut edge_cells: HashMap<Cell, Vec<usize>> = HashMap::new();
         for way in pack.ways.into_values() {
             let ground = way.structure == "ground";
@@ -75,6 +79,10 @@ impl Topology {
                 if ground {
                     links.entry(from).or_default().push(to);
                     links.entry(to).or_default().push(from);
+                    if start.distance_squared(end) <= SHORT_LINK_LIMIT * SHORT_LINK_LIMIT {
+                        short_links.entry(from).or_default()[0].push(edges.len());
+                        short_links.entry(to).or_default()[1].push(edges.len());
+                    }
                 }
                 let (x0, z0) = cell(start.min(end), CELL);
                 let (x1, z1) = cell(start.max(end), CELL);
@@ -109,6 +117,7 @@ impl Topology {
             cells,
             edges,
             edge_cells,
+            short_links,
         }
     }
 
@@ -137,11 +146,67 @@ impl Topology {
 
     fn connects(&self, path: &Path, distance: f32, node: Node) -> bool {
         // Sample both directed legs. Nearby decks can share the same map position.
-        [(-3., 1), (3., 0)].into_iter().all(|(offset, side)| {
-            let (point, heading, _) = path.at(distance + offset, &path.metres).unwrap();
-            self.route_edge(point.xz(), heading.xz().normalize_or_zero())
-                .is_some_and(|edge| edge.ground && edge.nodes[side] == node)
-        })
+        [(-EDGE_PROBE, 1), (EDGE_PROBE, 0)]
+            .into_iter()
+            .all(|(offset, side)| {
+                let (probe, heading, _) = path.at(distance + offset, &path.metres).unwrap();
+                let probe = probe.xz();
+                let Some(edge) = self.route_edge(probe, heading.xz().normalize_or_zero()) else {
+                    return false;
+                };
+                if !edge.ground {
+                    return false;
+                }
+                let target = edge.nodes[side];
+                if node == target {
+                    return true;
+                }
+                let corridor = [0., offset / 2., offset]
+                    .map(|offset| path.at(distance + offset, &path.metres).unwrap().0.xz());
+                self.follows_short_links(node, target, side, corridor)
+            })
+    }
+
+    fn follows_short_links(
+        &self,
+        node: Node,
+        target: Node,
+        side: usize,
+        corridor: [Vec2; 3],
+    ) -> bool {
+        // A probe can pass a short OSM edge immediately before or after the node.
+        let mut pending = vec![(node, SHORT_LINK_LIMIT)];
+        let mut reached = HashMap::new();
+        while let Some((node, length_left)) = pending.pop() {
+            if node == target {
+                return true;
+            }
+            if reached
+                .get(&node)
+                .is_some_and(|&length| length >= length_left)
+            {
+                continue;
+            }
+            reached.insert(node, length_left);
+            for &index in self
+                .short_links
+                .get(&node)
+                .into_iter()
+                .flat_map(|links| &links[side])
+            {
+                let edge = &self.edges[index];
+                let length = edge.start.distance(edge.end);
+                let next = if side == 0 { edge.end } else { edge.start };
+                let in_corridor = corridor.windows(2).any(|pair| {
+                    let fraction = project(next, pair[0], pair[1]);
+                    next.distance_squared(pair[0].lerp(pair[1], fraction)) <= 1.5_f32.powi(2)
+                });
+                if length <= length_left && in_corridor {
+                    pending.push((edge.nodes[1 - side], length_left - length));
+                }
+            }
+        }
+        false
     }
 
     pub(super) fn approaches(&self, path: &Path, replay: &Replay) -> Vec<(usize, f32)> {
