@@ -20,7 +20,7 @@ const filterArray = { type: 'array', items: filterSchema };
 export const queryResultTool = {
   name: 'query_result',
   description: 'Answer a measurement question about an already published scenario or a saved replay without running it. Use raw results only. metro_entries counts modeled Metro entries by station_id, station or half_hour (0 is midnight, 47 is 23:30). Use grain day for exact daily station totals, or half_hour for 30-minute bins. commute_flows counts modeled workers by origin_cut and destination_cut for up to 200 changed comuna pairs. shopping_trips counts modeled weekday outbound shopping trips in the reported changed destination comunas. route_minutes uses one city_edit_index and measures modeled minutes by directed comuna pair. For route minutes, base and scenario mean immediately before and after the selected edit. Read state_labels. Compare uses the same valid rows for both states. Use sum for totals of entries, workers or trips. Count measures records or their declared weight. Route weights are equal by default. census_public_workers is allowed for transit routes and uses fixed Census 2024 counts, not scenario passengers. Use group_by and filters to match the user’s scope. For shares, select a weight explicitly: value counts entries, workers or trips, and equal counts table rows. Read unit, population, and coverage before answering. Results are text or tables. This tool does not open or chart a replay. ' +
-    'For an edited shopping site, shopping_site_total gives the reported total. shopping_site_origins, shopping_site_modes and shopping_site_departures use origin_cut, mode and half_hour separately. Use scenario for added sites and base for removed sites. A site has only one reported variant. Use shopping_site coordinates to select one when several sites are present. The origin rows are a top five list. Rounded breakdowns can differ from the reported total. Shares use only the selected reported rows.',
+    'For an edited shopping site, shopping_site_total gives the reported total. shopping_site_origins, shopping_site_modes and shopping_site_departures use origin_cut, mode and half_hour separately. Use scenario for added sites and base for removed sites. A site has only one reported variant. Use shopping_site coordinates to select one when several sites are present. If coordinates and variant match more than one, use the reported zero-based index from this result. The origin rows are a top five list. Rounded breakdowns can differ from the reported total. Shares use only the selected reported rows.',
   inputSchema: object(['source', 'data', 'state', 'aggregate'], {
     source: object(['type'], { type: field(['current', 'replay']), id: { type: 'string' } }),
     data: field(datasets),
@@ -30,6 +30,7 @@ export const queryResultTool = {
     city_edit_index: { type: 'integer', minimum: 0, description: 'Zero-based raw city edit index. For route minutes only. May omit if only one edit has route pairs.' },
     shopping_site: object(['longitude', 'latitude'], {
       longitude: { type: 'number' }, latitude: { type: 'number' }, variant: field(['base', 'scenario']),
+      index: { type: 'integer', minimum: 0, description: 'Zero-based shopping row index in the queried result.' },
     }),
     filters: filterArray,
     group_by: { type: 'array', items: field(dimensions), uniqueItems: true, maxItems: 2 },
@@ -145,8 +146,9 @@ function validate(q) {
   if (site !== undefined && (!shoppingSiteDatasets.includes(q.data) ||
       !finite(site?.longitude) || !finite(site?.latitude) ||
       (site.variant !== undefined && !['base', 'scenario'].includes(site.variant)) ||
-      Object.keys(site).some(field => !['longitude', 'latitude', 'variant'].includes(field)))) {
-    throw new Error('Use reported shopping site coordinates and an optional base or scenario variant for a shopping site query.');
+      (site.index !== undefined && (!Number.isInteger(site.index) || site.index < 0)) ||
+      Object.keys(site).some(field => !['longitude', 'latitude', 'variant', 'index'].includes(field)))) {
+    throw new Error('Use reported shopping site coordinates, with an optional variant and zero-based index from this result.');
   }
   if ((q.aggregate === 'percentile' ? !finite(q.percentile) || q.percentile < 0 || q.percentile > 100 : q.percentile !== undefined) ||
       (q.aggregate === 'histogram' ? !Array.isArray(q.breaks) || q.breaks.length < 1 || q.breaks.length > 12 ||
