@@ -24,6 +24,8 @@ mod attendance;
 mod fans;
 #[path = "optional_visit.rs"]
 mod optional_visit;
+#[path = "optional_point_visit.rs"]
+mod optional_point_visit;
 #[path = "shopping.rs"]
 mod shopping;
 use shopping::Shopping;
@@ -355,8 +357,13 @@ impl Scenario {
 
         // Apply derived stock changes at the parent edit’s position in the request.
         let mut pending: Vec<_> = changes.iter().rev().cloned().map(|change| (change, false)).collect();
+        let mut point_visit_requests = Vec::new();
         while let Some((change, stock_child)) = pending.pop() {
             let raw = &change;
+            if raw["kind"] == "optional_point_visit" {
+                point_visit_requests.push((applied.len(), change));
+                continue;
+            }
             if raw["kind"] == "road" || raw["kind"] == "line" {
                 let is_line = raw["kind"] == "line";
                 let temporary = raw["temporary"] == true;
@@ -874,6 +881,19 @@ impl Scenario {
             trips.extend(self.plan.sample(window_base).into_iter().filter(|g| !inside(g)));
             trips.sort_by_key(|g| g.id);
         }
+        let mut point_visits = Vec::new();
+        for (applied_index, mut request) in point_visit_requests {
+            match optional_point_visit::compare(&self.data_dir, &self.pop, &pop, resident_stock_edits > 0, &request) {
+                Ok(visit) => {
+                    applied.insert(applied_index + point_visits.len(), request);
+                    point_visits.push(visit);
+                }
+                Err(reason) => {
+                    request["reason"] = json!(reason);
+                    not_modeled.push(request);
+                }
+            }
+        }
         let mut result = json!({
             "applied": applied,
             "city_edits": city_edits,
@@ -901,6 +921,7 @@ impl Scenario {
             "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         });
+        if !point_visits.is_empty() { result["optional_point_visits"] = json!(point_visits); }
         if by_trait[0].iter().any(|b| b[1] > 0) {
             let rows = |t: usize, labels: [&str; 5]| -> Vec<Value> { labels.iter().zip(by_trait[t])
                 .map(|(l, [workers, changed, public, left])| json!({ "group": l, "workers": workers, "changed_mode": changed,
