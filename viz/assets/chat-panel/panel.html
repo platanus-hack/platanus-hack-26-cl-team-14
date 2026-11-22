@@ -50,6 +50,16 @@
   #terminal { flex: 1; min-height: 0; padding: 11px 12px; }
   .xterm-viewport { background: transparent !important; }
   .session-brand { visibility: hidden; }
+  .composer-hint { position: relative; }
+  .composer-hint > span { visibility: hidden; }
+  .composer-hint::after {
+    content: "›  Escribe un mensaje";
+    position: absolute;
+    inset: 0 auto auto 0;
+    color: #c4cfdb;
+    white-space: pre;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -81,13 +91,17 @@
   // The startup header has the chat directory on the next line. Explicit
   // status cards, trust prompts, and conversation text keep their original display.
   const sessionBrand = /^\s*>_ OpenAI Codex \(v[\w.+-]+\)\s*$/;
+  const composerHint = /^\s*›\s+Ask Codex to do anything\s*$/;
   term.onRender(({ start, end }) => {
     const rows = mount.querySelector('.xterm-rows').children;
     for (let row = Math.max(start - 1, 0); row <= end; row++) {
+      const line = rows[row];
       const directory = rows[row + 1]?.textContent.trim();
-      const startsSession = sessionBrand.test(rows[row].textContent)
+      const startsSession = sessionBrand.test(line.textContent)
         && (directory === 'chat' || directory?.endsWith('/chat'));
-      rows[row].classList.toggle('session-brand', startsSession);
+      line.classList.toggle('session-brand', startsSession);
+      line.classList.toggle('composer-hint',
+        composerHint.test(line.textContent) && line.querySelector('.xterm-dim') !== null);
     }
   });
   term.onData(text => send({ kind: 'input', text }));
