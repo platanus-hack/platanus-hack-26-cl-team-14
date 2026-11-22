@@ -3,6 +3,7 @@
 pub(crate) mod events;
 pub(crate) mod clock;
 pub(crate) mod follow;
+pub(crate) mod fan_travel;
 mod fleet;
 mod motion;
 mod road_water;
@@ -48,6 +49,8 @@ impl Plugin for MoversPlugin {
             .add_systems(Startup, setup)
             .add_systems(Update, levels::toggle_tracks)
             .init_resource::<Replay>()
+            .init_resource::<fan_travel::FanJourneys>()
+            .add_systems(Update, fan_travel::refresh.in_set(fan_travel::RefreshFanJourneys).after(read_result).before(draw))
             .add_systems(Update, (read_result, draw, stations::position_closed_signs).chain());
     }
 }
@@ -1137,6 +1140,7 @@ fn departure_offset(phase: f32, copy: usize) -> f32 {
 fn draw(
     time: Res<Time>,
     replay: Res<Replay>,
+    fan_journeys: Res<fan_travel::FanJourneys>,
     rig: Res<crate::Rig>,
     clock: Res<FixedClock>,
     rate: Res<PlaybackRate>,
@@ -1338,6 +1342,7 @@ fn draw(
             }
         }
     }
+    fan_journeys.draw(now, &routes, &replay.road_edits, &mut trains, &mut surface_load, &visible, &size_at, &mut place);
     for ((template, start), (paint, count)) in surface_load {
         if let Some((p, dir, kind)) = routes.riders.surface_pose(template, start, now) {
             if visible(p, 100.) {
