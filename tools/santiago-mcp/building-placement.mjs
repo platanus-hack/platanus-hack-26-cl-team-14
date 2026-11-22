@@ -43,8 +43,8 @@ export const buildingPlacementChange = {
   },
   allOf: [{
     if: { properties: { op: { const: 'replace' } } },
-    then: { required: ['replacing', 'keep_source'] },
-    else: { required: ['destination'] },
+    then: { required: ['replacing', 'keep_source'], not: { required: ['destination'] } },
+    else: { required: ['destination'], not: { anyOf: [{ required: ['replacing'] }, { required: ['keep_source'] }] } },
   }],
 };
 
@@ -59,7 +59,8 @@ function center(parts) {
 let geometry;
 function mappedSites() {
   return geometry ??= {
-    landmarks: features(new URL('santiago_landmarks.geojson', webData)).filter(polygon),
+    landmarks: features(new URL('santiago_landmarks.geojson', webData))
+      .filter(part => polygon(part) && ['tower', 'stadium', 'palace', 'arena'].includes(part.properties.kind)),
     buildings: features(new URL('../../data/mvp/buildings.geojson', import.meta.url)).filter(polygon),
     groups: readdirSync(webData).filter(file => file.endsWith('_parts.geojson')).map(file => {
       const parts = features(new URL(file, webData));
@@ -117,19 +118,22 @@ export async function expandBuildingPlacements(changes, places, engineJSON, scen
     }
     const { op, source, destination, replacing, keep_source, jobs = 0 } = change;
     const replacingSite = op === 'replace';
+    if (replacingSite && destination) throw new Error('A replacement goes at the site of the selected destination building.');
+    if (replacingSite && (!replacing || typeof keep_source !== 'boolean')) {
+      throw new Error('Select the building to replace and confirm whether to keep the source.');
+    }
     const move = op === 'relocate' || (replacingSite && keep_source === false);
     const origin = await resolveSource(source, places, lookup, move || replacingSite);
     const removed = replacingSite ? await resolveSource(replacing, places, lookup, true, true) : undefined;
-    let at = destination?.point ?? removed?.anchor;
+    let at = replacingSite ? removed.anchor : destination?.point;
     if (destination?.name) {
       const site = resolveName(destination.name, places);
       at = site.place ? asPoint(site.place) :
         center(site.group?.parts ?? [site.landmark || site.building].filter(Boolean));
     }
     if (destination?.current_point) {
-      const place = scenePlace?.type === 'point'
-        ? scenePlace : (await engineJSON('/api/scenario-latest'))?.scene?.place;
-      if (place?.type !== 'point') throw new Error('Select a destination point on the map first.');
+      const place = scenePlace ?? (await engineJSON('/api/scenario-latest'))?.scene?.place;
+      if (place?.type !== 'point') throw new Error('Use an explicit destination point for this placement.');
       at = asPoint(place);
     }
     if (!at?.every(Number.isFinite)) throw new Error('Give a mapped destination name or point.');

@@ -269,7 +269,7 @@ async function engineJSON(path, body) {
   return response.json();
 }
 
-async function setScene({ place, half_hour }) {
+async function resolveScene({ place, half_hour }, seed = true) {
   const { type, id } = place;
   if (half_hour === 'base_peak' && type !== 'station') throw new Error('Select a station for base_peak.');
   let entry;
@@ -300,6 +300,7 @@ async function setScene({ place, half_hour }) {
   if (half_hour === 'base_peak') {
     // run.sh seeds the baseline. An empty standalone engine can seed it through the scene route without clearing edits.
     if (!latest) {
+      if (!seed) throw new Error('Choose a start time for the saved placement.');
       await engineJSON('/api/scene', { place: center, half_hour: 0 });
       latest = await engineJSON('/api/scenario-latest');
       entry = catalogEntry(latest.stations, entry.id);
@@ -308,7 +309,11 @@ async function setScene({ place, half_hour }) {
     if (!(peak > 0)) throw new Error('This station has no positive baseline boardings. Select an explicit half hour.');
     half_hour = entry.base_half_hour.indexOf(peak);
   }
-  return engineJSON('/api/scene', { place: center, half_hour });
+  return { place: center, half_hour };
+}
+
+async function setScene(args) {
+  return engineJSON('/api/scene', await resolveScene(args));
 }
 
 // The viewer keeps full geometry and routing data. Keep the chat receipt small.
@@ -377,8 +382,9 @@ async function dispatch({ method, params }) {
     } else if (params.name === createReplayTool.name) {
       const { scene, changes, stations = [], ...meta } = args;
       replayFile(meta.id);
-      await setScene(scene);
-      const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations }, placement);
+      const placementScene = placement ? await resolveScene(scene, false) : undefined;
+      if (!placement) await setScene(scene);
+      const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations }, placement, placementScene);
       if (scene.layer === 'metro_service') full.scene.layer = scene.layer;
       for (const cue of meta.cues ?? []) {
         if (!cue.caption) continue;
@@ -399,7 +405,7 @@ async function dispatch({ method, params }) {
 }
 
 // Changes from the chat: named places become census blocks, then the engine runs once. The map gets the full result; the agent a short copy.
-async function runScenario(args, requireAll) {
+async function runScenario(args, requireAll, scene) {
     const placesUsed = [];
     for (const change of args.changes ?? []) {
       if (change.kind === 'line' && change.op === 'set') {
@@ -420,7 +426,7 @@ async function runScenario(args, requireAll) {
       change.target = { type: 'block', id: place.block };
     }
     const { stations: asked = [], ...request } = args;
-    const full = await engineJSON('/api/scenario', { ...request, ...(requireAll && { require_all: true }) });
+    const full = await engineJSON('/api/scenario', { ...request, ...(requireAll && { require_all: true }), scene });
     return { full, short: shortResult(structuredClone(full), asked, placesUsed), placesUsed };
 }
 
