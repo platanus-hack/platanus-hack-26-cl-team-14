@@ -1,0 +1,47 @@
+{
+  "changes": [
+    {
+      "kind": "optional_point_visit",
+      "person_index": 1163263,
+      "home_block_id": "13119101001048",
+      "job_block_id": "13119141011012",
+      "baseline": {
+        "available_minutes": 45,
+        "budget_clp": 16000
+      },
+      "scenario": {
+        "available_minutes": 45,
+        "budget_clp": 14000
+      },
+      "skip_preference": 0,
+      "options": [
+        {
+          "place_id": "n4463786186",
+          "mode": "walk",
+          "preference": 3,
+          "baseline": {
+            "total_minutes": 35,
+            "cost_clp": 15270,
+            "available": true,
+            "route_source": "https://routing.openstreetmap.de/routed-foot/route/v1/driving/-70.758097,-33.500088;-70.757958,-33.496706;-70.758097,-33.500088?overview=false&steps=false&alternatives=false",
+            "cost_source": "SERNAC pantry9 chain/comuna quote, retrieved 2026-11-21 CLT. data/mvp/supermarket_prices/sernac_pantry9_by_comuna.csv",
+            "access_source": "Scenario assumes storefront access and stock at 18:00 and 20 minutes in store."
+          }
+        },
+        {
+          "place_id": "n11976918097",
+          "mode": "walk",
+          "preference": 2,
+          "baseline": {
+            "total_minutes": 40,
+            "cost_clp": 12900,
+            "available": true,
+            "route_source": "https://routing.openstreetmap.de/routed-foot/route/v1/driving/-70.758097,-33.500088;-70.757652,-33.505879;-70.758097,-33.500088?overview=false&steps=false&alternatives=false",
+            "cost_source": "SERNAC pantry9 chain/comuna quote, retrieved 2026-11-21 CLT. data/mvp/supermarket_prices/sernac_pantry9_by_comuna.csv",
+            "access_source": "Scenario assumes storefront access and stock at 18:00 and 20 minutes in store."
+          }
+        }
+      ]
+    }
+  ]
+}
