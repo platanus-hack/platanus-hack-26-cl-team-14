@@ -421,7 +421,10 @@ async function runScenario(args) {
 // The agent's copy: the 5 largest station gains and losses and the 5 largest zone job changes.
 function shortResult(full, asked, placesUsed) {
     const { trips_base, trips_scenario, trips_delta, stations, zones, flows, blocks_changed, ...result } = full;
-    if (result.city_edits) result.city_edits = result.city_edits.map(editSummary);
+    if (result.city_edits?.length) {
+      result.city_edits = result.city_edits.map(editSummary);
+      result.city_edit_scope = 'The physical city edits are exploratory model results.';
+    }
     for (const note of [...result.applied, ...result.not_modeled]) {
       if (['building', 'road', 'line'].includes(note.kind)) {
         delete note.geometry;
@@ -445,7 +448,12 @@ function shortResult(full, asked, placesUsed) {
       return matches.length ? matches.map((s) => ({ asked: name, ...s, new_station: !currentStations.has(s.id) })) : [{ asked: name, not_found: true }];
     });
     const opened = byDelta.filter((s) => !currentStations.has(s.id));
-    if (opened.length) result.new_stations = { count: opened.length, entries_daily: opened.reduce((t, s) => t + s.scenario_daily, 0), largest: opened.slice(0, 5) };
+    if (opened.length) result.new_stations = {
+      scope: 'Exploratory estimate of future weekday Metro entries. Future demand has no validation. Opening these stations does not estimate changes in travel mode, travel time, transfers or capacity.',
+      count: opened.length,
+      entries_daily: opened.reduce((t, s) => t + s.scenario_daily, 0),
+      largest: opened.slice(0, 5),
+    };
     result.station_gains = byDelta.slice(0, 5).filter((s) => s.delta_daily > 0);
     result.station_losses = byDelta.slice(-5).reverse().filter((s) => s.delta_daily < 0);
     result.zones_largest_job_change = zones.map(({ id, name, jobs_base, jobs_scenario, residents_working_base, residents_working_scenario }) => ({ id, name, jobs_base, jobs_scenario, residents_working_base, residents_working_scenario }))
