@@ -274,24 +274,31 @@ pub(super) fn mapped_trees(path: &Path) -> impl Iterator<Item = Mesh> {
         let base = world(-70.85 + x as f64 / 100_000., -33.65 + y as f64 / 100_000.);
         let mesh = tile_for(&mut tiles, base);
         let seed = x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663);
-        let height = 5.8 + (seed % 41) as f32 * 0.10;
-        let radius = height * (0.31 + ((seed >> 8) % 8) as f32 * 0.012);
+        // Mixed street trees: young, mature and tall ones, in three crown forms.
+        let height = [3.8, 6.0, 9.5][(seed >> 20) as usize % 3] + (seed % 41) as f32 * 0.07;
+        let form = (seed >> 24) as usize % 3;
+        let radius = height * ([0.36, 0.22, 0.46][form] + ((seed >> 8) % 8) as f32 * 0.012);
         let u = (seed & 3) as f32 * 0.25;
         mesh.textured = true;
         // Stacked sprites: horizontal slices of the crown, widest a third of the way up, and a thin trunk.
         let turn = (seed >> 12) as f32 * 0.001;
         let (sin, cos) = turn.sin_cos();
-        let slices: [(f32, f32, [f32; 4]); 9] = [
-            (0.05, 0.07, [0.42, 0.33, 0.28, 1.]),
-            (0.22, 0.07, [0.42, 0.33, 0.28, 1.]),
-            (0.36, 0.70, [0.80, 0.86, 0.80, 1.]),
-            (0.46, 0.92, [0.86, 0.91, 0.86, 1.]),
-            (0.56, 1.00, [0.92, 0.95, 0.92, 1.]),
-            (0.66, 0.95, [0.96, 0.98, 0.96, 1.]),
-            (0.76, 0.82, [1.; 4]),
-            (0.86, 0.62, [1.; 4]),
-            (0.95, 0.36, [1.; 4]),
+        // Crown width per slice for a round, a columnar and a spreading form.
+        let crown: [[f32; 7]; 3] = [
+            [0.70, 0.92, 1.00, 0.95, 0.82, 0.62, 0.36],
+            [0.55, 0.85, 1.00, 0.95, 0.80, 0.55, 0.25],
+            [0.85, 1.00, 1.00, 0.92, 0.70, 0.40, 0.15],
         ];
+        let low = [0.36, 0.20, 0.48][form];
+        let shade = 0.82 + ((seed >> 16) % 5) as f32 * 0.05;
+        let tint = [[1.0, 1.0, 1.0], [1.08, 1.02, 0.80], [0.85, 0.98, 1.0]][(seed >> 4) as usize % 3];
+        let trunk = [0.42, 0.33, 0.28, 1.];
+        let mut slices = vec![(0.05, 0.07, trunk), (low * 0.6, 0.07, trunk)];
+        for (i, width) in crown[form].into_iter().enumerate() {
+            let light = shade * (0.80 + 0.2 * i as f32 / 6.);
+            let color = [tint[0] * light, tint[1] * light, tint[2] * light, 1.];
+            slices.push((low + (0.97 - low) * i as f32 / 6., width, color));
+        }
         for (level, width, color) in slices {
             let r = radius * width;
             let east = Vec3::new(cos, 0., sin) * r;
