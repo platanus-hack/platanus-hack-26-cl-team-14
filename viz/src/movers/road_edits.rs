@@ -236,10 +236,6 @@ impl TrafficEdits {
         cut
     }
 
-    pub(super) fn hides(&self, position: Vec3, direction: Vec3) -> bool {
-        self.hides_on(position, direction, None)
-    }
-
     pub(super) fn hides_on(
         &self,
         position: Vec3,

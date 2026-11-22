@@ -31,7 +31,7 @@ use bevy::{
     image::{CompressedImageFormats, ImageSampler, ImageType},
     mesh::Indices,
     render::render_resource::PrimitiveTopology,
-    camera::primitives::{Frustum, Sphere as Bounds},
+    camera::primitives::{Aabb, Frustum, Sphere as Bounds},
     prelude::*,
 };
 use serde_json::Value;
@@ -624,6 +624,7 @@ impl StreetIndex {
 }
 
 struct Group {
+    car_bounds: Option<Aabb>,
     cars: Vec<u16>,
     itineraries: Vec<RiderPlan>,
     duration: f32,
@@ -827,7 +828,17 @@ fn read_result(
             .map(RiderPlan::duration)
             .fold(*path.seconds.last().unwrap(), f32::max);
         replay.longest = replay.longest.max(duration);
+        let car_bounds = (row["mode"] == "car").then(|| {
+            let (min, max) = path.points.iter().fold(
+                (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)),
+                |(min, max), &point| (min.min(point), max.max(point)),
+            );
+            // Cover the same visibility margin as the per-vehicle sphere.
+            let margin = Vec3::splat(100.);
+            Aabb::from_min_max(min - margin, max + margin)
+        });
         replay.departures[bin].push(Group {
+            car_bounds,
             cars: if row["mode"] == "car" {
                 fleet.cars(row["origin_cut"].as_str().unwrap(), id, copies[0])
             } else {
@@ -1223,6 +1234,8 @@ fn street_walker_scale(distance: f32) -> f32 {
     (distance / 135.).clamp(1., 3.)
 }
 
+const CAR_LANE_OFFSET: f32 = 1.9;
+
 fn right(dir: Vec3) -> Vec3 {
     Vec3::new(-dir.z, 0., dir.x)
 }
@@ -1316,12 +1329,17 @@ fn draw(
             if presence == 0. {
                 continue;
             }
-            if since_bin > BIN + g.duration + queues.longest_wait {
+            if since_bin > BIN + g.duration + queues.group_wait(bin, group)
+                || g.car_bounds.as_ref().is_some_and(|bounds| !frustum.intersects_obb_identity(bounds))
+            {
                 continue;
             }
             let copies = g.copies[tier];
             for j in 0..copies {
                 let age = since_bin - departure_offset(g.phase, j);
+                if age < 0. {
+                    continue;
+                }
                 let paint = if j >= copies.saturating_sub(g.changed[tier]) {
                     g.tint
                 } else {
@@ -1362,7 +1380,12 @@ fn draw(
                         None => None,
                     }
                 } else {
-                    g.path.trip_pose(queues.age(bin, group, j, age), j)
+                    let age = if g.cars.is_empty() {
+                        age
+                    } else {
+                        queues.age(bin, group, j, age)
+                    };
+                    g.path.trip_pose(age, j)
                 };
                 let Some((pos, dir, kind, metres)) = movement else {
                     continue;
@@ -1384,7 +1407,11 @@ fn draw(
                 } else {
                     size_at(pos)
                 } * presence;
-                let lane = if kind == Vehicle::Walk { g.path.walk_lane(metres) } else { 1.6 };
+                let lane = match kind {
+                    Vehicle::Walk => g.path.walk_lane(metres),
+                    Vehicle::Car => CAR_LANE_OFFSET,
+                    _ => 1.6,
+                };
                 let mut position = pos + right(dir) * lane + Vec3::Y * 0.25;
                 if kind == Vehicle::Car {
                     let Some(surface) = routes.water.surface_position(&g.path, metres, position, dir) else { continue; };
