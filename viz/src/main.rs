@@ -5,7 +5,6 @@ mod chart;
 mod city;
 mod focus;
 mod halos;
-mod history;
 mod result_display;
 mod label;
 mod movers;
@@ -194,7 +193,7 @@ fn navigate(
     canvas: Query<&Sprite, With<pixels::CityCanvas>>,
     overlay: Query<
         (&Node, &RelativeCursorPosition),
-        Or<(With<history::HistorySurface>, With<result_display::ResultSurface>)>,
+        With<result_display::ResultSurface>,
     >,
 ) {
     if rig.fixed || overlay.iter().any(|(node, cursor)| {
@@ -360,7 +359,6 @@ fn main() -> AppExit {
             MiniatureCamera,
             net::NetPlugin,
             chart::ChartPlugin,
-            history::HistoryPlugin,
             result_display::ResultDisplayPlugin,
             label::LabelPlugin,
             movers::MoversPlugin,

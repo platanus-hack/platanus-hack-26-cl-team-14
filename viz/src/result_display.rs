@@ -308,7 +308,6 @@ fn interact(
     mut panel: Query<(&mut Node, &RelativeCursorPosition), With<ResultSurface>>,
     dismiss: Query<&RelativeCursorPosition, With<Dismiss>>,
     mut body: Query<&mut ScrollPosition, With<Body>>,
-    history: Single<&Node, (With<crate::history::Panel>, Without<ResultSurface>)>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut wheel: MessageReader<MouseWheel>,
     window: Single<&Window, With<PrimaryWindow>>,
@@ -323,7 +322,7 @@ fn interact(
     {
         feed.dismissed = true;
     }
-    let display = if feed.dismissed || history.display != Display::None {
+    let display = if feed.dismissed {
         Display::None
     } else {
         Display::Flex

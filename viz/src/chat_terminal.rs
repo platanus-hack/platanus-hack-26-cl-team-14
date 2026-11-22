@@ -194,7 +194,6 @@ fn update(
     window: Single<(&Window, &RawHandleWrapper), With<PrimaryWindow>>,
     mut panel: NonSendMut<Option<Panel>>,
     mut failed: Local<bool>,
-    mut replays: MessageReader<crate::history::ReplayStarted>,
 ) {
     if *failed {
         return;
@@ -202,14 +201,8 @@ fn update(
     let (window, handle) = *window;
     let size = UVec2::new(window.physical_width(), window.physical_height()).as_vec2()
         / window.resolution.base_scale_factor();
-    let hide_chat = replays.read().count() != 0;
     let result = match panel.as_mut() {
-        Some(panel) => panel.update(size).and_then(|()| {
-            if hide_chat && panel.open {
-                panel.set_open(false)?;
-            }
-            Ok(())
-        }),
+        Some(panel) => panel.update(size),
         None => Panel::open(size, handle).map(|new_panel| *panel = Some(new_panel)),
     };
     if let Err(error) = result {
