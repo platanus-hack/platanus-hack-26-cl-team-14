@@ -35,10 +35,10 @@ use bevy::{
 use serde_json::Value;
 use std::{collections::HashMap, fs, io::Read, sync::Arc};
 
-// At street level one walker represents 48 workers and other figures represent 96.
+// Base sample sizes before applying the mode's density.
 const PERSONS_PER_STREET_WALKER: f64 = 48.0;
 const PERSONS_PER_MOVER: f64 = 96.0;
-// From 1 km and 5 km, use 4× and 12× as many street figures from the same group count.
+// Walkers and bicycles use a denser sample at 1 km and 5 km.
 const STREET_DENSITY: [f64; 3] = [1., 4., 12.];
 const CITY_SECONDS_PER_SECOND: f32 = 8.;
 const BIN: f32 = 1800.0;
@@ -755,7 +755,9 @@ fn read_result(
             PERSONS_PER_MOVER
         };
         let density = match row["mode"].as_str() {
-            Some("car" | "walk" | "bicycle") => STREET_DENSITY,
+            // Keep each car from the city overview visible when the camera follows it in.
+            Some("car") => [STREET_DENSITY[2]; 3],
+            Some("walk" | "bicycle") => STREET_DENSITY,
             _ => [1.; 3],
         };
         let count = row["count"].as_f64().unwrap();
@@ -1267,7 +1269,7 @@ fn draw(
                     match plan.at(age) {
                         Some(state @ (RiderState::Walking(p, dir) | RiderState::Waiting(p, dir))) => {
                             if visible(p, 100.) && (subway.0 || p.y >= terrain_from_xz(p.x, p.z) - 0.6) {
-                                let scale = pedestrian_scale(eye.distance(p), 1.2) * presence;
+                                let scale = presence;
                                 let model = if matches!(state, RiderState::Walking(..)) {
                                     plan.walking_model(age, scale)
                                 } else {
@@ -1317,7 +1319,7 @@ fn draw(
                 let scale = if tier == 2 {
                     size_at(pos).max(eye.distance(pos) * 0.0012)
                 } else if kind == Vehicle::Walk {
-                    pedestrian_scale(eye.distance(pos), size_at(pos))
+                    1. // The pedestrian mesh is already 1.75 m tall.
                 } else {
                     size_at(pos)
                 } * presence;
@@ -1447,7 +1449,7 @@ fn draw(
         }
     }
     for station in &replay.platforms {
-        station.draw(now, subway.0, eye, rig.distance, replay.stadium.as_ref(), &visible, &mut place);
+        station.draw(now, subway.0, rig.distance, replay.stadium.as_ref(), &visible, &mut place);
     }
     for batch in pool.0.values() {
         for &id in &batch.entities[batch.used..] {
