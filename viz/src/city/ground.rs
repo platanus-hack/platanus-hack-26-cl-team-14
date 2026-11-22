@@ -276,24 +276,37 @@ pub(super) fn mapped_trees(path: &Path) -> impl Iterator<Item = Mesh> {
         let seed = x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663);
         let height = 5.8 + (seed % 41) as f32 * 0.10;
         let radius = height * (0.31 + ((seed >> 8) % 8) as f32 * 0.012);
-        let up = Vec3::Y * height;
         let u = (seed & 3) as f32 * 0.25;
         mesh.textured = true;
-        // Three crossed cards at 60° give the canopy volume from any camera angle.
+        // Stacked sprites: horizontal slices of the crown, widest a third of the way up, and a thin trunk.
         let turn = (seed >> 12) as f32 * 0.001;
-        for card in 0..3 {
-            let angle = turn + card as f32 * std::f32::consts::FRAC_PI_3;
-            let right = Vec3::new(angle.cos(), 0., angle.sin()) * radius;
+        let (sin, cos) = turn.sin_cos();
+        let slices: [(f32, f32, [f32; 4]); 9] = [
+            (0.05, 0.07, [0.42, 0.33, 0.28, 1.]),
+            (0.22, 0.07, [0.42, 0.33, 0.28, 1.]),
+            (0.36, 0.70, [0.80, 0.86, 0.80, 1.]),
+            (0.46, 0.92, [0.86, 0.91, 0.86, 1.]),
+            (0.56, 1.00, [0.92, 0.95, 0.92, 1.]),
+            (0.66, 0.95, [0.96, 0.98, 0.96, 1.]),
+            (0.76, 0.82, [1.; 4]),
+            (0.86, 0.62, [1.; 4]),
+            (0.95, 0.36, [1.; 4]),
+        ];
+        for (level, width, color) in slices {
+            let r = radius * width;
+            let east = Vec3::new(cos, 0., sin) * r;
+            let south = Vec3::new(-sin, 0., cos) * r;
+            let centre = base + Vec3::Y * (height * level);
             let first = mesh.positions.len() as u32;
             for (position, uv) in [
-                (base - right, [u, 1.]),
-                (base + right, [u + 0.25, 1.]),
-                (base + right + up, [u + 0.25, 0.]),
-                (base - right + up, [u, 0.]),
+                (centre - east - south, [u, 0.]),
+                (centre + east - south, [u + 0.25, 0.]),
+                (centre + east + south, [u + 0.25, 1.]),
+                (centre - east + south, [u, 1.]),
             ] {
                 mesh.positions.push(position.to_array());
                 mesh.normals.push(Vec3::Y.to_array());
-                mesh.colors.push([1.; 4]);
+                mesh.colors.push(color);
                 mesh.uvs.push(uv);
             }
             mesh.indices.extend([0, 1, 2, 0, 2, 3].map(|i| first + i));
