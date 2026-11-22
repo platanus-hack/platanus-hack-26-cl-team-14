@@ -2,6 +2,7 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
+use crate::population::household_income::HouseholdIncome;
 use crate::population::{FineModes, NEW_OTHER_MODE, Person, UNKNOWN, Point, Population, TripGroup, TripPlan, person_departure, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::{EntryOrigins, StationAccess, planned::PlannedStations};
@@ -246,6 +247,32 @@ impl Scenario {
         let after = visits.after(shops, &c.minutes, minutes, unreachable, window);
         let mut v = shopping::visits::summary(&c.cuts, &visits.before, &after);
         v["baseline_check"] = json!({ "destination_tv_vs_shopping_layer": (visits.tv_vs_shopping_layer * 10000.0).round() / 10000.0 });
+        // Workers by imputed CASEN household income band (#497): band size and how many change. Index 4 = unmodeled.
+        let mut bands = [(0u64, 0u64, 0u64, 0u64, 0u32, None); 5];
+        for (k, &i) in workers.iter().enumerate() {
+            let x = match self.pop.persons[i].household_income(i) {
+                HouseholdIncome::Imputed { band, monthly_clp_min, monthly_clp_max, .. } => {
+                    let x = &mut bands[band as usize - 1];
+                    (x.4, x.5) = (monthly_clp_min, monthly_clp_max);
+                    x
+                }
+                HouseholdIncome::Unmodeled { .. } => &mut bands[4],
+            };
+            x.0 += 1;
+            x.1 += (self.pop.persons[i].mode != pop.persons[i].mode) as u64;
+            x.2 += (visits.before[k].is_some() && after[k].is_none()) as u64;
+            x.3 += (visits.before[k] != after[k]) as u64;
+        }
+        let share = |n: u64, d: u64| (n as f64 / d.max(1) as f64 * 10000.0).round() / 100.0;
+        v["workers_by_household_income_band"] = json!({
+            "bands": bands.iter().enumerate().map(|(b, &(n, mode, stopped, visit, min, max))| json!({
+                "band": if b < 4 { json!(b + 1) } else { json!("unmodeled") },
+                "monthly_clp_min": if b < 4 { json!(min) } else { Value::Null }, "monthly_clp_max": max,
+                "workers": n, "work_mode_changed": mode, "stopped_shopping": stopped, "shopping_changed": visit,
+                "work_mode_changed_pct": share(mode, n), "stopped_shopping_pct": share(stopped, n), "shopping_changed_pct": share(visit, n),
+            })).collect::<Vec<_>>(),
+            "unit": "workers (synthetic persons with a modeled work trip); pct = count / workers in the band. Band = imputed CASEN 2024 RM monthly household monetary income, November 2024 CLP, drawn by age (#497). Unmodeled: unknown private household or age outside the source.",
+        });
         let cut = |x: Option<u8>| x.map(|d| c.cuts[d as usize].clone());
         if let Some(k) = (0..workers.len()).find(|&k| visits.before[k] != after[k]) {
             let (b, a) = (&self.pop.persons[workers[k]], &pop.persons[workers[k]]);
