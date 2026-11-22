@@ -137,7 +137,7 @@ fn setup(
     });
     commands.init_resource::<Playback>();
     let font = fonts.add(Font::from_bytes(
-        include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec(),
+        include_bytes!("../assets/inter/Inter-Regular.ttf").to_vec(),
     ));
     commands
         .spawn((

@@ -1,5 +1,6 @@
 //! Final replay chart: stacked bars from the `chart` block that `run_replay` adds to a cached result.
 use crate::net::Scenario;
+use crate::label::{INK_MUTED, PANEL_INK, PANEL_PAD, TYPE_HEAD, TYPE_NOTE};
 use bevy::{prelude::*, text::FontSize, time::Real};
 
 pub struct ChartPlugin;
@@ -17,19 +18,31 @@ struct ChartFont(Handle<Font>);
 #[derive(Component)]
 struct Chart(f32);
 
-// High contrast on the dark panel, in stack order.
-const COLORS: [Color; 6] = [
-    Color::srgb(0.98, 0.76, 0.18),
-    Color::srgb(0.30, 0.69, 0.98),
-    Color::srgb(0.95, 0.36, 0.36),
-    Color::srgb(0.45, 0.85, 0.50),
-    Color::srgb(0.78, 0.56, 0.96),
-    Color::srgb(0.85, 0.85, 0.85),
+// Numbers on the bright bars use the darkest map ink.
+const ON_BAR: Color = Color::srgb_u8(0x24, 0x29, 0x42);
+
+// Stack order and colors. Transit leads, so both bars compare it from the same left edge.
+// The first three match the fan colors on the map (movers/events.rs).
+const MODES: [(&str, Color); 5] = [
+    ("Transporte público", Color::srgb(0.09, 0.90, 0.82)),
+    ("Auto", Color::srgb(1., 0.69, 0.19)),
+    ("Otro", Color::srgb(0.83, 0.64, 1.)),
+    ("A pie", Color::srgb(0.98, 0.45, 0.45)),
+    ("Bicicleta", Color::srgb(0.55, 0.85, 0.45)),
 ];
+
+fn rank(key: &str) -> usize {
+    MODES.iter().position(|(name, _)| *name == key).unwrap_or(MODES.len())
+}
+
+// A single "total" key takes the transit color.
+fn color(key: &str) -> Color {
+    MODES.get(rank(key)).map_or(MODES[0].1, |mode| mode.1)
+}
 
 fn load_font(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let font = fonts.add(Font::from_bytes(
-        include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec(),
+        include_bytes!("../assets/inter/Inter-Regular.ttf").to_vec(),
     ));
     commands.insert_resource(ChartFont(font));
 }
@@ -78,7 +91,8 @@ fn draw(
         .iter()
         .map(|bar| {
             let values = bar["values"].as_object().unwrap();
-            let values = values.iter().map(|(k, v)| (k.clone(), v.as_f64().unwrap())).collect();
+            let mut values: Vec<_> = values.iter().map(|(k, v)| (k.clone(), v.as_f64().unwrap())).collect();
+            values.sort_by_key(|(k, _)| rank(k));
             (bar["label"].as_str().unwrap().to_owned(), values)
         })
         .collect();
@@ -92,33 +106,39 @@ fn draw(
         .spawn((
             Chart(time.elapsed_secs() + chart["show_after_seconds"].as_f64().unwrap_or(0.) as f32),
             Visibility::Hidden,
-            BackgroundColor(crate::label::PANEL_INK),
+            BackgroundColor(PANEL_INK),
             Node {
+                // Under the clock, in the same left column: the embedded chat covers the right side.
                 position_type: PositionType::Absolute,
-                right: px(24),
-                bottom: px(48),
-                width: px(360),
-                max_width: percent(29),
-                padding: UiRect::all(px(16)),
+                left: px(24),
+                top: px(104),
+                width: px(520),
+                max_width: percent(40),
+                padding: UiRect::all(PANEL_PAD.left),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(8),
+                row_gap: px(6),
                 ..default()
             },
         ))
         .with_children(|panel| {
-            panel.spawn(text(chart["title"].as_str().unwrap().to_owned(), 30.));
-            panel.spawn(text(chart["unit"].as_str().unwrap().to_owned(), 20.));
+            panel.spawn(text(chart["title"].as_str().unwrap().to_owned(), TYPE_HEAD));
+            panel.spawn(ink(chart["unit"].as_str().unwrap().to_owned(), TYPE_NOTE, INK_MUTED));
             for (label, values) in &bars {
                 let total: f64 = values.iter().map(|(_, v)| v).sum();
-                panel.spawn(text(format!("{label} · {}", thousands(total)), 24.));
+                // Each label sits on its bar, with air before the next comparison.
                 panel
-                    .spawn(Node { width: percent(100), height: px(24), ..default() })
+                    .spawn(Node { margin: UiRect::top(px(10)), justify_content: JustifyContent::SpaceBetween, ..default() })
+                    .with_children(|row| {
+                        row.spawn(text(label.clone(), TYPE_HEAD));
+                        row.spawn(text(thousands(total), TYPE_HEAD));
+                    });
+                panel
+                    .spawn(Node { width: percent(100), height: px(36), column_gap: px(3), ..default() })
                     .with_children(|row| {
                         for (key, value) in values {
-                            let color = COLORS[keys.iter().position(|k| k == key).unwrap_or(0) % COLORS.len()];
                             let share = (value / max * 100.) as f32;
                             row.spawn((
-                                BackgroundColor(color),
+                                BackgroundColor(color(key)),
                                 Node {
                                     width: percent(share),
                                     height: percent(100),
@@ -131,7 +151,7 @@ fn draw(
                             .with_children(|segment| {
                                 // A narrow segment has no room for its number.
                                 if keys.len() > 1 && share >= 25. {
-                                    segment.spawn(ink(thousands(*value), 16., Color::BLACK));
+                                    segment.spawn(ink(thousands(*value), TYPE_NOTE, ON_BAR));
                                 }
                             });
                         }
@@ -140,17 +160,14 @@ fn draw(
             // A single "total" key needs no legend.
             if keys.len() > 1 {
                 panel
-                    .spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: px(12), row_gap: px(4), ..default() })
+                    .spawn(Node { margin: UiRect::top(px(12)), flex_wrap: FlexWrap::Wrap, column_gap: px(20), row_gap: px(6), ..default() })
                     .with_children(|legend| {
-                        for (i, key) in keys.iter().enumerate() {
+                        for key in &keys {
                             legend
-                                .spawn(Node { column_gap: px(6), align_items: AlignItems::Center, ..default() })
+                                .spawn(Node { column_gap: px(8), align_items: AlignItems::Center, ..default() })
                                 .with_children(|item| {
-                                    item.spawn((
-                                        BackgroundColor(COLORS[i % COLORS.len()]),
-                                        Node { width: px(14), height: px(14), ..default() },
-                                    ));
-                                    item.spawn(text(key.clone(), 18.));
+                                    item.spawn((BackgroundColor(color(key)), Node { width: px(20), height: px(20), ..default() }));
+                                    item.spawn(text(key.clone(), TYPE_NOTE));
                                 });
                         }
                     });

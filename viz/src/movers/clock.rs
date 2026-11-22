@@ -26,14 +26,14 @@ struct ClockText;
 
 fn spawn(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let font = fonts.add(Font::from_bytes(
-        include_bytes!("../../assets/barlow/Barlow-Regular.ttf").to_vec(),
+        include_bytes!("../../assets/inter/Inter-Regular.ttf").to_vec(),
     ));
     commands.spawn((
         ClockText,
         Text::default(),
         TextFont {
             font: font.into(),
-            font_size: FontSize::Px(44.0),
+            font_size: FontSize::Px(crate::label::TYPE_LEAD),
             ..default()
         },
         TextColor(Color::WHITE),
@@ -42,7 +42,7 @@ fn spawn(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             position_type: PositionType::Absolute,
             top: px(24),
             left: px(24),
-            padding: UiRect::axes(px(22), px(10)),
+            padding: crate::label::PANEL_PAD,
             ..default()
         },
         Visibility::Hidden,

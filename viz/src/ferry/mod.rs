@@ -98,7 +98,7 @@ fn setup(
     commands.insert_resource(Symbols {
         access: access::AccessMap::load(),
         font: fonts.add(Font::from_bytes(
-            include_bytes!("../../assets/barlow/Barlow-Regular.ttf").to_vec(),
+            include_bytes!("../../assets/inter/Inter-Regular.ttf").to_vec(),
         )),
         boat: meshes.add(vessel::mesh()),
         person: meshes.add(person),
