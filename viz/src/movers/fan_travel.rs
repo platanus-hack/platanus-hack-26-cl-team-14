@@ -61,6 +61,7 @@ impl FanJourneys {
         now: f32,
         routes: &Routes,
         road_edits: &road_edits::TrafficEdits,
+        placed: &StreetMask,
         trains: &mut [Vec<Train<'_>>],
         buses: &mut std::collections::BTreeMap<(usize, i32), (Paint, usize)>,
         visible: &impl Fn(Vec3, f32) -> bool,
@@ -84,7 +85,11 @@ impl FanJourneys {
                         dir,
                     )
                 {
-                    let transform = pose(at, dir, Vec3::splat(size_at(at)));
+                    let scale = size_at(at);
+                    if !car.path.on_bridge(metres) && placed.intersects_body(at, dir, 3.24 * scale, 1.44 * scale) {
+                        continue;
+                    }
+                    let transform = pose(at, dir, Vec3::splat(scale));
                     place(Model::Car(car.style), Paint::Plain, transform);
                     if group.relocated {
                         place(Model::CarChange, Paint::Rerouted, transform);
@@ -179,7 +184,7 @@ fn schedule(legs: &[Value], index: usize, routes: &Routes) -> Option<(Vec<Ride>,
     Some((rides, first_departure))
 }
 
-fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet, relocated: bool) -> Vec<FanGroup> {
+fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet, relocated: bool, detours: &mut building_detours::CarDetours) -> Vec<FanGroup> {
     let mut result = Vec::new();
     for row in event["itineraries"].as_array().into_iter().flatten() {
         let Some(people) = row["people"].as_f64() else {
@@ -230,7 +235,7 @@ fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet, relocated: bool)
                 let spans = serde_json::from_value(Value::Array(raw.clone())).ok()?;
                 road_water::set_crossings(&mut path, Some(&spans));
             }
-            Some((path, l["minutes"].as_f64()? as f32 * 60.))
+            Some((detours.path(path)?, l["minutes"].as_f64()? as f32 * 60.))
         });
         if mode == FanMode::Car && road.is_none() {
             continue;
@@ -316,6 +321,7 @@ pub(super) fn refresh(
     fleet: Res<fleet::Fleet>,
     replay: Res<Replay>,
     mut journeys: ResMut<FanJourneys>,
+    mut detours: ResMut<building_detours::CarDetours>,
 ) {
     if result.is_changed() {
         journeys.0 = result.0["events"]
@@ -331,7 +337,7 @@ pub(super) fn refresh(
                     };
                     footprint.covers(world(lon, lat))
                 });
-                groups(event, &routes, &fleet, relocated)
+                groups(event, &routes, &fleet, relocated, &mut detours)
             })
             .collect();
     }

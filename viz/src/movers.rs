@@ -9,6 +9,7 @@ mod motion;
 mod car_geometry;
 mod road_water;
 mod road_edits;
+mod building_detours;
 mod articulated;
 mod instanced;
 mod levels;
@@ -52,6 +53,7 @@ impl Plugin for MoversPlugin {
             .add_systems(Startup, setup)
             .add_systems(Update, levels::toggle_tracks)
             .init_resource::<Replay>()
+            .init_resource::<building_detours::CarDetours>()
             .init_resource::<fan_travel::FanJourneys>()
             .add_systems(Update, fan_travel::refresh.in_set(fan_travel::RefreshFanJourneys).after(read_result).before(draw))
             .add_systems(Update, (read_result.after(crate::city::edits::refresh), draw, stations::position_closed_signs).chain());
@@ -665,6 +667,8 @@ fn read_result(
     fleet: Res<fleet::Fleet>,
     mut replay: ResMut<Replay>,
     mut road_catalog: Local<road_edits::Catalog>,
+    placed: Res<StreetMask>,
+    mut detours: ResMut<building_detours::CarDetours>,
 ) {
     if !result.is_changed() || result.0.is_null() {
         return;
@@ -676,6 +680,7 @@ fn read_result(
     });
     let r = &result.0;
     replay.road_edits = road_edits::TrafficEdits::from_result(r, &mut road_catalog);
+    detours.reset(&placed, &replay.road_edits);
     let metro_removed = r["applied"].as_array().into_iter().flatten().any(|change| {
         change["kind"] == "line"
             && change["op"] == "remove"
@@ -753,6 +758,10 @@ fn read_result(
         let Some(path) = routes.group_path(row) else {
             continue;
         };
+        let path = if row["mode"] == "car" {
+            let Some(path) = detours.path(path) else { continue; };
+            path
+        } else { path };
         let id = row["id"].as_u64().unwrap();
         // Stable fractional rounding keeps the same represented people at the same phase on revision.
         let seed = (id as u32).wrapping_mul(2654435761) as f64 / 4294967296.;
@@ -1337,9 +1346,15 @@ fn draw(
                     let Some(surface) = routes.water.surface_position(&g.path, metres, position, dir) else { continue; };
                     position = surface;
                 }
-                // Street movers keep their route and clock, but no one drives across a placed building at ground level.
-                if g.itineraries.is_empty() && placed.contains(position) && !g.path.on_bridge(metres) {
-                    continue;
+                // Check the rendered body after lane placement at building edges.
+                if g.itineraries.is_empty() && !g.path.on_bridge(metres) {
+                    let collision = if kind == Vehicle::Car {
+                        let (length, width) = if tier == 2 { (3.5 * presence, 3.5 * presence) } else { (3.24 * scale, 1.44 * scale) };
+                        placed.intersects_body(position, dir, length, width)
+                    } else {
+                        placed.contains(position)
+                    };
+                    if collision { continue; }
                 }
                 let transform = pose(
                     position,
@@ -1397,7 +1412,7 @@ fn draw(
             }
         }
     }
-    fan_journeys.draw(now, &routes, &replay.road_edits, &mut trains, &mut surface_load, &visible, &size_at, &mut place);
+    fan_journeys.draw(now, &routes, &replay.road_edits, &placed, &mut trains, &mut surface_load, &visible, &size_at, &mut place);
     for ((template, start), (paint, count)) in surface_load {
         if let Some((p, dir, kind)) = routes.riders.surface_pose(template, start, now) {
             if visible(p, 100.) {
