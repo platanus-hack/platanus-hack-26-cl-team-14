@@ -152,8 +152,6 @@ struct Cover;
 struct HiddenHud(Display);
 #[derive(Component)]
 struct BootText;
-#[derive(Component)]
-struct BootBackground(f32);
 
 #[derive(Resource)]
 struct Elements {
@@ -185,6 +183,10 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             },
             TextColor(Color::WHITE),
             TextLayout::justify(Justify::Center),
+            TextShadow {
+                offset: Vec2::new(1.5, 3.),
+                color: ink(0.85),
+            },
         )
     };
     let camera = commands
@@ -218,18 +220,14 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     commands.spawn((
         ChildOf(cover),
         text("santiaguito.cl", FontSize::VMin(12.)),
-        TextShadow {
-            offset: Vec2::new(1.5, 3.),
-            color: ink(0.85),
-        },
     ));
     let track = commands
         .spawn((
             ChildOf(cover),
             Node {
                 width: percent(23),
-                height: px(4),
-                margin: UiRect::top(px(18)),
+                height: px(3),
+                margin: UiRect { top: px(18), bottom: px(26), ..default() },
                 ..default()
             },
             BackgroundColor(Color::srgba(0.68, 0.72, 0.86, 0.32)),
@@ -249,13 +247,9 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let prompt = commands
         .spawn((
             ChildOf(cover),
-            BackgroundColor(ink(0.84)),
-            BootBackground(0.84),
-            text("Enter para empezar", FontSize::Vw(2.8)),
+            text("Enter para empezar", FontSize::VMin(4.6)),
             Node {
                 display: Display::None,
-                margin: UiRect::top(px(12)),
-                padding: UiRect::axes(px(22), px(4)),
                 ..default()
             },
         ))
@@ -267,11 +261,9 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             position_type: PositionType::Absolute,
             bottom: px(0),
             width: percent(100),
-            padding: UiRect::axes(px(24), px(8)),
+            padding: UiRect::axes(px(24), px(14)),
             ..default()
         },
-        BackgroundColor(ink(0.90)),
-        BootBackground(0.90),
     ));
     commands.insert_resource(Elements {
         cover,
@@ -282,8 +274,9 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     });
 }
 
+// The darkest ink of the city print (`pixels/vote.wgsl`), shared with the HUD panels.
 fn ink(alpha: f32) -> Color {
-    Color::srgba(0.055, 0.063, 0.108, alpha)
+    crate::label::PANEL_INK.with_alpha(alpha)
 }
 
 fn hide_hud(
@@ -308,7 +301,6 @@ fn advance(
     mut light: ResMut<TitleLight>,
     mut nodes: Query<&mut Node>,
     mut backgrounds: Query<&mut BackgroundColor>,
-    backing: Query<(Entity, &BootBackground)>,
     mut labels: Query<(&mut TextColor, Option<&mut TextShadow>), With<BootText>>,
     hidden: Query<(Entity, &HiddenHud)>,
     mut exit: MessageWriter<AppExit>,
@@ -325,7 +317,7 @@ fn advance(
             nodes.get_mut(ui.fill).unwrap().width =
                 percent(100. * done as f32 / (*total + 1) as f32);
             if buildings.ready && !scenario.0.is_null() {
-                nodes.get_mut(ui.track).unwrap().display = Display::None;
+                backgrounds.get_mut(ui.track).unwrap().0 = Color::NONE;
                 nodes.get_mut(ui.prompt).unwrap().display = Display::Flex;
                 backgrounds.get_mut(ui.cover).unwrap().0 = ink(0.46);
                 entry.stage = Stage::Title { since: now };
@@ -345,9 +337,7 @@ fn advance(
             let turn = 1. - opacity;
             rig.eye_direction = panorama_direction().slerp(entry.direction, turn * turn * (3. - 2. * turn));
             backgrounds.get_mut(ui.cover).unwrap().0 = ink(0.46 * opacity);
-            for (entity, base) in &backing {
-                backgrounds.get_mut(entity).unwrap().0 = ink(base.0 * opacity);
-            }
+            backgrounds.get_mut(ui.fill).unwrap().0.set_alpha(opacity);
             for (mut color, shadow) in &mut labels {
                 color.0.set_alpha(opacity);
                 if let Some(mut shadow) = shadow {
