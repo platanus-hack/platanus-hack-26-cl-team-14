@@ -8,7 +8,9 @@ The final pair is `metro-window-baseline` and `metro-window-closure`. Both use T
 
 Each run counts 1,487,455 modeled work departures in the closure window. Public transport falls from 772,186 to 662,807. Car rises from 504,342 to 591,740. Every station has zero entries during the closure. At 10:00 Tobalaba recovers 144.7 modeled entries and its baseline access origins. [Timed engine input](metro_closure_window.json)
 
-Maitén’s 14-second native clip shows trains moving in the baseline, then empty tracks and a closure sign in the same frame. The baseline clock reaches 08:01. The closure starts at 08:00. The clip uses the same saved results as the final pair, apart from creation and compute times. The paired edit and projector rehearsal remain open. [Metro source clip](https://discord.com/channels/1573514576400752640/1573809606277337280/1573855396974563428)
+Maitén’s 14-second native clip shows trains moving in the baseline, then empty tracks and a closure sign in the same frame. The baseline clock reaches 08:01. The closure starts at 08:00. The clip uses the same saved results as the final pair, apart from creation and compute times. The projector rehearsal remains open. [Metro source clip](https://discord.com/channels/1573514576400752640/1573809606277337280/1573855396974563428)
+
+Gabriela's 30-second edit places Mapocho on the left and Metro on the right. The Metro panel shows the open track at 5 seconds and the closure with the full mode caption at 20 seconds. [Paired video](https://discord.com/channels/1573514576400752640/1573809606277337280/1573856487351001180)
 
 ## Research brief
 
@@ -39,7 +41,7 @@ Both runs model 1,487,455 work departures from 07:00 to 10:00. Public transport 
 
 All 126 modeled stations show zero entries in the six closure bins. Outside the window, every station bin and 894 viewer trip groups match the baseline. The preview has no road speed or delay measure. [Engine and cache check](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/371#issuecomment-7069861666)
 
-The runner opened the chart at 1280 × 720 and read its units and counts. The chart appeared between 53.98 and 54.23 seconds after the closure arrived. The saved delay was 12 seconds. The viewer measured 1 FPS in warm-up. [Native timing check](https://discord.com/channels/1573514576400752640/1573809606277337280/1573821785055567944)
+The runner opened the chart at 1280 × 720 and read its units and counts. The chart appeared between 53.98 and 54.23 seconds after the closure arrived. The saved delay was 12 seconds. The viewer measured 1 FPS in warm-up. The real-time clock fix later brought the visible closure-to-chart interval to 12.00 seconds (±0.25). [Clock fix](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/407) · [Native timing check](https://discord.com/channels/1573514576400752640/1573809606277337280/1573821785055567944)
 
 ## Checks for the paired rehearsal
 
