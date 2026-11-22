@@ -1,0 +1,7 @@
+{
+  "name": "santiaguito-landing",
+  "compatibility_date": "2026-11-21",
+  "assets": { "directory": "./public" },
+  "workers_dev": false,
+  "routes": [{ "pattern": "santiaguito.cl", "custom_domain": true }]
+}

@@ -1,0 +1,82 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #e9ecea;
+  color: #10181c;
+  font-family: system-ui, sans-serif;
+}
+
+.city {
+  position: fixed;
+  inset: -1%;
+  width: 102%;
+  height: 102%;
+  object-fit: cover;
+  filter: blur(2px);
+}
+
+main {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 100svh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2.5rem;
+  padding: 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-family: "Archivo Black", system-ui, sans-serif;
+  font-size: clamp(1.8rem, 8.2vw, 7.5rem);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: white;
+  text-transform: uppercase;
+  text-shadow: 0 0.03em 0.06em rgb(16 24 28 / 70%), 0 0 0.45em rgb(16 24 28 / 55%);
+}
+
+h1 span { opacity: 0.75; }
+
+.download {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1.05rem 1.9rem 1.05rem 1.6rem;
+  border-radius: 0.5rem;
+  background: #10181c;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 85%), 0 0.6rem 2.2rem rgb(0 0 0 / 35%);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.download svg {
+  width: 1.3rem;
+  height: 1.3rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.download:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 2px white, 0 0.9rem 2.8rem rgb(0 0 0 / 45%);
+}
+
+.download:focus-visible {
+  outline: 2px solid #10181c;
+  outline-offset: 0.35rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .download { transition: none; }
+}
