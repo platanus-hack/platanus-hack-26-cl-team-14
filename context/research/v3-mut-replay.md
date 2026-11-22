@@ -20,7 +20,7 @@ El paquete incluye solicitudes para regenerar con `create_replay`, respuestas, s
 | Hinchas en transporte público | 23.687,5 → 27.789,9 | `result.events[0].fan_base.by_mode.public` |
 | Hinchas en auto | 12.758,9 → 9.397,8 | `result.events[0].fan_base.by_mode.car` |
 | Hinchas en otros modos | 2.775,6 → 2.034,3 | `result.events[0].fan_base.by_mode.other` |
-| Entradas al Metro en un día laboral, B menos A | Tobalaba −2.584,3, Pedrero +2.278,2, Mirador +1.843,5 | `result.stations[].scenario_daily` para `TB-TOB`, `PE` y `MA` |
+| Entradas al Metro en un día laboral, B menos A | Tobalaba −2.598,5, Pedrero +2.249,9, Mirador +1.826,5 | `result.stations[].scenario_daily` para `TB-TOB`, `PE` y `MA` |
 
 Las cifras de entradas al Metro excluyen el partido. El motor estima entradas por estación. No identifica trasvases entre estaciones. Los seis cierres de vías agregan de 5,3 a 31,2 segundos de viaje en auto a nueve pares dirigidos de comunas, en flujo libre. Los nueve pares conservan conexión. [Recibos del motor](https://discord.com/channels/1573514576400752640/1573809606277337280/1573844937198411918)
 
