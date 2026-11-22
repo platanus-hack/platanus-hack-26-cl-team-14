@@ -12,7 +12,7 @@ mod pixels;
 use crate::city::world;
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
-    input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
+    input::{gestures::PinchGesture, mouse::{MouseMotion, MouseScrollUnit, MouseWheel}},
     light::{CascadeShadowConfig, CascadeShadowConfigBuilder},
     post_process::dof::{DepthOfField, DepthOfFieldMode},
     prelude::*,
@@ -185,6 +185,7 @@ fn navigate(
     mouse: Res<ButtonInput<MouseButton>>,
     mut motion: MessageReader<MouseMotion>,
     mut wheel: MessageReader<MouseWheel>,
+    mut pinch: MessageReader<PinchGesture>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<&Camera, With<Camera3d>>,
     canvas: Query<&Sprite, With<pixels::CityCanvas>>,
@@ -192,16 +193,15 @@ fn navigate(
     if rig.fixed {
         return;
     }
-    let scroll: f32 = wheel
-        .read()
-        .map(|event| {
-            event.y
-                * match event.unit {
-                    MouseScrollUnit::Line => 0.15,
-                    MouseScrollUnit::Pixel => 0.002,
-                }
-        })
-        .sum();
+    // A mouse wheel (lines) zooms. A trackpad two-finger swipe (pixels) pans, and a pinch zooms.
+    let mut scroll: f32 = pinch.read().map(|event| event.0 * 2.0).sum();
+    let mut swipe = Vec2::ZERO;
+    for event in wheel.read() {
+        match event.unit {
+            MouseScrollUnit::Line => scroll += event.y * 0.15,
+            MouseScrollUnit::Pixel => swipe += Vec2::new(event.x, event.y),
+        }
+    }
     if scroll != 0.0 {
         rig.flight = None;
         rig.event_focus = None;
@@ -229,8 +229,9 @@ fn navigate(
         }
         rig.distance = distance;
     }
-    let delta: Vec2 = motion.read().map(|ev| ev.delta).sum();
-    if mouse.pressed(MouseButton::Left) && delta != Vec2::ZERO {
+    let drag: Vec2 = motion.read().map(|ev| ev.delta).sum();
+    let delta = if mouse.pressed(MouseButton::Left) { drag } else { Vec2::ZERO } + swipe;
+    if delta != Vec2::ZERO {
         rig.flight = None;
         rig.event_focus = None;
         let camera = pose(&rig);
