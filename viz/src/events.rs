@@ -12,6 +12,7 @@ use crate::{
     city::{StadiumSeating, SubwayView},
 };
 use bevy::{text::FontSize, time::Real};
+use super::silhouette::{Silhouette, Silhouettes, face};
 use walk::{OriginWalk, WalkPath};
 
 const PHASE_SECONDS: f32 = 10.;
@@ -44,7 +45,8 @@ impl Plugin for EventsPlugin {
 #[derive(Resource)]
 struct Art {
     figure: Handle<Mesh>,
-    modes: [Handle<Mesh>; 3],
+    modes: [Handle<Mesh>; 2],
+    glyph: [Handle<StandardMaterial>; 2],
     paint: [[Handle<StandardMaterial>; SOLID + 1]; 3],
 }
 
@@ -95,15 +97,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut fonts: ResMut<Assets<Font>>,
+    people: Res<Silhouettes>,
 ) {
-    let head = Mesh::from(Sphere::new(1.))
-        .scaled_by(Vec3::splat(0.65))
-        .translated_by(Vec3::Y * 2.35);
-    let mut figure = Mesh::from(Capsule3d::new(0.63, 0.8))
-        .scaled_by(Vec3::new(1., 1., 0.75))
-        .translated_by(Vec3::Y);
-    figure.merge(&head).unwrap();
-    let figure = meshes.add(figure);
     // A single transit glyph covers pooled public modes. Vehicle symbols carry
     // the same weight as walking figures; their number is not a fleet estimate.
     let white = [255, 255, 255];
@@ -118,15 +113,23 @@ fn setup(
         modes: [
             meshes.add(vehicle(3.6, 3.15)),
             meshes.add(vehicle(2.2, 1.15)),
-            figure.clone(),
         ],
-        figure,
+        glyph: [0, 1].map(|mode| {
+            materials.add(StandardMaterial {
+                base_color: COLORS[mode],
+                unlit: true,
+                ..default()
+            })
+        }),
+        figure: people.stand.clone(),
         paint: COLORS.map(|color| {
             std::array::from_fn(|step| {
                 materials.add(StandardMaterial {
                     base_color: color.with_alpha(step as f32 / SOLID as f32),
+                    base_color_texture: Some(people.atlas.clone()),
                     alpha_mode: AlphaMode::Blend,
                     unlit: true,
+                    cull_mode: None,
                     ..default()
                 })
             })
@@ -358,6 +361,7 @@ fn refresh(
                                 facing: center - seat,
                             },
                         },
+                        Silhouette,
                         Mesh3d(art.figure.clone()),
                         MeshMaterial3d(art.paint[mode][SOLID].clone()),
                         Visibility::Hidden,
@@ -409,6 +413,8 @@ fn animate(
     mut playback: ResMut<Playback>,
     subway: Res<SubwayView>,
     rig: Res<Rig>,
+    people: Res<Silhouettes>,
+    camera: Single<&GlobalTransform, With<Camera3d>>,
     mut groups: Query<
         (
             &Group,
@@ -465,7 +471,7 @@ fn animate(
             continue;
         };
         let map_scale = (rig.distance * 0.0035).clamp(1.1, 3.8);
-        let (point, heading, transit, scale) = match group.path {
+        let (point, heading, figure, scale) = match group.path {
             GroupPath::Arrival {
                 ref origin,
                 ref walk,
@@ -476,6 +482,15 @@ fn animate(
             } => {
                 let now = city_clock.0.unwrap().rem_euclid(DAY);
                 let admitted = now - gate;
+                // Walking fans step at 1.35 m/s with a 1.48 m stride; each group has its own phase.
+                let frame = ((now * 1.35 / 1.48 + (seat.x * 0.37).fract().abs()).fract() * people.walk.len() as f32) as usize;
+                let figure = if admitted < 0. {
+                    &people.walk[frame]
+                } else if admitted < GATE_FADE_SECONDS {
+                    &people.stand
+                } else {
+                    &people.sit
+                };
                 let ((point, heading), opacity) = if now < alight {
                     let Some(pose) = origin.as_ref().and_then(|leg| leg.at(now)) else {
                         visibility.set_if_neq(Visibility::Hidden);
@@ -495,12 +510,14 @@ fn animate(
                 };
                 let step = (opacity * SOLID as f32).round() as usize;
                 paint.set_if_neq(MeshMaterial3d(art.paint[group.mode][step].clone()));
-                let scale = if admitted < GATE_FADE_SECONDS {
+                // Beyond 300 m a fan keeps the screen height of the former 3 m glyph.
+                let legible = 1. + (3. / 1.75 - 1.) * ((rig.distance - 300.) / 200.).clamp(0., 1.);
+                let scale = legible * if admitted < GATE_FADE_SECONDS {
                     pedestrian_scale(rig.distance, map_scale)
                 } else {
                     map_scale.min(1.15)
                 };
-                (point, heading, false, scale)
+                (point, heading, figure, scale)
             }
             GroupPath::Local { from, to } => {
                 let p = (t - group.delay) / 0.51;
@@ -513,18 +530,27 @@ fn animate(
                 point.y = terrain_from_xz(point.x, point.z)
                     + 21.
                     + 20. * (u * std::f32::consts::PI).sin();
-                (point, to - from, u < 0.56, map_scale)
+                let transit = u < 0.56 && group.mode < 2;
+                paint.set_if_neq(MeshMaterial3d(if transit {
+                    art.glyph[group.mode].clone()
+                } else {
+                    art.paint[group.mode][SOLID].clone()
+                }));
+                (point, to - from, if transit { &art.modes[group.mode] } else { &art.figure }, map_scale)
             }
         };
-        let glyph = if transit {
-            &art.modes[group.mode]
-        } else {
-            &art.figure
-        };
-        mesh.set_if_neq(Mesh3d(glyph.clone()));
-        transform.rotation = Quat::from_rotation_y(heading.x.atan2(heading.z));
+        mesh.set_if_neq(Mesh3d(figure.clone()));
         transform.translation = point;
         transform.scale = Vec3::splat(scale);
+        let local = matches!(group.path, GroupPath::Local { .. });
+        if *figure != art.figure && local {
+            transform.rotation = Quat::from_rotation_y(heading.x.atan2(heading.z));
+        } else if local {
+            face(&mut transform, heading, camera.translation());
+        } else {
+            // Silhouette turns this walk direction to the camera after this system.
+            transform.rotation = Quat::from_rotation_y((-heading.z).atan2(heading.x));
+        }
         visibility.set_if_neq(Visibility::Inherited);
     }
 }

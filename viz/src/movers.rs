@@ -15,6 +15,7 @@ mod levels;
 mod riders;
 mod stations;
 mod street_people;
+pub(crate) mod silhouette;
 use riders::{RideKey, RiderNetwork, RiderPlan, RiderState};
 use stations::Station;
 use crate::city::street_mask::StreetMask;
@@ -47,7 +48,7 @@ const DAY: f32 = 48.0 * BIN;
 pub struct MoversPlugin;
 impl Plugin for MoversPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(instanced::MarksPlugin)
+        app.add_plugins((instanced::MarksPlugin, silhouette::SilhouettePlugin))
             .add_systems(Startup, setup)
             .add_systems(Update, levels::toggle_tracks)
             .init_resource::<Replay>()
@@ -961,6 +962,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    people: Res<silhouette::Silhouettes>,
 ) {
     let seconds = std::env::var("SANTIAGO_CLOCK_SECONDS").ok().map(|v| {
         v.parse::<f32>()
@@ -984,7 +986,7 @@ fn setup(
         (Model::BusPassenger, bus_load::passenger_mesh(), None),
         (Model::WalkTrace, block([1., 0.20, 1.], [0.; 3], [255; 3]), None),
         (Model::StationEntries, street_people::entry_disc(), None),
-        (Model::Person, motion::pedestrian(None, ink), None),
+        (Model::Person, silhouette::stand(), Some(people.atlas.clone())),
         (Model::BusJoint, shape((-2..=2).map(|i| {
             block([0.22, 2.45, 2.45], [i as f32 * 0.21, 1.5, 0.], if i % 2 == 0 { GLASS } else { [70, 78, 82] })
         })), None),
@@ -1014,7 +1016,7 @@ fn setup(
         ),
     ]
     .into_iter()
-    .chain((0..motion::GAIT_FRAMES).map(|frame| (Model::Walking(frame), motion::pedestrian(Some(frame), ink), None)))
+    .chain((0..motion::GAIT_FRAMES).map(|frame| (Model::Walking(frame), silhouette::walk(frame), Some(people.atlas.clone()))))
     .chain(sprites.into_iter().map(|(model, bytes, layers)| {
         let fraction = if model == Model::BusTail { BUS_TAIL_FRACTION } else { 1. };
         let (mesh, image) = sprite_stack_width(bytes, layers, [1, 1], fraction);
@@ -1031,7 +1033,8 @@ fn setup(
             (Paint::Rerouted, [144, 217, 255]),
         ] {
             let sprite = texture.is_some();
-            let person_ink = (ink && matches!(model, Model::Person | Model::Walking(_))) || matches!(model, Model::StationEntries | Model::BusPassenger);
+            let person = matches!(model, Model::Person | Model::Walking(_));
+            let person_ink = person || matches!(model, Model::StationEntries | Model::BusPassenger);
             let accent = ink && tint != Paint::Plain;
             let color = if accent {
                 Color::linear_rgb(0.85, 0.13, 0.09)
@@ -1054,6 +1057,8 @@ fn setup(
                         AlphaMode::Opaque
                     },
                     perceptual_roughness: 0.8,
+                    // Silhouettes mirror with a negative scale.
+                    cull_mode: if person { None } else { Some(bevy::render::render_resource::Face::Back) },
                     ..default()
                 }),
             );
