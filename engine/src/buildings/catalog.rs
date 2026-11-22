@@ -193,6 +193,39 @@ impl Mesh {
         matches
     }
 
+    fn matching_outline(&self, outline: &Rings) -> Option<String> {
+        let outer = bounds(outline.first()?)?;
+        let grid = |point: Point| [point[0] * 100_000. - self.origin[0], point[1] * 100_000. - self.origin[1]];
+        let [min, max] = [grid(outer.min), grid(outer.max)];
+        let intersects = |b: &Bounds<u16>| {
+            (0..2).all(|i| f64::from(b.min[i]) <= max[i] && f64::from(b.max[i]) >= min[i])
+        };
+        let polygon = |rings: &Rings| {
+            let line = |ring: &Vec<Point>| LineString::from(
+                ring.iter().map(|p| (p[0] - outer.min[0], p[1] - outer.min[1])).collect::<Vec<_>>()
+            );
+            Polygon::new(line(&rings[0]), rings[1..].iter().map(line).collect())
+        };
+        let source = polygon(outline);
+        let area = source.unsigned_area();
+        let mut best = None;
+        let mut score = 0.5;
+        for (t, tile) in self.tiles.iter().enumerate() {
+            let Some(tile) = tile.as_ref().filter(|tile| intersects(&tile.bounds)) else { continue };
+            for (i, b) in tile.footprints.iter().enumerate() {
+                if !intersects(b) || self.bytes[tile.flags + i] & 4 != 0 { continue; }
+                let candidate = polygon(&self.shape(tile, i));
+                let intersection = source.intersection(&candidate).unsigned_area();
+                let overlap = intersection / (area + candidate.unsigned_area() - intersection);
+                if overlap > score {
+                    best = Some(format!("mesh:{t}:{i}"));
+                    score = overlap;
+                }
+            }
+        }
+        best
+    }
+
     fn feature(&self, id: &str) -> Option<Value> {
         let (t, i) = id.strip_prefix("mesh:")?.split_once(':')?;
         let (t, i): (usize, usize) = (t.parse().ok()?, i.parse().ok()?);
@@ -428,6 +461,11 @@ impl Catalog {
 
     pub(super) fn at_point(&self, p: Point) -> Vec<String> {
         self.mesh().map_or_else(Vec::new, |m| m.at_point(p))
+    }
+
+    pub(super) fn matching_outline(&self, outline: &Value) -> Option<Value> {
+        let rings: Rings = serde_json::from_value(outline["coordinates"].clone()).ok()?;
+        self.feature(&self.mesh()?.matching_outline(&rings)?)
     }
 
     pub(super) fn feature(&self, id: &str) -> Option<Value> {

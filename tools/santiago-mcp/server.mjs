@@ -1,3 +1,4 @@
+import { buildingPlacementChange, expandBuildingPlacements } from './building-placement.mjs';
 import { optionalAttendanceChange } from './optional-attendance.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
@@ -113,15 +114,15 @@ const featureChanges = [
 
 const tool = {
   name: 'simulate_city',
-  description: `santiaguito.cl simulator. Run one usual work day of Santiago (2.7 million synthetic workers, Census 2024) after a list of changes, and update the open city view. The workers choose a job place and a mode again. Each call starts from the baseline and applies the complete list together; an empty list restores the baseline. Translate the user's question into changes: edit a physical building, road or directed transit service with kind building, road or line. Match an existing building using the details the user gives. Select it by a known catalog ID or a known point inside its footprint. If the building is ambiguous, ask for its name, address or a nearby landmark. For an ambiguous road or service pattern, ask for the street endpoints or the line name. Use only a known catalog ID for a road or service pattern edit. If the available details do not resolve the target, say that you could not match it. Never ask the user for a catalog ID. For a change only to jobs or residents at a point, use jobs or residents; the jobs of a named existing place, or an event there, use kind "jobs" or "event" with {type:"place",id}, ids with their jobs status: ${placeRows.map((r) => r[12] === 'unresolved' ? `${r[0]} (unresolved; the nearest modeled jobs point is ${r[11]} m from the place point, in census block ${r[10]})` : `${r[0]} (${r[12]})`).join(', ')}; never send a point for a listed place; an event at any listed place uses its point, whatever its jobs status; for a jobs change, an unresolved place returns an error: offer the user the census block of its nearest modeled jobs point (listed above), ask whether to use that block for this edit, and after a yes use {type:"block",id} and say that the jobs are the modeled jobs of that block; and a multi_block place changes only its main census block: say that, and do not say how large the effect on the whole place would be; a named place takes no residents; to remove, reduce or scale an existing place that is not listed, use op "set" 0 or "multiply" at its point: the engine takes the nearest existing point within 500 m, which can be a neighbour block; applied[].understood gives the jobs_before that it took; a policy for a whole comuna uses the comuna id; a faster or slower trip is minutes; before closing or reopening an existing Metro station call set_scene for its base_peak or the requested time, then keep that scene for the comparison. Closing or reopening that station is kind "station" with target {type:"station",id:<station name, for example "TOBALABA">}, op "set" and value 0 (closed) or 1 (open). An event (a concert, a match) is kind "event" with a point target, op "set", value = fixed whole-person attendance and assumed_end_half_hour (0 to 47, 40 = 20:00). For a generic event, report the supplied attendance and say origins and modes are unestimated unless the user supplies an audience_profile. Only use audience_profile with a named source and origin shares from the user or relevant external evidence. These shares give origins only. Report any unmodeled_attendance as attendees with unknown origin. Do not infer return destinations, transport modes or Metro demand. For a Colo-Colo audience, add audience "colo_colo" to use fan_base, with modeled by_mode (public, car, other) and by_home_top5 for the same fan population at any venue. Event attendance is separate from weekday station and trip totals. Homes from building permits already authorized (MINVU, 2023 to 2025) are kind "residents" with target {type:"permits",id:"2023-2025" or one year such as "2024"}, op "multiply", value = the share of those authorized dwellings that the user assumes are finished and additional to the Census 2024 baseline (0 to 1); applied[].understood gives dwellings_authorized, residents_added, comunas and preliminary_years. Call these residents hypothetical additional residents; a permit is not a finished home. Opening a planned Metro line is kind "station" with target {type:"line",id:"L7"|"L8"|"L9"} or {type:"corridor",id:"L6-east"|"L6-west"} (type line "L6" opens both L6 extensions), op "set", value 1; a proposed new station is kind "station" with target {type:"point",id:<short id>,name,longitude,latitude}, op "set", value 1. A new station has base_daily 0 and its scenario_daily is modeled weekday Metro entries; the result lists them in new_stations. The engine models only which station people enter: it has no capacity, travel-time saving, transfer or mode change for a new station, so do not state any of these. Call a result for a new station or line an exploratory model scenario: future demand has no validation. The one historical check is the Line 2 extension to four stations, replayed with the remaining 2026 network and commuter inputs: the model gave 59,798 entries against 50,625 observed in April 2024 (+18.1% in total); the sum of absolute station errors was 20,345 entries, 40.2% of the observed total; it is not a confidence range. For a question the kinds cannot express, the engine returns it in not_modeled, and you must tell the user that the engine cannot simulate that part yet. All results are model values, not measurements; say that, and read the assumptions. For city edits label the answer exploratory. Report each edit in order with its assumptions. Missing building occupancy is unknown. Road minutes are free-flow car times. Line minutes are public transit times. A null route time means unreachable. State only what a field of the result says. Do not infer distances, durations, causes, sectors, Metro lines, or what a real-world effect would be; report each station's own change: the result has no link between a loss at one station and a gain at another, so never say that riders moved from one to the other; a station's place is its comuna field. summary.workers_moved counts workers who change job place (lugar de trabajo), which can be in the same comuna. Give the unit of each number (daily Metro boardings on a work day, workers, jobs). Answer in 6 lines or fewer unless the user asks for more. Comuna ids: ${comunas}.`,
+  description: `santiaguito.cl simulator. Run one usual work day of Santiago (2.7 million synthetic workers, Census 2024) after a list of changes, and update the open city view. The workers choose a job place and a mode again. Each call starts from the baseline and applies the complete list together; an empty list restores the baseline. Translate the user's question into changes: edit a physical building, road or directed transit service with kind building, road or line. Match an existing building using the details the user gives. Select it by a known catalog ID or a known point inside its footprint. For copying, moving, or replacing a mapped building or group at another location, use kind building_placement. If the building is ambiguous, ask for its name, address or a nearby landmark. For an ambiguous road or service pattern, ask for the street endpoints or the line name. Use only a known catalog ID for a road or service pattern edit. If the available details do not resolve the target, say that you could not match it. Never ask the user for a catalog ID. For a change only to jobs or residents at a point, use jobs or residents; the jobs of a named existing place, or an event there, use kind "jobs" or "event" with {type:"place",id}, ids with their jobs status: ${placeRows.map((r) => r[12] === 'unresolved' ? `${r[0]} (unresolved; the nearest modeled jobs point is ${r[11]} m from the place point, in census block ${r[10]})` : `${r[0]} (${r[12]})`).join(', ')}; never send a point for a listed place; an event at any listed place uses its point, whatever its jobs status; for a jobs change, an unresolved place returns an error: offer the user the census block of its nearest modeled jobs point (listed above), ask whether to use that block for this edit, and after a yes use {type:"block",id} and say that the jobs are the modeled jobs of that block; and a multi_block place changes only its main census block: say that, and do not say how large the effect on the whole place would be; a named place takes no residents; to remove, reduce or scale an existing place that is not listed, use op "set" 0 or "multiply" at its point: the engine takes the nearest existing point within 500 m, which can be a neighbour block; applied[].understood gives the jobs_before that it took; a policy for a whole comuna uses the comuna id; a faster or slower trip is minutes; before closing or reopening an existing Metro station call set_scene for its base_peak or the requested time, then keep that scene for the comparison. Closing or reopening that station is kind "station" with target {type:"station",id:<station name, for example "TOBALABA">}, op "set" and value 0 (closed) or 1 (open). An event (a concert, a match) is kind "event" with a point target, op "set", value = fixed whole-person attendance and assumed_end_half_hour (0 to 47, 40 = 20:00). For a generic event, report the supplied attendance and say origins and modes are unestimated unless the user supplies an audience_profile. Only use audience_profile with a named source and origin shares from the user or relevant external evidence. These shares give origins only. Report any unmodeled_attendance as attendees with unknown origin. Do not infer return destinations, transport modes or Metro demand. For a Colo-Colo audience, add audience "colo_colo" to use fan_base, with modeled by_mode (public, car, other) and by_home_top5 for the same fan population at any venue. Event attendance is separate from weekday station and trip totals. Homes from building permits already authorized (MINVU, 2023 to 2025) are kind "residents" with target {type:"permits",id:"2023-2025" or one year such as "2024"}, op "multiply", value = the share of those authorized dwellings that the user assumes are finished and additional to the Census 2024 baseline (0 to 1); applied[].understood gives dwellings_authorized, residents_added, comunas and preliminary_years. Call these residents hypothetical additional residents; a permit is not a finished home. Opening a planned Metro line is kind "station" with target {type:"line",id:"L7"|"L8"|"L9"} or {type:"corridor",id:"L6-east"|"L6-west"} (type line "L6" opens both L6 extensions), op "set", value 1; a proposed new station is kind "station" with target {type:"point",id:<short id>,name,longitude,latitude}, op "set", value 1. A new station has base_daily 0 and its scenario_daily is modeled weekday Metro entries; the result lists them in new_stations. The engine models only which station people enter: it has no capacity, travel-time saving, transfer or mode change for a new station, so do not state any of these. Call a result for a new station or line an exploratory model scenario: future demand has no validation. The one historical check is the Line 2 extension to four stations, replayed with the remaining 2026 network and commuter inputs: the model gave 59,798 entries against 50,625 observed in April 2024 (+18.1% in total); the sum of absolute station errors was 20,345 entries, 40.2% of the observed total; it is not a confidence range. For a question the kinds cannot express, the engine returns it in not_modeled, and you must tell the user that the engine cannot simulate that part yet. All results are model values, not measurements; say that, and read the assumptions. For city edits label the answer exploratory. Report each edit in order with its assumptions. Missing building occupancy is unknown. Road minutes are free-flow car times. Line minutes are public transit times. A null route time means unreachable. State only what a field of the result says. Do not infer distances, durations, causes, sectors, Metro lines, or what a real-world effect would be; report each station's own change: the result has no link between a loss at one station and a gain at another, so never say that riders moved from one to the other; a station's place is its comuna field. summary.workers_moved counts workers who change job place (lugar de trabajo), which can be in the same comuna. Give the unit of each number (daily Metro boardings on a work day, workers, jobs). Answer in 6 lines or fewer unless the user asks for more. Comuna ids: ${comunas}.`,
   inputSchema: {
     type: 'object',
     required: ['changes'],
     properties: {
-      stations: { type: 'array', items: { type: 'string' }, description: 'Optional. Names or ids of the Metro stations the user asked about, for example ["UNIVERSIDAD DE CHILE"] or ["L7-05"]. Their rows always come back in asked_stations; a name shared by two stations returns both rows.' },
+      stations: { type: 'array', items: { type: 'string' }, description: 'Optional. Names or ids of the Metro stations the user asked about, for example ["UNIVERSIDAD DE CHILE"] or ["L7-05"]. Their rows come back in asked_stations. During a timed closure, entries_in_window counts modeled Metro entries within closure_window.half_hours. A name shared by two stations returns both rows.' },
       changes: {
         type: 'array',
-        items: { oneOf: [scalarChange, ...featureChanges, optionalPointVisitChange, optionalAttendanceChange] },
+        items: { oneOf: [scalarChange, ...featureChanges, buildingPlacementChange, optionalPointVisitChange, optionalAttendanceChange] },
       },
     },
   },
@@ -129,9 +130,9 @@ const tool = {
 
 const sceneTool = {
   name: 'set_scene',
-  description: 'Focus the city view on a place and a half hour. For a station change, first call set_scene for that station with half_hour "base_peak". Wait for the scene receipt, then call simulate_city. Keep the same scene for the comparison. The engine retains it when applying the change. For a time the user specifies, use its bin (0 = midnight, 1 = 00:30, 47 = 23:30).',
+  description: 'Focus the city view on a place. Omit half_hour to keep the current clock. For a station change, first call set_scene for that station with half_hour "base_peak". Wait for the scene receipt, then call simulate_city. Keep the same scene for the comparison. The engine retains it when applying the change. For a time the user specifies, use its bin (0 = midnight, 1 = 00:30, 47 = 23:30).',
   inputSchema: {
-    type: 'object', required: ['place', 'half_hour'],
+    type: 'object', required: ['place'],
     properties: {
       place: { oneOf: [
         { type: 'object', required: ['type', 'id'], properties: {
@@ -177,6 +178,7 @@ const createReplayTool = {
       question: { type: 'string', description: 'The question the presenter types.' },
       scene: {
         ...sceneTool.inputSchema,
+        required: ['place', 'half_hour'],
         properties: {
           ...sceneTool.inputSchema.properties,
           layer: { enum: ['metro_service'], description: 'Show the Metro service lines for this saved shot.' },
@@ -268,7 +270,7 @@ async function engineJSON(path, body) {
   return response.json();
 }
 
-async function setScene({ place, half_hour }) {
+async function resolveScene({ place, half_hour }, seed = true) {
   const { type, id } = place;
   if (half_hour === 'base_peak' && type !== 'station') throw new Error('Select a station for base_peak.');
   let entry;
@@ -299,6 +301,7 @@ async function setScene({ place, half_hour }) {
   if (half_hour === 'base_peak') {
     // run.sh seeds the baseline. An empty standalone engine can seed it through the scene route without clearing edits.
     if (!latest) {
+      if (!seed) throw new Error('Choose a start time for the saved placement.');
       await engineJSON('/api/scene', { place: center, half_hour: 0 });
       latest = await engineJSON('/api/scenario-latest');
       entry = catalogEntry(latest.stations, entry.id);
@@ -307,7 +310,11 @@ async function setScene({ place, half_hour }) {
     if (!(peak > 0)) throw new Error('This station has no positive baseline boardings. Select an explicit half hour.');
     half_hour = entry.base_half_hour.indexOf(peak);
   }
-  return engineJSON('/api/scene', { place: center, half_hour });
+  return { place: center, half_hour };
+}
+
+async function setScene(args) {
+  return engineJSON('/api/scene', await resolveScene(args));
 }
 
 // The viewer keeps full geometry and routing data. Keep the chat receipt small.
@@ -359,6 +366,11 @@ async function dispatch({ method, params }) {
   if (method !== 'tools/call' || !tools.some(t => t.name === params?.name)) return null;
   try {
     const args = params.arguments ?? {};
+    const placement = args.changes?.some(change => change.kind === 'building_placement');
+    if (placement) {
+      const namedPlaces = placeRows.map(r => ({ id: r[0], name: r[1], ...places[r[0]] }));
+      args.changes = await expandBuildingPlacements(args.changes, namedPlaces, engineJSON, args.scene?.place);
+    }
     let text;
     if (params.name === sceneTool.name) text = await setScene(args);
     else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
@@ -371,8 +383,10 @@ async function dispatch({ method, params }) {
     } else if (params.name === createReplayTool.name) {
       const { scene, changes, stations = [], ...meta } = args;
       replayFile(meta.id);
-      await setScene(scene);
-      const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
+      if (scene.half_hour == null) throw new Error('Select a start time for the replay.');
+      const placementScene = placement ? await resolveScene(scene, false) : undefined;
+      if (!placement) await setScene(scene);
+      const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations }, placement, placementScene);
       if (scene.layer === 'metro_service') full.scene.layer = scene.layer;
       for (const cue of meta.cues ?? []) {
         if (!cue.caption) continue;
@@ -385,7 +399,7 @@ async function dispatch({ method, params }) {
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
       text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
-    } else text = (await runScenario(args)).short;
+    } else text = (await runScenario(args, placement)).short;
     return { content: [{ type: 'text', text: JSON.stringify(text) }] };
   } catch (error) {
     return { isError: true, content: [{ type: 'text', text: error.message }] };
@@ -393,7 +407,7 @@ async function dispatch({ method, params }) {
 }
 
 // Changes from the chat: named places become census blocks, then the engine runs once. The map gets the full result; the agent a short copy.
-async function runScenario(args) {
+async function runScenario(args, requireAll, scene) {
     const placesUsed = [];
     for (const change of args.changes ?? []) {
       if (change.kind === 'line' && change.op === 'set') {
@@ -414,7 +428,7 @@ async function runScenario(args) {
       change.target = { type: 'block', id: place.block };
     }
     const { stations: asked = [], ...request } = args;
-    const full = await engineJSON('/api/scenario', request);
+    const full = await engineJSON('/api/scenario', { ...request, ...(requireAll && { require_all: true }), scene });
     return { full, short: shortResult(structuredClone(full), asked, placesUsed), placesUsed };
 }
 
@@ -445,7 +459,18 @@ function shortResult(full, asked, placesUsed) {
     result.asked_stations = asked.flatMap((name) => {
       const byId = byDelta.filter((s) => s.id === name);
       const matches = byId.length ? byId : byDelta.filter((s) => plain(s.name) === plain(name));
-      return matches.length ? matches.map((s) => ({ asked: name, ...s, new_station: !currentStations.has(s.id) })) : [{ asked: name, not_found: true }];
+      if (!matches.length) return [{ asked: name, not_found: true }];
+    return matches.map((s) => {
+      const row = { asked: name, ...s, new_station: !currentStations.has(s.id) };
+      const window = result.closure_window?.half_hours;
+      if (window) {
+        const [start, end] = window;
+        const station = stations.find(({ id }) => id === s.id);
+        const sum = (bins) => Math.round(bins.slice(start, end).reduce((total, entries) => total + entries, 0) * 10) / 10;
+        row.entries_in_window = { base: sum(station.base_half_hour), scenario: sum(station.scenario_half_hour) };
+      }
+      return row;
+    });
     });
     const opened = byDelta.filter((s) => !currentStations.has(s.id));
     if (opened.length) result.new_stations = {

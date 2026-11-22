@@ -119,6 +119,11 @@ fn plain(s: &str) -> String {
 }
 
 impl Scenario {
+    pub fn mapped_footprint(&self, locator: &Value) -> Result<Value, String> {
+        self.buildings.as_ref().ok_or("The building catalog is unavailable.")?
+            .mapped_footprint(locator)
+    }
+
     pub fn load(dir: &Path) -> Scenario {
         let choice = Choice::load(dir);
         let car_ownership = dir.join("eod_car_mode.csv").is_file().then(|| CarOwnership::load(dir, &choice.cuts));

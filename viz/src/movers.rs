@@ -41,6 +41,7 @@ const PERSONS_PER_STREET_WALKER: f64 = 48.0;
 const PERSONS_PER_MOVER: f64 = 96.0;
 // Walkers and bicycles use a denser sample at 1 km and 5 km.
 const STREET_DENSITY: [f64; 3] = [1., 4., 12.];
+const CLOSE_ROUTE_DENSITY: [f64; 3] = [2., STREET_DENSITY[1], STREET_DENSITY[2]];
 const CITY_SECONDS_PER_SECOND: f32 = 8.;
 const BIN: f32 = 1800.0;
 const DAY: f32 = 48.0 * BIN;
@@ -96,6 +97,7 @@ struct Leg {
 }
 
 struct Path {
+    origin_preview: bool,
     crossings: Vec<(f32, f32, road_water::Crossing)>,
     footway_spans: Vec<(f32, f32)>,
     points: Vec<Vec3>,
@@ -119,6 +121,7 @@ impl Path {
             seconds.push(seconds[i - 1] + step / legs[leg].vehicle.speed());
         }
         Arc::new(Self {
+            origin_preview: false,
             crossings: Vec::new(),
             footway_spans: Vec::new(),
             points,
@@ -602,7 +605,11 @@ impl StreetIndex {
                 }
             }
         }
-        closest.map(|(a, b)| Path::single(vec![a, b], vehicle))
+        closest.map(|(a, b)| {
+            let mut path = Path::single(vec![a, b], vehicle);
+            Arc::get_mut(&mut path).unwrap().origin_preview = true;
+            path
+        })
     }
 }
 
@@ -758,6 +765,7 @@ fn read_result(
         let density = match row["mode"].as_str() {
             // Keep each car from the city overview visible when the camera follows it in.
             Some("car") => [STREET_DENSITY[2]; 3],
+            Some("walk" | "bicycle") if !path.origin_preview => CLOSE_ROUTE_DENSITY,
             Some("walk" | "bicycle") => STREET_DENSITY,
             _ => [1.; 3],
         };
