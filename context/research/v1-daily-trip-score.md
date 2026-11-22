@@ -16,12 +16,12 @@ python3 -I tools/pack/eod_od_compare.py /path/to/EOD_STGO
 
 ## Exclusions by geography
 
-| Purpose | Model: end in the 7 RM comunas outside the survey | Model: destination outside the RM | Survey: end outside sectors 1–7 (weighted trips) |
-| --- | ---: | ---: | ---: |
-| Work | 70,085 | 51,640 | 119,978 |
-| Study | 41,364 | 136,153 | 55,606 |
+| Purpose | Model: end in the 7 RM comunas outside the survey | Model: destination outside the RM | Survey: end outside the RM, sector 9 (weighted trips) | Survey: unlocated end, sector 0, no sector-9 end (weighted trips) |
+| --- | ---: | ---: | ---: | ---: |
+| Work | 70,085 | 51,640 | 12,569 | 107,409 |
+| Study | 41,364 | 136,153 | 2,344 | 53,262 |
 
-The scores below describe trips inside the comparison area only. Edwin-06 (Vicente's critics) reproduced the four extra counts from the source files.
+The survey dictionary (`Sector.csv`) labels code 9 "Exterior a RM" and gives no location for code 0. The scores below describe trips inside the comparison area only. Edwin-06 (Vicente's critics) and Lupa reproduced these counts from the source files.
 - **Survey.** Weekday trips with `Proposito` 1 (al trabajo) or 3 (al estudio), both ends in sectors 1–7. Weight = `viajes.FactorLaboralNormal` × `personas.Factor_LaboralNormal`.
 - **Score.** Total variation distance (TV) between the share distributions over the 49 directed sector pairs. 0 = same shares, 1 = no overlap.
 

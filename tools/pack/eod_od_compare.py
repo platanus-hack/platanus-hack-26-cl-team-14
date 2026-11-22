@@ -54,7 +54,7 @@ person = {}
 for r in csv.DictReader(open(f"{EOD}/personas.csv", encoding="latin-1"), delimiter=";"):
     person[r["Persona"]] = num(r["Factor_LaboralNormal"])
 survey = {"work": collections.Counter(), "study": collections.Counter()}
-survey_mode, survey_n, survey_out = collections.Counter(), collections.Counter(), collections.Counter()
+survey_mode, survey_n, survey_out, survey_rm = collections.Counter(), collections.Counter(), collections.Counter(), collections.Counter()
 for r in csv.DictReader(open(f"{EOD}/viajes.csv", encoding="latin-1"), delimiter=";"):
     purpose = {"1": "work", "3": "study"}.get(r["Proposito"])
     o, d = r["SectorOrigen"], r["SectorDestino"]
@@ -62,7 +62,8 @@ for r in csv.DictReader(open(f"{EOD}/viajes.csv", encoding="latin-1"), delimiter
     if not purpose or w <= 0:
         continue
     if o not in "1234567" or d not in "1234567" or not o or not d:
-        survey_out[purpose] += w
+        # Sector 9 = exterior a RM; sector 0 or blank = no location given.
+        (survey_rm if "9" in (o, d) else survey_out)[purpose] += w
         continue
     survey[purpose][(o, d)] += w
     survey_n[purpose] += 1
@@ -78,7 +79,8 @@ for purpose in ("work", "study"):
     print(f"model {sum(m.values()):,.0f} persons in survey comunas; excluded: {outside[purpose]:,.0f} with an end in the 7 RM comunas "
           f"outside the survey, {outside_rm[purpose]:,.0f} with a destination outside the RM")
     print(f"survey {sum(s.values()):,.0f} weighted trips from {survey_n[purpose]:,} records; "
-          f"excluded: {survey_out[purpose]:,.0f} weighted trips with an end outside sectors 1-7")
+          f"excluded: {survey_rm[purpose]:,.0f} weighted trips with an end outside the RM (sector 9), "
+          f"{survey_out[purpose]:,.0f} with an unlocated end (sector 0) and no sector-9 end")
     print(f"TV sector pair {tv(m, s):.3f} | TV origin sector {tv(orig(m), orig(s)):.3f} | TV destination sector {tv(dest(m), dest(s)):.3f}")
     print("| destination sector | model share | survey share |")
     dm, ds = dest(m), dest(s)
