@@ -35,10 +35,11 @@ def num(x):
 
 
 model = {"work": collections.Counter(), "study": collections.Counter()}
-model_mode, outside = collections.Counter(), collections.Counter()
+model_mode, outside, outside_rm = collections.Counter(), collections.Counter(), collections.Counter()
 for purpose, path, count in (("work", "data/mvp/mode_od.csv", "commuters"), ("study", "data/mvp/school_od.csv", "students")):
     for r in csv.DictReader(open(path)):
         if not r["destination_cut"].startswith("13"):
+            outside_rm[purpose] += float(r[count])
             continue
         n = float(r[count])
         o, d = sector.get(r["origin_cut"]), sector.get(r["destination_cut"])
@@ -53,12 +54,15 @@ person = {}
 for r in csv.DictReader(open(f"{EOD}/personas.csv", encoding="latin-1"), delimiter=";"):
     person[r["Persona"]] = num(r["Factor_LaboralNormal"])
 survey = {"work": collections.Counter(), "study": collections.Counter()}
-survey_mode, survey_n = collections.Counter(), collections.Counter()
+survey_mode, survey_n, survey_out = collections.Counter(), collections.Counter(), collections.Counter()
 for r in csv.DictReader(open(f"{EOD}/viajes.csv", encoding="latin-1"), delimiter=";"):
     purpose = {"1": "work", "3": "study"}.get(r["Proposito"])
     o, d = r["SectorOrigen"], r["SectorDestino"]
     w = num(r["FactorLaboralNormal"]) * person.get(r["Persona"], 0.0)
-    if not purpose or w <= 0 or o not in "1234567" or d not in "1234567" or not o or not d:
+    if not purpose or w <= 0:
+        continue
+    if o not in "1234567" or d not in "1234567" or not o or not d:
+        survey_out[purpose] += w
         continue
     survey[purpose][(o, d)] += w
     survey_n[purpose] += 1
@@ -71,8 +75,10 @@ for purpose in ("work", "study"):
     orig = lambda c: collections.Counter({k: sum(v for (o, _), v in c.items() if o == k) for k in names})
     dest = lambda c: collections.Counter({k: sum(v for (_, d), v in c.items() if d == k) for k in names})
     print(f"\n## {purpose}")
-    print(f"model {sum(m.values()):,.0f} persons in survey comunas (excluded outside: {outside[purpose]:,.0f}); "
-          f"survey {sum(s.values()):,.0f} weighted trips from {survey_n[purpose]:,} records")
+    print(f"model {sum(m.values()):,.0f} persons in survey comunas; excluded: {outside[purpose]:,.0f} with an end in the 7 RM comunas "
+          f"outside the survey, {outside_rm[purpose]:,.0f} with a destination outside the RM")
+    print(f"survey {sum(s.values()):,.0f} weighted trips from {survey_n[purpose]:,} records; "
+          f"excluded: {survey_out[purpose]:,.0f} weighted trips with an end outside sectors 1-7")
     print(f"TV sector pair {tv(m, s):.3f} | TV origin sector {tv(orig(m), orig(s)):.3f} | TV destination sector {tv(dest(m), dest(s)):.3f}")
     print("| destination sector | model share | survey share |")
     dm, ds = dest(m), dest(s)

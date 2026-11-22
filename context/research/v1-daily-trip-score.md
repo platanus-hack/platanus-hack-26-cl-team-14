@@ -12,7 +12,16 @@ python3 -I tools/pack/eod_od_compare.py /path/to/EOD_STGO
 
 ## Method
 
-- **Model.** The engine places workers and students so that comuna flows equal `mode_od.csv` (Census 2024) and `school_od.csv` (MINEDUC 2026) exactly ([population.rs](../../engine/src/population.rs)). Each of the 45 survey comunas lies in one EOD sector ([zones.csv](../../data/mvp/eod_sectors/zones.csv)), so the sector pairs of the model follow from the comuna flows. Flows that touch the 7 comunas outside the survey are excluded: 70,085 workers and 41,364 students.
+- **Model.** The engine places workers and students so that comuna flows equal `mode_od.csv` (Census 2024) and `school_od.csv` (MINEDUC 2026) exactly ([population.rs](../../engine/src/population.rs)). Each of the 45 survey comunas lies in one EOD sector ([zones.csv](../../data/mvp/eod_sectors/zones.csv)), so the sector pairs of the model follow from the comuna flows.
+
+## Exclusions by geography
+
+| Purpose | Model: end in the 7 RM comunas outside the survey | Model: destination outside the RM | Survey: end outside sectors 1–7 (weighted trips) |
+| --- | ---: | ---: | ---: |
+| Work | 70,085 | 51,640 | 119,978 |
+| Study | 41,364 | 136,153 | 55,606 |
+
+The scores below describe trips inside the comparison area only. Edwin-06 (Vicente's critics) reproduced the four extra counts from the source files.
 - **Survey.** Weekday trips with `Proposito` 1 (al trabajo) or 3 (al estudio), both ends in sectors 1–7. Weight = `viajes.FactorLaboralNormal` × `personas.Factor_LaboralNormal`.
 - **Score.** Total variation distance (TV) between the share distributions over the 49 directed sector pairs. 0 = same shares, 1 = no overlap.
 
