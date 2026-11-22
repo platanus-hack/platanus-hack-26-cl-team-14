@@ -47,7 +47,7 @@ function siteView(data, shoppers) {
   throw new Error('The selected site does not contain this shopping trip breakdown.');
 }
 
-export function shoppingSiteMetrics(raw, { data, shopping_site }) {
+export function shoppingSiteMetrics(raw, { data, shopping_site, state }) {
   if (!Array.isArray(raw.shopping?.sites)) {
     throw new Error('This result does not contain shopping sites.');
   }
@@ -63,6 +63,9 @@ export function shoppingSiteMetrics(raw, { data, shopping_site }) {
   }
 
   const { longitude, latitude, variant, shoppers } = matches[0];
+  if (state !== variant) {
+    throw new Error(`The selected shopping site reports only the ${variant} side. Use state "${variant}".`);
+  }
   const view = siteView(data, shoppers);
   return {
     rows: view.rows.map(([group, trips]) => ({
