@@ -71,8 +71,11 @@ struct Status;
 #[derive(Component)]
 struct ToggleLabel;
 #[derive(Component)]
+struct Detail(String);
+#[derive(Component)]
 enum Action {
     Toggle,
+    Select(String),
     Play(String),
 }
 
@@ -80,6 +83,7 @@ enum Action {
 struct History {
     open: bool,
     playing: bool,
+    selected: Option<String>,
 }
 
 #[derive(Resource)]
@@ -166,7 +170,7 @@ fn setup(mut commands: Commands) {
             BorderColor::all(BORDER),
             Node {
                 position_type: PositionType::Absolute,
-                top: px(64),
+                top: px(106),
                 left: px(24),
                 border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px(7)),
@@ -189,7 +193,7 @@ fn setup(mut commands: Commands) {
             Node {
                 position_type: PositionType::Absolute,
                 display: Display::None,
-                top: px(113),
+                top: px(156),
                 bottom: px(24),
                 left: px(24),
                 width: vw(27),
@@ -204,7 +208,7 @@ fn setup(mut commands: Commands) {
             },
         ))
         .with_children(|panel| {
-            panel.spawn(text("Experimentos guardados", 24., PAPER));
+            panel.spawn(text("Experimentos", 24., PAPER));
             panel.spawn((Status, text("", 16., MUTED)));
             panel.spawn((
                 Catalogue,
@@ -226,7 +230,8 @@ fn interact(
     mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
     mut buttons: Query<(&RelativeCursorPosition, &Action, &mut BackgroundColor)>,
-    mut panel: Single<&mut Node, With<Panel>>,
+    mut panel: Single<&mut Node, (With<Panel>, Without<Detail>)>,
+    mut details: Query<(&Detail, &mut Node), Without<Panel>>,
     catalogue: Single<Entity, With<Catalogue>>,
     mut label: Single<&mut Text, (With<ToggleLabel>, Without<Status>)>,
     mut status: Single<&mut Text, (With<Status>, Without<ToggleLabel>)>,
@@ -235,7 +240,9 @@ fn interact(
 ) {
     for (cursor, action, mut color) in &mut buttons {
         let hovered = cursor.cursor_over();
-        let background = if hovered { HOVER } else { BUTTON };
+        let selected =
+            matches!(action, Action::Select(id) if history.selected.as_ref() == Some(id));
+        let background = if hovered || selected { HOVER } else { BUTTON };
         if color.0 != background {
             color.0 = background;
         }
@@ -257,18 +264,32 @@ fn interact(
                 }
                 .into();
                 if history.open {
+                    history.selected = None;
                     commands.entity(*catalogue).despawn_children();
                     status.0 = "Cargando historial…".into();
                     worker.request.send(Request::Catalogue).unwrap();
                 }
             }
-            Action::Play(id) if history.open && !history.playing => {
+            Action::Select(id) if history.open => {
+                history.selected = Some(id.clone());
+                for (detail, mut node) in &mut details {
+                    node.display = if &detail.0 == id {
+                        Display::Flex
+                    } else {
+                        Display::None
+                    };
+                }
+            }
+            Action::Play(id)
+                if history.open && !history.playing && history.selected.as_ref() == Some(id) =>
+            {
                 history.playing = true;
                 status.0 = "Abriendo experimento…".into();
                 worker.request.send(Request::Play(id.clone())).unwrap();
             }
-            Action::Play(_) => {}
+            Action::Select(_) | Action::Play(_) => {}
         }
+        break;
     }
 }
 
@@ -301,24 +322,55 @@ fn receive(
                                 30 * (start % 2),
                                 replay.duration_half_hours * 30
                             );
-                            list.spawn((
-                                Action::Play(replay.id),
-                                RelativeCursorPosition::default(),
-                                BackgroundColor(BUTTON),
-                                Node {
-                                    flex_direction: FlexDirection::Column,
-                                    flex_shrink: 0.,
-                                    row_gap: px(3),
-                                    padding: UiRect::all(px(11)),
-                                    border_radius: BorderRadius::all(px(6)),
-                                    ..default()
-                                },
-                            ))
+                            list.spawn(Node {
+                                flex_direction: FlexDirection::Column,
+                                flex_shrink: 0.,
+                                ..default()
+                            })
                             .with_children(|card| {
-                                card.spawn(text(replay.title, 19., PAPER));
-                                card.spawn(text(timing, 16., MUTED));
-                                card.spawn(text(replay.analyze, 16., MUTED));
-                                card.spawn(text("Reproducir", 17., PAPER));
+                                card.spawn((
+                                    Action::Select(replay.id.clone()),
+                                    RelativeCursorPosition::default(),
+                                    BackgroundColor(BUTTON),
+                                    Node {
+                                        flex_direction: FlexDirection::Column,
+                                        padding: UiRect::axes(px(11), px(7)),
+                                        border_radius: BorderRadius::all(px(6)),
+                                        ..default()
+                                    },
+                                ))
+                                .with_children(|label| {
+                                    label.spawn(text(replay.title, 19., PAPER));
+                                    label.spawn(text(timing, 16., MUTED));
+                                });
+                                card.spawn((
+                                    Detail(replay.id.clone()),
+                                    Node {
+                                        display: Display::None,
+                                        flex_direction: FlexDirection::Column,
+                                        align_items: AlignItems::Start,
+                                        padding: UiRect::axes(px(11), px(8)),
+                                        row_gap: px(7),
+                                        ..default()
+                                    },
+                                ))
+                                .with_children(|detail| {
+                                    detail.spawn(text(replay.analyze, 16., MUTED));
+                                    detail
+                                        .spawn((
+                                            Action::Play(replay.id),
+                                            RelativeCursorPosition::default(),
+                                            BackgroundColor(BUTTON),
+                                            Node {
+                                                padding: UiRect::axes(px(11), px(5)),
+                                                border_radius: BorderRadius::all(px(6)),
+                                                ..default()
+                                            },
+                                        ))
+                                        .with_children(|button| {
+                                            button.spawn(text("Reproducir", 17., PAPER));
+                                        });
+                                });
                             });
                         }
                     });
