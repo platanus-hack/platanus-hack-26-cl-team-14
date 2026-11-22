@@ -556,20 +556,36 @@ impl Scenario {
                 continue;
             }
             if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event" && raw["target"]["type"] == "point" && raw["op"] == "set",
-                raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| v >= 0.0),
+                raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| (0.0..=f64::from(u32::MAX)).contains(&v) && v.fract() == 0.0),
                 raw["assumed_end_half_hour"].as_u64().filter(|&e| e < 48)) {
+                let fan_base = raw["audience"] == "colo_colo";
+                let audience_profile = if let Some(input) = raw.get("audience_profile") {
+                    let profile = serde_json::from_value::<attendance::AudienceOrigins>(input.clone()).ok()
+                        .filter(|profile| !fan_base && profile.valid(&c.cuts));
+                    let Some(profile) = profile else {
+                        let mut v = raw.clone();
+                        v["reason"] = json!("audience_profile needs a source and origin_shares for known comuna CUTs totaling at most 1. Use it without a Colo-Colo audience.");
+                        not_modeled.push(v);
+                        continue;
+                    };
+                    Some(profile)
+                } else {
+                    None
+                };
                 let venue_cut = self.cut_at(longitude, latitude);
                 let mut v = raw.clone();
                 v["understood"] = json!({ "comuna": c.names[self.ix(&venue_cut)], "attendance": attendance });
                 applied.push(v);
-                // "audience":"colo_colo" adds the fixed fan base (fans.rs): the same fans at any venue. fan_base.csv loads only for such an event.
-                requests.push((raw["audience"] == "colo_colo", attendance::AttendanceRequest { longitude, latitude, venue_cut, attendance: attendance as u32, assumed_end_half_hour: end as u8 }));
+                requests.push((fan_base, attendance::AttendanceRequest {
+                    longitude, latitude, venue_cut, attendance: attendance as u32,
+                    assumed_end_half_hour: end as u8, audience_profile,
+                }));
                 continue;
             }
             if !["jobs", "residents", "minutes"].contains(&kind) {
                 let mut v = raw.clone();
                 v["reason"] = json!(match kind {
-                    "event" => "An event change needs a point target, op set, the attendance (0 or more) as value and an integer assumed_end_half_hour (0 to 47).",
+                    "event" => "An event change needs a point target, op set, the nonnegative whole-person attendance as value and an integer assumed_end_half_hour (0 to 47).",
                     _ => "The engine does not know this kind of change.",
                 });
                 not_modeled.push(v);
@@ -730,7 +746,7 @@ impl Scenario {
         }
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
-            let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
+            let mut e = json!(attendance::project(r, fan_base));
             if let Some(f) = f { e["fan_base"] = f; }
             e
         }).collect();
