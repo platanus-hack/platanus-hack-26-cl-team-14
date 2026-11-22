@@ -236,7 +236,7 @@ const createReplayTool = {
     type: 'object', required: ['id', 'title', 'question', 'scene', 'changes', 'duration_half_hours', 'analyze', 'cues'],
     properties: {
       id: { type: 'string', pattern: '^[a-z0-9-]+$' },
-      title: { type: 'string' },
+      title: { type: 'string', description: 'One plain Spanish phrase that says what this replay shows, for a person who did not see the question. Name the real places. For a pair, start the baseline with "Antes:" and the experiment with "Después:". Do not use letters such as A or B, the middle dot, or internal words.' },
       question: { type: 'string', description: 'The question the presenter types.' },
       scene: {
         ...sceneTool.inputSchema,
@@ -252,12 +252,12 @@ const createReplayTool = {
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
       analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
       cues: {
-        type: 'array', description: 'The story of the replay: one camera zoom and one short subtitle for each point of the answer, about 7 seconds apart. Zoom to the place that shows the point: a station, a venue, a closed street. Put the number in the caption.',
+        type: 'array', description: 'The story of the replay: one camera zoom and one subtitle for each point of the answer, about 7 seconds apart. Zoom to the place that shows the point: a station, a venue, a closed street. The audience reads the subtitles on a projector and did not see the chat, so the subtitles alone must tell the story in order. Start with the place and the situation today. Then give each result. Put a cause before its effect: show that a building moved before you show the station that loses riders. In a baseline, end with the question that the experiment answers. In an experiment, end with the one result that the audience must remember.',
         items: { type: 'object', required: ['after_seconds', 'longitude', 'latitude', 'distance'], properties: {
           after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts.' },
           longitude: { type: 'number' }, latitude: { type: 'number' },
           distance: { type: 'number', exclusiveMinimum: 0, description: 'Camera distance in meters: 360 street, 4000 comuna, 18000 whole city.' },
-          caption: { type: 'string', description: 'Short line to show until the next cue. Use {{field.path}} to insert a number from this saved result, for example {{line_riders.0.riders_to_work}}.' },
+          caption: { type: 'string', description: 'One or two full Spanish sentences with a subject and a verb, 80 characters or fewer, shown until the next cue. Say who or what the number counts and where, in the words of a person in Santiago: "Al Metro Tobalaba entran 2.599 personas menos al día", not "Metro Tobalaba: 2.599 entradas menos". In an experiment, give the baseline value in the same caption and name where it came from: "Ahora 27.790 hinchas llegan en transporte público. En Macul eran 23.688." Say why a result occurs when the scenario changes give the reason. Do not write labels with a colon, "de X a Y" ranges, the middle dot, or model words such as boardings, baseline or scenario. Use {{field.path}} to insert a number from this saved result, for example {{line_riders.0.riders_to_work}}. Each number must come from the saved result or from a subtraction of two of its numbers.' },
         } },
       },
       comparison: {
