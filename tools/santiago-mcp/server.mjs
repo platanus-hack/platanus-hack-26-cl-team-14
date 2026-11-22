@@ -1,6 +1,7 @@
 import { optionalAttendanceChange } from './optional-attendance.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
+import { optionalPointVisitChange } from './optional-point-visit.mjs';
 
 const data = (file) => readFileSync(new URL(`../../data/mvp/${file}`, import.meta.url), 'utf8');
 // Named job places (data/mvp/named_places.csv): id -> block, status and other candidate blocks.
@@ -115,7 +116,7 @@ const tool = {
       stations: { type: 'array', items: { type: 'string' }, description: 'Optional. Names or ids of the Metro stations the user asked about, for example ["UNIVERSIDAD DE CHILE"] or ["L7-05"]. Their rows always come back in asked_stations; a name shared by two stations returns both rows.' },
       changes: {
         type: 'array',
-        items: { oneOf: [scalarChange, ...featureChanges, optionalAttendanceChange] },
+        items: { oneOf: [scalarChange, ...featureChanges, optionalPointVisitChange, optionalAttendanceChange] },
       },
     },
   },
