@@ -194,6 +194,41 @@ function activityCards(activity, source, closedRoad, rejectedClosure) {
   return cards;
 }
 
+const metroActivityLabels = { study: 'Estudios', shopping: 'Compras', health: 'Salud', event: 'Eventos' };
+
+export function publishMetroResult(raw, { projectId, projectTitle, sourceTitle } = {}) {
+  if (!displayFile) return;
+  const source = sourceTitle ? `Replay · ${sourceTitle}` : 'Escenario actual';
+  const projects = (raw.metro_project_demand ?? []).filter(project =>
+    (projectId === undefined || project.project_id === projectId) &&
+    project.purpose === 'work' && project.unit === 'one_way_weekday_trips');
+  const cards = projects.flatMap(project => {
+    const title = projectTitle ?? `Metro propuesto · ${project.project_id}`;
+    const { riders_to_work: riders, taken_from: previous, activities } = project;
+    const work = {
+      title, source, status: 'result',
+      unit: 'Viajes de ida al trabajo por día hábil',
+      scope: 'Estimación del modelo con el límite de capacidad del servicio. El modo anterior agrupa todo el transporte público.',
+      rows: [
+        { label: 'Usarían el Metro propuesto', values: [cell(riders)] },
+        { label: 'Antes en transporte público', values: [cell(previous.public)] },
+        { label: 'Antes en auto', values: [cell(previous.car)] },
+        { label: 'Antes en otros modos', values: [cell(previous.other)] },
+      ],
+    };
+    const missing = activities.filter(activity => activity.riders === null);
+    if (!missing.length) return [work];
+    return [work, {
+      title: 'Actividades sin estimación', source, status: 'unavailable',
+      coverage: missing.map(({ purpose, reason }) => `${metroActivityLabels[purpose]}. ${reason}`).join(' '),
+    }];
+  });
+  publish(cards.length ? cards : [{
+    title: projectTitle ?? 'Metro propuesto', source, status: 'unavailable',
+    coverage: 'El resultado no incluye una estimación de viajes al trabajo para este proyecto.',
+  }]);
+}
+
 export function publishExperimentResult(raw, { sourceTitle } = {}) {
   if (!displayFile) return;
   const source = sourceTitle ? `Replay · ${sourceTitle}` : 'Escenario actual';
