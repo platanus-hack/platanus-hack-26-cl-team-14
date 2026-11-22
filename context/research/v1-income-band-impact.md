@@ -25,7 +25,7 @@ The band is an imputed household trait. It does not enter any choice, and it doe
 
 ## Extra cash per workday
 
-Each band row also gives the change in daily round-trip cash for the workers who change work mode: `extra_cash_clp_per_workday` (sum), `extra_cash_clp_per_priced_changer` (mean) and `extra_cash_20_days_pct_of_band_median_income`. Prices, in 2026 CLP:
+Each band row also gives the change in daily round-trip cash for the workers who change work mode: `extra_cash_clp_per_workday` (sum), `extra_cash_clp_per_priced_changer` (mean) and `extra_cash_1_day_pct_of_band_median_monthly_income`. Prices, in 2026 CLP:
 
 | Mode | Daily round trip | Source |
 | --- | --- | --- |
@@ -34,13 +34,13 @@ Each band row also gives the change in daily round-trip cash for the workers who
 | Walk, bicycle | 0 | |
 | Taxi, colectivo, other | no price | counted in `work_mode_changes_unpriced` |
 
-Car cost is a floor: road distance is longer than straight-line, the fleet is older than new vehicles, and parking and tolls are not included. Metro peak fares (+100) are not included. The percentage converts the 2026 mean to November 2024 CLP (IPC 105.83 / 114.13) and divides 20 workdays of it by the band's worker-weighted median household income ([v1-income-burden.md](v1-income-burden.md)).
+Car cost is a floor: road distance is longer than straight-line, the fleet is older than new vehicles, and parking and tolls are not included. Metro peak fares (+100) are not included. The percentage is for one workday, because a closure lasts one day. It converts the 2026 mean to November 2024 CLP (IPC 105.83 / 114.13) and divides it by the band's worker-weighted median monthly household income ([v1-income-burden.md](v1-income-burden.md)).
 
 | Metro closed 07:00–10:00 | Band 1 | Band 2 | Band 3 | Band 4 |
 | --- | ---: | ---: | ---: | ---: |
 | Workers who change mode | 12,409 | 25,271 | 35,552 | 36,096 |
 | Mean extra cash per priced changer, CLP/day | 601 | 595 | 570 | 343 |
-| 20 days, % of band median income | 1.99% | 1.07% | 0.61% | 0.18% |
+| One day, % of band median monthly income | 0.100% | 0.054% | 0.030% | 0.009% |
 | Unpriced changers | 1,870 | 3,557 | 5,042 | 4,128 |
 
 With all buses removed, the mean cash change is negative in every band (−81 to −11 CLP/day): many changers walk, which costs no cash. The engine does not price the extra time.

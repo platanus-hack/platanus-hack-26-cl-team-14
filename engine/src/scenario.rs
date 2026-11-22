@@ -284,8 +284,8 @@ impl Scenario {
                 "workers": n, "work_mode_changed": mode, "stopped_shopping": stopped, "shopping_changed": visit,
                 "work_mode_changed_pct": share(mode, n), "stopped_shopping_pct": share(stopped, n), "shopping_changed_pct": share(visit, n),
                 "extra_cash_clp_per_workday": clp.round(), "extra_cash_clp_per_priced_changer": (clp / priced.max(1) as f64).round(),
-                // 20 workdays of the mean change, in November 2024 CLP (IPC 105.83 / 114.13), over the band's worker-weighted median (v1-income-burden.md).
-                "extra_cash_20_days_pct_of_band_median_income": if b < 4 { json!((clp / priced.max(1) as f64 * 20.0 * 105.83 / 114.13 / [560_000.0, 1_030_000.0, 1_745_000.0, 3_584_702.0][b] * 10000.0).round() / 100.0) } else { Value::Null },
+                // One workday of the mean change (a closure lasts one day), in November 2024 CLP (IPC 105.83 / 114.13), over the band's monthly worker-weighted median (v1-income-burden.md).
+                "extra_cash_1_day_pct_of_band_median_monthly_income": if b < 4 { json!((clp / priced.max(1) as f64 * 105.83 / 114.13 / [560_000.0, 1_030_000.0, 1_745_000.0, 3_584_702.0][b] * 100000.0).round() / 1000.0) } else { Value::Null },
                 "work_mode_changes_unpriced": unpriced,
             })).collect::<Vec<_>>(),
             "cash": "Daily round trip, 2026 CLP: public 2 × 795 (Red bus with transfers); car fuel only, 2 × straight-line km × 1,414 CLP/l (CNE RM gasoline 93, Sep 2026) ÷ 16.9 km/l (ICCT, 2025 new light vehicles); walk and bicycle 0. Road distance, older cars, parking, tolls and Metro peak fares (+100) are not included, so car cost is a floor. Taxi/colectivo and other modes have no price and are counted as unpriced.",
