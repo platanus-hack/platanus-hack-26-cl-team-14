@@ -52,11 +52,147 @@ fn car_legs(venue: &Value, home_cut: &str) -> Option<Vec<Value>> {
     ])
 }
 
-pub(super) fn attach(data: &Path, fans: &Value, request: Request, event: &mut Value) {
+fn read_routes(data: &Path, file: &str) -> Value {
+    std::fs::File::open(data.join(file))
+        .ok()
+        .and_then(|file| serde_json::from_reader(file).ok())
+        .unwrap_or(Value::Null)
+}
+
+fn scheduled_legs(
+    plan: &Value,
+    access: &Value,
+    gate_window: [f64; 2],
+) -> Option<(Vec<Value>, f64)> {
+    let access_seconds = access["seconds"].as_f64()?;
+    let access_path = access["path"].as_array()?;
+    let gate = &plan["walk_path"];
+    let gate_seconds = gate["seconds"].as_f64()?;
+    let gate_path = gate["geometry"]["coordinates"].as_array()?;
+    let lines = plan["legs"].as_array()?;
+    let options = plan["departure_options"].as_array()?;
+    let midpoint = (gate_window[0] + gate_window[1]) * 0.5;
+    let (option, board, arrives) = options
+        .iter()
+        .filter_map(|option| {
+            let board = option["departure_seconds"].as_f64()?;
+            let arrives = option["gate_arrival_seconds"].as_f64()?;
+            let gate_minute = arrives / 60.0;
+            (gate_minute >= gate_window[0] && gate_minute < gate_window[1])
+                .then_some((option, board, arrives))
+        })
+        .min_by(|a, b| {
+            (a.2 / 60.0 - midpoint)
+                .abs()
+                .total_cmp(&(b.2 / 60.0 - midpoint).abs())
+        })?;
+    let rides = option["legs"].as_array()?;
+    if lines.len() != rides.len() {
+        return None;
+    }
+    let walk = |path: &[Value], start: f64, end: f64| {
+        json!({
+            "mode": "walk", "minutes": (end - start) / 60.0,
+            "departure_seconds": start, "arrival_seconds": end,
+            "geometry": {"type": "LineString", "coordinates": path},
+        })
+    };
+    let depart = board - access_seconds;
+    let mut previous_end = board;
+    let mut legs = vec![walk(access_path, depart, previous_end)];
+    for (line, ride) in lines.iter().zip(rides) {
+        let begin = ride["departure_seconds"].as_f64()?;
+        let end = ride["arrival_seconds"].as_f64()?;
+        if begin < previous_end || end < begin {
+            return None;
+        }
+        if begin > previous_end {
+            legs.push(json!({
+                "mode": "wait", "minutes": (begin - previous_end) / 60.0,
+                "departure_seconds": previous_end, "arrival_seconds": begin,
+            }));
+        }
+        let mut leg = line.clone();
+        leg["minutes"] = json!((end - begin) / 60.0);
+        leg["departure_seconds"] = json!(begin);
+        leg["arrival_seconds"] = json!(end);
+        leg["route_ref"] = ride.clone();
+        leg["departure_options"] = json!([ride]);
+        legs.push(leg);
+        previous_end = end;
+    }
+    let exit = arrives - gate_seconds;
+    if exit < previous_end {
+        return None;
+    }
+    if exit > previous_end {
+        legs.push(json!({
+            "mode": "station_egress",
+            "minutes": (exit - previous_end) / 60.0,
+            "departure_seconds": previous_end, "arrival_seconds": exit,
+            "route_ref": gate["station_egress"],
+        }));
+    }
+    legs.push(walk(gate_path, exit, arrives));
+    Some((legs, depart / 60.0))
+}
+
+fn public_legs(
+    transit: &Value,
+    walks: &Value,
+    venue_id: &str,
+    home_cut: &str,
+    gate_window: [f64; 2],
+) -> Option<(Vec<Value>, f64)> {
+    let plans = transit["venues"][venue_id]["communes"][home_cut].as_array()?;
+    plans.iter().find_map(|plan| {
+        let lines = plan["legs"].as_array()?;
+        let board = lines.first()?["board_stop_id"].as_str()?;
+        let access = &walks["access"][home_cut][board];
+        scheduled_legs(plan, access, gate_window)
+    })
+}
+
+fn venue_matches(data: &Path, venue_id: &str, point: [f64; 2]) -> bool {
+    let Ok(mut places) = csv::Reader::from_path(data.join("named_places.csv")) else {
+        return false;
+    };
+    places.records().flatten().any(|row| {
+        &row[0] == venue_id
+            && row
+                .iter()
+                .skip(3)
+                .take(2)
+                .zip(point)
+                .all(|(coordinate, actual)| {
+                    coordinate
+                        .parse::<f64>()
+                        .is_ok_and(|named| (actual - named).abs() < 0.000001)
+                })
+    })
+}
+
+pub(super) fn attach(
+    data: &Path,
+    fans: &Value,
+    request: Request,
+    point: [f64; 2],
+    event: &mut Value,
+) {
     let venue_id = &request.venue_id;
     let gate_arrival_minutes = request.gate_arrival_minutes.map(f64::from);
-    let car = car_routes(data).unwrap_or(Value::Null);
+    let matches = venue_matches(data, venue_id, point);
+    let car = matches
+        .then(|| car_routes(data))
+        .flatten()
+        .unwrap_or(Value::Null);
     let car_venue = &car["venues"][venue_id];
+    let transit = matches
+        .then(|| read_routes(data, "event_transit_routes.json"))
+        .unwrap_or(Value::Null);
+    let walks = matches
+        .then(|| read_routes(data, "event_transit_walks.json"))
+        .unwrap_or(Value::Null);
     let mut groups = Vec::new();
     let mut coverage = [[0.0; 2]; MODES.len()];
     for home in fans["by_home"].as_array().unwrap() {
@@ -67,18 +203,23 @@ pub(super) fn attach(data: &Path, fans: &Value, request: Request, event: &mut Va
                 continue;
             }
             let id = format!("{home_cut}:{mode}");
-            let route = if mode == "car" {
-                car_legs(car_venue, home_cut)
-            } else {
-                None
+            let route = match mode {
+                "car" => car_legs(car_venue, home_cut).map(|legs| (legs, None)),
+                "public" => public_legs(&transit, &walks, venue_id, home_cut, gate_arrival_minutes)
+                    .map(|(legs, depart)| (legs, Some(depart))),
+                _ => None,
             };
             let group = match route {
-                Some(legs) => {
-                    let minutes: f64 = legs.iter().map(|leg| leg["minutes"].as_f64().unwrap()).sum();
+                Some((legs, scheduled_departure)) => {
+                    let minutes: f64 = legs
+                        .iter()
+                        .map(|leg| leg["minutes"].as_f64().unwrap())
+                        .sum();
                     coverage[index][0] += people;
                     json!({
                         "id": id, "home_cut": home_cut, "mode": mode, "people": people,
                         "status": "routed", "legs": legs,
+                        "scheduled_departure_minutes": scheduled_departure,
                         "departure_window_minutes": gate_arrival_minutes.map(|arrival| arrival - minutes),
                     })
                 }
@@ -94,16 +235,27 @@ pub(super) fn attach(data: &Path, fans: &Value, request: Request, event: &mut Va
             groups.push(group);
         }
     }
-    let counts = MODES.into_iter().zip(coverage).map(|(mode, [routed, unrouted])| {
-        (mode.to_owned(), json!({ "routed": routed, "unrouted": unrouted }))
-    }).collect::<serde_json::Map<_, _>>();
+    let counts = MODES
+        .into_iter()
+        .zip(coverage)
+        .map(|(mode, [routed, unrouted])| {
+            (
+                mode.to_owned(),
+                json!({ "routed": routed, "unrouted": unrouted }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
     event["itineraries"] = json!(groups);
     event["itinerary_coverage"] = Value::Object(counts);
     event["itinerary_assumptions"] = json!({
         "venue_id": venue_id,
         "gate_arrival_minutes": gate_arrival_minutes,
         "time_unit": "Chile local minutes since midnight",
-        "walk_metres_per_minute": WALK_METRES_PER_MINUTE,
+        "car_walk_metres_per_minute": WALK_METRES_PER_MINUTE,
+        "public_service_day": transit["service_day"],
+        "public_source": transit["source"],
+        "public_native_pack_sha256": transit["native_pack_sha256"],
+        "public_walk_source": walks["source"],
         "car_source": car["source"],
         "car_closed_osm_ways": car_venue["closed_osm_ways"],
     });

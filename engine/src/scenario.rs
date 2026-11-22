@@ -683,10 +683,11 @@ impl Scenario {
         }
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, itinerary, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
+            let point = [r.longitude, r.latitude];
             let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
             if let Some(f) = f {
                 if let Some(itinerary) = itinerary {
-                    fan_itineraries::attach(&self.data_dir, &f, itinerary, &mut e);
+                    fan_itineraries::attach(&self.data_dir, &f, itinerary, point, &mut e);
                 }
                 e["fan_base"] = f;
             }
