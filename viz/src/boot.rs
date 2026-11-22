@@ -303,6 +303,10 @@ fn advance(
     mut labels: Query<(&mut TextColor, Option<&mut TextShadow>), With<BootText>>,
     hidden: Query<(Entity, &HiddenHud)>,
     mut exit: MessageWriter<AppExit>,
+    #[cfg(target_os = "macos")] display: (
+        Single<&bevy::window::OnMonitor, With<PrimaryWindow>>,
+        Query<&bevy::window::Monitor>,
+    ),
 ) {
     let now = time.elapsed_secs();
     match entry.stage {
@@ -351,7 +355,18 @@ fn advance(
             }
             commands.entity(ui.cover).despawn();
             commands.entity(ui.camera).despawn();
-            match fs::write(&entry.path, "ready\n") {
+            #[cfg(target_os = "macos")]
+            let signal = {
+                let (window, monitors) = &display;
+                let monitor = monitors.get(window.0).unwrap();
+                // Winit's global monitor origin is physical, scaled by this monitor.
+                // AppKit and Terminal use global desktop points instead.
+                let origin = monitor.physical_position.as_dvec2() / monitor.scale_factor;
+                format!("{} {}\n", origin.x.round() as i32, origin.y.round() as i32)
+            };
+            #[cfg(not(target_os = "macos"))]
+            let signal = "ready\n";
+            match fs::write(&entry.path, signal) {
                 Ok(()) => {
                     let mut rect = entry.path.clone().into_os_string();
                     rect.push(".rect");

@@ -29,19 +29,35 @@ city_mac_prepare_font() {
 
 open_city_terminal_mac() {
     local layout terminal_left terminal_top terminal_right terminal_bottom owner font_name
-    layout=$(/usr/bin/osascript -l JavaScript <<'JS'
+    local boot_screen_x boot_screen_y
+    read -r boot_screen_x boot_screen_y < "$SANTIAGO_BOOT_SIGNAL"
+    layout=$(/usr/bin/osascript -l JavaScript - "$boot_screen_x" "$boot_screen_y" <<'JS'
 ObjC.import('AppKit')
-const screen = $.NSScreen.screens.firstObject
+function run(argv) {
+const screens = $.NSScreen.screens
+// Both Winit and Terminal measure global y down from the primary screen's top.
+const top = screens.firstObject.frame.size.height
+let screen
+for (let i = 0; i < screens.count; i++) {
+    const candidate = screens.objectAtIndex(i), frame = candidate.frame
+    if (Math.round(frame.origin.x) === Number(argv[0]) &&
+        Math.round(top - frame.origin.y - frame.size.height) === Number(argv[1])) {
+        screen = candidate
+        break
+    }
+}
+if (!screen) throw new Error('Boot display is no longer connected')
 const work = screen.visibleFrame
 const x = work.origin.x, width = work.size.width, height = work.size.height
-const y = screen.frame.size.height - work.origin.y - height
+const y = top - work.origin.y - height
 const strip = Math.round(width * 0.35)
 const title = $.NSWindow.frameRectForContentRectStyleMask(
     $.NSMakeRect(0, 0, 100, 100), $.NSWindowStyleMaskTitled).size.height - 100
 // Winit moves the outer frame and resizes its content after Enter.
 const pixels = [x, y, width - strip, height - title]
     .map(n => Math.round(n * screen.backingScaleFactor))
-pixels.concat([x + width - strip, y, x + width, y + height].map(Math.round)).join(' ')
+return pixels.concat([x + width - strip, y, x + width, y + height].map(Math.round)).join(' ')
+}
 JS
     ) || return
     read -r city_x city_y city_width city_height terminal_left terminal_top terminal_right terminal_bottom <<<"$layout"
