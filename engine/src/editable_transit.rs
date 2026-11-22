@@ -47,6 +47,7 @@ impl Pattern {
         Arc::ptr_eq(&self.schedules, &other.schedules)
             && self.pickup_type == other.pickup_type
             && self.drop_off_type == other.drop_off_type
+            && self.new_stops == other.new_stops
     }
 
     fn same_timing(&self, other: &Self) -> bool {
@@ -65,6 +66,55 @@ impl Pattern {
             calls.push([arrival, departure]);
         }
         calls
+    }
+
+    /// Locate the unchanged calls of a terminal extension in their original order.
+    fn retained_calls(&self, previous: &Self) -> Option<std::ops::Range<usize>> {
+        if self.mode != "metro" || self.stop_ids.len() <= previous.stop_ids.len() {
+            return None;
+        }
+        let n = previous.stop_ids.len();
+        let start = self
+            .stop_ids
+            .windows(n)
+            .position(|calls| calls == previous.stop_ids)?;
+        let end = start + n;
+        if self.segment_minutes[start..end - 1] != previous.segment_minutes
+            || self.dwell_minutes[start..end] != previous.dwell_minutes
+            || self.pickup_type[start..end] != previous.pickup_type
+            || self.drop_off_type[start..end] != previous.drop_off_type
+        {
+            return None;
+        }
+        Some(start..end)
+    }
+
+    fn extend_schedules(&self, previous: &Self, retained: std::ops::Range<usize>) -> Vec<Schedule> {
+        let proposed = self.call_times();
+        previous
+            .schedules
+            .iter()
+            .map(|schedule| {
+                let mut calls = proposed.clone();
+                let prefix = schedule.calls[0][0] - calls[retained.start][0];
+                let suffix = schedule.calls.last().unwrap()[1] - calls[retained.end - 1][1];
+                for call in &mut calls[..retained.start] {
+                    for time in call {
+                        *time += prefix;
+                    }
+                }
+                calls[retained.clone()].copy_from_slice(&schedule.calls);
+                for call in &mut calls[retained.end..] {
+                    for time in call {
+                        *time += suffix;
+                    }
+                }
+                Schedule {
+                    calls,
+                    starts: schedule.starts.clone(),
+                }
+            })
+            .collect()
     }
 
     fn retime(&self, previous: &Self) -> Vec<Schedule> {
@@ -142,7 +192,11 @@ impl Pattern {
     }
 
     fn stop_point(&self, id: &str, catalog: &LineCatalog) -> [f64; 2] {
-        catalog.pack.stops.get(id).map_or_else(|| self.new_stops[id], |stop| stop.coordinates)
+        catalog
+            .pack
+            .stops
+            .get(id)
+            .map_or_else(|| self.new_stops[id], |stop| stop.coordinates)
     }
 }
 
@@ -178,7 +232,7 @@ const ASSUMPTIONS: [&str; 6] = [
     "Access and egress use straight-line walks up to 1 km. Stop transfers use straight-line walks up to 300 m.",
     "The graph measures travel between comuna population points. A route must include at least one transit segment. Null means no such route in this graph.",
     "A geometry-only move keeps service times and the stop order. For added stop calls, omitted dwell is zero and boarding and alighting are allowed. The shape follows the selected calls in order.",
-    "A line that calls at new stops (outside the GTFS catalog) is not in the comuna graph and changes no comuna-pair minutes. Its riders come from the person-level line rider model."
+    "Proposed Metro stops join the comuna graph using the standard walk limits. Custom stops on other modes use only the person-level rider model.",
 ];
 
 pub struct LineCatalog {
@@ -223,6 +277,7 @@ impl LineCatalog {
             catalog: self,
             changes: BTreeMap::new(),
             minutes: None,
+            metro_projects: BTreeMap::new(),
         }
     }
 
@@ -237,6 +292,7 @@ pub struct LineEdits<'a> {
     catalog: &'a LineCatalog,
     changes: BTreeMap<String, Option<Pattern>>,
     minutes: Option<Vec<Option<f64>>>,
+    metro_projects: BTreeMap<String, Vec<(String, f64)>>,
 }
 
 /// An added service pattern, as the person-level rider model reads it.
@@ -251,6 +307,7 @@ pub struct AddedLine {
     pub pickup_type: Vec<u8>,
     pub drop_off_type: Vec<u8>,
     pub vehicle_capacity: Option<f64>,
+    pub retained_calls: Option<std::ops::Range<usize>>,
 }
 
 impl LineEdits<'_> {
@@ -261,21 +318,168 @@ impl LineEdits<'_> {
             // Sections of a cut route are existing service, not added lines.
             .filter(|(id, _)| !self.catalog.pack.lines.contains_key(*id) && !id.contains("#cut"))
             .filter_map(|(id, pattern)| pattern.as_ref().map(|p| (id, p)))
+            .filter(|(id, _)| {
+                !self
+                    .metro_projects
+                    .values()
+                    .flatten()
+                    .any(|(chosen, _)| chosen == *id)
+            })
             .map(|(id, p)| AddedLine {
                 id: id.clone(),
                 mode: p.mode.clone(),
                 stop_ids: p.stop_ids.clone(),
-                stops: p.stop_ids.iter().map(|s| p.stop_point(s, self.catalog)).collect(),
+                stops: p
+                    .stop_ids
+                    .iter()
+                    .map(|s| p.stop_point(s, self.catalog))
+                    .collect(),
                 calls: p.call_times(),
                 headway_minutes: p.headway_minutes.unwrap(),
                 pickup_type: p.pickup_type.clone(),
                 drop_off_type: p.drop_off_type.clone(),
                 vehicle_capacity: p.vehicle_capacity,
+                retained_calls: None,
+            })
+            .collect()
+    }
+
+    pub fn metro_projects(&self) -> BTreeMap<String, Vec<AddedLine>> {
+        self.metro_projects
+            .iter()
+            .filter_map(|(project, selected)| {
+                let lines = selected
+                    .iter()
+                    .map(|(id, headway)| {
+                        let p = self
+                            .changes
+                            .get(id)?
+                            .as_ref()
+                            .filter(|pattern| pattern.mode == "metro")?;
+                        Some(AddedLine {
+                            id: id.clone(),
+                            mode: p.mode.clone(),
+                            stop_ids: p.stop_ids.clone(),
+                            stops: p
+                                .stop_ids
+                                .iter()
+                                .map(|stop| p.stop_point(stop, self.catalog))
+                                .collect(),
+                            calls: p.call_times(),
+                            headway_minutes: *headway,
+                            pickup_type: p.pickup_type.clone(),
+                            drop_off_type: p.drop_off_type.clone(),
+                            vehicle_capacity: p.vehicle_capacity,
+                            retained_calls: self
+                                .catalog
+                                .pack
+                                .lines
+                                .get(id)
+                                .and_then(|previous| p.retained_calls(previous)),
+                        })
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+                Some((project.clone(), lines))
             })
             .collect()
     }
 
     pub fn apply(&mut self, raw: &Value) -> Result<Value, String> {
+        if raw["target"]["type"] == "metro_project" {
+            return self.apply_metro_project(raw);
+        }
+        self.apply_edit(raw, true)
+    }
+
+    fn apply_metro_project(&mut self, raw: &Value) -> Result<Value, String> {
+        let project = raw["target"]["id"]
+            .as_str()
+            .ok_or("A Metro project needs an ID.")?;
+        if self.metro_projects.contains_key(project) {
+            return Err("A Metro project must use one contiguous group of edits.".into());
+        }
+        let changes = raw["properties"]["edits"]
+            .as_array()
+            .ok_or("Supply Metro pattern edits.")?;
+        let mut staged = self.clone();
+        let mut parts = Vec::new();
+        let mut selected = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        for change in changes {
+            let id = change["target"]["id"]
+                .as_str()
+                .ok_or("Each Metro pattern needs an ID.")?;
+            if !matches!(change["op"].as_str(), Some("add" | "set")) || !seen.insert(id) {
+                return Err("Use each Metro pattern ID once with add or set.".into());
+            }
+            let mut receipt = staged.apply_edit(change, false)?;
+            let pattern = staged.changes[id]
+                .as_ref()
+                .ok_or("Expected a Metro service pattern.")?;
+            if pattern.mode != "metro" {
+                return Err("Every pattern in a Metro project must have mode metro.".into());
+            }
+            if let Some(previous) = self.catalog.pack.lines.get(id) {
+                if pattern.retained_calls(previous).is_none()
+                    || pattern.headway_minutes != previous.headway_minutes
+                {
+                    return Err(
+                        "An extension must preserve all existing calls and timetables.".into(),
+                    );
+                }
+            }
+            if let Some(value) = change["properties"].get("demand_headway_minutes") {
+                let headway = value
+                    .as_f64()
+                    .filter(|&m| m > 0.)
+                    .ok_or("Use positive minutes for the demand headway.")?;
+                selected.push((id.to_owned(), headway));
+            }
+            receipt["after"]["properties"]["metro_project_id"] = json!(project);
+            parts.push(receipt);
+        }
+        if selected.len() != 2 {
+            return Err("Mark one demand pattern per direction with a demand headway.".into());
+        }
+        let [(forward_id, _), (return_id, _)] = selected.as_slice() else {
+            unreachable!()
+        };
+        let forward = staged.changes[forward_id].as_ref().unwrap();
+        let reverse = staged.changes[return_id].as_ref().unwrap();
+        let existing = (
+            self.catalog.pack.lines.get(forward_id),
+            self.catalog.pack.lines.get(return_id),
+        );
+        let opposite = match existing {
+            (None, None) => forward.stop_ids.iter().eq(reverse.stop_ids.iter().rev()),
+            (Some(a), Some(b)) => {
+                a.route_id == b.route_id
+                    && a.direction != b.direction
+                    && forward
+                        .stop_ids
+                        .iter()
+                        .filter(|id| !a.stop_ids.contains(id))
+                        .eq(reverse
+                            .stop_ids
+                            .iter()
+                            .rev()
+                            .filter(|id| !b.stop_ids.contains(id)))
+            }
+            _ => false,
+        };
+        if !opposite {
+            return Err(
+                "Use opposite directions with the same proposed calls in reverse order.".into(),
+            );
+        }
+        let pairs = staged.reroute();
+        staged.metro_projects.insert(project.to_owned(), selected);
+        *self = staged;
+        Ok(json!({"kind":"line", "op":"metro_project", "id":project,
+            "effects":{"pairs":pairs}, "parts":parts, "assumptions":ASSUMPTIONS}))
+    }
+
+    fn apply_edit(&mut self, raw: &Value, reroute: bool) -> Result<Value, String> {
         if raw["target"]["type"] == "route" {
             return self.cut_route(raw);
         }
@@ -311,7 +515,11 @@ impl LineEdits<'_> {
             .as_ref()
             .map(|pattern| pattern.feature(id, self.catalog));
         self.changes.insert(id.to_owned(), after);
-        let pairs = if changed_service { self.reroute() } else { Vec::new() };
+        let pairs = if changed_service && reroute {
+            self.reroute()
+        } else {
+            Vec::new()
+        };
         Ok(json!({
             "kind": "line", "op": op, "id": id, "before": before, "after": after_feature,
             "effects": {"pairs": pairs},
@@ -331,7 +539,11 @@ impl LineEdits<'_> {
             .lines
             .iter()
             .filter(|(id, _)| !self.changes.contains_key(*id))
-            .chain(self.changes.iter().filter_map(|(id, p)| p.as_ref().map(|p| (id, p))))
+            .chain(
+                self.changes
+                    .iter()
+                    .filter_map(|(id, p)| p.as_ref().map(|p| (id, p))),
+            )
             .filter(|(_, p)| p.mode == mode)
             .map(|(id, _)| id.clone())
             .collect();
@@ -357,24 +569,40 @@ impl LineEdits<'_> {
         if raw["op"] != "cut" {
             return Err("A route target supports only op cut.".into());
         }
-        let cut: Vec<&str> = raw["properties"]["stop_ids"].as_array().ok_or("A cut needs properties.stop_ids.")?
-            .iter().filter_map(Value::as_str).collect();
-        let active: Vec<(String, Pattern)> = self.catalog.pack.lines.iter()
+        let cut: Vec<&str> = raw["properties"]["stop_ids"]
+            .as_array()
+            .ok_or("A cut needs properties.stop_ids.")?
+            .iter()
+            .filter_map(Value::as_str)
+            .collect();
+        let active: Vec<(String, Pattern)> = self
+            .catalog
+            .pack
+            .lines
+            .iter()
             .filter(|(id, _)| !self.changes.contains_key(*id))
-            .chain(self.changes.iter().filter_map(|(id, p)| p.as_ref().map(|p| (id, p))))
+            .chain(
+                self.changes
+                    .iter()
+                    .filter_map(|(id, p)| p.as_ref().map(|p| (id, p))),
+            )
             .filter(|(_, p)| p.route_id.as_deref() == Some(route))
             .filter(|(_, p)| p.stop_ids.iter().any(|s| cut.contains(&s.as_str())))
             .map(|(id, p)| (id.clone(), p.clone()))
             .collect();
         if active.is_empty() {
-            return Err(format!("No active pattern of route {route} calls at the cut stops."));
+            return Err(format!(
+                "No active pattern of route {route} calls at the cut stops."
+            ));
         }
         let mut sections = 0;
         for (id, pattern) in active {
             self.changes.insert(id.clone(), None);
             let mut start = 0;
             for end in 0..=pattern.stop_ids.len() {
-                if end < pattern.stop_ids.len() && !cut.contains(&pattern.stop_ids[end].as_str()) { continue; }
+                if end < pattern.stop_ids.len() && !cut.contains(&pattern.stop_ids[end].as_str()) {
+                    continue;
+                }
                 if end - start >= 2 {
                     let mut part = pattern.clone();
                     part.stop_ids = pattern.stop_ids[start..end].to_vec();
@@ -385,8 +613,12 @@ impl LineEdits<'_> {
                     part.shape_id = None;
                     part.geometry = None;
                     // shortcut: the section reuses the pattern's start times at its own first stop.
-                    part.schedules = Arc::new(vec![Schedule { calls: part.call_times(), starts: Starts::combine(&pattern.schedules) }]);
-                    self.changes.insert(format!("{id}#cut{sections}"), Some(part));
+                    part.schedules = Arc::new(vec![Schedule {
+                        calls: part.call_times(),
+                        starts: Starts::combine(&pattern.schedules),
+                    }]);
+                    self.changes
+                        .insert(format!("{id}#cut{sections}"), Some(part));
                     sections += 1;
                 }
                 start = end + 1;
@@ -409,10 +641,21 @@ impl LineEdits<'_> {
         // Assumed wait for another train (about half a peak headway). It removes free reboarding; a dwell longer
         // than this (2.083 min at PEG-PZE on three L3 patterns) can still make a transfer slightly cheaper.
         const TRANSFER_MINUTES: f64 = 2.0;
-        let station = |id: &String| self.catalog.pack.stops.get(id).and_then(|s| s.parent_id.clone()).unwrap_or_else(|| id.clone());
+        let station = |id: &String| {
+            self.catalog
+                .pack
+                .stops
+                .get(id)
+                .and_then(|s| s.parent_id.clone())
+                .unwrap_or_else(|| id.clone())
+        };
         // Node (station, false) = ready to board there; (station, true) = arrived there.
         let mut edges: HashMap<(String, bool), HashMap<(String, bool), f64>> = HashMap::new();
-        let active = self.catalog.pack.lines.iter()
+        let active = self
+            .catalog
+            .pack
+            .lines
+            .iter()
             .filter(|(id, _)| !self.changes.contains_key(*id))
             .map(|(_, p)| p)
             .chain(self.changes.values().filter_map(Option::as_ref))
@@ -421,34 +664,55 @@ impl LineEdits<'_> {
             let calls = p.call_times();
             for i in 0..p.stop_ids.len() {
                 for j in i + 1..p.stop_ids.len() {
-                    let best = edges.entry((station(&p.stop_ids[i]), false)).or_default()
-                        .entry((station(&p.stop_ids[j]), true)).or_insert(f64::INFINITY);
+                    let best = edges
+                        .entry((station(&p.stop_ids[i]), false))
+                        .or_default()
+                        .entry((station(&p.stop_ids[j]), true))
+                        .or_insert(f64::INFINITY);
                     *best = best.min(calls[j][0] - calls[i][1]);
                 }
             }
         }
-        let stations: Vec<String> = edges.keys().chain(edges.values().flat_map(|e| e.keys())).map(|n| n.0.clone()).collect();
+        let stations: Vec<String> = edges
+            .keys()
+            .chain(edges.values().flat_map(|e| e.keys()))
+            .map(|n| n.0.clone())
+            .collect();
         for s in &stations {
-            edges.entry((s.clone(), true)).or_default().insert((s.clone(), false), TRANSFER_MINUTES);
+            edges
+                .entry((s.clone(), true))
+                .or_default()
+                .insert((s.clone(), false), TRANSFER_MINUTES);
             edges.entry((s.clone(), false)).or_default();
         }
-        stations.iter().map(|from| {
-            let start = (from.clone(), false);
-            let mut dist: HashMap<(String, bool), f64> = HashMap::from([(start.clone(), 0.0)]);
-            let mut queue = std::collections::BinaryHeap::from([(Reverse(0u64), start)]);
-            while let Some((Reverse(d), at)) = queue.pop() {
-                let d = f64::from_bits(d);
-                if d > dist[&at] { continue; }
-                for (next, m) in &edges[&at] {
-                    let t = d + m;
-                    if dist.get(next).is_none_or(|&old| t < old) {
-                        dist.insert(next.clone(), t);
-                        queue.push((Reverse(t.to_bits()), next.clone()));
+        stations
+            .iter()
+            .map(|from| {
+                let start = (from.clone(), false);
+                let mut dist: HashMap<(String, bool), f64> = HashMap::from([(start.clone(), 0.0)]);
+                let mut queue = std::collections::BinaryHeap::from([(Reverse(0u64), start)]);
+                while let Some((Reverse(d), at)) = queue.pop() {
+                    let d = f64::from_bits(d);
+                    if d > dist[&at] {
+                        continue;
+                    }
+                    for (next, m) in &edges[&at] {
+                        let t = d + m;
+                        if dist.get(next).is_none_or(|&old| t < old) {
+                            dist.insert(next.clone(), t);
+                            queue.push((Reverse(t.to_bits()), next.clone()));
+                        }
                     }
                 }
-            }
-            (from.clone(), dist.into_iter().filter(|(n, _)| n.1).map(|(n, t)| (n.0, t)).collect())
-        }).collect()
+                (
+                    from.clone(),
+                    dist.into_iter()
+                        .filter(|(n, _)| n.1)
+                        .map(|(n, t)| (n.0, t))
+                        .collect(),
+                )
+            })
+            .collect()
     }
 
     /// Route the current edited network and return the comuna pairs whose minutes changed.
@@ -593,6 +857,33 @@ impl LineEdits<'_> {
             return Err("A line needs a supported mode, at least two known stops, positive segment times and headway for new service, nonnegative dwell times, and one pickup and drop-off rule per stop.".into());
         }
 
+        if pattern.mode == "metro" {
+            for (id, &[lon, lat]) in &pattern.new_stops {
+                if id.is_empty()
+                    || self.catalog.pack.stops.contains_key(id)
+                    || !(-180.0..=180.0).contains(&lon)
+                    || !(-90.0..=90.0).contains(&lat)
+                {
+                    return Err(
+                        "A proposed Metro stop needs a new ID and valid WGS84 coordinates.".into(),
+                    );
+                }
+                if self
+                    .changes
+                    .iter()
+                    .filter(|(other, _)| raw["target"]["id"].as_str() != Some(other.as_str()))
+                    .filter_map(|(_, change)| change.as_ref())
+                    .filter(|change| change.mode == "metro")
+                    .filter_map(|change| change.new_stops.get(id))
+                    .any(|point| *point != [lon, lat])
+                {
+                    return Err(format!(
+                        "Proposed Metro stop {id} has conflicting locations."
+                    ));
+                }
+            }
+        }
+        let extension = before.and_then(|previous| pattern.retained_calls(previous));
         if let Some(geometry) = raw.get("geometry") {
             let coords =
                 serde_json::from_value::<Vec<[f64; 2]>>(geometry["coordinates"].clone()).ok();
@@ -607,6 +898,21 @@ impl LineEdits<'_> {
                 return Err("Line geometry needs at least two WGS84 positions.".into());
             }
             pattern.geometry = Some(geometry.clone());
+        } else if let (Some(previous), Some(retained)) = (before, &extension) {
+            let old = previous.feature("", self.catalog);
+            let middle: Vec<[f64; 2]> =
+                serde_json::from_value(old["geometry"]["coordinates"].clone()).unwrap();
+            let points: Vec<_> = pattern.stop_ids[..retained.start]
+                .iter()
+                .map(|id| pattern.stop_point(id, self.catalog))
+                .chain(middle)
+                .chain(
+                    pattern.stop_ids[retained.end..]
+                        .iter()
+                        .map(|id| pattern.stop_point(id, self.catalog)),
+                )
+                .collect();
+            pattern.geometry = Some(json!({"type":"LineString","coordinates": points}));
         } else if !stops_changed {
             pattern.geometry = before.and_then(|pattern| pattern.geometry.clone());
         }
@@ -616,7 +922,10 @@ impl LineEdits<'_> {
         pattern.schedules = match (matching, before) {
             (Some(matching), _) => matching.schedules.clone(),
             (None, Some(previous)) if pattern.headway_minutes == previous.headway_minutes => {
-                Arc::new(pattern.retime(previous))
+                Arc::new(match extension {
+                    Some(retained) => pattern.extend_schedules(previous, retained),
+                    None => pattern.retime(previous),
+                })
             }
             _ => Arc::new(
                 pattern

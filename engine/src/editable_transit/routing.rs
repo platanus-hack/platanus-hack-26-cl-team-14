@@ -43,6 +43,8 @@ pub(super) struct Routing {
     stops: BTreeMap<String, usize>,
     walk: Edges,
     access: Vec<Vec<(usize, f64)>>,
+    coordinates: Vec<[f64; 2]>,
+    communes: Vec<[f64; 2]>,
 }
 
 impl Routing {
@@ -99,6 +101,8 @@ impl Routing {
             stops: ids,
             walk,
             access,
+            coordinates,
+            communes: communes.to_vec(),
         }
     }
 
@@ -106,11 +110,50 @@ impl Routing {
         &self,
         patterns: impl Iterator<Item = &'a Pattern>,
     ) -> Vec<Option<f64>> {
+        let patterns: Vec<_> = patterns.collect();
         let mut edges = self.walk.clone();
+        let mut ids = self.stops.clone();
+        let mut access = self.access.clone();
+        let mut coordinates = self.coordinates.clone();
+
+        // Proposed Metro platforms use the same access and transfer rules as catalog stops.
+        let proposed: BTreeMap<_, _> = patterns
+            .iter()
+            .filter(|pattern| pattern.mode == "metro")
+            .flat_map(|pattern| pattern.new_stops.iter())
+            .filter(|(id, _)| !ids.contains_key(*id))
+            .collect();
+        for (id, &point) in proposed {
+            let i = coordinates.len();
+            ids.insert(id.clone(), i);
+            edges.push(Vec::new());
+            for (j, &other) in coordinates.iter().enumerate() {
+                let distance = metres(point, other);
+                if distance <= TRANSFER_METRES {
+                    let minutes = distance / WALK_METRES_PER_MINUTE;
+                    edges[i].push(Edge::transfer(j, minutes));
+                    edges[j].push(Edge::transfer(i, minutes));
+                }
+            }
+            for (index, &centre) in self.communes.iter().enumerate() {
+                let distance = metres(point, centre);
+                if distance <= ACCESS_METRES {
+                    access[index].push((i, distance / WALK_METRES_PER_MINUTE));
+                }
+            }
+            coordinates.push(point);
+        }
+
         let mut schedules = Vec::new();
         for pattern in patterns {
-            // New stops (river piers, for example) are not graph nodes. The person-level rider model covers them.
-            if pattern.stop_ids.iter().any(|id| !self.stops.contains_key(id)) {
+            // Custom bus and boat stops still use the separate rider model.
+            if pattern.stop_ids.iter().any(|id| {
+                if pattern.mode == "metro" {
+                    !ids.contains_key(id)
+                } else {
+                    !self.stops.contains_key(id)
+                }
+            }) {
                 continue;
             }
             for schedule in pattern.schedules.iter() {
@@ -125,7 +168,7 @@ impl Routing {
                 schedules.push(&schedule.starts);
                 edges.resize_with(first + 2 * pattern.stop_ids.len(), Vec::new);
                 for (i, id) in pattern.stop_ids.iter().enumerate() {
-                    let stop = self.stops[id];
+                    let stop = ids[id];
                     let arrival = first + 2 * i;
                     let departure = arrival + 1;
                     let [arrive, leave] = schedule.calls[i];
@@ -152,10 +195,10 @@ impl Routing {
                 }
             }
         }
-        let mut matrix = Vec::with_capacity(self.access.len().pow(2));
-        for (origin, sources) in self.access.iter().enumerate() {
+        let mut matrix = Vec::with_capacity(access.len().pow(2));
+        for (origin, sources) in access.iter().enumerate() {
             let distances = shortest(&edges, &schedules, sources);
-            for (destination, stops) in self.access.iter().enumerate() {
+            for (destination, stops) in access.iter().enumerate() {
                 let best = stops
                     .iter()
                     .map(|&(stop, egress)| distances[stop][1] + egress)
