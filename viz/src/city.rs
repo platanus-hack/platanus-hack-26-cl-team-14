@@ -565,7 +565,12 @@ pub(crate) fn draw_buildings(
     buildings.pending_tiles = jobs.len();
     buildings.ready = jobs.is_empty();
     jobs.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut near = false;
     for (_, tile, detail) in jobs.into_iter().take(8) {
+        // A detailed tile costs about 30 ms. Build one per frame to keep a flight smooth.
+        if detail == Some(Detail::Near) && std::mem::replace(&mut near, true) {
+            continue;
+        }
         buildings.dirty[tile] = false;
         if let Some((_, entity)) = buildings.tiles[tile].take() {
             commands.entity(entity).despawn();
