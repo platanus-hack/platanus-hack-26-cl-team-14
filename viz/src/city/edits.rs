@@ -1,7 +1,9 @@
+pub(crate) mod materialize;
+
 use super::{Buildings, NamedBuilding, SubwayView, Surface, ground::ribbon, world};
 use super::{ground::ribbon_faces, street_mask::StreetMask, streets};
 use crate::net::Scenario;
-use bevy::prelude::*;
+use bevy::{camera::primitives::{Aabb, MeshAabb}, prelude::*};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -220,24 +222,93 @@ fn landmark_offset(before: &Value, after: &Value) -> Option<Vec3> {
     .then_some(offset)
 }
 
+// Keep a building's overlays and transient copies across updates to unrelated edits.
+#[derive(Component)]
+pub(crate) struct BuildingEdit {
+    id: String,
+    solid: bool,
+}
+
+impl BuildingEdit {
+    fn new(id: &str, solid: bool) -> Self {
+        Self {
+            id: id.to_owned(),
+            solid,
+        }
+    }
+}
+
+fn tile_key(id: &str) -> Option<(usize, usize)> {
+    let (tile, index) = id.strip_prefix("mesh:")?.split_once(':')?;
+    Some((tile.parse().ok()?, index.parse().ok()?))
+}
+
+fn mesh_depth(meshes: &Assets<Mesh>, handle: &Mesh3d, bounds: Option<&Aabb>) -> f32 {
+    // A render-only mesh can already have left Assets<Mesh>; the entity retains its bounds.
+    let bounds = bounds
+        .copied()
+        .unwrap_or_else(|| meshes.get(handle).unwrap().get_aabb().unwrap());
+    2. * bounds.half_extents.y + 2.
+}
+
+// Read the same geometry, facade and activity height as the occupied tile.
+fn baseline_copy(
+    id: &str,
+    buildings: &Buildings,
+    now: f32,
+) -> Option<(Surface, Handle<StandardMaterial>)> {
+    let (tile, index) = tile_key(id)?;
+    let (from, to) = buildings.heights.scale(tile, index);
+    let height = from + (to - from) * buildings.heights.progress(now);
+    let scale = |_| (height, height);
+    let detail = buildings.tiles[tile].map_or(super::Detail::Near, |(detail, _)| detail);
+    let (mesh, mat) = match detail {
+        super::Detail::Near => (
+            super::polygon_mesh(&buildings.boxes, &buildings.polygons, tile, &scale, &HashSet::new(), Some(index)),
+            &buildings.facade_material,
+        ),
+        detail => (
+            super::box_mesh(&buildings.boxes, tile, detail, &scale, &HashSet::new(), Some(index)),
+            &buildings.material,
+        ),
+    };
+    Some((mesh, mat.clone()))
+}
+
 // Every result is a full scenario. Keep only the last state of each edited object.
 pub(crate) fn refresh(
     mut commands: Commands,
     scenario: Res<Scenario>,
+    time: Res<Time>,
     mut buildings: ResMut<Buildings>,
     mode: Res<SubwayView>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    old: Query<Entity, With<EditMesh>>,
-    mut named: Query<(Entity, &NamedBuilding, Option<&super::StadiumSeating>, &mut Transform, &mut Visibility)>,
+    old: Query<(Entity, Option<&BuildingEdit>), With<EditMesh>>,
+    visuals: Query<
+        (
+            &Mesh3d,
+            &MeshMaterial3d<StandardMaterial>,
+            &Transform,
+            &Visibility,
+            Option<&Aabb>,
+        ),
+        (Without<NamedBuilding>, Without<streets::StreetTile>),
+    >,
+    mut named: Query<(
+        Entity,
+        &NamedBuilding,
+        &super::BuildingVisual,
+        Option<&super::StadiumSeating>,
+        &mut Transform,
+        &mut Visibility,
+    )>,
     mut road_tiles: Query<(&streets::StreetTile, &mut Mesh3d)>,
     mut previous_mask: ResMut<StreetMask>,
     mut origins: Local<HashMap<Entity, Vec3>>,
+    mut previous: Local<HashMap<String, Value>>,
     mut material: Local<Option<Handle<StandardMaterial>>>,
 ) {
-    for entity in &old {
-        commands.entity(entity).despawn();
-    }
     let mut final_state = BTreeMap::<(String, String), (Value, Value)>::new();
     let mut requested_moves = HashSet::new();
     for edit in scenario.0["city_edits"].as_array().into_iter().flatten() {
@@ -252,14 +323,63 @@ pub(crate) fn refresh(
             .and_modify(|state| state.1 = edit["after"].clone())
             .or_insert_with(|| (edit["before"].clone(), edit["after"].clone()));
     }
+    let current: HashMap<_, _> = final_state
+        .iter()
+        .filter(|((kind, _), _)| kind == "building")
+        .map(|((_, id), (_, after))| (id.clone(), after.clone()))
+        .collect();
+    let unchanged: HashSet<_> = current
+        .iter()
+        .filter(|(id, after)| {
+            previous.get(*id).is_some_and(|shown| {
+                shown["geometry"] == after["geometry"]
+                    && shown["properties"]["height_m"] == after["properties"]["height_m"]
+            })
+        })
+        .map(|(id, _)| id.as_str())
+        .collect();
+    // city_edits starts at the catalog baseline; the viewer may already show a later placement.
+    let mut departures = HashMap::new();
+    for ((kind, id), (before, after)) in &final_state {
+        if kind == "building" && !unchanged.contains(id.as_str()) {
+            let source = previous.get(id).unwrap_or(before);
+            if source["geometry"] != after["geometry"] {
+                departures.insert(id.as_str(), source);
+            }
+        }
+    }
+    let mut departing_mesh = HashSet::new();
+    for (entity, tag) in &old {
+        if let Some(tag) = tag {
+            if unchanged.contains(tag.id.as_str()) {
+                continue;
+            }
+            if tag.solid && departures.contains_key(tag.id.as_str()) {
+                departing_mesh.insert(tag.id.clone());
+                let (mesh, _, pose, visible, bounds) = visuals.get(entity).unwrap();
+                if *visible != Visibility::Hidden {
+                    commands
+                        .entity(entity)
+                        .insert(BuildingEdit::new(&tag.id, false));
+                    materialize::depart(
+                        &mut commands,
+                        entity,
+                        *pose,
+                        mesh_depth(&meshes, mesh, bounds),
+                    );
+                    continue;
+                }
+            }
+        }
+        commands.entity(entity).despawn();
+    }
     let hidden: HashSet<_> = final_state
         .iter()
         .filter_map(|((kind, id), (before, _))| {
             if kind != "building" || before.is_null() {
                 return None;
             }
-            let pair = id.strip_prefix("mesh:")?.split_once(':')?;
-            Some((pair.0.parse::<usize>().ok()?, pair.1.parse::<usize>().ok()?))
+            tile_key(id)
         })
         .collect();
     let changed: Vec<_> = buildings
@@ -272,13 +392,48 @@ pub(crate) fn refresh(
     }
     buildings.hidden = hidden;
     let mut moved_landmarks = HashMap::new();
-    for (entity, key, seating, mut transform, mut visibility) in &mut named {
+    for (entity, key, visual, seating, mut transform, mut visibility) in &mut named {
         let original = *origins.entry(entity).or_insert(transform.translation);
         let id = format!("mesh:{}:{}", key.0, key.1);
         let offset = final_state
             .get(&("building".to_owned(), id.clone()))
             .filter(|_| requested_moves.contains(id.as_str()))
             .and_then(|(before, after)| landmark_offset(before, after));
+        if !unchanged.contains(id.as_str())
+            && (previous.contains_key(&id) || current.contains_key(&id))
+        {
+            let (mesh, mat, child, child_visibility, bounds) = visuals.get(visual.0).unwrap();
+            if departures.contains_key(id.as_str()) && *visibility != Visibility::Hidden {
+                departing_mesh.insert(id.clone());
+                if *child_visibility != Visibility::Hidden {
+                    let rest = transform.mul_transform(*child);
+                    let copy = commands
+                        .spawn((
+                            EditMesh,
+                            BuildingEdit::new(&id, false),
+                            mesh.clone(),
+                            mat.clone(),
+                            rest,
+                        ))
+                        .id();
+                    materialize::depart(
+                        &mut commands,
+                        copy,
+                        rest,
+                        mesh_depth(&meshes, mesh, bounds) * rest.scale.y,
+                    );
+                }
+            }
+            materialize::cancel(&mut commands, visual.0);
+            if offset.is_some() && departures.contains_key(id.as_str()) {
+                materialize::arrive(
+                    &mut commands,
+                    visual.0,
+                    Transform::IDENTITY,
+                    mesh_depth(&meshes, mesh, bounds),
+                );
+            }
+        }
         transform.translation = original + offset.unwrap_or_default();
         *visibility = if offset.is_some() {
             moved_landmarks.insert(id, seating.is_some());
@@ -289,17 +444,19 @@ pub(crate) fn refresh(
             Visibility::Inherited
         };
     }
-    let mask = StreetMask::from_footprints(final_state.iter().filter_map(|((kind, id), (before, after))| {
-        if kind != "building" || after.is_null() || before["geometry"] == after["geometry"] {
-            return None;
-        }
-        let mut footprint = rings(&after["geometry"]["coordinates"]);
-        // The moved stadium's interior ring opens onto its pitch, which also occupies the site.
-        if moved_landmarks.get(id) == Some(&true) {
-            footprint.truncate(1);
-        }
-        Some(footprint)
-    }));
+    let mask = StreetMask::from_footprints(final_state.iter().filter_map(
+        |((kind, id), (before, after))| {
+            if kind != "building" || after.is_null() || before["geometry"] == after["geometry"] {
+                return None;
+            }
+            let mut footprint = rings(&after["geometry"]["coordinates"]);
+            // The moved stadium's interior ring opens onto its pitch, which also occupies the site.
+            if moved_landmarks.get(id) == Some(&true) {
+                footprint.truncate(1);
+            }
+            Some(footprint)
+        },
+    ));
     if mask != *previous_mask {
         streets::apply(&mask, &mut meshes, &mut road_tiles);
         *previous_mask = mask;
@@ -315,7 +472,43 @@ pub(crate) fn refresh(
             })
         })
         .clone();
-    for ((kind, id), (before, after)) in final_state {
+    for ((kind, id), (before, after)) in &final_state {
+        let transition = if kind == "building" {
+            departures.get(id.as_str()).copied()
+        } else {
+            None
+        };
+        if let Some(source) = transition {
+            if !source.is_null()
+                && !departing_mesh.contains(id)
+                && let Some((shape, mat)) = baseline_copy(id, &buildings, time.elapsed_secs())
+                && !shape.indices.is_empty()
+            {
+                let mesh = Mesh3d(meshes.add(shape.finish()));
+                let depth = mesh_depth(&meshes, &mesh, None);
+                let copy = commands
+                    .spawn((
+                        EditMesh,
+                        BuildingEdit::new(id, false),
+                        mesh,
+                        MeshMaterial3d(mat),
+                    ))
+                    .id();
+                materialize::depart(&mut commands, copy, Transform::IDENTITY, depth);
+            }
+            if !after.is_null() {
+                let footprint = rings(&after["geometry"]["coordinates"]);
+                let outline = materialize::outline(
+                    &mut commands,
+                    &mut meshes,
+                    path_material.clone(),
+                    &footprint,
+                );
+                commands
+                    .entity(outline)
+                    .insert((EditMesh, BuildingEdit::new(id, false)));
+            }
+        }
         if !before.is_null()
             && (after.is_null()
                 || before["geometry"] != after["geometry"]
@@ -324,7 +517,7 @@ pub(crate) fn refresh(
             if kind == "road" && after.is_null() {
                 closure_ends(&mut commands, &before["geometry"], mask);
             }
-            let shape = draw(&before, &kind, true, mask);
+            let shape = draw(before, kind, true, mask);
             if !shape.indices.is_empty() {
                 let mut entity = commands.spawn((
                     EditMesh,
@@ -343,18 +536,26 @@ pub(crate) fn refresh(
                 }
             }
         }
-        if !after.is_null() && !(kind == "building" && moved_landmarks.contains_key(&id)) {
-            let shape = draw(&after, &kind, false, mask);
+        if kind == "building" && unchanged.contains(id.as_str()) {
+            continue;
+        }
+        if !after.is_null() && !(kind == "building" && moved_landmarks.contains_key(id)) {
+            let shape = draw(after, kind, false, mask);
             if !shape.indices.is_empty() {
+                let mesh = Mesh3d(meshes.add(shape.finish()));
+                let depth = transition.map(|_| mesh_depth(&meshes, &mesh, None));
                 let mut entity = commands.spawn((
                     EditMesh,
-                    Mesh3d(meshes.add(shape.finish())),
+                    mesh,
                     MeshMaterial3d(if kind == "building" {
                         buildings.edit_material.clone()
                     } else {
                         path_material.clone()
                     }),
                 ));
+                if kind == "building" {
+                    entity.insert(BuildingEdit::new(id, true));
+                }
                 if kind == "line" && after["properties"]["mode"] == "boat" {
                     entity.insert(FerryRoute);
                 }
@@ -368,7 +569,12 @@ pub(crate) fn refresh(
                         },
                     ));
                 }
+                if let Some(depth) = depth {
+                    let id = entity.id();
+                    materialize::arrive(&mut commands, id, Transform::IDENTITY, depth);
+                }
             }
         }
     }
+    *previous = current;
 }
