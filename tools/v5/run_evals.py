@@ -67,22 +67,28 @@ def score_monumental(command):
     for case in read_json("tools/v5/monumental.json")["cases"]:
         egress = run_scenario(command, case["request"])["events"][0]["metro_egress"]
         by_station = {station["id"]: station["entries_by_half_hour"] for station in egress["stations"]}
-        print(f"Monumental {case['id']} ({case['status']})")
-        print("Station  Start  Modeled total  Observed entries  Reference entries")
-        error = no_event = observed_total = cells = 0
-        for station, bins in case["observed"].items():
-            for bin_index, observed in bins.items():
-                reference = case["control"][station][bin_index]
-                predicted = reference + by_station.get(station, {}).get(bin_index, 0)
-                error += abs(predicted - observed)
-                no_event += abs(reference - observed)
-                observed_total += observed
-                cells += 1
-                half_hour = int(bin_index)
-                time = f"{half_hour // 2:02}:{half_hour % 2 * 30:02}"
-                print(f"{station:7} {time} {predicted:14.1f} {observed:17.0f} {reference:18.0f}")
-        print(f"{cells} cells: error / observed entries = {error / observed_total:.4f}"
-              f" (no event: {no_event / observed_total:.4f})")
+        score_monumental_reference(case, by_station, case["status"], case["control"])
+        for reference in case.get("additional_references", []):
+            score_monumental_reference(case, by_station, reference["status"], reference["control"])
+
+
+def score_monumental_reference(case, by_station, status, control):
+    print(f"Monumental {case['id']} ({status})")
+    print("Station  Start  Modeled total  Observed entries  Reference entries")
+    error = no_event = observed_total = cells = 0
+    for station, bins in case["observed"].items():
+        for bin_index, observed in bins.items():
+            reference = control[station][bin_index]
+            predicted = reference + by_station.get(station, {}).get(bin_index, 0)
+            error += abs(predicted - observed)
+            no_event += abs(reference - observed)
+            observed_total += observed
+            cells += 1
+            half_hour = int(bin_index)
+            time = f"{half_hour // 2:02}:{half_hour % 2 * 30:02}"
+            print(f"{station:7} {time} {predicted:14.1f} {observed:17.0f} {reference:18.0f}")
+    print(f"{cells} cells: error / observed entries = {error / observed_total:.4f}"
+          f" (no event: {no_event / observed_total:.4f})")
 
 
 def score_april_metro(baseline, output_dir):
