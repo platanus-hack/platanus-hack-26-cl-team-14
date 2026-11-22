@@ -1,4 +1,5 @@
-//! Frame the place that the engine selected. A saved scene takes precedence over an edit.
+//! Frame the place that the engine selected. A new scene takes precedence over an edit;
+//! a scene already framed yields to a later physical edit.
 use crate::{FOV, Rig, city, net::Scenario};
 use bevy::{prelude::*, time::Real, window::PrimaryWindow};
 use serde_json::Value;
@@ -61,6 +62,7 @@ pub(super) fn select(
         previous_requests.push(request);
     }
     let scene = &result["scene"];
+    let kept_scene = scene["revision"].as_u64().is_some();
     if let Some(revision) = scene["revision"].as_u64() {
         if *previous_scene != Some(revision) {
             let place = &scene["place"];
@@ -77,12 +79,17 @@ pub(super) fn select(
                     target
                 );
             }
+            return;
         }
-        return;
+    } else {
+        *previous_scene = None;
     }
-    *previous_scene = None;
     let aspect = window.width() / window.height().max(1.);
     for change in added.into_iter().rev() {
+        // A kept scene holds its framing, except for a physical edit somewhere else.
+        if kept_scene && change["understood"]["city_edit_index"].is_null() {
+            continue;
+        }
         if change["kind"] == "event"
             && let Some(venue) = shot_position(&change["target"])
         {
