@@ -138,7 +138,7 @@ impl Population {
 }
 
 #[path = "population/household_income.rs"]
-mod household_income;
+pub mod household_income;
 
 #[path = "population/trips.rs"]
 mod trips;
