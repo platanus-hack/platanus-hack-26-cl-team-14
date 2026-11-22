@@ -171,18 +171,21 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
       ],
     };
     if (!modes.length) return [counts];
+    const hasTimes = modes.some(mode => mode.timed_workers > 0);
+    const modeCoverage = mode => `${mode.mode} · ${cell(mode.timed_workers)} de ${cell(mode.workers)} con datos`;
     const timing = {
       title: `Tiempo de viaje · ${title}`, source,
-      status: !modes.some(mode => mode.timed_workers) ? 'unavailable'
-        : modes.some(mode => mode.missing_workers) ? 'partial' : 'result',
+      status: !hasTimes ? 'unavailable' : modes.some(mode => mode.missing_workers) ? 'partial' : 'result',
       unit: 'Trabajadores modelados por intervalo en minutos',
-      scope: site.time_scope, columns: ['Trabajadores'],
-      rows: modes.flatMap(mode => {
-        const label = `${mode.mode} · ${cell(mode.timed_workers)} de ${cell(mode.workers)} con datos`;
+      scope: site.time_scope,
+      coverage: hasTimes ? undefined : modes.map(modeCoverage).join('. '),
+      columns: hasTimes ? ['Trabajadores'] : [],
+      rows: hasTimes ? modes.flatMap(mode => {
+        const label = modeCoverage(mode);
         return mode.bins?.map((bin, index) => ({
           label: `${index === 0 ? label : mode.mode} · ${times(bin)}`, values: [cell(bin.workers)],
         })) ?? [{ label: `${label} · tiempo no disponible`, values: ['—'] }];
-      }),
+      }) : [],
     };
     return [counts, timing];
   });
