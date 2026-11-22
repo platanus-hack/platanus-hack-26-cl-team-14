@@ -33,7 +33,7 @@ impl Plugin for MiniatureCamera {
             .insert_resource(WinitSettings::continuous())
             .insert_resource(ClearColor(DAY_SKY))
             .add_systems(Startup, setup)
-            .add_systems(Update, (city::paper_light, city::fade_outskirts).chain())
+            .add_systems(Update, city::paper_light)
             .add_systems(
                 Update,
                 (

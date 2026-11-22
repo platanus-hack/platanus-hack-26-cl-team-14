@@ -1,20 +1,9 @@
 // A wash of paper over the surveyed boundary. Its width varies along each
 // side, while the innermost edge stays clear of the central street map.
 use super::{Surface, terrain};
-use bevy::{
-    light::{NotShadowCaster, NotShadowReceiver},
-    prelude::*,
-};
+use bevy::prelude::*;
 
-#[derive(Component)]
-pub(crate) struct PaperWash;
-
-pub(super) fn spawn(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    root: Entity,
-) {
+pub(super) fn wash() -> Surface {
     let bounds = terrain::extent();
     let half = bounds.half_size();
     let center = bounds.center();
@@ -63,38 +52,5 @@ pub(super) fn spawn(
             }
         }
     }
-    commands.spawn((
-        Name::new("Basin edge haze"),
-        PaperWash,
-        ChildOf(root),
-        NotShadowCaster,
-        NotShadowReceiver,
-        Mesh3d(meshes.add(surface.finish())),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: crate::DAY_SKY,
-            unlit: true,
-            alpha_mode: AlphaMode::Blend,
-            cull_mode: None,
-            ..default()
-        })),
-    ));
-}
-
-pub(crate) fn fade(
-    rig: Res<crate::Rig>,
-    sky: Res<ClearColor>,
-    mut wash: Single<(&MeshMaterial3d<StandardMaterial>, &mut Visibility), With<PaperWash>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    if !rig.is_changed() && !sky.is_changed() {
-        return;
-    }
-    let opacity = ((rig.distance - 8_000.) / 10_000.).clamp(0., 1.);
-    *wash.1 = if opacity > 0. {
-        Visibility::Inherited
-    } else {
-        Visibility::Hidden
-    };
-    let mut material = materials.get_mut(&wash.0.0).unwrap();
-    material.base_color = sky.0.with_alpha(opacity);
+    surface
 }
