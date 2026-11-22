@@ -20,6 +20,10 @@ pub struct TripGroup {
     pub count: usize,
     pub origin_cut: String,
     pub destination_cut: String,
+    /// Age band and household size of one synthetic member who lives at `origin` (see population.rs).
+    /// 255 = unknown for the corresponding trait.
+    pub age_band: u8,
+    pub household_size: u8,
 }
 
 /// JSON array `[id, signed_count_delta, flags]`. Bits 1/2 mark the origin/destination,
@@ -89,10 +93,10 @@ fn coordinates(points: &[Point]) -> Vec<[f64; 2]> {
     points.iter().map(|p| [p.longitude, p.latitude]).collect()
 }
 
-fn representatives(members: &[(u32, u32)], homes: &[[f64; 2]], jobs: &[[f64; 2]]) -> (usize, usize) {
+fn representatives(members: &[(u32, u32, u8, u8)], homes: &[[f64; 2]], jobs: &[[f64; 2]]) -> (usize, usize) {
     let mut origin = [0.0; 2];
     let mut destination = [0.0; 2];
-    for &(h, j) in members {
+    for &(h, j, ..) in members {
         let home = homes[h as usize];
         let job = jobs[j as usize];
         for k in 0..2 {
@@ -110,7 +114,7 @@ fn representatives(members: &[(u32, u32)], homes: &[[f64; 2]], jobs: &[[f64; 2]]
     let mut job = members[0].1 as usize;
     let mut home_distance = distance(homes[home], origin);
     let mut job_distance = distance(jobs[job], destination);
-    for &(h, j) in &members[1..] {
+    for &(h, j, ..) in &members[1..] {
         let hd = distance(homes[h as usize], origin);
         let jd = distance(jobs[j as usize], destination);
         if hd.total_cmp(&home_distance).is_lt() {
@@ -178,7 +182,7 @@ impl TripPlan {
             let slots = &self.slots[mode];
             if !slots.is_empty() {
                 let bin = slots.partition_point(|s| s.start <= key) - 1;
-                bins[mode][bin].push((person.home, person.dest));
+                bins[mode][bin].push((person.home, person.dest, person.age_band, person.household_size));
             }
         });
         let homes = coordinates(&pop.homes);
@@ -204,11 +208,12 @@ impl TripPlan {
             for (members, slot) in bins.iter().zip(&self.slots[mode]).filter(|(m, _)| m.len() >= 2) {
                 let (home, job) = representatives(members, &homes, &jobs);
                 let (origin, destination) = (&pop.homes[home], &pop.jobs[job]);
+                let &(.., age_band, household_size) = members.iter().find(|m| m.0 as usize == home).unwrap();
                 out.push(TripGroup {
                     id: slot.id, origin: [origin.longitude, origin.latitude],
                     destination: [destination.longitude, destination.latitude],
                     origin_cut: origin.cut.clone(), destination_cut: destination.cut.clone(),
-                    mode: MODES[mode], count: members.len(), half_hour: slot.half_hour,
+                    mode: MODES[mode], count: members.len(), half_hour: slot.half_hour, age_band, household_size,
                 });
             }
         }

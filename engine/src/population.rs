@@ -17,12 +17,18 @@ pub struct Person { pub home: u32, pub dest: u32, pub student: bool, pub mode: i
 /// Age band: 0 under 15, 1 15-24, 2 25-44, 3 45-64, 4 65+. Household size: 1-5, 5 = 5 or more.
 /// Workers carry the observed Census 2024 joint of home comuna, work comuna, mode, age and household
 /// (`person_traits_workers.csv`). Students draw both from Census students of their home comuna.
-/// `UNKNOWN` marks persons a scenario adds, whose traits no source gives.
+/// `UNKNOWN` marks a missing trait, including household size for people outside private households.
 pub const UNKNOWN: u8 = u8::MAX;
 
 pub struct Point { pub id: String, pub cut: String, pub longitude: f64, pub latitude: f64, pub weight: f64 }
 
-pub struct Population { pub homes: Vec<Point>, pub jobs: Vec<Point>, pub schools: Vec<Point>, pub persons: Vec<Person> }
+/// A resident who is neither an internal commuter nor a school student (`person_traits_residents.csv`).
+/// role: 0 under 15, 1 higher education, 2 employed without an internal commute, 3 unemployed,
+/// 4 outside the labour force, 5 unknown. No trip is modeled for them yet.
+#[derive(Clone, Copy, Deserialize)]
+pub struct Resident { pub home: u32, pub role: u8, pub age_band: u8, pub household_size: u8 }
+
+pub struct Population { pub homes: Vec<Point>, pub jobs: Vec<Point>, pub schools: Vec<Point>, pub persons: Vec<Person>, pub residents: Vec<Resident> }
 
 #[derive(Deserialize)]
 struct Block { block_id: String, cut: String, longitude: f64, latitude: f64, population: f64 }
@@ -34,6 +40,8 @@ struct School { rbd: String, cut: String, longitude: f64, latitude: f64, enrollm
 struct WorkerTraits { origin_cut: String, destination_cut: String, mode: i8, age_band: u8, household_size: u8, commuters: f64 }
 #[derive(Deserialize)]
 struct StudentTraits { cut: String, age_band: u8, household_size: u8, students: f64 }
+#[derive(Deserialize)]
+struct ResidentTraits { cut: String, role: u8, age_band: u8, household_size: u8, persons: f64 }
 #[derive(Deserialize)]
 struct SchoolOd { origin_cut: String, destination_cut: String, students: f64 }
 
@@ -113,7 +121,19 @@ impl Population {
                     age_band: s.age_band, household_size: s.household_size });
             }
         }
-        Population { homes, jobs, schools, persons }
+        // Other residents get their own home sampler, so they also cover all home points of their comuna.
+        let mut hr = Sampler::by_cut(&homes);
+        let mut residents = Vec::with_capacity(3_700_000);
+        let others: Vec<ResidentTraits> = rows(&data.join("person_traits_residents.csv"));
+        for cut in others.chunk_by(|a, b| a.cut == b.cut) {
+            let Some(home) = hr.get_mut(cut[0].cut.as_str()) else { continue };
+            // The file lists a comuna by role, age and household. Interleave them, as for workers.
+            let mut traits: Vec<(f64, &ResidentTraits)> = cut.iter().flat_map(|r| (0..r.persons as u32).map(move |_| r))
+                .enumerate().map(|(i, r)| (((i as f64 + 0.5) * trait_order).fract(), r)).collect();
+            traits.sort_by(|x, y| x.0.total_cmp(&y.0));
+            residents.extend(traits.into_iter().map(|(_, r)| Resident { home: home.take(home_step), role: r.role, age_band: r.age_band, household_size: r.household_size }));
+        }
+        Population { homes, jobs, schools, persons, residents }
     }
 }
 

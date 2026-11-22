@@ -280,7 +280,7 @@ impl Scenario {
         let t = std::time::Instant::now();
         let (c, n) = (&self.choice, self.choice.n);
         let copy = |v: &[Point]| v.iter().map(|p| Point { id: p.id.clone(), cut: p.cut.clone(), ..*p }).collect::<Vec<_>>();
-        let mut pop = Population { homes: copy(&self.pop.homes), jobs: copy(&self.pop.jobs), schools: vec![], persons: self.pop.persons.clone() };
+        let mut pop = Population { homes: copy(&self.pop.homes), jobs: copy(&self.pop.jobs), schools: vec![], persons: self.pop.persons.clone(), residents: vec![] };
         let mut minutes = c.minutes.clone();
         // Temporary line edits change mode choice only.
         let mut job_minutes = minutes.clone();
@@ -654,7 +654,7 @@ impl Scenario {
         // Both runs start with the same residents, including added and removed workers.
         let resident_reference = (window.is_some() && resident_stock_edits > 0).then(|| {
             let mut reference = Population {
-                homes: copy(&pop.homes), jobs: copy(&pop.jobs), schools: vec![], persons: pop.persons.clone(),
+                homes: copy(&pop.homes), jobs: copy(&pop.jobs), schools: vec![], persons: pop.persons.clone(), residents: vec![],
             };
             rechoose(car_choice.as_ref().unwrap_or(c), &mut reference, &weights, &job_minutes, &job_minutes, &self.placed);
             self.fine_modes.apply(&mut reference);
@@ -673,11 +673,14 @@ impl Scenario {
         // Per group: workers, changed mode, public transport (mode 2) before, left public transport.
         let mut by_trait = [[[0_u32; 4]; 5]; 2];
         for (p, &before) in pop.persons.iter().zip(&modes_before).filter(|(p, _)| !p.student && p.age_band != UNKNOWN) {
-            for (t, v) in [(0, p.age_band), (1, p.household_size - 1)] {
-                by_trait[t][v as usize][0] += 1;
-                by_trait[t][v as usize][1] += u32::from(crate::rechoose::class(p.mode) != crate::rechoose::class(before));
-                by_trait[t][v as usize][2] += u32::from(before == 2);
-                by_trait[t][v as usize][3] += u32::from(before == 2 && p.mode != 2);
+            let household = (p.household_size != UNKNOWN).then(|| p.household_size - 1);
+            for (rows, index) in by_trait.iter_mut().zip([Some(p.age_band), household]) {
+                let Some(index) = index else { continue; };
+                let counts = &mut rows[usize::from(index)];
+                counts[0] += 1;
+                counts[1] += u32::from(crate::rechoose::class(p.mode) != crate::rechoose::class(before));
+                counts[2] += u32::from(before == 2);
+                counts[3] += u32::from(before == 2 && p.mode != 2);
             }
         }
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
@@ -804,6 +807,13 @@ impl Scenario {
             "trips_delta": trip_deltas(&self.trips, &trips), "trips_base": self.trips, "trips_scenario": trips,
             "events": events,
             "shopping": self.shopping.run(&c.cuts, &c.names, &c.minutes, &minutes, &shops, &shop_sites),
+            "population": {
+                "workers": s.od.iter().sum::<f64>(), "students": pop.persons.iter().filter(|p| p.student).count(),
+                "other_residents_by_role": (["under_15", "higher_education", "employed_without_internal_commute", "unemployed", "outside_labour_force", "unknown"]
+                    .iter().enumerate().map(|(r, name)| (name.to_string(), json!(self.pop.residents.iter().filter(|x| x.role as usize == r).count()))).collect::<serde_json::Map<_, _>>()),
+                "other_residents": self.pop.residents.len(),
+                "source": "workers: Census 2024 internal commuters (mode_od.csv); students: MINEDUC 2026 enrollment (school_od.csv); other_residents: Census 2024 persons who are neither (person_traits_residents.csv). A commuting student can count as both a worker and a student. Other residents have a home and traits; no trip is modeled for them yet.",
+            },
             "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         });
@@ -815,7 +825,7 @@ impl Scenario {
                 "age_band": rows(0, ["0-14", "15-24", "25-44", "45-64", "65+"]),
                 "household_size": rows(1, ["1", "2", "3", "4", "5+"]),
             });
-            result["assumptions"].as_array_mut().unwrap().push(json!("When a mode loses places, who keeps it is a deterministic weighted draw: the weight is the Census 2024 share of that mode among workers of the same home comuna, age band and household size. mode_change_by_person follows from this rule, not from an observed response. Workers that a residents change adds are not counted."));
+            result["assumptions"].as_array_mut().unwrap().push(json!("When a mode loses places, who keeps it is a deterministic weighted draw: the weight is the Census 2024 share of that mode among workers of the same home comuna, age band and household size. Unknown household size has its own group for the draw. These workers count in age summaries only. mode_change_by_person follows from this rule, not from an observed response. Workers that a residents change adds are not counted."));
         }
         if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
         if !car_shares.is_empty() {
