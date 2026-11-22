@@ -1,5 +1,8 @@
 use bevy::{
-    core_pipeline::{Core3d, Core3dSystems, FullscreenShader, core_3d::main_transparent_pass_3d},
+    core_pipeline::{
+        Core3d, Core3dSystems, FullscreenShader,
+        core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
+    },
     prelude::*,
     render::{
         Extract, ExtractSchedule, RenderApp,
@@ -64,7 +67,9 @@ pub fn install(app: &mut App) {
         .add_systems(ExtractSchedule, extract_paper)
         .add_systems(
             Core3d,
+            // Without this order the print can run before the opaque pass, which then covers the ink.
             draw.in_set(Core3dSystems::MainPass)
+                .after(main_opaque_pass_3d)
                 .before(main_transparent_pass_3d),
         );
 }
