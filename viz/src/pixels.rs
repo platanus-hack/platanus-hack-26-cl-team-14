@@ -8,7 +8,7 @@ use bevy::{
     window::PrimaryWindow,
 };
 
-const SCALE: u32 = 2;
+const SCALE: u32 = 3;
 const SAMPLES_PER_AXIS: u32 = 2;
 const SCREEN_LAYER: RenderLayers = RenderLayers::layer(1);
 
@@ -57,14 +57,11 @@ fn setup(
     camera.1.order = -1;
     camera.2.depth_texture_usages =
         (TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING).into();
-    commands
-        .entity(camera.0)
-        .remove::<bevy::post_process::dof::DepthOfField>()
-        .insert((
-            RenderTarget::from(image.clone()),
-            Msaa::Off,
-            bevy::render::view::DebandDither::Disabled,
-        ));
+    commands.entity(camera.0).insert((
+        RenderTarget::from(image.clone()),
+        Msaa::Off,
+        bevy::render::view::DebandDither::Disabled,
+    ));
     let mut sprite = Sprite::from_image(image);
     sprite.custom_size = Some(canvas_size(size, &window));
     commands.spawn((sprite, CityCanvas, SCREEN_LAYER));
