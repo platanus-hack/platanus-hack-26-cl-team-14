@@ -26,7 +26,7 @@ const scalarChange = {
   type: 'object',
   required: ['kind', 'target', 'op', 'value'],
   properties: {
-    kind: { enum: ['jobs', 'residents', 'minutes', 'station', 'event', 'cars'], description: 'cars: household access to a car. Use target {type:"comuna",id:<home CUT>}. Use set with an absolute share (0 to 1) or multiply with a factor. Report car_mode_changes workers_base and workers_scenario by mode. Label the result exploratory and state the EOD 2012 household-access assumption and the source level returned by the engine. jobs: work places. residents: persons who live there (workers follow at the comuna rate). minutes: door-to-door travel minutes between comunas. station: close or reopen an existing Metro station, open a planned line, or open a new station at a point.' },
+    kind: { enum: ['jobs', 'residents', 'minutes', 'station', 'event', 'cars', 'shops'], description: 'shops: mapped shop points (OSM shop, mall, supermarket) that attract weekday shopping trips. Use a point or place target, op add and a whole number: negative removes the nearest shop points, positive adds shop points there. Report shopping.sites shoppers: weekday outbound shopping trips of residents, not persons. cars: household access to a car. Use target {type:"comuna",id:<home CUT>}. Use set with an absolute share (0 to 1) or multiply with a factor. Report car_mode_changes workers_base and workers_scenario by mode. Label the result exploratory and state the EOD 2012 household-access assumption and the source level returned by the engine. jobs: work places. residents: persons who live there (workers follow at the comuna rate). minutes: door-to-door travel minutes between comunas. station: close or reopen an existing Metro station, open a planned line, or open a new station at a point.' },
     target: {
       type: 'object',
       required: ['type'],
@@ -386,9 +386,9 @@ async function runScenario(args) {
       const place = places[change.target.id];
       // A named place is a job block; a residents change there would ask the engine for a home block it does not have.
       if (!place) throw new Error(`Unknown place "${change.target.id}". Known places: ${Object.keys(places).join(', ')}.`);
-      // An event needs only the place point.
-      if (change.kind === 'event') { change.target = { type: 'point', longitude: place.longitude, latitude: place.latitude }; continue; }
-      if (change.kind !== 'jobs') throw new Error(`A named place takes kind "jobs" or "event", not "${change.kind}". Use a point or a comuna for residents.`);
+      // Events and shop edits use the place point.
+      if (change.kind === 'event' || change.kind === 'shops') { change.target = { type: 'point', longitude: place.longitude, latitude: place.latitude }; continue; }
+      if (change.kind !== 'jobs') throw new Error(`A named place takes kind "jobs", "event" or "shops", not "${change.kind}". Use a point or a comuna for residents.`);
       if (!place.block) throw new Error(`Place "${change.target.id}" is unresolved for jobs: no mapped building contains its point (data/mvp/named_places.csv). The nearest modeled jobs point is ${place.nearest_m} m from the place point, in census block ${place.nearest_block}. Ask the user whether to use that block for this edit; after a yes, use {type:"block",id:"${place.nearest_block}"}.`);
       placesUsed.push({ place: change.target.id, block: place.block, status: place.status, nearby_candidate_blocks: place.nearby_candidate_blocks });
       change.target = { type: 'block', id: place.block };
@@ -432,6 +432,7 @@ function shortResult(full, asked, placesUsed) {
       .sort((a, b) => Math.abs(b.jobs_scenario - b.jobs_base) - Math.abs(a.jobs_scenario - a.jobs_base)).slice(0, 5);
     if (placesUsed.length) result.places_used = placesUsed;
     result.blocks_changed = blocks_changed.slice(0, 5);
+    if (result.shopping) result.shopping.destinations_changed = result.shopping.destinations_changed.slice(0, 5); // cached results from before #360 have no shopping
     result.omitted = 'Other stations, zones, comuna flows and trip groups are in the city view, not here. Do not describe them.';
     return result;
 }

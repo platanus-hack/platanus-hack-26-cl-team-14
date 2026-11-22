@@ -22,6 +22,9 @@ mod building_permits;
 mod attendance;
 #[path = "fans.rs"]
 mod fans;
+#[path = "shopping.rs"]
+mod shopping;
+use shopping::Shopping;
 #[path = "line_riders.rs"]
 mod line_riders;
 #[path = "scenario_stations.rs"]
@@ -75,6 +78,7 @@ pub struct Scenario {
     comunas: Vec<(f64, f64)>,
     /// Baseline workers per resident of each comuna (persons / blocks.csv population).
     ratio: Vec<f64>,
+    shopping: Shopping,
 }
 
 const ASSUMPTIONS: [&str; 10] = [
@@ -125,7 +129,8 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let mut sc = Scenario { data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
+        let shopping = Shopping::load(dir, &choice.cuts, &pop.homes, &choice.minutes);
+        let mut sc = Scenario { shopping, data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
         sc.base = sc.state(&sc.pop, &Network::new(&sc.access), &mut []);
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -309,6 +314,9 @@ impl Scenario {
         let mut city_edits = Vec::new();
         let mut car_shares = BTreeMap::new();
         let mut requests = vec![];
+        let mut shops = self.shopping.shops.clone();
+        let mut shop_sites = vec![];
+        let mut next_shop = shops.len() as u32;
 
         // Apply derived stock changes at the parent edit’s position in the request.
         let mut pending: Vec<_> = changes.iter().rev().cloned().map(|change| (change, false)).collect();
@@ -444,6 +452,25 @@ impl Scenario {
                     }
                     Err(reason) => {
                         note["reason"] = json!(reason);
+                        not_modeled.push(note);
+                    }
+                }
+                continue;
+            }
+            if raw["kind"] == "shops" {
+                let mut note = raw.clone();
+                let t = &raw["target"];
+                match (t["type"].as_str(), t["longitude"].as_f64(), t["latitude"].as_f64(), raw["op"].as_str(), raw["value"].as_f64()) {
+                    (Some("point"), Some(x), Some(y), Some("add"), Some(v)) if v.fract() == 0.0 => {
+                        let cut = self.ix(&self.cut_at(x, y));
+                        let (mut understood, points) = Shopping::edit(&mut shops, &mut next_shop, x, y, cut, v as i64);
+                        understood["comuna"] = json!(c.names[cut]);
+                        note["understood"] = understood;
+                        applied.push(note);
+                        shop_sites.push(if v < 0.0 { (x, y, points, vec![]) } else { (x, y, vec![], points) });
+                    }
+                    _ => {
+                        note["reason"] = json!("A shops change needs a point target, op add and a whole number of shop points (negative removes the nearest ones).");
                         not_modeled.push(note);
                     }
                 }
@@ -809,6 +836,7 @@ impl Scenario {
             "blocks_changed": blocks, "blocks_changed_total": blocks_total,
             "trips_delta": trip_deltas(&self.trips, &trips), "trips_base": self.trips, "trips_scenario": trips,
             "events": events,
+            "shopping": self.shopping.run(&c.cuts, &c.names, &c.minutes, &minutes, &shops, &shop_sites),
             "population": {
                 "workers": s.od.iter().sum::<f64>(), "students": pop.persons.iter().filter(|p| p.student).count(),
                 "other_residents_by_role": (["under_15", "higher_education", "employed_without_internal_commute", "unemployed", "outside_labour_force", "unknown"]
