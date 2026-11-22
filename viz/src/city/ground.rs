@@ -276,23 +276,28 @@ pub(super) fn mapped_trees(path: &Path) -> impl Iterator<Item = Mesh> {
         let seed = x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663);
         let height = 5.8 + (seed % 41) as f32 * 0.10;
         let radius = height * (0.31 + ((seed >> 8) % 8) as f32 * 0.012);
-        let right = Vec3::new(0.51, 0., -0.32).normalize() * radius;
         let up = Vec3::Y * height;
-        let first = mesh.positions.len() as u32;
         let u = (seed & 3) as f32 * 0.25;
         mesh.textured = true;
-        for (position, uv) in [
-            (base - right, [u, 1.]),
-            (base + right, [u + 0.25, 1.]),
-            (base + right + up, [u + 0.25, 0.]),
-            (base - right + up, [u, 0.]),
-        ] {
-            mesh.positions.push(position.to_array());
-            mesh.normals.push(Vec3::Y.to_array());
-            mesh.colors.push([1.; 4]);
-            mesh.uvs.push(uv);
+        // Three crossed cards at 60° give the canopy volume from any camera angle.
+        let turn = (seed >> 12) as f32 * 0.001;
+        for card in 0..3 {
+            let angle = turn + card as f32 * std::f32::consts::FRAC_PI_3;
+            let right = Vec3::new(angle.cos(), 0., angle.sin()) * radius;
+            let first = mesh.positions.len() as u32;
+            for (position, uv) in [
+                (base - right, [u, 1.]),
+                (base + right, [u + 0.25, 1.]),
+                (base + right + up, [u + 0.25, 0.]),
+                (base - right + up, [u, 0.]),
+            ] {
+                mesh.positions.push(position.to_array());
+                mesh.normals.push(Vec3::Y.to_array());
+                mesh.colors.push([1.; 4]);
+                mesh.uvs.push(uv);
+            }
+            mesh.indices.extend([0, 1, 2, 0, 2, 3].map(|i| first + i));
         }
-        mesh.indices.extend([0, 1, 2, 0, 2, 3].map(|i| first + i));
     }
     tiles.into_values().map(Surface::finish)
 }
