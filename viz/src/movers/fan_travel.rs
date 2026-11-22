@@ -25,6 +25,13 @@ struct CarTrip {
     relocated: bool,
 }
 
+#[derive(Clone)]
+pub(crate) struct TimedWalk {
+    pub path: Vec<Vec3>,
+    pub start_seconds: f32,
+    pub end_seconds: f32,
+}
+
 pub(crate) struct FanGroup {
     pub home_cut: String,
     pub index: usize,
@@ -33,6 +40,7 @@ pub(crate) struct FanGroup {
     pub alight_seconds: f32,
     pub gate_seconds: f32,
     pub walk_path: Vec<Vec3>,
+    pub origin_walk: Option<TimedWalk>,
     rides: Vec<Ride>,
     car: Option<CarTrip>,
 }
@@ -231,6 +239,19 @@ fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet, relocated: bool)
         if mode == FanMode::Public && schedules.is_empty() {
             continue;
         }
+        let origin_walk = legs
+            .first()
+            .filter(|leg| mode == FanMode::Public && leg["mode"] == "walk")
+            .and_then(|leg| {
+                let coords = leg["geometry"]["coordinates"].as_array()?;
+                let start_seconds = leg["departure_seconds"].as_f64()? as f32;
+                let end_seconds = leg["arrival_seconds"].as_f64()? as f32;
+                (coords.len() >= 2 && end_seconds > start_seconds).then(|| TimedWalk {
+                    path: coords.iter().map(point).collect(),
+                    start_seconds,
+                    end_seconds,
+                })
+            });
         let styles = if road.is_some() {
             fleet.cars(home, first as u64, count)
         } else {
@@ -246,6 +267,7 @@ fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet, relocated: bool)
                 alight_seconds: lo + q * (hi - lo),
                 gate_seconds: 0.,
                 walk_path: walk_path.clone(),
+                origin_walk: origin_walk.clone(),
                 rides: Vec::new(),
                 car: None,
             };
