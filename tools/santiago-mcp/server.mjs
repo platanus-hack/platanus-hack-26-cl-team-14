@@ -1,3 +1,4 @@
+import { queryResult, queryResultTool } from './query-result.mjs';
 import { buildingPlacementChange, expandBuildingPlacements } from './building-placement.mjs';
 import { optionalAttendanceChange } from './optional-attendance.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -354,6 +355,12 @@ function editSummary({ before, after, effects, ...edit }) {
   return { ...edit, before: featureSummary(before), after: featureSummary(after), effects };
 }
 
+function publicWorkerWeights() {
+  return data('mode_od.csv').trim().split('\n').slice(1).map(row => row.split(','))
+    .filter(([origin, destination, mode, workers]) => origin.startsWith('13') && destination.startsWith('13') && mode === '2' && +workers > 0)
+    .map(([origin_cut, destination_cut, , workers]) => ({ origin_cut, destination_cut, workers: +workers }));
+}
+
 async function dispatch({ method, params }) {
   if (method === 'initialize') return {
     protocolVersion: '2024-11-05',
@@ -361,7 +368,7 @@ async function dispatch({ method, params }) {
     serverInfo: { name: 'santiago', version: '2.0.0' },
   };
   if (method === 'ping') return {};
-  const tools = [tool, sceneTool, listReplaysTool, runReplayTool, createReplayTool];
+  const tools = [tool, sceneTool, listReplaysTool, runReplayTool, createReplayTool, queryResultTool];
   if (method === 'tools/list') return { tools };
   if (method !== 'tools/call' || !tools.some(t => t.name === params?.name)) return null;
   try {
@@ -373,6 +380,15 @@ async function dispatch({ method, params }) {
     }
     let text;
     if (params.name === sceneTool.name) text = await setScene(args);
+    else if (params.name === queryResultTool.name) {
+      const { source } = args;
+      const valid = source?.type === 'current' && Object.keys(source).length === 1 ||
+        source?.type === 'replay' && typeof source.id === 'string' && Object.keys(source).length === 2;
+      if (!valid) throw new Error('Choose the current result or specify one saved replay ID.');
+      const raw = source.type === 'replay' ? readReplay(source.id).result : await engineJSON('/api/scenario-latest');
+      if (!raw) throw new Error('There is no published result. Confirm and run an experiment, or select a saved replay.');
+      text = { source, ...queryResult(raw, args, publicWorkerWeights) };
+    }
     else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
