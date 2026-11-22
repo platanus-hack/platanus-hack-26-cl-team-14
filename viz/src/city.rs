@@ -4,6 +4,7 @@ mod facade;
 mod ground;
 pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
+mod street_mask;
 mod streets;
 mod terrain;
 mod trees;
@@ -21,9 +22,14 @@ pub fn road_surface_lift(layer: i32) -> f32 {
 
 /// Local Santiago coordinates in meters. East is +X and south is +Z.
 pub fn world(lon: f64, lat: f64) -> Vec3 {
+    let Vec2 { x, y: z } = world_xz(lon, lat);
+    Vec3::new(x, terrain_from_xz(x, z), z)
+}
+
+fn world_xz(lon: f64, lat: f64) -> Vec2 {
     let x = ((lon + 70.65) * 92_915.0) as f32;
     let z = (-(lat + 33.45) * 110_905.0) as f32;
-    Vec3::new(x, terrain_from_xz(x, z), z)
+    Vec2::new(x, z)
 }
 
 use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
@@ -657,7 +663,7 @@ pub(crate) fn setup_ground(
             entity.insert(seating);
         }
     }
-    let (terrain, scenery) = ground::load_ground(Path::new("."));
+    let (terrain, scenery, bridges) = ground::load_ground(Path::new("."));
     for (name, mesh) in terrain {
         commands.spawn((
             Name::new(name),
@@ -673,9 +679,15 @@ pub(crate) fn setup_ground(
             MeshMaterial3d(mat.clone()),
         ));
     }
-    for mesh in streets::load(Path::new("web/data/road_surface.geojson.gz")) {
-        commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(street_mat.clone())));
-    }
+    streets::spawn(
+        &mut commands,
+        &mut meshes,
+        Path::new("web/data/road_surface.geojson.gz"),
+        &street_mat,
+        bridges,
+        root,
+        &mat,
+    );
     commands.insert_resource(SurfaceLayers {
         scenery: root,
         materials: [(mat, 0.045), (terrain_mat, 0.08), (street_mat, 0.32)],

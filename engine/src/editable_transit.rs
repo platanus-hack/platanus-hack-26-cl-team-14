@@ -401,34 +401,53 @@ impl LineEdits<'_> {
         }))
     }
 
-    /// Station IDs grouped by the part of the operating Metro network they reach without leaving it.
-    pub fn metro_components(&self) -> HashMap<String, usize> {
-        let mut parent: HashMap<String, String> = HashMap::new();
-        fn find(parent: &mut HashMap<String, String>, x: &str) -> String {
-            let p = parent.entry(x.to_owned()).or_insert_with(|| x.to_owned()).clone();
-            if p == x { return p; }
-            let root = find(parent, &p);
-            parent.insert(x.to_owned(), root.clone());
-            root
-        }
+    /// Scheduled Metro minutes between every pair of stations on the operating network: ride time is arrival
+    /// minus departure along one pattern; changing trains at a station costs TRANSFER_MINUTES. Unreachable pairs
+    /// are absent.
+    pub fn metro_minutes(&self) -> HashMap<String, HashMap<String, f64>> {
+        use std::cmp::Reverse;
+        // Assumed wait for another train (about half a peak headway). It is longer than any dwell, so a path
+        // that stays on board never looks cheaper by changing trains at the same station.
+        const TRANSFER_MINUTES: f64 = 2.0;
         let station = |id: &String| self.catalog.pack.stops.get(id).and_then(|s| s.parent_id.clone()).unwrap_or_else(|| id.clone());
+        // Node (station, false) = ready to board there; (station, true) = arrived there.
+        let mut edges: HashMap<(String, bool), HashMap<(String, bool), f64>> = HashMap::new();
         let active = self.catalog.pack.lines.iter()
             .filter(|(id, _)| !self.changes.contains_key(*id))
             .map(|(_, p)| p)
             .chain(self.changes.values().filter_map(Option::as_ref))
             .filter(|p| p.mode == "metro");
         for p in active {
-            for pair in p.stop_ids.windows(2) {
-                let (a, b) = (find(&mut parent, &station(&pair[0])), find(&mut parent, &station(&pair[1])));
-                if a != b { parent.insert(a, b); }
+            let calls = p.call_times();
+            for i in 0..p.stop_ids.len() {
+                for j in i + 1..p.stop_ids.len() {
+                    let best = edges.entry((station(&p.stop_ids[i]), false)).or_default()
+                        .entry((station(&p.stop_ids[j]), true)).or_insert(f64::INFINITY);
+                    *best = best.min(calls[j][0] - calls[i][1]);
+                }
             }
         }
-        let keys: Vec<String> = parent.keys().cloned().collect();
-        let mut roots: HashMap<String, usize> = HashMap::new();
-        keys.into_iter().map(|k| {
-            let r = find(&mut parent, &k);
-            let n = roots.len();
-            (k, *roots.entry(r).or_insert(n))
+        let stations: Vec<String> = edges.keys().chain(edges.values().flat_map(|e| e.keys())).map(|n| n.0.clone()).collect();
+        for s in &stations {
+            edges.entry((s.clone(), true)).or_default().insert((s.clone(), false), TRANSFER_MINUTES);
+            edges.entry((s.clone(), false)).or_default();
+        }
+        stations.iter().map(|from| {
+            let start = (from.clone(), false);
+            let mut dist: HashMap<(String, bool), f64> = HashMap::from([(start.clone(), 0.0)]);
+            let mut queue = std::collections::BinaryHeap::from([(Reverse(0u64), start)]);
+            while let Some((Reverse(d), at)) = queue.pop() {
+                let d = f64::from_bits(d);
+                if d > dist[&at] { continue; }
+                for (next, m) in &edges[&at] {
+                    let t = d + m;
+                    if dist.get(next).is_none_or(|&old| t < old) {
+                        dist.insert(next.clone(), t);
+                        queue.push((Reverse(t.to_bits()), next.clone()));
+                    }
+                }
+            }
+            (from.clone(), dist.into_iter().filter(|(n, _)| n.1).map(|(n, t)| (n.0, t)).collect())
         }).collect()
     }
 

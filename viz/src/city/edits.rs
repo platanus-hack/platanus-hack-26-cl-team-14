@@ -1,8 +1,9 @@
 use super::{Buildings, NamedBuilding, SubwayView, Surface, ground::ribbon, world};
+use super::{ground::ribbon_faces, street_mask::StreetMask, streets};
 use crate::net::Scenario;
 use bevy::prelude::*;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Component)]
 pub(crate) struct EditMesh;
@@ -33,7 +34,7 @@ pub(crate) fn ferry_routes(
 #[derive(Component)]
 pub(crate) struct ClosureEnd(Vec3);
 
-fn closure_ends(commands: &mut Commands, geometry: &Value) {
+fn closure_ends(commands: &mut Commands, geometry: &Value, mask: &StreetMask) {
     let lines = &geometry["coordinates"];
     fn ends(line: &Value) -> [&Value; 2] {
         let points = line.as_array().unwrap();
@@ -52,9 +53,13 @@ fn closure_ends(commands: &mut Commands, geometry: &Value) {
         if endpoints.iter().filter(|p| **p == *point).count() != 1 {
             continue;
         }
+        let position = world(point[0].as_f64().unwrap(), point[1].as_f64().unwrap());
+        if mask.contains(position) {
+            continue;
+        }
         commands.spawn((
             EditMesh,
-            ClosureEnd(world(point[0].as_f64().unwrap(), point[1].as_f64().unwrap())),
+            ClosureEnd(position),
             Node {
                 position_type: PositionType::Absolute,
                 width: px(16),
@@ -118,7 +123,7 @@ fn rings(value: &Value) -> Vec<Vec<Vec3>> {
         .collect()
 }
 
-fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
+fn draw(feature: &Value, kind: &str, removed: bool, mask: &StreetMask) -> Surface {
     let mut mesh = Surface::default();
     let geometry = &feature["geometry"];
     // The transparent pass lays engine edits over the printed city.
@@ -158,18 +163,15 @@ fn draw(feature: &Value, kind: &str, removed: bool) -> Surface {
                 } else {
                     points
                 };
-                ribbon(
-                    &mut mesh,
-                    &points,
-                    match (kind, removed) {
-                        ("road", true) => 4.,
-                        ("road", false) => 5.,
-                        (_, true) => 2.,
-                        _ => 3.,
-                    },
-                    if removed { 0.69 } else { 0.82 },
-                    color,
-                );
+                let lift = if removed { 0.69 } else { 0.82 };
+                if kind == "road" {
+                    let width = if removed { 4. } else { 5. };
+                    ribbon_faces(&points, width, |ring| {
+                        mask.drape(&mut mesh, &[ring], lift, color)
+                    });
+                } else {
+                    ribbon(&mut mesh, &points, if removed { 2. } else { 3. }, lift, color);
+                }
             }
         }
         _ => {}
@@ -226,8 +228,10 @@ pub(crate) fn refresh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     old: Query<Entity, With<EditMesh>>,
-    mut named: Query<(Entity, &NamedBuilding, &mut Transform, &mut Visibility)>,
-    mut origins: Local<std::collections::HashMap<Entity, Vec3>>,
+    mut named: Query<(Entity, &NamedBuilding, Option<&super::StadiumSeating>, &mut Transform, &mut Visibility)>,
+    mut road_tiles: Query<(&streets::StreetTile, &mut Mesh3d)>,
+    mut previous_mask: Local<StreetMask>,
+    mut origins: Local<HashMap<Entity, Vec3>>,
     mut material: Local<Option<Handle<StandardMaterial>>>,
 ) {
     for entity in &old {
@@ -266,8 +270,8 @@ pub(crate) fn refresh(
         buildings.dirty[tile] = true;
     }
     buildings.hidden = hidden;
-    let mut moved_landmarks = HashSet::new();
-    for (entity, key, mut transform, mut visibility) in &mut named {
+    let mut moved_landmarks = HashMap::new();
+    for (entity, key, seating, mut transform, mut visibility) in &mut named {
         let original = *origins.entry(entity).or_insert(transform.translation);
         let id = format!("mesh:{}:{}", key.0, key.1);
         let offset = final_state
@@ -276,7 +280,7 @@ pub(crate) fn refresh(
             .and_then(|(before, after)| landmark_offset(before, after));
         transform.translation = original + offset.unwrap_or_default();
         *visibility = if offset.is_some() {
-            moved_landmarks.insert(id);
+            moved_landmarks.insert(id, seating.is_some());
             Visibility::Inherited
         } else if buildings.hidden.contains(&(key.0, key.1)) {
             Visibility::Hidden
@@ -284,6 +288,22 @@ pub(crate) fn refresh(
             Visibility::Inherited
         };
     }
+    let mask = StreetMask::from_footprints(final_state.iter().filter_map(|((kind, id), (before, after))| {
+        if kind != "building" || after.is_null() || before["geometry"] == after["geometry"] {
+            return None;
+        }
+        let mut footprint = rings(&after["geometry"]["coordinates"]);
+        // The moved stadium's interior ring opens onto its pitch, which also occupies the site.
+        if moved_landmarks.get(id) == Some(&true) {
+            footprint.truncate(1);
+        }
+        Some(footprint)
+    }));
+    if mask != *previous_mask {
+        streets::apply(&mask, &mut meshes, &mut road_tiles);
+        *previous_mask = mask;
+    }
+    let mask = &*previous_mask;
     let path_material = material
         .get_or_insert_with(|| {
             materials.add(StandardMaterial {
@@ -301,9 +321,9 @@ pub(crate) fn refresh(
                 || (kind == "line" && before["properties"]["mode"] != after["properties"]["mode"]))
         {
             if kind == "road" && after.is_null() {
-                closure_ends(&mut commands, &before["geometry"]);
+                closure_ends(&mut commands, &before["geometry"], mask);
             }
-            let shape = draw(&before, &kind, true);
+            let shape = draw(&before, &kind, true, mask);
             if !shape.indices.is_empty() {
                 let mut entity = commands.spawn((
                     EditMesh,
@@ -322,8 +342,8 @@ pub(crate) fn refresh(
                 }
             }
         }
-        if !after.is_null() && !(kind == "building" && moved_landmarks.contains(&id)) {
-            let shape = draw(&after, &kind, false);
+        if !after.is_null() && !(kind == "building" && moved_landmarks.contains_key(&id)) {
+            let shape = draw(&after, &kind, false, mask);
             if !shape.indices.is_empty() {
                 let mut entity = commands.spawn((
                     EditMesh,

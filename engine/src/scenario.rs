@@ -2,6 +2,7 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
+use crate::population::household_income::{self, HouseholdIncome};
 use crate::population::{FineModes, NEW_OTHER_MODE, Person, UNKNOWN, Point, Population, TripGroup, TripPlan, person_departure, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::{EntryOrigins, StationAccess, planned::PlannedStations};
@@ -36,6 +37,8 @@ mod line_riders;
 #[path = "scenario_stations.rs"]
 mod station_changes;
 use station_changes::Network;
+#[path = "optional_attendance.rs"]
+mod optional_attendance;
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -86,7 +89,7 @@ pub struct Scenario {
     ratio: Vec<f64>,
     shopping: Shopping,
     /// Baseline optional shopping visits: eligible persons (worker indices, then other residents) and their decisions.
-    visits: OnceLock<(Vec<usize>, Vec<usize>, shopping::visits::Visits)>,
+    visits: OnceLock<(Vec<usize>, Vec<usize>, shopping::visits::Visits, Vec<[u32; 4]>)>,
 }
 
 const ASSUMPTIONS: [&str; 10] = [
@@ -233,24 +236,68 @@ impl Scenario {
     fn optional_visits(&self, pop: &Population, minutes: &[f64], unreachable: &[bool], shops: &[shopping::Shop], window: Option<(usize, usize)>, residents_changed: bool) -> Value {
         if residents_changed { return json!({ "not_modeled": "Optional visits pair the same persons before and after; a residents change adds or removes persons." }); }
         let c = &self.choice;
-        let (workers, homes, visits) = self.visits.get_or_init(|| {
+        let (workers, homes, visits, income) = self.visits.get_or_init(|| {
             let home_ix: Vec<usize> = self.pop.homes.iter().map(|h| self.ix(&h.cut)).collect();
             let workers: Vec<usize> = (0..self.pop.persons.len()).filter(|&i| !self.pop.persons[i].student).collect();
             let homes: Vec<usize> = workers.iter().map(|&i| home_ix[self.pop.persons[i].home as usize])
                 .chain(self.pop.residents.iter().map(|r| home_ix[r.home as usize])).collect();
             let visits = self.shopping.visits(c.n, &homes, &c.minutes);
-            (workers, homes, visits)
+            (workers, homes, visits, household_income::comuna_weights(&self.data_dir, &c.cuts))
         });
         let after = visits.after(shops, &c.minutes, minutes, unreachable, window);
         let mut v = shopping::visits::summary(&c.cuts, &visits.before, &after);
         v["baseline_check"] = json!({ "destination_tv_vs_shopping_layer": (visits.tv_vs_shopping_layer * 10000.0).round() / 10000.0 });
+        // Workers by imputed CASEN household income band (#497): band size and how many change. Index 4 = unmodeled.
+        // Daily round-trip cash by work mode (1 car, 2 public, 3 walk, 4 bicycle; other = taxi/colectivo, no price).
+        // Public: Red bus fare 2026 incl. transfers (v1-optional-visit-fares.md). Car: illustrative fuel-only proxy, CNE RM
+        // gasoline 93 September 2026 1,414 CLP/l ÷ ICCT 2025 new light vehicles 16.9 km/Lge (assumed), times engine km.
+        let cash = |mode: i8, km: f64| match mode { 1 => Some(2.0 * km * 1414.0 / 16.9), 2 => Some(2.0 * 795.0), 3 | 4 => Some(0.0), _ => None };
+        let mut extra = [(0.0f64, 0u64, 0u64); 5];
+        let mut bands = [(0u64, 0u64, 0u64, 0u64, 0u32, None); 5];
+        for (k, &i) in workers.iter().enumerate() {
+            let j = match self.pop.persons[i].household_income(i, &income[homes[k]]) {
+                HouseholdIncome::Imputed { band, monthly_clp_min, monthly_clp_max, .. } => {
+                    (bands[band as usize - 1].4, bands[band as usize - 1].5) = (monthly_clp_min, monthly_clp_max);
+                    band as usize - 1
+                }
+                HouseholdIncome::Unmodeled { .. } => 4,
+            };
+            let (b, a) = (&self.pop.persons[i], &pop.persons[i]);
+            if b.mode != a.mode {
+                let km = |p: &Person, jobs: &[Point]| c.km[homes[k] * c.n + self.ix(&jobs[p.dest as usize].cut)];
+                match (cash(b.mode, km(b, &self.pop.jobs)), cash(a.mode, km(a, &pop.jobs))) {
+                    (Some(before), Some(after)) => { extra[j].0 += after - before; extra[j].1 += 1; }
+                    _ => extra[j].2 += 1,
+                }
+            }
+            let x = &mut bands[j];
+            x.0 += 1;
+            x.1 += (self.pop.persons[i].mode != pop.persons[i].mode) as u64;
+            x.2 += (visits.before[k].is_some() && after[k].is_none()) as u64;
+            x.3 += (visits.before[k] != after[k]) as u64;
+        }
+        let share = |n: u64, d: u64| (n as f64 / d.max(1) as f64 * 10000.0).round() / 100.0;
+        v["workers_by_household_income_band"] = json!({
+            "bands": bands.iter().zip(extra).enumerate().map(|(b, (&(n, mode, stopped, visit, min, max), (clp, priced, unpriced)))| json!({
+                "band": if b < 4 { json!(b + 1) } else { json!("unmodeled") },
+                "monthly_clp_min": if b < 4 { json!(min) } else { Value::Null }, "monthly_clp_max": max,
+                "workers": n, "work_mode_changed": mode, "stopped_shopping": stopped, "shopping_changed": visit,
+                "work_mode_changed_pct": share(mode, n), "stopped_shopping_pct": share(stopped, n), "shopping_changed_pct": share(visit, n),
+                "extra_cash_clp_per_workday": clp.round(), "extra_cash_clp_per_priced_changer": (clp / priced.max(1) as f64).round(),
+                // One workday of the mean change (a closure lasts one day), in November 2024 CLP (IPC 105.83 / 114.13), over the band's monthly worker-weighted median (v1-income-burden.md).
+                "extra_cash_1_day_pct_of_band_median_monthly_income": if b < 4 { json!((clp / priced.max(1) as f64 * 105.83 / 114.13 / [560_000.0, 1_030_000.0, 1_745_000.0, 3_584_702.0][b] * 100000.0).round() / 1000.0) } else { Value::Null },
+                "work_mode_changes_unpriced": unpriced,
+            })).collect::<Vec<_>>(),
+            "cash": "Illustrative daily round trip, 2026 CLP, same mode out and back: public 2 × 795 (Red bus with transfers); car, fuel-only proxy, 2 × engine comuna-pair km × 1,414 CLP/l (CNE RM gasoline 93, Sep 2026) ÷ 16.9 km/Lge (ICCT, 2025 new light vehicles of all technologies, assumed for a gasoline commuter car); walk and bicycle 0. Engine km is straight-line between comuna points (same comuna: half the distance to the nearest other comuna), not a measured trip distance. Parking, tolls and Metro peak fares (+100) are not included. Taxi/colectivo and other modes have no price and are counted as unpriced.",
+            "unit": "workers (synthetic persons with a modeled work trip); pct = count / workers in the band. Band = imputed CASEN 2024 monthly household monetary income, November 2024 CLP, drawn from the CASEN workers of the home comuna (commune is not a CASEN survey domain). Unmodeled: unknown private household or age outside the source.",
+        });
         let cut = |x: Option<u8>| x.map(|d| c.cuts[d as usize].clone());
         if let Some(k) = (0..workers.len()).find(|&k| visits.before[k] != after[k]) {
             let (b, a) = (&self.pop.persons[workers[k]], &pop.persons[workers[k]]);
             v["example_worker"] = json!({ "person": workers[k], "home_comuna": c.cuts[homes[k]],
                 "job_block_base": self.pop.jobs[b.dest as usize].id, "job_block_scenario": pop.jobs[a.dest as usize].id,
                 "work_mode_base": b.mode, "work_mode_scenario": a.mode,
-                "household_income": b.household_income(workers[k]),
+                "household_income": b.household_income(workers[k], &income[homes[k]]),
                 "spending_budget_clp": null,
                 "spending_budget_status": "Unmodeled. The aggregate choice uses a nonbinding budget.",
                 "visit_comuna_base": cut(visits.before[k]), "visit_comuna_scenario": cut(after[k]) });
@@ -362,6 +409,23 @@ impl Scenario {
         let mut point_visit_requests = Vec::new();
         while let Some((change, stock_child)) = pending.pop() {
             let raw = &change;
+            if raw["kind"] == "optional_attendance" {
+                let mut note = change.clone();
+                let receipt = serde_json::from_value::<optional_attendance::Request>(raw["request"].clone())
+                    .map_err(|_| "Supply a valid optional attendance request.")
+                    .and_then(|request| request.evaluate(&self.pop));
+                match receipt {
+                    Ok(receipt) => {
+                        note["understood"] = receipt;
+                        applied.push(note);
+                    }
+                    Err(reason) => {
+                        note["reason"] = json!(reason);
+                        not_modeled.push(note);
+                    }
+                }
+                continue;
+            }
             if raw["kind"] == "optional_point_visit" {
                 point_visit_requests.push((applied.len(), change));
                 continue;
@@ -820,19 +884,22 @@ impl Scenario {
         let mut origins = vec![EntryOrigins::default(); self.stations.len() + network.additions.len()];
         let b = &self.base;
         let mut s = self.state(&pop, &network, &mut origins);
-        // Network reach: after a line edit that splits the Metro, a station keeps only the share of its riders
-        // (weighted by baseline station entries) whose stations it still reaches on the operating Metro graph.
+        // Network reach: after a Metro line edit, a station keeps the share of its riders' destination accessibility
+        // that remains on the operating Metro graph: destinations weighted by baseline entries and by
+        // exp(-beta x scheduled minutes), with the job-choice beta that choice.rs fits on the Census.
         let mut reach = vec![];
         if let Some(edits) = &line_edits {
-            let (now, then) = (edits.metro_components(), self.lines.get().unwrap().as_ref().unwrap().edits().metro_components());
+            let (now, then) = (edits.metro_minutes(), self.lines.get().unwrap().as_ref().unwrap().edits().metro_minutes());
             if now != then {
                 let w: Vec<f64> = b.day.iter().map(|bins| bins.iter().sum()).collect();
                 let ids: Vec<&String> = self.stations.iter().map(|st| &st.0).collect();
                 let open = |d: usize| network.open.contains(ids[d]);
+                let beta = self.choice.beta;
+                let access = |times: Option<&HashMap<String, f64>>, d: usize| times.and_then(|t| t.get(ids[d])).map_or(0.0, |m| w[d] * (-beta * m).exp());
                 for (i, day) in s.day.iter_mut().enumerate().take(ids.len()) {
-                    let (Some(&c_now), Some(&c_then)) = (now.get(ids[i]), then.get(ids[i])) else { continue };
-                    let kept: f64 = (0..ids.len()).filter(|&d| d != i && open(d) && now.get(ids[d]) == Some(&c_now)).map(|d| w[d]).sum();
-                    let total: f64 = (0..ids.len()).filter(|&d| d != i && then.get(ids[d]) == Some(&c_then)).map(|d| w[d]).sum();
+                    let Some(base) = then.get(ids[i]) else { continue };
+                    let kept: f64 = (0..ids.len()).filter(|&d| d != i && open(d)).map(|d| access(now.get(ids[i]), d)).sum();
+                    let total: f64 = (0..ids.len()).filter(|&d| d != i).map(|d| access(Some(base), d)).sum();
                     let r = kept / total;
                     day.iter_mut().for_each(|x| *x *= r);
                     reach.push(json!({"id": ids[i], "reach": (r * 1000.0).round() / 1000.0}));
@@ -935,7 +1002,7 @@ impl Scenario {
                 "other_residents_by_role": (["under_15", "higher_education", "employed_without_internal_commute", "unemployed", "outside_labour_force", "unknown"]
                     .iter().enumerate().map(|(r, name)| (name.to_string(), json!(self.pop.residents.iter().filter(|x| x.role as usize == r).count()))).collect::<serde_json::Map<_, _>>()),
                 "other_residents": self.pop.residents.len(),
-                "source": "workers: Census 2024 internal commuters (mode_od.csv); students: MINEDUC 2026 enrollment (school_od.csv); other_residents: Census 2024 persons who are neither an internal commuter nor attend basic or secondary school (Census attendance, person_traits_residents.csv). The MINEDUC student count and the Census exclusion cover different school levels, and a commuting student can count as both a worker and a student, so the three groups can overlap. Other residents have a home and traits; their only modeled trip is the optional shopping visit (optional_visits).",
+                "source": "workers: Census 2024 internal commuters (mode_od.csv); students: MINEDUC 2026 enrollment (school_od.csv) plus 69.6 % of Census higher-education residents, placed at SIES 2026 campuses by in-person + hybrid registrations and travel time from the home comuna, with the work destination beta (higher_ed.csv, choice.rs; assumption: students weigh time like workers); the 69.6 % is the in-person + hybrid share of registrations, used as the weekday travel share: an unverified assumption, not a measured attendance; other_residents: Census 2024 persons who are neither an internal commuter nor attend basic or secondary school (Census attendance, person_traits_residents.csv). The MINEDUC student count and the Census exclusion cover different school levels, and a commuting student can count as both a worker and a student, so the three groups can overlap. Other residents have a home and traits; their only modeled trip is the optional shopping visit (optional_visits).",
             },
             "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,
@@ -954,7 +1021,7 @@ impl Scenario {
         if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
         if !reach.is_empty() {
             result["metro_reach"] = json!(reach);
-            result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a line edit splits the Metro, each station's entries are multiplied by the share of baseline entries at the other open stations it still reaches on the operating Metro graph. Riders who lose reach leave the Metro (bus or other); they are not counted at another station."));
+            result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a Metro line edit, each station's entries are multiplied by its remaining accessibility: the other open stations weighted by baseline entries and exp(-beta x scheduled Metro minutes), divided by the same sum on the baseline network. beta is the job-choice coefficient fitted on the Census. Changing trains costs an assumed 2 minutes; the first wait is not counted. Riders who lose accessibility leave the Metro (bus or other); they are not counted at another station."));
         }
         if !car_shares.is_empty() {
             let cars = self.car_ownership.as_ref().unwrap();

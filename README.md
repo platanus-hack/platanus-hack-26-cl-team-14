@@ -71,6 +71,8 @@ On first use, the launcher opens the selected CLI in a private Santiago folder b
 
 The launcher starts the engine on port 8787 and opens the native city window. When “Enter para empezar” appears, press Enter to enter Santiago and open the chat on the right. Drag to pan and scroll to zoom. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
 
+The six saved pitch replays are in [data/replays](data/replays/README.md). The replay guide gives the presenter setup and the exact chat question.
+
 ### Native city data credits
 
 - Map geometry © OpenStreetMap contributors, licensed under the Open Database License 1.0. [Copyright and attribution](https://www.openstreetmap.org/copyright)
