@@ -101,7 +101,7 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             band.spawn((
                 CaptionText,
                 Text::default(),
-                TextFont { font: font.into(), font_size: FontSize::Px(68.), ..default() },
+                TextFont { font: font.into(), font_size: FontSize::Px(52.), ..default() },
                 TextColor(Color::WHITE),
                 Node { margin: UiRect::axes(px(40), px(26)), ..default() },
             ));
