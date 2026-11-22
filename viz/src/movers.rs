@@ -51,7 +51,7 @@ impl Plugin for MoversPlugin {
             .init_resource::<Replay>()
             .init_resource::<fan_travel::FanJourneys>()
             .add_systems(Update, fan_travel::refresh.in_set(fan_travel::RefreshFanJourneys).after(read_result).before(draw))
-            .add_systems(Update, (read_result, draw, stations::position_closed_signs).chain());
+            .add_systems(Update, (read_result.after(crate::city::edits::refresh), draw, stations::position_closed_signs).chain());
     }
 }
 
@@ -606,6 +606,7 @@ enum Paint {
 
 #[derive(Resource, Default)]
 struct Replay {
+    stadium: Option<street_people::AccessFootprint>,
     base_bus_loads: Option<bus_load::BaseBusLoads>,
     road_edits: road_edits::TrafficEdits,
     departures: Vec<Vec<Group>>,
@@ -619,6 +620,7 @@ struct Replay {
 fn read_result(
     mut commands: Commands,
     signs: Query<Entity, With<stations::StationPin>>,
+    bowls: Query<(&crate::city::NamedBuilding, &crate::city::StadiumSeating, &Transform, &Visibility)>,
     mut base_access: Local<Option<Value>>,
     time: Res<Time>,
     rate: Res<PlaybackRate>,
@@ -631,6 +633,11 @@ fn read_result(
     if !result.is_changed() || result.0.is_null() {
         return;
     }
+    // Named meshes start at x=z=0. City edits translate the bowl only for an accepted move.
+    replay.stadium = bowls.iter().find_map(|(key, bowl, transform, visibility)| {
+        (key.is_monumental() && *visibility != Visibility::Hidden && transform.translation.xz() != Vec2::ZERO)
+            .then(|| street_people::AccessFootprint::from_rim(&bowl.outer, transform))
+    });
     let r = &result.0;
     replay.road_edits = road_edits::TrafficEdits::from_result(r, &mut road_catalog);
     let metro_removed = r["applied"].as_array().into_iter().flatten().any(|change| {
@@ -1395,7 +1402,7 @@ fn draw(
         }
     }
     for station in &replay.platforms {
-        station.draw(now, subway.0, eye, rig.distance, &visible, &mut place);
+        station.draw(now, subway.0, eye, rig.distance, replay.stadium.as_ref(), &visible, &mut place);
     }
     for batch in pool.0.values() {
         for &id in &batch.entities[batch.used..] {

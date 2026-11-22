@@ -58,6 +58,7 @@ impl FanJourneys {
         size_at: &impl Fn(Vec3) -> f32,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
+        let mut aboard = HashMap::<RideKey, f64>::new();
         for group in self.0.iter().flatten() {
             if let Some(car) = &group.car
                 && (car.start..car.end).contains(&now)
@@ -81,24 +82,29 @@ impl FanJourneys {
                     );
                 }
             }
-            // Interior marks use the ordinary traffic's passenger sample weight.
-            let samples = (group.people / PERSONS_PER_MOVER).round().max(1.) as usize;
             for ride in &group.rides {
-                if !(ride.board..ride.alight).contains(&now) {
-                    continue;
+                if (ride.board..ride.alight).contains(&now) {
+                    *aboard.entry(ride.key).or_default() += group.people;
                 }
-                match ride.key {
-                    RideKey::Metro { track, run } => {
-                        if let Some(train) = trains[track].iter_mut().find(|t| t.run_index == run) {
-                            train.riders += samples;
-                        }
+            }
+        }
+        // Quantize once per service so several small groups share a passenger mark.
+        for (service, people) in aboard {
+            let marks = (people / PERSONS_PER_MOVER).round() as usize;
+            if marks == 0 {
+                continue;
+            }
+            match service {
+                RideKey::Metro { track, run } => {
+                    if let Some(train) = trains[track].iter_mut().find(|t| t.run_index == run) {
+                        train.riders += marks;
                     }
-                    RideKey::Surface { template, start } => {
-                        buses
-                            .entry((template, start))
-                            .or_insert((Paint::Plain, 0))
-                            .1 += samples;
-                    }
+                }
+                RideKey::Surface { template, start } => {
+                    buses
+                        .entry((template, start))
+                        .or_insert((Paint::Plain, 0))
+                        .1 += marks;
                 }
             }
         }
@@ -159,17 +165,16 @@ fn schedule(legs: &[Value], index: usize, routes: &Routes) -> Option<(Vec<Ride>,
 
 fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet) -> Vec<FanGroup> {
     let mut result = Vec::new();
-    let mut mass: f64 = 0.;
     for row in event["itineraries"].as_array().into_iter().flatten() {
         let Some(people) = row["people"].as_f64() else {
             continue;
         };
-        let first = (mass / PEOPLE_PER_GROUP).round() as usize;
-        mass += people;
-        let last = (mass / PEOPLE_PER_GROUP).round() as usize;
-        if last == first || row["status"] != "routed" {
+        if people <= 0. || row["status"] != "routed" {
             continue;
         }
+        // Each routed origin appears, including those below the target figure weight.
+        let count = (people / PEOPLE_PER_GROUP).round().max(1.) as usize;
+        let first = result.len();
         let Some(legs) = row["legs"].as_array() else {
             continue;
         };
@@ -226,17 +231,17 @@ fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet) -> Vec<FanGroup>
             continue;
         }
         let styles = if road.is_some() {
-            fleet.cars(home, first as u64, last - first)
+            fleet.cars(home, first as u64, count)
         } else {
             Vec::new()
         };
-        for (copy, index) in (first..last).enumerate() {
-            let q = (copy as f32 + 0.5) / (last - first) as f32;
+        for copy in 0..count {
+            let q = (copy as f32 + 0.5) / count as f32;
             let mut group = FanGroup {
                 home_cut: home.to_owned(),
-                index,
+                index: first + copy,
                 mode,
-                people: people / (last - first) as f64,
+                people: people / count as f64,
                 alight_seconds: lo + q * (hi - lo),
                 gate_seconds: 0.,
                 walk_path: walk_path.clone(),
