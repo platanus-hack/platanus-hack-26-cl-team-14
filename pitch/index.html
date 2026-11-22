@@ -92,7 +92,11 @@
     const stage = document.querySelector('#slide');
     const back = document.querySelector('#back');
     const next = document.querySelector('#next');
-    let index = Math.max(0, slides.findIndex(slide => '#' + slide.id === location.hash));
+    let index = 0;
+
+    function openFromHash() {
+      show(slides.findIndex(slide => '#' + slide.id === location.hash));
+    }
 
     function show(target) {
       index = Math.max(0, Math.min(target, slides.length - 1));
@@ -139,7 +143,8 @@
       if (event.key === 'ArrowRight' || event.key === 'Enter') show(index + 1);
       if (event.key === 'r') show(index);
     });
-    show(index);
+    window.addEventListener('hashchange', openFromHash);
+    openFromHash();
   </script>
 </body>
 </html>

@@ -25,6 +25,23 @@
       width: min(100%, 170vh);
       margin: auto;
       display: grid;
+      gap: 2.8vh;
+    }
+    .intro h1 {
+      margin: 0 0 .14em;
+      font-size: clamp(1.5rem, min(4.1vw, 6.9vh), 5rem);
+      font-weight: 400;
+      line-height: 1.02;
+    }
+    .intro p {
+      max-width: 76ch;
+      margin: 0;
+      color: #e2e7ed;
+      font-size: clamp(1rem, min(2.25vw, 3.8vh), 2.45rem);
+      line-height: 1.16;
+    }
+    .scenarios {
+      display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       grid-template-rows: auto auto auto;
       column-gap: clamp(12px, 2vw, 38px);
@@ -35,7 +52,7 @@
       grid-row: span 3;
       grid-template-rows: subgrid;
     }
-    h1, h2 {
+    section h2 {
       align-self: end;
       margin: 0;
       padding-bottom: .12em;
@@ -71,21 +88,27 @@
 </head>
 <body>
   <main>
-    <section aria-labelledby="mapocho-question">
-      <h1 id="mapocho-question">¿Y si hubiera un ferry en el Mapocho?</h1>
-      <video id="ferry" src="media/mapocho-muelle.mp4" muted playsinline preload="auto"
-        aria-label="Embarque y zarpe del ferry simulado en el Mapocho"></video>
-      <p class="detail">Embarque y zarpe</p>
-    </section>
-    <section aria-labelledby="metro-question">
-      <h2 id="metro-question">¿Y si cerrara todo el Metro de 7 a 10?</h2>
-      <video id="metro" src="media/metro-tobalaba.mp4" muted playsinline preload="auto"
-        aria-label="Trenes en Tobalaba antes y durante el cierre simulado"></video>
-      <p class="detail">
-        <span id="metro-status">Servicio habitual</span>
-        <span id="auto-result" hidden>Salidas estimadas al trabajo en auto de 504.342 a 591.740</span>
-      </p>
-    </section>
+    <header class="intro">
+      <h1>Santiaguito, un motor urbano de propósito general</h1>
+      <p>Compara cómo cambios en la ciudad afectarían los viajes, los tiempos de traslado, los costos al cambiar de transporte y la participación en actividades.</p>
+    </header>
+    <div class="scenarios">
+      <section aria-labelledby="mapocho-question">
+        <h2 id="mapocho-question">¿Y si hubiera un ferry en el Mapocho?</h2>
+        <video id="ferry" src="media/mapocho-muelle.mp4" muted playsinline preload="auto"
+          aria-label="Embarque y zarpe del ferry simulado en el Mapocho"></video>
+        <p class="detail">Embarque y zarpe</p>
+      </section>
+      <section aria-labelledby="metro-question">
+        <h2 id="metro-question">¿Y si cerrara todo el Metro de 7 a 10?</h2>
+        <video id="metro" src="media/metro-tobalaba.mp4" muted playsinline preload="auto"
+          aria-label="Trenes en Tobalaba antes y durante el cierre simulado"></video>
+        <p class="detail">
+          <span id="metro-status">Servicio habitual</span>
+          <span id="auto-result" hidden>Salidas estimadas al trabajo en auto de 504.342 a 591.740</span>
+        </p>
+      </section>
+    </div>
   </main>
   <footer>
     © OpenStreetMap contributors · Google Research, Open Buildings 2.5D Temporal ·
