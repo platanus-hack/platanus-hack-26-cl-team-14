@@ -155,12 +155,12 @@ fn lay_flows(art: Res<Art>, journeys: Res<FanJourneys>, scenario: Res<Scenario>,
     }
     // One schematic arc per distinct last walk of public fans: from the stop they leave to the gate they reach,
     // active from the first alight to the last gate entry.
-    let mut paths = HashMap::<(u32, u32), (Vec3, Vec3, Vec3, f32, f32)>::new();
+    let mut paths = HashMap::<(usize, [u32; 4]), (Vec3, Vec3, Vec3, f32, f32)>::new();
     for (venue, event) in scenario.0["events"].as_array().into_iter().flatten().enumerate() {
         let venue_at = world(event["longitude"].as_f64().unwrap(), event["latitude"].as_f64().unwrap());
         for g in journeys.for_venue(venue).iter().filter(|g| g.mode == FanMode::Public) {
             let (a, b) = (g.walk_path[0], *g.walk_path.last().unwrap());
-            let path = paths.entry((a.x.to_bits(), a.z.to_bits())).or_insert((a, b, venue_at, f32::MAX, f32::MIN));
+            let path = paths.entry((venue, [a.x, a.z, b.x, b.z].map(f32::to_bits))).or_insert((a, b, venue_at, f32::MAX, f32::MIN));
             path.3 = path.3.min(g.alight_seconds);
             path.4 = path.4.max(g.gate_seconds);
         }
