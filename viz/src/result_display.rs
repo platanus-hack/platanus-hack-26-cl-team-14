@@ -6,7 +6,7 @@ use bevy::{
     window::PrimaryWindow,
 };
 use serde::Deserialize;
-use std::{env, fs, path::PathBuf, time::Duration};
+use std::{env, fs, io::ErrorKind, path::PathBuf, time::Duration};
 
 const PAPER: Color = Color::srgb(0.97, 0.95, 0.88);
 const MUTED: Color = Color::srgb(0.75, 0.81, 0.88);
@@ -20,7 +20,7 @@ impl Plugin for ResultDisplayPlugin {
             app.insert_resource(Feed {
                 path: path.into(),
                 timer: Timer::new(Duration::from_millis(250), TimerMode::Repeating),
-                previous: Vec::new(),
+                previous: None,
                 dismissed: false,
             })
             .add_systems(Update, (read_receipt, interact).chain());
@@ -41,13 +41,26 @@ struct Body;
 struct Feed {
     path: PathBuf,
     timer: Timer,
-    previous: Vec<u8>,
+    previous: Option<Result<Vec<u8>, ErrorKind>>,
     dismissed: bool,
 }
 
 #[derive(Deserialize)]
 struct Receipt {
+    receipt_id: String,
     cards: Vec<Card>,
+}
+
+impl Receipt {
+    fn valid(&self) -> bool {
+        !self.receipt_id.is_empty()
+            && self.cards.iter().all(|card| {
+                let has_values = matches!(card.status, Status::Result | Status::Partial);
+                card.rows
+                    .iter()
+                    .all(|row| has_values && row.values.len() == card.columns.len().max(1))
+            })
+    }
 }
 
 #[derive(Deserialize)]
@@ -114,16 +127,20 @@ fn read_receipt(
     if !feed.timer.tick(time.delta()).just_finished() {
         return;
     }
-    let Ok(bytes) = fs::read(&feed.path) else {
-        return;
-    };
-    if bytes == feed.previous {
+    let snapshot = fs::read(&feed.path).map_err(|error| error.kind());
+    if feed.previous.as_ref() == Some(&snapshot) {
         return;
     }
-    let Ok(Receipt { cards }) = serde_json::from_slice(&bytes) else {
-        return;
+    // Every publication carries an ID, including a repeat of the same query.
+    let cards = match &snapshot {
+        Ok(bytes) => serde_json::from_slice::<Receipt>(bytes)
+            .ok()
+            .filter(Receipt::valid)
+            .map_or_else(unreadable_receipt, |receipt| receipt.cards),
+        Err(ErrorKind::NotFound) => Vec::new(),
+        Err(_) => unreadable_receipt(),
     };
-    feed.previous = bytes;
+    feed.previous = Some(snapshot);
     feed.dismissed = false;
     for entity in &old {
         commands.entity(entity).despawn();
@@ -203,6 +220,19 @@ fn read_receipt(
                     }
                 });
         });
+}
+
+fn unreadable_receipt() -> Vec<Card> {
+    vec![Card {
+        title: "No se pudo leer el resultado".into(),
+        source: "Consulta".into(),
+        status: Status::Unavailable,
+        unit: String::new(),
+        scope: String::new(),
+        coverage: String::new(),
+        columns: Vec::new(),
+        rows: Vec::new(),
+    }]
 }
 
 fn render_card(section: &mut ChildSpawnerCommands, card: Card) {
