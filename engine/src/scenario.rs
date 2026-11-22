@@ -714,6 +714,25 @@ impl Scenario {
         let mut origins = vec![EntryOrigins::default(); self.stations.len() + network.additions.len()];
         let b = &self.base;
         let mut s = self.state(&pop, &network, &mut origins);
+        // Network reach: after a line edit that splits the Metro, a station keeps only the share of its riders
+        // (weighted by baseline station entries) whose stations it still reaches on the operating Metro graph.
+        let mut reach = vec![];
+        if let Some(edits) = &line_edits {
+            let (now, then) = (edits.metro_components(), self.lines.get().unwrap().as_ref().unwrap().edits().metro_components());
+            if now != then {
+                let w: Vec<f64> = b.day.iter().map(|bins| bins.iter().sum()).collect();
+                let ids: Vec<&String> = self.stations.iter().map(|st| &st.0).collect();
+                let open = |d: usize| network.open.contains(ids[d]);
+                for (i, day) in s.day.iter_mut().enumerate().take(ids.len()) {
+                    let (Some(&c_now), Some(&c_then)) = (now.get(ids[i]), then.get(ids[i])) else { continue };
+                    let kept: f64 = (0..ids.len()).filter(|&d| d != i && open(d) && now.get(ids[d]) == Some(&c_now)).map(|d| w[d]).sum();
+                    let total: f64 = (0..ids.len()).filter(|&d| d != i && then.get(ids[d]) == Some(&c_then)).map(|d| w[d]).sum();
+                    let r = kept / total;
+                    day.iter_mut().for_each(|x| *x *= r);
+                    reach.push(json!({"id": ids[i], "reach": (r * 1000.0).round() / 1000.0}));
+                }
+            }
+        }
         // Outside the window the stations keep their baseline entries.
         if let Some((a, z)) = window {
             let mut reopened_origins = vec![EntryOrigins::default(); self.stations.len()];
@@ -811,6 +830,10 @@ impl Scenario {
             result["assumptions"].as_array_mut().unwrap().push(json!("When a mode loses places, who keeps it is a deterministic weighted draw: the weight is the Census 2024 share of that mode among workers of the same home comuna, age band and household size. Unknown household size has its own group for the draw. These workers count in age summaries only. mode_change_by_person follows from this rule, not from an observed response. Workers that a residents change adds are not counted."));
         }
         if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
+        if !reach.is_empty() {
+            result["metro_reach"] = json!(reach);
+            result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a line edit splits the Metro, each station's entries are multiplied by the share of baseline entries at the other open stations it still reaches on the operating Metro graph. Riders who lose reach leave the Metro (bus or other); they are not counted at another station."));
+        }
         if !car_shares.is_empty() {
             let cars = self.car_ownership.as_ref().unwrap();
             let counts = |[public, car, other]: [u32; 3]| json!({
