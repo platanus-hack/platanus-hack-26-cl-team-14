@@ -10,49 +10,52 @@
   body {
     margin: 0;
     overflow: hidden;
-    color: #f1eee5;
-    font: 14px system-ui, sans-serif;
+    color: #eceaf4;
+    font: 16px system-ui, sans-serif;
   }
   .panel {
     display: flex;
     flex-direction: column;
     height: 100dvh;
-    background: rgba(17, 30, 49, .94);
-    border: 1px solid #60758a;
-    border-radius: 10px 0 0 10px;
+    background: rgba(14, 16, 28, .93);
+    border-left: 2px solid #8d93c9;
     overflow: hidden;
   }
   header {
     display: flex;
-    flex: 0 0 34px;
+    flex: 0 0 38px;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
   }
-  header strong { margin-left: 10px; font-size: 15px; font-weight: 650; }
+  header strong { display: none; }
   button {
     width: 106px;
     min-height: 30px;
     padding: 0;
-    color: inherit;
-    background: #23364d;
-    border: 1px solid #60758a;
-    border-radius: 6px;
-    font: inherit;
+    color: #b9bde0;
+    background: none;
+    border: 0;
+    font: 500 14px system-ui, sans-serif;
+    letter-spacing: .02em;
     cursor: pointer;
   }
-  button:hover { background: #334b63; }
-  button:focus-visible { outline: 2px solid #a9d8d1; outline-offset: 2px; }
-  .panel.open header { border-bottom: 1px solid #465a70; }
-  .panel:not(.open) { background: none; border: 0; border-radius: 0; }
-  .panel:not(.open) header { flex-basis: 30px; justify-content: flex-end; }
-  .panel:not(.open) header strong,
+  button:hover { color: #fff; }
+  button:focus-visible { outline: 2px solid #b9bde0; outline-offset: -2px; }
+  .panel:not(.open) { background: none; border: 0; }
+  .panel:not(.open) header { flex-basis: 30px; }
+  .panel:not(.open) button {
+    color: #eceaf4;
+    background: rgba(14, 16, 28, .9);
+    border-left: 2px solid #8d93c9;
+  }
   .panel:not(.open) #grip { display: none; }
   .panel:not(.open) #terminal { visibility: hidden; }
   #terminal { flex: 1; min-height: 0; }
+  #terminal .xterm { height: 100%; padding: 4px 18px 16px 22px; }
   #grip {
     position: absolute;
     z-index: 1;
-    inset: 34px auto 0 0;
+    inset: 38px auto 0 0;
     width: 8px;
     cursor: ew-resize;
     touch-action: none;
@@ -61,13 +64,12 @@
     content: "";
     position: absolute;
     top: calc(50% - 18px);
-    left: 1px;
+    left: 2px;
     width: 3px;
-    height: 36px;
-    border-radius: 2px;
-    background: #8197aa;
+    height: 48px;
+    background: #5d6290;
   }
-  #grip:hover::after, #grip:focus-visible::after { background: #b7d8e2; }
+  #grip:hover::after, #grip:focus-visible::after { background: #b9bde0; }
   .xterm-viewport { background: transparent !important; }
   .session-brand { visibility: hidden; }
   .composer-hint { position: relative; }
@@ -76,7 +78,7 @@
     content: "›  Escribe un mensaje";
     position: absolute;
     inset: 0 auto auto 0;
-    color: #c4cfdb;
+    color: #8f93b8;
     white-space: pre;
     pointer-events: none;
   }
@@ -121,10 +123,22 @@
   const term = new Terminal({
     allowTransparency: true,
     cursorBlink: true,
-    fontFamily: 'Menlo, monospace',
-    fontSize: 15,
-    lineHeight: 1.18,
-    theme: { background: '#00000000', foreground: '#f1eee5', cursor: '#a9d8d1' }
+    fontFamily: 'ui-monospace, Menlo, monospace',
+    fontSize: 18,
+    lineHeight: 1.3,
+    // Ink palette of the city: lavender and blue accents on dark ink.
+    theme: {
+      background: '#00000000', foreground: '#eceaf4', cursor: '#b9bde0',
+      selectionBackground: '#3a3f6b',
+      black: '#1b1e33', brightBlack: '#8a8eae',
+      red: '#f08a8a', brightRed: '#ffadad',
+      green: '#8fd6b0', brightGreen: '#b3ecc9',
+      yellow: '#ecd48c', brightYellow: '#f6e5b0',
+      blue: '#8ea2ff', brightBlue: '#b4c1ff',
+      magenta: '#c9a2f0', brightMagenta: '#dcc2fa',
+      cyan: '#8fcfe6', brightCyan: '#b5e2f2',
+      white: '#d6d4e3', brightWhite: '#ffffff'
+    }
   });
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
