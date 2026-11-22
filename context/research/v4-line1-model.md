@@ -6,25 +6,30 @@ Owner: bold-boi (V1). Target and score rule: [v4-line1-interruption.md](v4-line1
 
 - `kind:line, op:"cut", target {type:"route", id:"L1"}, properties.stop_ids: [SA, MM, PV, LE-LEN, TB-TOB, GO, AL]`: all 89 Line 1 patterns split into the runs that avoid those stops (San Pablo–Baquedano, Escuela Militar–Los Dominicos). One reroute. `half_hours: [27, 29]` = 13:30–14:30, `temporary: true`.
 - Stations Salvador, Manuel Montt, Pedro de Valdivia, El Golf, Alcántara closed (`kind:station`, value 0). Los Leones and Tobalaba stay open for L6 and L4.
-- New general rule `metro_reach`: after a line edit splits the Metro graph, each station's entries are multiplied by the share of baseline entries at the other open stations it still reaches. No split → no change.
+- General rule `metro_reach`: after a Metro line edit, each station's entries are multiplied by its remaining accessibility on the operating Metro graph: other open stations weighted by baseline entries and exp(−β × scheduled minutes), over the same sum on the baseline graph. β is the job-choice coefficient that `choice.rs` fits on Census 2024 commute flows (not fitted on this event). Minutes are GTFS segments plus intermediate dwells; transfers inside a station cost zero. No Metro edit → no change.
 - Not modeled: the announced bus shuttle and parallel buses.
 
 ## Result (engine run, port 8841)
 
-| Station | Bin | Observed Mon − Thu | Predicted event − no edit |
-| --- | --- | ---: | ---: |
-| Baquedano | 13:30 | +536 | +420 |
-| Baquedano | 14:00 | +878 | +406 |
-| Escuela Militar | 13:30 | −734 | −1,091 |
-| Escuela Militar | 14:00 | −826 | −1,054 |
+Predicted event − no edit, bins 13:30 / 14:00; observed Mon 18 − Thu 21 Nov 2024.
 
-Score (sum of absolute errors / 3,368 Thursday stages): **0.348**. No-change prediction: 0.883. Lower is better.
+| Station | Observed | Predicted |
+| --- | ---: | ---: |
+| Baquedano | +536 / +878 | +359 / +347 |
+| Escuela Militar | −734 / −826 | −978 / −945 |
+| Los Leones | −655 / −471 | +263 / +254 |
+| Tobalaba | −1,000 / −931 | −354 / −342 |
 
-Reach: the east section keeps 3–5 % of its baseline destinations (EM 0.044); the rest of the network keeps 88.8 %.
+| Score (sum of absolute errors / Thursday stages; lower is better) | No change | Connectivity reach (#473) | Time-weighted reach |
+| --- | ---: | ---: | ---: |
+| 4 cells (BA, EM), denominator 3,368 | 0.883 | 0.348 | **0.318** |
+| 8 cells (+ LE, TB), denominator 9,933 | 0.607 | 0.780 | **0.398** |
+
+Reach at 13:30: Baquedano 0.841, Escuela Militar 0.102, Los Leones 0.600, Tobalaba 0.480, Los Dominicos 0.142.
 
 ## Limits
 
-- Los Leones and Tobalaba (not scored) go **up** in the model (+1,087 and +702 at 13:30) because closed-station access moves there; observed entries went down (L1 riders left). The access model does not know which line a rider uses at a shared station.
+- Los Leones still goes up (+263) where it went down (−655): closed-station access moves there, and the access model does not know which line a rider uses at a shared station.
 - The Thursday reference is a different day; the observed change is not the effect of the suspension alone.
 - A cut section reuses its pattern's departure times at its own first stop.
-- The 88.8 % reach applies to every station of the main network inside the window; no observation checks it.
+- Waits and transfer walks are not in the reach minutes.
