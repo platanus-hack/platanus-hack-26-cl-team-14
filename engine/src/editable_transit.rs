@@ -406,8 +406,8 @@ impl LineEdits<'_> {
     /// are absent.
     pub fn metro_minutes(&self) -> HashMap<String, HashMap<String, f64>> {
         use std::cmp::Reverse;
-        // Assumed wait for another train (about half a peak headway). It is longer than any dwell, so a path
-        // that stays on board never looks cheaper by changing trains at the same station.
+        // Assumed wait for another train (about half a peak headway). It removes free reboarding; a dwell longer
+        // than this (2.083 min at PEG-PZE on three L3 patterns) can still make a transfer slightly cheaper.
         const TRANSFER_MINUTES: f64 = 2.0;
         let station = |id: &String| self.catalog.pack.stops.get(id).and_then(|s| s.parent_id.clone()).unwrap_or_else(|| id.clone());
         // Node (station, false) = ready to board there; (station, true) = arrived there.
