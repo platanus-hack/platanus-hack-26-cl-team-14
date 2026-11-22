@@ -1,8 +1,8 @@
 //! Large label of a side-by-side tile, from the `label` that tools/replay-relay.mjs adds.
 use crate::{focus::{self, CueCaption, CueStep}, net::Scenario};
-use accesskit::{Node as AccessNode, Role};
+use accesskit::{Action, Node as AccessNode, NodeId, Role};
 use bevy::{
-    a11y::AccessibilityNode,
+    a11y::{AccessibilityNode, ActionRequest},
     prelude::*,
     text::FontSize,
     ui::RelativeCursorPosition,
@@ -170,15 +170,27 @@ fn show_caption(
 fn click_arrow(
     mouse: Res<ButtonInput<MouseButton>>,
     band: Single<&Visibility, With<CaptionBand>>,
-    arrows: Query<(&CueArrow, &RelativeCursorPosition)>,
+    arrows: Query<(Entity, &CueArrow, &RelativeCursorPosition)>,
+    mut actions: MessageReader<ActionRequest>,
     mut step: ResMut<CueStep>,
 ) {
-    if !mouse.just_pressed(MouseButton::Left) || **band == Visibility::Hidden {
-        return;
+    for request in actions.read() {
+        let request = &request.0;
+        if request.action == Action::Click
+            && **band != Visibility::Hidden
+            && let Some((_, arrow, _)) = arrows.iter().find(|(entity, arrow, _)| {
+                NodeId(entity.to_bits()) == request.target && step.can_step(arrow.0)
+            })
+        {
+            step.click = arrow.0;
+        }
     }
-    if let Some((arrow, _)) = arrows.iter().find(|(arrow, cursor)| {
-        step.can_step(arrow.0) && cursor.cursor_over()
-    }) {
+    if mouse.just_pressed(MouseButton::Left)
+        && **band != Visibility::Hidden
+        && let Some((_, arrow, _)) = arrows.iter().find(|(_, arrow, cursor)| {
+            step.can_step(arrow.0) && cursor.cursor_over()
+        })
+    {
         step.click = arrow.0;
     }
 }
@@ -203,8 +215,10 @@ fn style_arrows(
         }
         if enabled && accessibility.is_disabled() {
             accessibility.clear_disabled();
+            accessibility.add_action(Action::Click);
         } else if !enabled && !accessibility.is_disabled() {
             accessibility.set_disabled();
+            accessibility.remove_action(Action::Click);
         }
     }
 }
