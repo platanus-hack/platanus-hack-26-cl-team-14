@@ -55,6 +55,26 @@ Engine: main 7ff285d (includes #502). Rule parameters are unchanged. Baseline re
 - Post hoc reading, outside the frozen rule. Each station has its own noise band in bins 22–25 and 30–33: Baquedano −64 to +64, Bellas Artes −26 to +62, Parque Bustamante −45 to +29. All six observed event-bin changes are inside their bands. The cut predicts about −100 at Baquedano, −110 at Bellas Artes and −135 at Parque Bustamante, which is outside all three bands. The skip is inside the band at Baquedano and Parque Bustamante, and just outside it at Bellas Artes (−33 and −32 against −26). This reading tests the cut input, which removes L5 through trains that really ran. It does not test the reach rule with a correct input.
 - The Thursday file matches the V4 hash (`4a8fef77…`, 2,307,896 Metro rows), and Baquedano matches the V4 Thursday cells (706, 712). The Tuesday member `2024-11-19.etapas.csv.gz` has SHA-256 `afbc70d3cf040a28c3b9c4f611f11f80de77e65a397ed66c6abef5d95eb1a882` and 2,338,836 Metro rows.
 
+## Final-engine rerun
+
+Engine: `b611722bc503472996480f0fb55bc95829b7195d`. All six cells
+reproduced the table above without a new fit. The one-direction skip
+gives 173.9 / 2,605 (6.68%). The two-direction cut gives 612.1 / 2,605
+(23.50%). No change gives 121 / 2,605 (4.64%). The observed Baquedano
+changes remain inside the frozen noise range.
+
+From the repository root, run the release `scenario` binary from this SHA:
+
+```sh
+printf '%s\n' '[]' | engine/target/release/scenario data/mvp - > base.json
+engine/target/release/scenario data/mvp context/research/v5_baquedano_l5_cut.json > cut.json
+engine/target/release/scenario data/mvp context/research/v5_baquedano_l5_skip.json > skip.json
+```
+
+Run the [attached scorer](https://discord.com/channels/1573514576400752640/1573943617813348484/1573944809926828082)
+with `base.json cut.json skip.json`, in that order. The run used binary
+SHA-256 `cc51651abdabbd054f1c690b221d6e33dfb5e86530e1fe715e90a6ae385dd9e4`.
+
 ## Limits
 
 - One event that is too small to detect cannot validate or reject the reach rule. This is a negative result for the out-of-sample test.

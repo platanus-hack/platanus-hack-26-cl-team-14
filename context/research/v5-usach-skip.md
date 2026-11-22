@@ -23,6 +23,17 @@ The four open-station cells give **0.0755** for the model (229.1 / 3,035) and **
 
 In the pre-closure bins, Monday minus Thursday was +326 and +54 at Estación Central and −7 and −23 at San Alberto Hurtado. The same no-change error formula gives 410 / 7,037 = 0.0583 in those bins. Monday was already higher at Estación Central. This is a descriptive comparison on a separate event. The station profiles use April 2026 boardings. This run used the existing access rule and no 21 April 2025 counts as inputs. The day-to-day differences limit any estimate of the causal effect. [Engine data](../../engine/README.md)
 
+## Final-engine rerun
+
+Engine: `b611722bc503472996480f0fb55bc95829b7195d`. The four cells
+reproduced the table above without a new fit. The model error is
+229.1 / 3,035 (7.55%). No change gives 826 / 3,035 (27.22%).
+The two closed-station bins are zero and stay outside the score.
+
+Use the command in [Reproduce](#reproduce) with a release `scenario`
+binary from this SHA. The [run receipt and scorer](https://discord.com/channels/1573514576400752640/1573943617813348484/1573944809926828082)
+use binary SHA-256 `cc51651abdabbd054f1c690b221d6e33dfb5e86530e1fe715e90a6ae385dd9e4`.
+
 ## Reproduce
 
 Use the two dated stage members from the DTPM ZIP. Count rows with `tipo_transporte = METRO`, the local date in `tiempo_subida`, the bin in `media_hora_subida`, and the listed station in `parada_subida`. The small boarding workbook pools 21–25 April as a weekday average. [DTPM catalog](https://www.dtpm.cl/index.php/documentos/matrices-de-viaje) · [Stages ZIP](https://www.dtpm.cl/descargas/modelos_y_matrices/Tabla-de-etapas-011025.zip)
