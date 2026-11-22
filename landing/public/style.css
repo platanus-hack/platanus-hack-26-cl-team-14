@@ -1,9 +1,11 @@
+/* Same look as the app title: viz/src/boot.rs. */
 body {
   margin: 0;
   overflow: hidden;
-  background: #e9ecea;
-  color: #10181c;
-  font-family: system-ui, sans-serif;
+  background: rgb(14 16 28);
+  color: white;
+  font-family: Barlow, system-ui, sans-serif;
+  text-align: center;
 }
 
 .city {
@@ -17,66 +19,45 @@ body {
 main {
   position: relative;
   box-sizing: border-box;
-  min-height: 100svh;
+  height: 100svh;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  align-content: flex-end;
-  gap: 1.25rem 2.25rem;
-  padding: clamp(1.25rem, 4vw, 3.5rem);
+  background: rgb(14 16 28 / 46%);
 }
 
 h1 {
   margin: 0;
-  font-family: "Archivo Black", system-ui, sans-serif;
-  font-size: clamp(1.9rem, 5vw, 4.5rem);
+  font-size: 12vmin;
   font-weight: 400;
-  line-height: 0.95;
-  letter-spacing: -0.03em;
-  color: white;
-  text-transform: uppercase;
-  text-shadow: 0 0.03em 0.06em rgb(16 24 28 / 70%), 0 0 0.45em rgb(16 24 28 / 55%);
+  line-height: 1.2;
+  text-shadow: 1.5px 3px rgb(14 16 28 / 85%);
 }
-
-h1 span { opacity: 0.75; }
 
 .download {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 1.05rem 1.9rem 1.05rem 1.6rem;
-  border-radius: 0.5rem;
-  background: #10181c;
+  margin-top: 12px;
+  padding: 4px 22px;
+  background: rgb(14 16 28 / 84%);
   color: white;
-  font-size: 1.1rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: max(2.8vw, 1.4rem);
   text-decoration: none;
-  box-shadow: 0 0 0 2px rgb(255 255 255 / 85%), 0 0.6rem 2.2rem rgb(0 0 0 / 35%);
-  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.download svg {
-  width: 1.3rem;
-  height: 1.3rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.download:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 0 2px white, 0 0.9rem 2.8rem rgb(0 0 0 / 45%);
-}
-
+.download:hover,
 .download:focus-visible {
-  outline: 2px solid #10181c;
-  outline-offset: 0.35rem;
+  background: white;
+  color: rgb(14 16 28);
+  outline: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .download { transition: none; }
+footer {
+  position: fixed;
+  bottom: 0;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 24px;
+  background: rgb(14 16 28 / 90%);
+  font-size: clamp(0.7rem, 1.4vw, 27px);
+  line-height: 1.2;
 }
