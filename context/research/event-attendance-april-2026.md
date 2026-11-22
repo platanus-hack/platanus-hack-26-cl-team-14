@@ -8,7 +8,7 @@ The numerator sums the positive station contrast against its 25 Line 2 peers. Ni
 
 ## Current scenario contract
 
-The historical prediction and inverse attendance estimate used a commuter public-mode share. The current generic event preserves supplied attendance and leaves origins, modes and Metro demand unestimated unless the request supplies origin evidence. The measured boarding contrast and the separate observed-contrast template remain available. They do not establish event-attributed boardings or audience origins. [Observed-contrast contract](extra-event-contract.md)
+The historical prediction and inverse attendance estimate used a commuter public-mode share. The current generic event preserves supplied attendance and leaves modes and Metro demand unestimated. The caller can supply evidence for origins. The measured boarding contrast and the separate observed-contrast template remain available. They do not establish event-attributed boardings or audience origins. [Observed-contrast contract](extra-event-contract.md)
 
 For a fixed audience, use `kind: "event"`, `op: "set"` and a whole-person attendance in `value`. Set `assumed_end_half_hour` as metadata. For an event with relevant origin evidence, add `audience_profile: { "source": "<source citation>", "origin_shares": { "<comuna CUT>": 0.6 } }`. Shares are fractions of attendance and total at most one. Each comuna count is its share times attendance. The remainder stays in `unmodeled_attendance`. These are origins. Return destinations, modes and Metro demand are unknown. The separate explicit `audience: "colo_colo"` uses `fan_base` and keeps its own venue-specific mode estimate.
 
