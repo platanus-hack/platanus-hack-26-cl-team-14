@@ -1,10 +1,8 @@
 //! Large label of a side-by-side tile, from the `label` that tools/replay-relay.mjs adds.
 use crate::{focus::{self, CueCaption, CueStep}, net::Scenario};
+use accesskit::{Node as AccessNode, Role};
 use bevy::{
-    a11y::{
-        AccessibilityNode,
-        accesskit::{Node as AccessNode, Role},
-    },
+    a11y::AccessibilityNode,
     prelude::*,
     text::FontSize,
     ui::RelativeCursorPosition,
@@ -122,6 +120,7 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                     let mut accessibility = AccessNode::new(Role::Button);
                     accessibility.set_label(label);
                     accessibility.set_disabled();
+                    accessibility.set_hidden();
                     row.spawn((
                         CueArrow(step),
                         AccessibilityNode(accessibility),
@@ -186,8 +185,10 @@ fn click_arrow(
 
 fn style_arrows(
     step: Res<CueStep>,
+    caption: Res<CueCaption>,
     mut arrows: Query<(&CueArrow, &mut BackgroundColor, &mut AccessibilityNode)>,
 ) {
+    let hidden = caption.0.is_empty();
     for (arrow, mut background, mut accessibility) in &mut arrows {
         let enabled = step.can_step(arrow.0);
         background.set_if_neq(BackgroundColor(if enabled {
@@ -195,6 +196,11 @@ fn style_arrows(
         } else {
             Color::srgb_u8(0x64, 0x68, 0x75)
         }));
+        if hidden && !accessibility.is_hidden() {
+            accessibility.set_hidden();
+        } else if !hidden && accessibility.is_hidden() {
+            accessibility.clear_hidden();
+        }
         if enabled && accessibility.is_disabled() {
             accessibility.clear_disabled();
         } else if !enabled && !accessibility.is_disabled() {
