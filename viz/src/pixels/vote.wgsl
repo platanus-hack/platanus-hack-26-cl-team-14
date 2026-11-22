@@ -18,8 +18,16 @@ const INKS = array<u32, 14>(
 );
 const BAYER = array<u32,16>(0u,8u,2u,10u,12u,4u,14u,6u,3u,11u,1u,9u,15u,7u,13u,5u);
 
-fn ink(index: u32) -> vec3<f32> {
-    let c = INKS[index];
+// At night the saturated ultramarine reads as neon, so the dark print keeps a muted navy ramp.
+const NIGHT_INKS = array<u32, 14>(
+    0x242942u, 0x343957u, 0x50557au, 0x666d98u, 0x7a81adu, 0x9099c2u,
+    0xa9b2d6u, 0xbcc4e2u, 0xccd2e9u, 0xdadeefu, 0xe5e8f4u,
+    0xeff1f8u, 0xf5f6fbu, 0xfdfcf9u
+);
+
+fn ink(index: u32, dark: bool) -> vec3<f32> {
+    var c = INKS[index];
+    if dark { c = NIGHT_INKS[index]; }
     let s = vec3<f32>(f32((c >> 16u) & 255u), f32((c >> 8u) & 255u), f32(c & 255u)) / 255.;
     return pow((s + .055) / 1.055, vec3<f32>(2.4));
 }
@@ -96,7 +104,7 @@ fn print_city(pos: vec4<f32>, dark: bool, walls: bool) -> vec4<f32> {
         }
     }
     let shade = select(level, outline, crease || boundary);
-    let base = ink(shade);
+    let base = ink(shade, dark);
     let v = dot(base, vec3<f32>(.30,.55,.15));
     // Preserve material hue through the lightness quantization. The source water
     // is cyan-blue, distinct from the violet building ink under both lights.
@@ -107,8 +115,8 @@ fn print_city(pos: vec4<f32>, dark: bool, walls: bool) -> vec4<f32> {
     } else if distance(rgb, vec3<f32>(.0080, .0704, .0931)) < .008 {
         color = rgb;
     } else if rgb.g > 1.18*rgb.r && rgb.g > 1.05*rgb.b {
-        // Day flora is a muted matcha green.
-        color = select(vec3<f32>(.41,.56,.24), vec3<f32>(.65,1.25,.80), dark) * v;
+        // Day flora is a bright matcha green.
+        color = select(vec3<f32>(.46,.66,.15), vec3<f32>(.65,1.25,.80), dark) * v;
     } else if rgb.g > 1.9*rgb.r && rgb.b > 1.25*rgb.g {
         color = vec3<f32>(.32, .67, .95) * v;
     } else if neutral {

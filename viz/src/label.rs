@@ -9,7 +9,8 @@ use bevy::{
 };
 
 // The darkest blue-violet ink of the city print, opaque so text stays legible over white roofs.
-pub(crate) const PANEL_INK: Color = Color::srgb_u8(0x24, 0x29, 0x42);
+// The darkest ink of the print palette (pixels/vote.wgsl).
+pub(crate) const PANEL_INK: Color = Color::srgb_u8(0x10, 0x15, 0x8a);
 
 // Glass panels: a near-black tint, a bright rim and a soft shadow. White text stays legible over white roofs.
 pub(crate) const GLASS: Color = Color::srgba(0., 0., 0., 0.82);

@@ -283,7 +283,8 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
 }
 
 fn ink(alpha: f32) -> Color {
-    Color::srgba(0.055, 0.063, 0.108, alpha)
+    // A deep ultramarine, darker than the darkest map ink, so the title stays readable.
+    Color::srgba(0.031, 0.043, 0.29, alpha)
 }
 
 fn hide_hud(
