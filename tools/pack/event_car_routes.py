@@ -317,7 +317,9 @@ def pack(region, a_cache, b_cache, scratch):
         )
         times, steps = paths_to(reverse, stop, closed, points, bowl)
         routes = {}
-        for cut in sorted(e["attendees_by_return_comuna"]):
+        for cut in sorted(
+            home["cut"] for home in e["fan_base"]["by_home"] if home["car"] > 0
+        ):
             n = anchors[cut]
             path = [points[n]]
             spans = []
