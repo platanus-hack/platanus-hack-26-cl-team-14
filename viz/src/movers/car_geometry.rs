@@ -1,6 +1,6 @@
 // Restore original directed street vertices between the anchors of the published car route.
 use super::{Path, gzip_json, points};
-use bevy::prelude::Vec3;
+use bevy::prelude::{Vec3, Vec3Swizzles};
 use std::{collections::HashMap, sync::Arc};
 
 fn key(p: Vec3) -> (u32, u32) {
@@ -16,7 +16,8 @@ pub(super) fn restore<'a>(cars: impl Iterator<Item = &'a mut Arc<Path>>) {
         let lengths: Vec<_> = line
             .windows(2)
             .map(|p| {
-                length += p[0].distance(p[1]);
+                // Crossing metadata uses this same horizontal arc-length fraction.
+                length += p[0].xz().distance(p[1].xz());
                 length
             })
             .collect();
