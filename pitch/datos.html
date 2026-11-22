@@ -48,17 +48,22 @@
     /* Left: what the simulation holds. One number per line. */
     .engine p { margin-bottom: 3vh; color: #dce4ef; font-size: clamp(1rem, min(2vw, 3.6vh), 2.6rem); line-height: 1.1; }
     .engine b { display: block; color: #4aa8ff; font-weight: 400; font-size: 3.6em; line-height: .95; }
-    /* Right: one line per kind of data, with the names of its publishers. */
-    .kind { margin-bottom: 3.4vh; font-size: clamp(1rem, min(2vw, 3.6vh), 2.6rem); line-height: 1.1; }
-    .kind b { display: inline-block; min-width: 1.5em; color: #4aa8ff; font-weight: 400; }
-    .kind span { display: block; margin: .6vh 0 0 2.2em; color: #8d9aa8; font-size: .68em; white-space: nowrap; }
+    /* Right: every source, one row each, in an endless scroll. */
+    .in { height: 90vh; display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+    .scroll { overflow: hidden; min-height: 0; mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent); }
+    .list { animation: up 90s linear infinite; }
+    @keyframes up { to { transform: translateY(-50%); } }
+    .src { padding: 1.6vh 0; border-bottom: 1px solid #2c3d4f; line-height: 1.1; }
+    .src p { font-size: clamp(1rem, min(1.9vw, 3.4vh), 2.4rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .src small { display: block; margin-top: .6vh; color: #8d9aa8; font-size: clamp(.8rem, min(1.4vw, 2.6vh), 1.8rem); }
+    .src small b { color: #4aa8ff; font-weight: 400; }
     @keyframes in { to { opacity: 1; } }
   </style>
 </head>
 <body>
   <video id="fondo" src="media/santiago-fondo.mp4" muted loop autoplay playsinline oncanplay="this.playbackRate = .15"></video>
   <section class="engine">
-    <h2>En la simulación</h2>
+    <h2>Entidades en la simulación</h2>
     <p><b>7.646.602</b>personas</p>
     <p><b>739.230</b>edificios</p>
     <p><b>416</b>recorridos de micro</p>
@@ -66,29 +71,16 @@
   </section>
   <section class="in">
     <h2>A partir de <b>77 fuentes reales</b></h2>
-    <div class="kinds"></div>
+    <div class="scroll"><div class="list"></div></div>
   </section>
   <script>
     // [publisher, dataset, year, count, unit], compiled from data/mvp/README.md and context/research.
     const sources = [["INE","Censo 2024 manzanas","2024","52.646","manzanas"],["INE","Censo 2024 población","2024","7.400.741","personas"],["INE","Censo 2024 hogares","2024","2.599.621","hogares"],["INE","Censo 2024 viviendas","2024","2.763.387","viviendas"],["INE","Cartografía censal RM","2024","52.593","polígonos"],["INE","Censo 2024 matriz trabajo","2024","2.740.454","trabajadores"],["INE","Censo 2024 modo por par","2024","23.467","pares OD-modo"],["INE","Censo 2024 teletrabajo","2024","517.018","personas"],["INE","Censo 2024 estudiantes","2024","1.033.857","estudiantes"],["INE","Censo 2024 educación superior","2024","348.660","estudiantes"],["INE","Censo 2002 matriz laboral","2002","2.242.438","trabajadores"],["INE","Permisos de edificación","2010–2025","","permisos"],["INE","Permisos de circulación","2024","2.442.537","vehículos"],["INE","ENUT 2023 uso del tiempo","2023","4.191","encuestados"],["SECTRA","EOD 2012 viajes encuestados","2012","78.820","viajes"],["SECTRA","EOD 2012 viajes expandidos","2012","18.461.134","viajes/día"],["SECTRA","EOD 2012 lugares de trabajo","2012","22.703","trabajadores"],["SECTRA","EOD 2012 sábado","2012","3.638.246","viajes"],["SECTRA","Catastro de ciclovías","2026","565","km"],["DTPM","GTFS marzo 2026","2026","416","recorridos"],["DTPM","Paraderos con subidas","2026","11.931","paraderos"],["DTPM","Subidas bus abril 2026","2026","2.512.170","subidas/día"],["DTPM","Subidas Metro abril 2026","2026","2.469.425","subidas/día"],["DTPM","Viajes por propósito","2026","2.230.401","llegadas"],["DTPM","Horarios Metro","2026","3.922","salidas/día"],["DTPM","Subidas Tobalaba 2023","2023","156.106","subidas/día"],["DTPM","Extensión Línea 2","2023–2024","4","estaciones"],["DTPM","Etapas Monumental 2019","2019","3.405","entradas"],["DTPM","Cierre Metro 2019","2019","136","estaciones"],["DTPM","Interrupción Línea 1","2024","7","estaciones"],["DTPM","Programa de operación","2026","","servicios"],["Metro / SEA","Red Metro planificada","2028–2033","54","estaciones"],["CAF / Metro","Capacidad de trenes","2024","1.299","pasajeros/tren"],["OSM","Huellas de edificios","2026","279.385","huellas"],["OSM","Uso de edificios","2026","211.032","edificios"],["OSM","Vías principales","2026","2.781","km"],["OSM","Calles residenciales","2026","9.531","km"],["OSM","Ejes viales","2026","148.202","vías"],["OSM","Ciclovías mapeadas","2026","643","km"],["OSM","Árboles","2026","77.296","árboles"],["OSM","Áreas verdes","2026","20.264","polígonos"],["OSM","Comercio y servicios","2026","16.697","puntos"],["OSM","Superficies abiertas","2026","8.895","polígonos"],["OSM","Agua y puentes","2026","627","polígonos"],["OSM","Hitos de Santiago","2026","9","hitos"],["OSM / OSRM","Rutas en auto","2026","2.652","rutas"],["OSM / OSRM","Rutas en bicicleta","2026","822","rutas"],["Overture","Edificios Tobalaba","2026","31.516","polígonos"],["Google","Open Buildings 2.5D","2023","65.857","alturas"],["Copernicus","Elevación GLO-90","2021","202.501","puntos"],["ExposureModels","Modelo de exposición","2023","1.052","edificios"],["MINEDUC","Directorio de colegios","2026","3.220","colegios"],["MINEDUC","Matrícula escolar","2026","1.413.489","estudiantes"],["SIES","Matrícula superior","2026","805.359","matrículas"],["MDS","CASEN 2024","2024","19.841","casos"],["MDS","CASEN 2015 ingresos","2015","14.997","hogares"],["SII","Roles no agrícolas","2026","3.702.224","propiedades"],["SII","Superficie por uso","2016","52","comunas"],["Muni. Santiago","Uso de suelo","2021","1.458","manzanas"],["MINVU","Permisos de vivienda","2023–2025","74.192","viviendas"],["DEIS","Establecimientos de salud","2026","1.061","establecimientos"],["DEIS","Egresos hospitalarios","2025","323.211","egresos"],["Cadem","Radiografía del fútbol","2024","","hinchas"],["Muni. Pudahuel","Colores de autos","2023","29.670","autos"],["Chileautos","Avisos de autos","2026","1.000","avisos"],["acuanto.cl","Colores de autos usados","2026","53.445","avisos"],["SERNAC","Canasta despensa","2026","20","cadena-comuna"],["ODEPA","Canasta básica RM","2026","28","categorías"],["Lukisi","Canasta 17 productos","2026","17","productos"],["Prensa","MUT oficinas y locales","2024","45.765","m² oficinas"],["Prensa","Costanera Center","2023","134.000","m² comercio"],["Prensa","Superclásico 2025","2025","39.222","espectadores"],["Prensa","Colo-Colo vs O'Higgins","2019","22.217","espectadores"],["Red Bull / La Tercera","Final Movistar Arena","2026","13.000","espectadores"],["CNC / DF","Empleo en malls","2021–2024","100.000","trabajadores"],["MOP","Torres Estadio Nacional","1962","54","metros"],["OGUC","Carga de ocupación","","10","m²/trabajador"]];
-    const groups = [
-      ['Personas y hogares', '#4aa8ff', ['INE', 'MDS']],
-      ['Viajes', '#7ee2a8', ['SECTRA']],
-      ['Transporte público', '#c78ff5', ['DTPM', 'Metro / SEA', 'CAF / Metro', 'OSM / OSRM']],
-      ['Ciudad construida', '#ffb057', ['OSM', 'Overture', 'Google', 'Copernicus', 'ExposureModels', 'SII', 'Muni. Santiago', 'MINVU', 'MOP', 'OGUC']],
-      ['Educación y salud', '#ff7a5c', ['MINEDUC', 'SIES', 'DEIS']],
-    ];
-    const other = ['Eventos, comercio y autos', '', []];
-    // Count the sources of each kind and list its publishers. Show the kinds with more sources first.
-    const kinds = [...groups, other].map(g => {
-      const count = {};
-      for (const [org] of sources) if ((groups.find(k => k[2].includes(org)) || other) === g) count[org] = (count[org] || 0) + 1;
-      const orgs = Object.keys(count).sort((a, b) => count[b] - count[a]);
-      return [g[0], orgs.reduce((sum, org) => sum + count[org], 0), [...new Set(orgs.flatMap(org => org.split(' / ')))].slice(0, 5)];
-    });
-    kinds.sort((a, b) => b[1] - a[1]);
-    document.querySelector('.kinds').innerHTML = kinds.map(([name, n, orgs]) =>
-      `<p class="kind"><b>${n}</b>${name}<span>${orgs.join(' · ')}</span></p>`).join('');
+    // Each source: what it gives the simulation, then who publishes it and the year.
+    // The list is drawn two times, so the scroll can loop without a jump.
+    const rows = sources.map(([org, name, year, n, unit]) =>
+      `<div class="src"><p>${name}</p><small><b>${[n, unit].filter(Boolean).join(' ')}</b> · ${[org, year].filter(Boolean).join(' · ')}</small></div>`).join('');
+    document.querySelector('.list').innerHTML = rows + rows;
   </script>
 </body>
 </html>
