@@ -12,7 +12,7 @@ python3 -I tools/pack/eod_od_compare.py /path/to/EOD_STGO
 
 ## Method
 
-- **Model.** The engine places workers and students so that comuna flows equal `mode_od.csv` (Census 2024) and `school_od.csv` (MINEDUC 2026) exactly ([population.rs](../../engine/src/population.rs)). Higher education: the travelling share of Census higher-education residents (69.6 % = in-person + hybrid over all SIES 2026 registrations, 209,954 persons) goes to SIES campuses in proportion to in-person + hybrid registrations, independent of home comuna; a campus without a point uses its reported comuna. Each of the 45 survey comunas lies in one EOD sector ([zones.csv](../../data/mvp/eod_sectors/zones.csv)), so the sector pairs of the model follow from the comuna flows.
+- **Model.** The engine places workers and students so that comuna flows equal `mode_od.csv` (Census 2024) and `school_od.csv` (MINEDUC 2026) exactly ([population.rs](../../engine/src/population.rs)). Higher education: 69.6 % of Census higher-education residents (209,954 persons) go to SIES campuses. **Unverified assumption:** 69.6 % is the in-person + hybrid share of SIES 2026 registrations; it measures registration type, not weekday attendance. The study score below is conditional on it. The campus is drawn in proportion to in-person + hybrid registrations, independent of home comuna; a campus without a point uses its reported comuna. Each of the 45 survey comunas lies in one EOD sector ([zones.csv](../../data/mvp/eod_sectors/zones.csv)), so the sector pairs of the model follow from the comuna flows.
 
 ## Exclusions by geography
 
@@ -39,6 +39,6 @@ Work mode share (TV 0.113), model 2024 vs survey 2012: car 29.4 % / 30.6 %, publ
 ## Limits
 
 - Different years and units: Census 2024 usual workplace (one per person) vs 2012 diary trips. A survey worker can make two trips to work in one day (after lunch), which adds short trips and walking.
-- Study: before higher education was added, TV was 0.179 and Centro had 5.9 % of model study destinations vs 15.2 % in the survey. With campus trips Centro is 11.3 %. Campus choice ignores distance from home, and Norte and Ext. Sur-Poniente remain over-represented (school enrollment).
+- Study: the 0.160 score depends on the 69.6 % travel assumption above; no weekday participation estimate with its own denominator is used. Before higher education was added, TV was 0.179 and Centro had 5.9 % of model study destinations vs 15.2 % in the survey. With campus trips Centro is 11.3 %. Campus choice ignores distance from home, and Norte and Ext. Sur-Poniente remain over-represented (school enrollment).
 - Survey trips to work can start away from home; model origins are homes.
 - The score uses inputs the model was built from (Census comuna flows), so it measures agreement with an older independent survey, not prediction error. V4 owns the fixed event score.

@@ -138,8 +138,8 @@ impl Population {
             traits.sort_by(|x, y| x.0.total_cmp(&y.0));
             residents.extend(traits.into_iter().map(|(_, r)| Resident { home: home.take(home_step), role: r.role, age_band: r.age_band, household_size: r.household_size }));
         }
-        // Higher education: the travelling share of Census higher-education residents (in-person + hybrid over all
-        // SIES 2026 registrations) goes to a campus of `higher_ed.csv`, drawn region-wide in proportion to its
+        // Higher education. Unverified assumption: the in-person + hybrid share of SIES 2026 registrations (69.6 %) is
+        // the share of Census higher-education residents who travel on a weekday. That share goes to a campus of `higher_ed.csv`, drawn region-wide in proportion to its
         // in-person + hybrid registrations. A campus without a point sits at its comuna centroid (`communes.csv`).
         let mut schools = schools;
         let centroid: HashMap<String, (f64, f64)> = rows::<Commune>(&data.join("communes.csv")).into_iter().map(|c| (c.cut, (c.longitude, c.latitude))).collect();
