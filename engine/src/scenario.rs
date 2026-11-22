@@ -249,8 +249,8 @@ impl Scenario {
         v["baseline_check"] = json!({ "destination_tv_vs_shopping_layer": (visits.tv_vs_shopping_layer * 10000.0).round() / 10000.0 });
         // Workers by imputed CASEN household income band (#497): band size and how many change. Index 4 = unmodeled.
         // Daily round-trip cash by work mode (1 car, 2 public, 3 walk, 4 bicycle; other = taxi/colectivo, no price).
-        // Public: Red bus fare 2026 incl. transfers (v1-optional-visit-fares.md). Car: fuel only, CNE RM gasoline 93
-        // September 2026 1,414 CLP/l ÷ ICCT 2025 new light-vehicle 16.9 km/l, times straight-line km (both a floor).
+        // Public: Red bus fare 2026 incl. transfers (v1-optional-visit-fares.md). Car: illustrative fuel-only proxy, CNE RM
+        // gasoline 93 September 2026 1,414 CLP/l ÷ ICCT 2025 new light vehicles 16.9 km/Lge (assumed), times engine km.
         let cash = |mode: i8, km: f64| match mode { 1 => Some(2.0 * km * 1414.0 / 16.9), 2 => Some(2.0 * 795.0), 3 | 4 => Some(0.0), _ => None };
         let mut extra = [(0.0f64, 0u64, 0u64); 5];
         let mut bands = [(0u64, 0u64, 0u64, 0u64, 0u32, None); 5];
@@ -288,7 +288,7 @@ impl Scenario {
                 "extra_cash_1_day_pct_of_band_median_monthly_income": if b < 4 { json!((clp / priced.max(1) as f64 * 105.83 / 114.13 / [560_000.0, 1_030_000.0, 1_745_000.0, 3_584_702.0][b] * 100000.0).round() / 1000.0) } else { Value::Null },
                 "work_mode_changes_unpriced": unpriced,
             })).collect::<Vec<_>>(),
-            "cash": "Daily round trip, 2026 CLP: public 2 × 795 (Red bus with transfers); car fuel only, 2 × straight-line km × 1,414 CLP/l (CNE RM gasoline 93, Sep 2026) ÷ 16.9 km/l (ICCT, 2025 new light vehicles); walk and bicycle 0. Road distance, older cars, parking, tolls and Metro peak fares (+100) are not included, so car cost is a floor. Taxi/colectivo and other modes have no price and are counted as unpriced.",
+            "cash": "Illustrative daily round trip, 2026 CLP, same mode out and back: public 2 × 795 (Red bus with transfers); car, fuel-only proxy, 2 × engine comuna-pair km × 1,414 CLP/l (CNE RM gasoline 93, Sep 2026) ÷ 16.9 km/Lge (ICCT, 2025 new light vehicles of all technologies, assumed for a gasoline commuter car); walk and bicycle 0. Engine km is straight-line between comuna points (same comuna: half the distance to the nearest other comuna), not a measured trip distance. Parking, tolls and Metro peak fares (+100) are not included. Taxi/colectivo and other modes have no price and are counted as unpriced.",
             "unit": "workers (synthetic persons with a modeled work trip); pct = count / workers in the band. Band = imputed CASEN 2024 monthly household monetary income, November 2024 CLP, drawn from the CASEN workers of the home comuna (commune is not a CASEN survey domain). Unmodeled: unknown private household or age outside the source.",
         });
         let cut = |x: Option<u8>| x.map(|d| c.cuts[d as usize].clone());
