@@ -1306,10 +1306,6 @@ fn draw(
                 if !visible(pos, 100.) || (kind == Vehicle::Car && replay.road_edits.hides(pos, dir)) {
                     continue;
                 }
-                // Street movers keep their route and clock, but no one drives across a placed building at ground level.
-                if g.itineraries.is_empty() && placed.contains(pos) && !g.path.on_bridge(metres) {
-                    continue;
-                }
                 let model = match kind {
                     Vehicle::Car => Model::Car(g.cars[j]),
                     Vehicle::Bus => Model::Bus,
@@ -1330,6 +1326,10 @@ fn draw(
                 if kind == Vehicle::Car {
                     let Some(surface) = routes.water.surface_position(&g.path, metres, position, dir) else { continue; };
                     position = surface;
+                }
+                // Street movers keep their route and clock, but no one drives across a placed building at ground level.
+                if g.itineraries.is_empty() && placed.contains(position) && !g.path.on_bridge(metres) {
+                    continue;
                 }
                 let transform = pose(
                     position,
@@ -1456,3 +1456,4 @@ fn draw(
         }
     }
 }
+
