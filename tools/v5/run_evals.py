@@ -172,6 +172,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", type=Path, help="Use a prebuilt scenario binary.")
     parser.add_argument("--metro", action="store_true", help="Include April Metro and Line 2.")
+    parser.add_argument("--station-disruptions", action="store_true",
+                        help="Include Universidad de Santiago and Baquedano.")
     parser.add_argument("--population", type=Path, help="Use a prebuilt population binary for Line 2.")
     args = parser.parse_args()
     cargo = ["cargo", "run", "--quiet", "--release", "--locked",
@@ -188,6 +190,10 @@ def main():
         with TemporaryDirectory() as temp:
             score_april_metro(baseline, Path(temp))
             score_line2_opening(population, Path(temp))
+    if args.station_disruptions:
+        from station_disruptions import score_station_disruptions
+
+        score_station_disruptions(command)
     print("Mapocho: pending a measured service comparison.")
 
 
