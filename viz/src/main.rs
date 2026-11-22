@@ -6,6 +6,7 @@ mod city;
 mod focus;
 mod halos;
 mod history;
+mod result_display;
 mod label;
 mod movers;
 mod net;
@@ -191,9 +192,12 @@ fn navigate(
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<&Camera, With<Camera3d>>,
     canvas: Query<&Sprite, With<pixels::CityCanvas>>,
-    history: Query<(&Node, &RelativeCursorPosition), With<history::HistorySurface>>,
+    overlay: Query<
+        (&Node, &RelativeCursorPosition),
+        Or<(With<history::HistorySurface>, With<result_display::ResultSurface>)>,
+    >,
 ) {
-    if rig.fixed || history.iter().any(|(node, cursor)| {
+    if rig.fixed || overlay.iter().any(|(node, cursor)| {
         node.display != Display::None && cursor.cursor_over()
     }) {
         wheel.clear();
@@ -357,6 +361,7 @@ fn main() -> AppExit {
             net::NetPlugin,
             chart::ChartPlugin,
             history::HistoryPlugin,
+            result_display::ResultDisplayPlugin,
             label::LabelPlugin,
             movers::MoversPlugin,
             city::metro_service::MetroServicePlugin,
