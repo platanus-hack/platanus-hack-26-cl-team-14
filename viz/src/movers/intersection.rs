@@ -1,15 +1,15 @@
 //! Display-only admission for conflicting paths at shared ground road nodes.
 mod topology;
 
-use super::{BIN, DAY, Life, Path, Replay, departure_offset};
+use super::{BIN, DAY, Life, Path, Replay, Vehicle, departure_offset};
 use bevy::prelude::*;
 use std::{
     cmp::Reverse,
-    collections::{BinaryHeap, HashMap, VecDeque},
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
     sync::Arc,
     time::Instant,
 };
-use topology::{Topology, cell, conflict};
+use topology::{Topology, cell, conflict, register};
 
 const CLEARANCE: u32 = 4_500;
 const HEADWAY: u32 = 1_300;
@@ -42,7 +42,8 @@ struct Pending {
 
 struct Movement {
     lane: usize,
-    curve: [Vec2; 6],
+    curve: Vec<Vec2>,
+    clearance: u32,
 }
 
 #[derive(Default)]
@@ -64,7 +65,7 @@ struct Site {
 }
 
 impl Site {
-    fn register(&mut self, entry: Vec2, heading: Vec2, curve: [Vec2; 6]) -> usize {
+    fn register(&mut self, entry: Vec2, heading: Vec2, curve: Vec<Vec2>, clearance: u32) -> usize {
         let lane = self
             .approaches
             .iter()
@@ -75,11 +76,13 @@ impl Site {
             });
         if let Some(index) = self.movements.iter().position(|m| {
             m.lane == lane
+                && m.curve.len() == curve.len()
                 && m.curve
                     .iter()
-                    .zip(curve)
-                    .all(|(a, b)| a.distance_squared(b) < 1.5_f32.powi(2))
+                    .zip(&curve)
+                    .all(|(a, b)| a.distance_squared(*b) < 1.5_f32.powi(2))
         }) {
+            self.movements[index].clearance = self.movements[index].clearance.max(clearance);
             return index;
         }
         let index = self.movements.len();
@@ -91,7 +94,11 @@ impl Site {
         }
         conflicts.push(false);
         self.conflicts.push(conflicts);
-        self.movements.push(Movement { lane, curve });
+        self.movements.push(Movement {
+            lane,
+            curve,
+            clearance,
+        });
         index
     }
 
@@ -137,10 +144,12 @@ impl Site {
         if self.occupied.is_empty() {
             self.wave_end = now + WAVE;
         }
-        if let Some((_, until)) = self.occupied.iter_mut().find(|(id, _)| *id == movement) {
-            *until = now + CLEARANCE;
+        let until = now + self.movements[movement].clearance;
+        if let Some((_, occupied_until)) = self.occupied.iter_mut().find(|(id, _)| *id == movement)
+        {
+            *occupied_until = until;
         } else {
-            self.occupied.push((movement, now + CLEARANCE));
+            self.occupied.push((movement, until));
         }
         self.lanes[lane].ready = now + HEADWAY;
         Some((pending, self.lanes[lane].previous))
@@ -170,6 +179,7 @@ struct Pass {
     arrive: f32,
     release: f32,
     previous: Option<usize>,
+    cached: (f32, f32),
 }
 
 impl Pass {
@@ -188,6 +198,8 @@ pub(super) struct Queues {
     controls: HashMap<(i32, i32), Vec<Vec2>>,
     passes: Vec<Pass>,
     by_car: HashMap<Car, Vec<usize>>,
+    group_waits: Vec<Vec<f32>>,
+    pending_progress: Vec<usize>,
     now: f32,
     pub(super) longest_wait: f32,
 }
@@ -197,50 +209,83 @@ impl Queues {
         self.passes.clear();
         self.by_car.clear();
         self.controls.clear();
+        self.group_waits = replay
+            .departures
+            .iter()
+            .map(|groups| vec![0.; groups.len()])
+            .collect();
         self.longest_wait = 0.;
         if replay.departures.is_empty() {
             return;
         }
         let started = Instant::now();
         let topology = self.topology.get_or_insert_with(Topology::load);
-        let mut sites = HashMap::new();
-        let mut routes = HashMap::<*const Path, Vec<Approach>>::new();
+        let mut nodes = HashMap::<usize, Site>::new();
+        let mut seen = HashSet::new();
+        let mut routes = Vec::new();
         for flow in replay.departures.iter().flatten() {
             if !matches!(flow.lifecycle, Life::Leave)
                 && !flow.cars.is_empty()
                 && !flow.path.origin_preview
+                && seen.insert(Arc::as_ptr(&flow.path))
             {
-                routes
-                    .entry(Arc::as_ptr(&flow.path))
-                    .or_insert_with(|| topology.approaches(&flow.path, replay, &mut sites));
+                let hits = topology.approaches(&flow.path, replay);
+                for &(node, metres) in &hits {
+                    register(&flow.path, node, metres, metres, &mut nodes);
+                }
+                routes.push((&flow.path, hits));
             }
         }
-        sites.retain(|_, site| site.active());
-        for (&id, site) in &mut sites {
-            let p = topology.nodes[id].1;
+        nodes.retain(|_, site| site.active());
+        let mut zones: HashMap<_, _> = nodes.keys().map(|&node| (node, node)).collect();
+        // These routes cannot stop again before clearing the first control.
+        // Give their connected nodes one admission and cover the complete visit.
+        for (_, hits) in &mut routes {
+            hits.retain(|(node, _)| nodes.contains_key(node));
+            for pair in hits.windows(2) {
+                let (first, from) = pair[0];
+                let (second, to) = pair[1];
+                if ms((to - from) / Vehicle::Car.speed()) < CLEARANCE {
+                    let a = zone(&mut zones, first);
+                    let b = zone(&mut zones, second);
+                    zones.insert(a.max(b), a.min(b));
+                }
+            }
+        }
+        let mut sites = HashMap::<usize, Site>::new();
+        let mut widest_visit = 0_f32;
+        let routes: HashMap<_, Arc<[Approach]>> = routes
+            .into_iter()
+            .map(|(path, mut hits)| {
+                for (node, _) in &mut hits {
+                    *node = zone(&mut zones, *node);
+                }
+                let approaches: Vec<_> = hits
+                    .chunk_by(|a, b| {
+                        a.0 == b.0 && ms((b.1 - a.1) / Vehicle::Car.speed()) < CLEARANCE
+                    })
+                    .map(|visit| {
+                        let (junction, first) = visit[0];
+                        let last = visit.last().unwrap().1;
+                        widest_visit = widest_visit.max(last - first);
+                        register(path, junction, first, last, &mut sites)
+                    })
+                    .collect();
+                (Arc::as_ptr(path), approaches.into())
+            })
+            .collect();
+        for &node in nodes.keys() {
+            let p = topology.nodes[node].1;
             self.controls
                 .entry(cell(p, SCALE_RADIUS))
                 .or_default()
                 .push(p);
+        }
+        for site in sites.values_mut() {
             site.lanes = (0..site.approaches.len())
                 .map(|_| Lane::default())
                 .collect();
         }
-        let mut routes: HashMap<_, Arc<[Approach]>> = routes
-            .into_iter()
-            .map(|(key, mut approaches)| {
-                approaches.retain(|a| sites.contains_key(&a.junction));
-                let mut previous = f32::NEG_INFINITY;
-                approaches.retain(|a| {
-                    if a.stop_age - previous < CLEARANCE as f32 / 1_000. {
-                        return false;
-                    }
-                    previous = a.stop_age;
-                    true
-                });
-                (key, approaches.into())
-            })
-            .collect();
 
         let mut trips = Vec::new();
         let mut calendar = Calendar::new();
@@ -249,7 +294,7 @@ impl Queues {
                 if matches!(flow.lifecycle, Life::Leave) {
                     continue;
                 }
-                let Some(approaches) = routes.get_mut(&Arc::as_ptr(&flow.path)) else {
+                let Some(approaches) = routes.get(&Arc::as_ptr(&flow.path)) else {
                     continue;
                 };
                 let Some(first) = approaches.first() else {
@@ -300,10 +345,13 @@ impl Queues {
                     release,
                     previous,
                     arrive: pending.arrive as f32 / 1_000.,
+                    cached: (f32::NAN, 0.),
                 });
-                self.longest_wait = self
-                    .longest_wait
-                    .max(release - trip.start - approach.stop_age);
+                let delay = release - trip.start - approach.stop_age;
+                let (bin, group, _) = trip.car;
+                let group_wait = &mut self.group_waits[bin][group];
+                *group_wait = group_wait.max(delay);
+                self.longest_wait = self.longest_wait.max(delay);
                 coverage.0 += usize::from(now > pending.arrive);
                 coverage.1 += usize::from(pending.stop > 0);
                 if let Some(following) = trip.approaches.get(pending.stop + 1) {
@@ -320,9 +368,11 @@ impl Queues {
             }
         }
         info!(
-            "Road yielding: {} mapped nodes, {} active controls, {} cars, {} admissions ({} waits, {} downstream), max cumulative delay {:.1}s; rebuild {:.0}ms",
+            "Road yielding: {} mapped nodes, {} active nodes in {} controls, widest visit {:.1}m, {} cars, {} admissions ({} waits, {} downstream), max cumulative delay {:.1}s; rebuild {:.0}ms",
             topology.nodes.len(),
+            nodes.len(),
             sites.len(),
+            widest_visit,
             trips.len(),
             self.passes.len(),
             coverage.0,
@@ -354,7 +404,11 @@ impl Queues {
         1.35 + (scale - 1.35) * blend
     }
 
-    pub(super) fn age(&self, day_bin: i32, group: usize, copy: usize, age: f32) -> f32 {
+    pub(super) fn group_wait(&self, day_bin: i32, group: usize) -> f32 {
+        self.group_waits[day_bin.rem_euclid(48) as usize][group]
+    }
+
+    pub(super) fn age(&mut self, day_bin: i32, group: usize, copy: usize, age: f32) -> f32 {
         let key = (day_bin.rem_euclid(48) as usize, group, copy);
         let Some(stops) = self.by_car.get(&key) else {
             return age;
@@ -363,28 +417,48 @@ impl Queues {
         let stop = stops
             .partition_point(|&i| self.passes[i].release <= now)
             .min(stops.len() - 1);
-        let pass = &self.passes[stops[stop]];
-        let mut progress = pass.progress(now);
-        if now < pass.release {
-            let mut previous = pass.previous;
-            let mut gap = HEADWAY as f32 / 1_000.;
-            while let Some(index) = previous {
-                let leader = &self.passes[index];
-                progress = progress.min(leader.progress(now) - gap);
-                if now >= leader.release {
-                    break;
-                }
-                previous = leader.previous;
-                gap += HEADWAY as f32 / 1_000.;
-            }
-        }
-        let age = pass.stop_age + progress;
-        if stop == 0 {
-            age
+        let index = stops[stop];
+        let minimum_age = if stop == 0 {
+            f32::NEG_INFINITY
         } else {
-            age.max(self.passes[stops[stop - 1]].stop_age)
-        }
+            self.passes[stops[stop - 1]].stop_age
+        };
+        let stop_age = self.passes[index].stop_age;
+        (stop_age + self.queue_progress(index, now)).max(minimum_age)
     }
+
+    fn queue_progress(&mut self, mut index: usize, now: f32) -> f32 {
+        let mut progress = loop {
+            let pass = &self.passes[index];
+            if pass.cached.0 == now {
+                break pass.cached.1;
+            }
+            let previous = pass.previous.filter(|_| now < pass.release);
+            let Some(leader) = previous else {
+                break pass.progress(now);
+            };
+            self.pending_progress.push(index);
+            index = leader;
+        };
+        let gap = HEADWAY as f32 / 1_000.;
+        while let Some(index) = self.pending_progress.pop() {
+            let pass = &mut self.passes[index];
+            progress = pass.progress(now).min(progress - gap);
+            pass.cached = (now, progress);
+        }
+        progress
+    }
+}
+
+// Follow compressed links to the representative of one compact control.
+fn zone(zones: &mut HashMap<usize, usize>, mut node: usize) -> usize {
+    while zones[&node] != node {
+        let parent = zones[&node];
+        let grandparent = zones[&parent];
+        zones.insert(node, grandparent);
+        node = grandparent;
+    }
+    node
 }
 
 fn ms(seconds: f32) -> u32 {

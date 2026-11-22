@@ -1,4 +1,4 @@
-use super::{Approach, Path, Replay, STOP_DISTANCE, Site};
+use super::{Approach, CLEARANCE, Path, Replay, STOP_DISTANCE, Site, ms};
 use crate::movers::{Vehicle, right, road_water};
 use bevy::prelude::*;
 use serde::Deserialize;
@@ -67,12 +67,7 @@ impl Topology {
         Self { nodes, cells }
     }
 
-    pub(super) fn approaches(
-        &self,
-        path: &Path,
-        replay: &Replay,
-        sites: &mut HashMap<usize, Site>,
-    ) -> Vec<Approach> {
+    pub(super) fn approaches(&self, path: &Path, replay: &Replay) -> Vec<(usize, f32)> {
         let total = *path.metres.last().unwrap();
         let mut hits: HashMap<usize, (f32, f32)> = HashMap::new();
         for (i, pair) in path.points.windows(2).enumerate() {
@@ -104,7 +99,7 @@ impl Topology {
         }
         let mut hits: Vec<_> = hits.into_iter().collect();
         hits.sort_unstable_by(|a, b| a.1.1.total_cmp(&b.1.1).then(a.0.cmp(&b.0)));
-        let mut approaches: Vec<Approach> = Vec::new();
+        let mut approaches = Vec::new();
         for (junction, (_, distance)) in hits {
             // Require enough approach and exit to fit a car. Match only grade
             // crossings reached along the route, never a bridge or tunnel.
@@ -126,26 +121,42 @@ impl Topology {
             if replay.road_edits.hides(p, dir) {
                 continue;
             }
-            let sample = |offset: f32| {
-                let (p, d, _) = path.at(distance + offset, &path.metres).unwrap();
-                (p + right(d) * 1.6).xz()
-            };
-            let entry = sample(-38.);
-            let heading = (sample(-23.) - entry).normalize_or_zero();
-            let curve = [-STOP_DISTANCE, -7., 0., 7., 14., 22.].map(sample);
-            let movement = sites
-                .entry(junction)
-                .or_default()
-                .register(entry, heading, curve);
-            // Do not stop again inside the clearance area of another control.
-            // After filtering inactive sites, the caller chooses distant stops.
-            approaches.push(Approach {
-                junction,
-                movement,
-                stop_age: (distance - STOP_DISTANCE) / Vehicle::Car.speed(),
-            });
+            approaches.push((junction, distance));
         }
         approaches
+    }
+}
+
+pub(super) fn register(
+    path: &Path,
+    junction: usize,
+    first: f32,
+    last: f32,
+    sites: &mut HashMap<usize, Site>,
+) -> Approach {
+    let sample = |metres: f32| {
+        let (p, dir, _) = path.at(metres, &path.metres).unwrap();
+        (p + right(dir) * 1.6).xz()
+    };
+    let entry = sample(first - 38.);
+    let heading = (sample(first - 23.) - entry).normalize_or_zero();
+    let stop = first - STOP_DISTANCE;
+    let mut curve: Vec<_> = (0..)
+        .map(|i| stop + i as f32 * 7.)
+        .take_while(|&metres| metres < last + 22.)
+        .map(sample)
+        .collect();
+    curve.push(sample(last + 22.));
+    let speed = Vehicle::Car.speed();
+    let clearance = CLEARANCE + ms((last - first) / speed);
+    let movement = sites
+        .entry(junction)
+        .or_default()
+        .register(entry, heading, curve, clearance);
+    Approach {
+        junction,
+        movement,
+        stop_age: stop / speed,
     }
 }
 
@@ -161,7 +172,7 @@ fn project(p: Vec2, a: Vec2, b: Vec2) -> f32 {
     ((p - a).dot(d) / d.length_squared()).clamp(0., 1.)
 }
 
-pub(super) fn conflict(a: &[Vec2; 6], b: &[Vec2; 6]) -> bool {
+pub(super) fn conflict(a: &[Vec2], b: &[Vec2]) -> bool {
     let close = |p: Vec2, a: Vec2, b: Vec2| {
         p.distance_squared(a.lerp(b, project(p, a, b))) < 3.5_f32.powi(2)
     };

@@ -1302,12 +1302,15 @@ fn draw(
             if presence == 0. {
                 continue;
             }
-            if since_bin > BIN + g.duration + queues.longest_wait {
+            if since_bin > BIN + g.duration + queues.group_wait(bin, group) {
                 continue;
             }
             let copies = g.copies[tier];
             for j in 0..copies {
                 let age = since_bin - departure_offset(g.phase, j);
+                if age < 0. {
+                    continue;
+                }
                 let paint = if j >= copies.saturating_sub(g.changed[tier]) {
                     g.tint
                 } else {
