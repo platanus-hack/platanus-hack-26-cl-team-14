@@ -1,0 +1,47 @@
+{
+  "changes": "context/research/v5_baquedano_l5_cut.json",
+  "bins": [
+    27,
+    28
+  ],
+  "closed_stations": [],
+  "panels": {
+    "l5_baquedano": [
+      "BA-BQ",
+      "BE",
+      "PB"
+    ]
+  },
+  "stations": {
+    "BA-BQ": {
+      "reference": [
+        706,
+        712
+      ],
+      "event": [
+        702,
+        650
+      ]
+    },
+    "BE": {
+      "reference": [
+        228,
+        246
+      ],
+      "event": [
+        225,
+        261
+      ]
+    },
+    "PB": {
+      "reference": [
+        334,
+        379
+      ],
+      "event": [
+        338,
+        346
+      ]
+    }
+  }
+}
