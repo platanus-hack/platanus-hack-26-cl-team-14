@@ -2,6 +2,11 @@
 # Open a real interactive CLI using its existing login. Prefer Claude when both are installed.
 set -euo pipefail
 
+# A terminal opened by the GUI may start without Homebrew or user tools on PATH.
+if [[ $(uname -s) == Darwin ]]; then
+    export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
+fi
+
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 server="$root/tools/santiago-mcp/server.mjs"
 export SANTIAGO_API_URL="${SANTIAGO_ENGINE:-http://127.0.0.1:8787}"
