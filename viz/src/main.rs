@@ -200,7 +200,9 @@ fn navigate(
         match event.unit {
             MouseScrollUnit::Line => scroll += event.y * 0.15,
             // Winit reports precise scroll in physical pixels; the pan math uses logical pixels.
-            MouseScrollUnit::Pixel => swipe += Vec2::new(event.x, event.y) / window.scale_factor(),
+            MouseScrollUnit::Pixel => {
+                swipe += Vec2::new(event.x, event.y) / window.resolution.base_scale_factor();
+            }
         }
     }
     if scroll != 0.0 {
