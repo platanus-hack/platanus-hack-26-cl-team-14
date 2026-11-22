@@ -15,6 +15,9 @@ use bevy::{text::FontSize, time::Real};
 use terrace::GateWalk;
 
 const PHASE_SECONDS: f32 = 10.;
+// These are display transitions in replay seconds, not a measured gate capacity.
+const GATE_FADE_SECONDS: f32 = 30.;
+const SOLID: usize = 12;
 const GROUP_SIZE: f64 = 192.;
 const COLORS: [Color; 3] = [
     Color::srgb(0.09, 0.90, 0.82),
@@ -42,7 +45,7 @@ impl Plugin for EventsPlugin {
 struct Art {
     figure: Handle<Mesh>,
     modes: [Handle<Mesh>; 3],
-    paint: [Handle<StandardMaterial>; 3],
+    paint: [[Handle<StandardMaterial>; SOLID + 1]; 3],
 }
 
 #[derive(Component)]
@@ -66,14 +69,13 @@ enum GroupPath {
         walk: GateWalk,
         alight: f32,
         gate: f32,
-        seat: f32,
-        row: f32,
+        seat: Vec3,
+        facing: Vec3,
     },
 }
 
 struct Event {
     center: Vec3,
-    stadium: Option<Entity>,
     end: f32,
     started: f32,
     captions: [String; 2],
@@ -119,12 +121,13 @@ fn setup(
         ],
         figure,
         paint: COLORS.map(|color| {
-            materials.add(StandardMaterial {
-                base_color: color,
-                // Draw the legend colors in the city pass after ink quantization.
-                alpha_mode: AlphaMode::Blend,
-                unlit: true,
-                ..default()
+            std::array::from_fn(|step| {
+                materials.add(StandardMaterial {
+                    base_color: color.with_alpha(step as f32 / SOLID as f32),
+                    alpha_mode: AlphaMode::Blend,
+                    unlit: true,
+                    ..default()
+                })
             })
         }),
     });
@@ -246,7 +249,7 @@ fn spawn_local_groups(
                     delay: (i as f32 * 0.414214 + mode as f32 * 0.15).fract() * 0.49,
                 },
                 Mesh3d(art.figure.clone()),
-                MeshMaterial3d(art.paint[mode].clone()),
+                MeshMaterial3d(art.paint[mode][SOLID].clone()),
                 Visibility::Hidden,
             ));
         }
@@ -324,6 +327,9 @@ fn refresh(
                         FanMode::Car => 1,
                         FanMode::Other => 2,
                     };
+                    let turn = ((group.index as f32 + 0.5) * 0.618034).fract();
+                    let row = 0.32 + 0.50 * (group.index as f32 * 0.414214).fract();
+                    let seat = landmark.transform_point(bowl.terrace(turn, row));
                     represented += group.people;
                     figures += 1;
                     commands.spawn((
@@ -339,12 +345,12 @@ fn refresh(
                                 walk,
                                 alight: group.alight_seconds,
                                 gate: group.gate_seconds,
-                                seat: ((group.index as f32 + 0.5) * 0.618034).fract(),
-                                row: 0.32 + 0.50 * (group.index as f32 * 0.414214).fract(),
+                                seat,
+                                facing: center - seat,
                             },
                         },
                         Mesh3d(art.figure.clone()),
-                        MeshMaterial3d(art.paint[mode].clone()),
+                        MeshMaterial3d(art.paint[mode][SOLID].clone()),
                         Visibility::Hidden,
                     ));
                 }
@@ -355,7 +361,7 @@ fn refresh(
                 .unwrap_or_default();
             let coverage = if figures > 0 {
                 format!(
-                    "{} de {} con ruta · 1 figura ≈ {} personas",
+                    "{} de {} con ruta · 1 figura ≈ {} personas\ningreso al estadio: esquemático",
                     people_label(represented),
                     people_label(row["attendance"].as_f64().unwrap_or_default()),
                     people_label(represented / figures as f64)
@@ -377,7 +383,6 @@ fn refresh(
             .map_or(time.elapsed_secs(), |e| e.started);
         playback.events.push(Event {
             center,
-            stadium,
             end,
             started,
             captions,
@@ -395,8 +400,16 @@ fn animate(
     mut playback: ResMut<Playback>,
     subway: Res<SubwayView>,
     rig: Res<Rig>,
-    mut groups: Query<(&Group, &mut Transform, &mut Visibility, &mut Mesh3d), Without<Key>>,
-    bowls: Query<(&StadiumSeating, &Transform), Without<Group>>,
+    mut groups: Query<
+        (
+            &Group,
+            &mut Transform,
+            &mut Visibility,
+            &mut Mesh3d,
+            &mut MeshMaterial3d<StandardMaterial>,
+        ),
+        Without<Key>,
+    >,
     mut panel: Single<&mut Visibility, With<Key>>,
     mut caption: Single<&mut Text, With<Caption>>,
 ) {
@@ -437,7 +450,7 @@ fn animate(
     {
         caption.0.clone_from(text);
     }
-    for (group, mut transform, mut visibility, mut mesh) in &mut groups {
+    for (group, mut transform, mut visibility, mut mesh, mut paint) in &mut groups {
         let Some((phase, t)) = playback.events[group.venue].progress else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
@@ -449,24 +462,27 @@ fn animate(
                 alight,
                 gate,
                 seat,
-                row,
+                facing,
             } => {
                 let now = city_clock.0.unwrap().rem_euclid(DAY);
                 if now < alight {
                     visibility.set_if_neq(Visibility::Hidden);
                     continue;
                 }
-                let (bowl, landmark) = bowls
-                    .get(playback.events[group.venue].stadium.unwrap())
-                    .unwrap();
-                let (point, heading) = if now < gate {
-                    walk.walk((now - alight) / (gate - alight))
+                let admitted = now - gate;
+                let ((point, heading), opacity) = if admitted < 0. {
+                    (walk.walk((now - alight) / (gate - alight)), 1.)
+                } else if admitted < GATE_FADE_SECONDS {
+                    (walk.walk(1.), 1. - admitted / GATE_FADE_SECONDS)
                 } else {
-                    // Time on the terraces is an illustrative last step within the venue.
-                    let seated = ((now - gate) / 120.).clamp(0., 1.);
-                    walk.seat(seated, seat, row, bowl, landmark)
-                        .unwrap_or_else(|| walk.walk(1.))
+                    // The admitted group fills its seat without a fictitious interior walk.
+                    (
+                        (seat, facing),
+                        ((admitted - GATE_FADE_SECONDS) / GATE_FADE_SECONDS).min(1.),
+                    )
                 };
+                let step = (opacity * SOLID as f32).round() as usize;
+                paint.set_if_neq(MeshMaterial3d(art.paint[group.mode][step].clone()));
                 (point, heading, false, map_scale.min(1.15))
             }
             GroupPath::Local { from, to } => {

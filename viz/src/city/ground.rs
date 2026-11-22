@@ -511,8 +511,8 @@ impl StadiumSeating {
         inside(&self.outer, local.xz())
     }
 
-    /// First inward crossing in local XZ, as (segment fraction, perimeter turn).
-    pub(crate) fn first_entry(&self, from: Vec3, to: Vec3) -> Option<(f32, f32)> {
+    /// Fraction along the segment at its first inward crossing in local XZ.
+    pub(crate) fn first_entry(&self, from: Vec3, to: Vec3) -> Option<f32> {
         let start = from.xz();
         let step = to.xz() - start;
         let n = self.outer.len();
@@ -533,10 +533,9 @@ impl StadiumSeating {
             let edge = b.xz() - a.xz();
             let fraction = (a.xz() - start).perp_dot(edge) / (right - left);
             if (0.0..=1.0).contains(&fraction)
-                && first.is_none_or(|(nearest, _)| fraction < nearest)
+                && first.is_none_or(|nearest| fraction < nearest)
             {
-                let along_edge = left / (left - right);
-                first = Some((fraction, (i as f32 + along_edge) / n as f32));
+                first = Some(fraction);
             }
         }
         first
