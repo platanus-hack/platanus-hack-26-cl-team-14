@@ -1,5 +1,5 @@
 {
-  "note": "The April case fits the capture and departure profile. The November case uses those parameters with a reference Saturday from 2024. See context/research/monumental-egress-eval.md.",
+  "note": "The April case fits the capture and departure profile. The November case uses those parameters with two reference Saturdays. See context/research/monumental-egress-eval.md.",
   "cases": [
     {
       "id": "2025-04-26",
@@ -93,7 +93,25 @@
           "audience": "colo_colo"
         }
       ],
-      "status": "descriptive check with a 2024 Saturday reference"
+      "status": "descriptive check with a 2024 Saturday reference",
+      "additional_references": [
+        {
+          "status": "descriptive check with the 15 November 2025 Saturday reference",
+          "control_source": "DTPM Subidas_Paradero_Estacion_2025.11.xlsx, SUBIDAS_2025_11, SABADO, Metro (FICHA_DATOS: 15 Nov 2025)",
+          "control": {
+            "PE": {
+              "43": 72,
+              "44": 75,
+              "45": 37
+            },
+            "MA": {
+              "43": 156,
+              "44": 144,
+              "45": 94
+            }
+          }
+        }
+      ]
     }
   ]
 }
