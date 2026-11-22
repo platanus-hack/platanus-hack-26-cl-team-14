@@ -1,25 +1,14 @@
 # V3 · Three-minute rehearsal
 
-Run of show from the [pitch proposal](../pitch.md). Start the clock on the first spoken line and stop it on the last. The slots total 180 seconds with no margin. Include typing, loading, and transitions in each slot.
+Use [the current presenter cue sheet](../pitch.md#run-of-show). It applies the accepted [20:45 sequence](../decisions/20261121-2045-live-pitch-opening.md).
+The earlier three-live-question schedule is obsolete. Do not use its 1:02 Mapocho or 1:35 Metro slots.
 
-| Pitch time | Screen cue | Presenter cue |
-| --- | --- | --- |
-| 0:00–0:12 | Follow one person through Santiago. Keep the terminal visible. | “Cambiar un lugar cambia el viaje de miles de personas. Probemos tres cambios en Santiago.” |
-| 0:12–1:02 | Ask about replacing the MUT with the Estadio Monumental. Show assumptions, then the city change and the two compact charts. | Read one change from the chart with its unit. |
-| 1:02–1:35 | Ask about navigating the Mapocho. Show assumptions, then the river replay and its edge chart. | Point out the walk to the pier. Read one result from the replay with its unit. |
-| 1:35–2:15 | Ask about closing the full Metro. Show assumptions, then the city change and the October 2019 comparison. | Name the actual footprint and dates in the historical comparison. |
-| 2:15–2:33 | Show the V4 evaluation slide. | Give the prediction, observation, and score when verified. |
-| 2:33–2:52 | Open the final side-by-side view. Give each panel a scenario name and a visible unit. Mark the comparison scale and window where they differ. | Point to one result per panel. |
-| 2:52–3:00 | Hold the final view. | “Antes de cambiar Santiago, podemos ver a quién le cambia el viaje.” |
+1. Prepare the checked-in `mut-monumental-routes-a` and `mut-monumental-routes-b` pair. Keep the viewer and chat connected to the same engine.
+2. Prepare the linked motion montage, evaluation slide, and download QR from the cue sheet.
+3. Start the clock on the first spoken line. Include Enter, typing, both presenter confirmations, loading, and media transitions.
+4. Hold the MUT city view to 1:20. #537 remains open: the current cache reveal at +18 seconds is too early.
+5. Start the paired Mapocho/Metro motion video at 1:55, evaluation at 2:25, and the QR at 2:45.
+6. Keep the QR and written address visible through the close. Say that the page offers a desktop app download.
+7. Stop the clock after the last spoken line and the visible close. Record actual cue times, viewer revision, replay IDs, and defects in V3.
 
-The number of side-by-side panels is open. Keep the 19-second slot and use the count the team approves.
-
-## Rehearse the full run
-
-1. Before rehearsal, record six saved result IDs. For each scenario, list the baseline first and the experiment second. Record each engine revision and the data used for each chart. Check that the cache lists all six IDs.
-2. Keep the cache reader and presenter view running. Run all three prompts in order. Check the MCP trace and HTTP request log for cache reads and zero simulation calls. Keep any process that also serves the cache running for this check.
-3. For each prompt, check that the terminal shows the planned edits, start time, duration, and measures before playback. Check that the terminal hides during playback and returns after the final chart. Let the city change play before revealing the chart. Check that the edge chart keeps the affected area visible. Hold each baseline until it appears on screen, then publish its experiment.
-4. Check the final side-by-side view from projector distance. Match each displayed result to the cached output. Check the units, time window, and label for the historical Metro comparison.
-5. Record the actual start and end time for every row. If the run exceeds 3:00, trim narration or holds and repeat the entire run. Record the final duration, replay IDs, and any visible defect in the V3 thread.
-
-The three preview bundles provide cached results. The final build still needs a complete timed run and a verified comparison view.
+The complete narrated run and the physical projector QR scan remain open. A technical playback time does not complete either check.
