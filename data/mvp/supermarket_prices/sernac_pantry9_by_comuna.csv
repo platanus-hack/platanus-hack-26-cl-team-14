@@ -1,0 +1,21 @@
+cut,comuna,banner_key,specs,packs_per_spec,sernac_pantry9_clp_per_basket,matched_osm_objects,eligibility_basis
+13101,Santiago,alvi,9,1,13170,0,merchant_and_clp_80000_online_minimum
+13101,Santiago,jumbo,9,1,15810,0,catalog_checkout_unverified
+13101,Santiago,lider,9,1,13890,1,catalog_checkout_unverified
+13101,Santiago,santa_isabel,9,1,14910,10,catalog_checkout_unverified
+13101,Santiago,tottus,9,1,11870,3,catalog_checkout_unverified
+13101,Santiago,unimarc,9,1,10610,3,catalog_checkout_unverified
+13119,Maipú,acuenta,9,1,13000,3,catalog_checkout_unverified
+13119,Maipú,alvi,9,1,13170,2,merchant_and_clp_80000_online_minimum
+13119,Maipú,jumbo,9,1,15270,2,catalog_checkout_unverified
+13119,Maipú,lider,9,1,14520,7,catalog_checkout_unverified
+13119,Maipú,santa_isabel,9,1,14630,7,catalog_checkout_unverified
+13119,Maipú,tottus,9,1,12900,1,catalog_checkout_unverified
+13119,Maipú,unimarc,9,1,10610,6,catalog_checkout_unverified
+13201,Puente Alto,acuenta,9,1,12500,2,catalog_checkout_unverified
+13201,Puente Alto,alvi,9,1,13170,2,merchant_and_clp_80000_online_minimum
+13201,Puente Alto,jumbo,9,1,15270,2,catalog_checkout_unverified
+13201,Puente Alto,lider,9,1,12860,3,catalog_checkout_unverified
+13201,Puente Alto,santa_isabel,9,1,15090,2,catalog_checkout_unverified
+13201,Puente Alto,tottus,9,1,11670,2,catalog_checkout_unverified
+13201,Puente Alto,unimarc,9,1,10610,3,catalog_checkout_unverified
