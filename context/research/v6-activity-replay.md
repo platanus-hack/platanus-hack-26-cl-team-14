@@ -5,7 +5,7 @@ Status: proposed for the first CicloRecreoVía replay. The [V6 brief](https://di
 ## What to save
 
 - Keep the [replay file](../../data/replays/README.md) with `meta` and `result`. Save the confirmed activity input in `meta.activity` with the initial city edits in `meta.changes`. Save the engine's ordered activity steps in `result.activity`.
-- Keep the engine's local minute, route segment IDs, and counts per step. V1 defines the exact fields. V2 matches segment IDs to the agreed route geometry. Show queues, riders in motion, and visits with their units. Segment counts describe groups. They cannot identify a rider across steps.
+- Keep the engine's local minute, route segment IDs, and counts per step. V1 defines the exact fields. Store the ordered route geometry once alongside the steps. Match each segment ID to its polyline in WGS84 longitude and latitude. Also save the participant mode and any motor access rule. Show queues, riders in motion, and visits with their units. Segment counts describe groups. They cannot identify a rider across steps or establish a detour for ordinary cars.
 - Use the same city edits and initial camera for the control. Save its result without the activity. Mark any arrivals, capacity, or visits based on assumptions. Report counts and time near shops. Sales require separate evidence.
 
 ## How to play it
