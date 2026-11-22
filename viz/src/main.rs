@@ -199,7 +199,8 @@ fn navigate(
     for event in wheel.read() {
         match event.unit {
             MouseScrollUnit::Line => scroll += event.y * 0.15,
-            MouseScrollUnit::Pixel => swipe += Vec2::new(event.x, event.y),
+            // Winit reports precise scroll in physical pixels; the pan math uses logical pixels.
+            MouseScrollUnit::Pixel => swipe += Vec2::new(event.x, event.y) / window.scale_factor(),
         }
     }
     if scroll != 0.0 {
