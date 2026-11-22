@@ -256,6 +256,7 @@ const createReplayTool = {
       activity: routeActivity,
       stations: tool.inputSchema.properties.stations,
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
+      clock_rate: { type: 'number', exclusiveMinimum: 0, description: 'City seconds for each real second while this replay plays. Default 8. Use a high rate for a time-lapse: 200 plays 06:00 to 08:30 in 45 seconds.' },
       analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
       cues: {
         type: 'array', description: 'The story of the replay: one camera zoom and one subtitle for each point of the answer, about 7 seconds apart. Zoom to the place that shows the point: a station, a venue, a closed street. The audience reads the subtitles on a projector and did not see the chat, so the subtitles alone must tell the story in order. Start with the place and the situation today. Then give each result. Put a cause before its effect: show that a building moved before you show the station that loses riders. In a baseline, end with the question that the experiment answers. In an experiment, end with the one result that the audience must remember.',
@@ -467,6 +468,7 @@ async function dispatch({ method, params }) {
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
       if (meta.cues) result.scene.cues = meta.cues;
+      if (meta.clock_rate) result.scene.clock_rate = meta.clock_rate;
       await engineJSON('/api/replay', result);
       text = { replay: replayMetadataForChat(meta), result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
     } else if (params.name === createReplayTool.name) {
