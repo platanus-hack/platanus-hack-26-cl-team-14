@@ -315,7 +315,7 @@ fn refresh(
             let mut represented = 0.;
             let mut figures = 0usize;
             if let Some((_, bowl, landmark, _)) = stadium.and_then(|id| bowls.get(id).ok()) {
-                for (rank, group) in groups.iter().enumerate() {
+                for group in groups {
                     let Some(walk) = GateWalk::new(group.walk_path.clone(), bowl, landmark) else {
                         continue;
                     };
@@ -327,6 +327,10 @@ fn refresh(
                     represented += group.people;
                     figures += 1;
                     commands.spawn((
+                        Name::new(format!(
+                            "Hinchas {} · grupo {}",
+                            group.home_cut, group.index
+                        )),
                         Group {
                             venue,
                             mode,
@@ -335,8 +339,8 @@ fn refresh(
                                 walk,
                                 alight: group.alight_seconds,
                                 gate: group.gate_seconds,
-                                seat: ((rank as f32 + 0.5) * 0.618034).fract(),
-                                row: 0.32 + 0.50 * (rank as f32 * 0.414214).fract(),
+                                seat: ((group.index as f32 + 0.5) * 0.618034).fract(),
+                                row: 0.32 + 0.50 * (group.index as f32 * 0.414214).fract(),
                             },
                         },
                         Mesh3d(art.figure.clone()),
