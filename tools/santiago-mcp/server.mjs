@@ -163,7 +163,7 @@ const listReplaysTool = {
 };
 const runReplayTool = {
   name: 'run_replay',
-  description: 'Play one cached replay in the open city view. Before you call it, show the presenter the replay assumptions from list_replays: the entities that change, the start time, the duration and what to analyze. The result is the saved engine result; report it with the same rules as simulate_city.',
+  description: 'Play one cached replay in the open city view. For a new replay question, use list_replays, then end your reply with a short preview: the edits, start time, duration and what to analyze. Ask the presenter to confirm before you play the baseline. Call this tool only after that confirmation in a new user message. After the baseline, wait for the presenter to confirm they see it before you call this tool for the experiment. Report the saved result in six lines or fewer unless the presenter asks for more.',
   inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
 };
 const createReplayTool = {
