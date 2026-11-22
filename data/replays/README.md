@@ -1,14 +1,14 @@
 # Cached replays
 
 The presenter can use the six checked-in replay files from a clean checkout.
-Start the viewer with `SANTIAGO_PLAYBACK_RATE=240 ./run.sh` for the live MUT
-comparison. Press Enter on the welcome screen. In the chat, ask:
+Start the viewer with `./run.sh`. Press Enter on the welcome screen. In the chat, ask:
 
 > ¿Qué pasaría si intercambiamos de lugar el MUT y el Estadio Monumental de Colo-Colo?
 
-The chat plays the baseline first. Confirm that you see it before the chat plays
-the experiment. The MUT pair starts at 14:00. Each replay is a story of camera
-zooms and subtitles, one for each point of the answer. There is no final chart.
+The chat opens the saved MUT experiment in the same turn. To see the baseline,
+ask for it explicitly. Both MUT replays start at 14:00. The camera and subtitles
+show each point of the saved answer in order.
+[Direct playback decision](../../context/decisions/20261122-0156-play-cached-demo-directly.md)
 
 | Scenario | Baseline | Experiment | Saved result |
 | --- | --- | --- | --- |
@@ -22,7 +22,7 @@ verify the files. To open the two experiments directly with Bun installed, run
 
 ## Replay tools
 
-- `create_replay` (MCP, before the demo) runs the engine once and writes `<id>.json`.
+- `create_replay` runs a confirmed new experiment once and writes `<id>.json`.
 - `list_replays` returns the `meta` of each file.
 - `run_replay` posts `result` to `/api/replay`. The engine relays it to the viewer.
 
