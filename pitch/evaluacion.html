@@ -107,7 +107,7 @@
     </section>
   </main>
   <script>
-    // One case after the other: type the question, press Enter, then show the real case and the result.
+    // Type the question, press Enter, then show the real case and the result.
     // The untyped rest stays hidden in place, so the card does not jump while typing.
     const cards = [...document.querySelectorAll('.eval')];
     cards.forEach(card => {
@@ -115,14 +115,14 @@
       q.insertAdjacentHTML('beforeend', '<b class="t"></b><i class="c"></i><b class="r"></b>');
       q.querySelector('.r').textContent = q.dataset.text;
     });
-    let at = 400;
+    // All three type at the same time, then all three show their result together.
+    const start = 300, step = 11;
+    const enter = start + Math.max(...cards.map(c => c.querySelector('.q').dataset.text.length)) * step + 200;
     cards.forEach(card => {
       const text = card.querySelector('.q').dataset.text, t = card.querySelector('.t'), r = card.querySelector('.r');
-      setTimeout(() => card.classList.add('typing'), at);
-      [...text].forEach((_, n) => setTimeout(() => { t.textContent = text.slice(0, n + 1); r.textContent = text.slice(n + 1); }, at + n * 18));
-      at += text.length * 18 + 300;
-      setTimeout(() => { card.classList.remove('typing'); card.classList.add('s1'); }, at);
-      at += 1400;
+      setTimeout(() => card.classList.add('typing'), start);
+      [...text].forEach((_, n) => setTimeout(() => { t.textContent = text.slice(0, n + 1); r.textContent = text.slice(n + 1); }, start + n * step));
+      setTimeout(() => { card.classList.remove('typing'); card.classList.add('s1'); }, enter);
     });
   </script>
 </body>
