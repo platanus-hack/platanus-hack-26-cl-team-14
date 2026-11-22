@@ -401,7 +401,7 @@ impl LineEdits<'_> {
         }))
     }
 
-    /// Scheduled in-vehicle minutes (segments plus intermediate dwells) between every pair of stations on the
+    /// Scheduled in-vehicle minutes (arrival minus departure along one pattern) between every pair of stations on the
     /// operating Metro network. Transfers inside a station cost zero. Unreachable pairs are absent.
     pub fn metro_minutes(&self) -> HashMap<String, HashMap<String, f64>> {
         use std::cmp::Reverse;
@@ -412,12 +412,16 @@ impl LineEdits<'_> {
             .map(|(_, p)| p)
             .chain(self.changes.values().filter_map(Option::as_ref))
             .filter(|p| p.mode == "metro");
+        // One ride edge for every ordered pair of calls on a pattern: arrival at the later call minus departure
+        // from the earlier one, so dwell counts only at stops the rider stays on board through.
         for p in active {
-            for (k, pair) in p.stop_ids.windows(2).enumerate() {
-                let minutes = p.segment_minutes[k] + p.dwell_minutes[k + 1];
-                let best = edges.entry(station(&pair[0])).or_default().entry(station(&pair[1])).or_insert(f64::INFINITY);
-                *best = best.min(minutes);
-                edges.entry(station(&pair[1])).or_default();
+            let calls = p.call_times();
+            for i in 0..p.stop_ids.len() {
+                for j in i + 1..p.stop_ids.len() {
+                    let best = edges.entry(station(&p.stop_ids[i])).or_default().entry(station(&p.stop_ids[j])).or_insert(f64::INFINITY);
+                    *best = best.min(calls[j][0] - calls[i][1]);
+                    edges.entry(station(&p.stop_ids[j])).or_default();
+                }
             }
         }
         edges.keys().map(|from| {
