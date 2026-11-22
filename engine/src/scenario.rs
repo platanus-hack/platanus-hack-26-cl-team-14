@@ -275,7 +275,7 @@ impl Scenario {
         let t = std::time::Instant::now();
         let (c, n) = (&self.choice, self.choice.n);
         let copy = |v: &[Point]| v.iter().map(|p| Point { id: p.id.clone(), cut: p.cut.clone(), ..*p }).collect::<Vec<_>>();
-        let mut pop = Population { homes: copy(&self.pop.homes), jobs: copy(&self.pop.jobs), schools: vec![], persons: self.pop.persons.clone() };
+        let mut pop = Population { homes: copy(&self.pop.homes), jobs: copy(&self.pop.jobs), schools: vec![], persons: self.pop.persons.clone(), residents: vec![] };
         let mut minutes = c.minutes.clone();
         // Temporary line edits change mode choice only.
         let mut job_minutes = minutes.clone();
@@ -627,7 +627,7 @@ impl Scenario {
         // Both runs start with the same residents, including added and removed workers.
         let resident_reference = (window.is_some() && resident_stock_edits > 0).then(|| {
             let mut reference = Population {
-                homes: copy(&pop.homes), jobs: copy(&pop.jobs), schools: vec![], persons: pop.persons.clone(),
+                homes: copy(&pop.homes), jobs: copy(&pop.jobs), schools: vec![], persons: pop.persons.clone(), residents: vec![],
             };
             rechoose(car_choice.as_ref().unwrap_or(c), &mut reference, &weights, &job_minutes, &job_minutes, &self.placed);
             self.fine_modes.apply(&mut reference);
@@ -779,6 +779,13 @@ impl Scenario {
             "blocks_changed": blocks, "blocks_changed_total": blocks_total,
             "trips_delta": trip_deltas(&self.trips, &trips), "trips_base": self.trips, "trips_scenario": trips,
             "events": events,
+            "population": {
+                "workers": s.od.iter().sum::<f64>(), "students": pop.persons.iter().filter(|p| p.student).count(),
+                "other_residents_by_role": (["under_15", "higher_education", "employed_without_internal_commute", "unemployed", "outside_labour_force", "unknown"]
+                    .iter().enumerate().map(|(r, name)| (name.to_string(), json!(self.pop.residents.iter().filter(|x| x.role as usize == r).count()))).collect::<serde_json::Map<_, _>>()),
+                "other_residents": self.pop.residents.len(),
+                "source": "Census 2024 persons (tools/pack/person_traits.py). Other residents have a home and traits; no trip is modeled for them yet.",
+            },
             "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,
         });
