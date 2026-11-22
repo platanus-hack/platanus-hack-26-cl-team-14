@@ -50,6 +50,24 @@ for purpose, path, count in (("work", "data/mvp/mode_od.csv", "commuters"), ("st
         if purpose == "work":
             model_mode[MODE_CENSUS.get(r["mode"], "other")] += n
 
+# Higher education (engine/src/population.rs): the travelling share of Census higher-education residents
+# (role 1 in person_traits_residents.csv) goes to SIES campuses in proportion to in-person + hybrid enrollment.
+campus, enrolled = collections.Counter(), 0.0
+for r in csv.DictReader(open("data/mvp/higher_ed.csv")):
+    campus[r["cut"]] += float(r["in_person"] or 0) + float(r["hybrid"] or 0)
+    enrolled += float(r["enrollment"] or 0)
+travel = sum(campus.values()) / enrolled
+for r in csv.DictReader(open("data/mvp/person_traits_residents.csv")):
+    if r["role"] != "1":
+        continue
+    for d, w in campus.items():
+        n = float(r["persons"]) * travel * w / sum(campus.values())
+        o, s_d = sector.get(r["cut"]), sector.get(d)
+        if o and s_d:
+            model["study"][(o, s_d)] += n
+        else:
+            outside["study"] += n
+
 person = {}
 for r in csv.DictReader(open(f"{EOD}/personas.csv", encoding="latin-1"), delimiter=";"):
     person[r["Persona"]] = num(r["Factor_LaboralNormal"])
