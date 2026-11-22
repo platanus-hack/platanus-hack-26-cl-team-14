@@ -82,6 +82,7 @@ pub fn window() -> Window {
 pub struct Rig {
     pub target: Vec3,
     pub distance: f32,
+    eye_direction: Vec3,
     fixed: bool,
     flight: Option<focus::Flight>,
     event_focus: Option<Vec3>,
@@ -91,6 +92,25 @@ impl Default for Rig {
     fn default() -> Self {
         let focus = env::var("SANTIAGO_FOCUS").unwrap_or_else(|_| "-70.6505,-33.443".into());
         let (lon, lat) = focus.split_once(',').unwrap();
+        let default_direction = Vec3::new(0.32, 0.79, 0.51).normalize();
+        let azimuth = env::var("SANTIAGO_CAMERA_AZIMUTH");
+        let elevation = env::var("SANTIAGO_CAMERA_ELEVATION");
+        let eye_direction = if azimuth.is_ok() || elevation.is_ok() {
+            // Azimuth starts at +Z and turns toward +X.
+            let azimuth = azimuth.map_or_else(
+                |_| default_direction.x.atan2(default_direction.z),
+                |angle| angle.parse::<f32>().unwrap().to_radians(),
+            );
+            let elevation = elevation.map_or_else(
+                |_| default_direction.y.asin(),
+                |angle| angle.parse::<f32>().unwrap().to_radians(),
+            );
+            let (x, z) = azimuth.sin_cos();
+            let (y, horizontal) = elevation.sin_cos();
+            Vec3::new(x * horizontal, y, z * horizontal)
+        } else {
+            default_direction
+        };
         Self {
             flight: None,
             event_focus: None,
@@ -98,6 +118,7 @@ impl Default for Rig {
                 || env::var_os("SANTIAGO_LOCK_CAMERA").is_some(),
             target: world(lon.trim().parse().unwrap(), lat.trim().parse().unwrap()),
             distance: env::var("SANTIAGO_DISTANCE").map_or(1650.0, |s| s.parse().unwrap()),
+            eye_direction,
         }
     }
 }
@@ -105,7 +126,7 @@ impl Default for Rig {
 const FOV: f32 = 35.0 * std::f32::consts::PI / 180.0;
 
 fn pose(rig: &Rig) -> Transform {
-    let offset = Vec3::new(0.32, 0.79, 0.51).normalize() * rig.distance;
+    let offset = rig.eye_direction * rig.distance;
     Transform::from_translation(rig.target + offset).looking_at(rig.target, Vec3::Y)
 }
 
@@ -211,7 +232,7 @@ fn navigate(
         rig.event_focus = None;
         let camera = pose(&rig);
         let right = *camera.right();
-        let forward = Vec3::new(-0.32, 0., -0.51).normalize();
+        let forward = Vec3::new(-rig.eye_direction.x, 0., -rig.eye_direction.z).normalize();
         let meters_per_pixel = 2.0 * rig.distance * (FOV * 0.5).tan() / window.height();
         rig.target +=
             (-right * delta.x + forward * delta.y / camera.forward().y.abs()) * meters_per_pixel;
