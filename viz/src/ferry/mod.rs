@@ -9,7 +9,6 @@ use underpass::{FerryMaterial, RiverDepth};
 use crate::{
     city::SubwayView,
     movers::{
-        Model, Models,
         clock::{CityClock, UpdateClock},
     },
     net::Scenario,
@@ -72,10 +71,9 @@ fn setup(
     mut mats: ResMut<Assets<StandardMaterial>>,
     mut ferries: ResMut<Assets<FerryMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    models: Res<Models>,
     mut fonts: ResMut<Assets<Font>>,
 ) {
-    let mut person = meshes.get(&models.mesh[&Model::Person]).unwrap().clone();
+    let mut person = crate::movers::motion::pedestrian(None, true);
     person.remove_attribute(Mesh::ATTRIBUTE_COLOR);
     let material = |color| StandardMaterial {
         base_color: color,
@@ -217,7 +215,7 @@ fn refresh(
                 ..default()
             },
             TextColor(Color::WHITE),
-            BackgroundColor(Color::srgba(0.05, 0.07, 0.09, 0.78)),
+            BackgroundColor(crate::label::PANEL_INK),
             Node {
                 position_type: PositionType::Absolute,
                 left: px(24),
