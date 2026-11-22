@@ -140,7 +140,7 @@ fn setup(
         .spawn((
             Key,
             Visibility::Hidden,
-            BackgroundColor(Color::srgba(0.035, 0.055, 0.08, 0.90)),
+            BackgroundColor(crate::label::PANEL_INK),
             Node {
                 position_type: PositionType::Absolute,
                 left: px(24),

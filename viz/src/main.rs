@@ -348,6 +348,7 @@ fn main() -> AppExit {
             city::metro_service::MetroServicePlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,
+            city::horizon::HorizonPlugin,
         ))
         .init_resource::<city::SubwayView>()
         .init_resource::<city::street_mask::StreetMask>()

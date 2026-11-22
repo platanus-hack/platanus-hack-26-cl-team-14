@@ -2,6 +2,9 @@
 use crate::{focus::{self, CueCaption}, net::Scenario};
 use bevy::{prelude::*, text::FontSize};
 
+// The darkest blue-violet ink of the city print, opaque so text stays legible over white roofs.
+pub(crate) const PANEL_INK: Color = Color::srgb_u8(0x24, 0x29, 0x42);
+
 pub struct LabelPlugin;
 impl Plugin for LabelPlugin {
     fn build(&self, app: &mut App) {
@@ -37,7 +40,7 @@ fn draw(mut commands: Commands, scenario: Res<Scenario>, mut fonts: ResMut<Asset
         ))
         .with_children(|row| {
             row.spawn((
-                BackgroundColor(Color::srgba(0.05, 0.07, 0.09, 0.85)),
+                BackgroundColor(PANEL_INK),
                 Node {
                     max_width: percent(92),
                     padding: UiRect::axes(px(28), px(12)),
@@ -76,7 +79,7 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
         TextFont { font: font.into(), font_size: FontSize::Px(34.), ..default() },
         TextColor(Color::WHITE),
         Visibility::Hidden,
-        BackgroundColor(Color::srgba(0.05, 0.07, 0.09, 0.90)),
+        BackgroundColor(PANEL_INK),
         Node {
             position_type: PositionType::Absolute,
             left: px(24),
