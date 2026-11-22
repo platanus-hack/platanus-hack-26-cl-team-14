@@ -361,7 +361,7 @@ fn refresh(
                 .unwrap_or_default();
             let coverage = if figures > 0 {
                 format!(
-                    "{} de {} con viaje animado · {} personas por figura en promedio\ningreso al estadio: esquemático",
+                    "{} de {} con viaje · promedio de {} por figura\ningreso al estadio: esquemático",
                     people_label(represented),
                     people_label(row["attendance"].as_f64().unwrap_or_default()),
                     people_label(represented / figures as f64)
