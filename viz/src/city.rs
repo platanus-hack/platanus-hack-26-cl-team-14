@@ -2,6 +2,8 @@ mod activity;
 pub(crate) mod edits;
 mod facade;
 mod ground;
+pub(crate) mod horizon;
+mod outskirts;
 pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
 pub(crate) mod street_mask;

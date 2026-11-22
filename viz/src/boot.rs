@@ -32,6 +32,7 @@ struct DeferredStartup(MainScheduleOrder, Arc<AtomicBool>);
 struct Entry {
     path: PathBuf,
     target: Vec3,
+    direction: Vec3,
     distance: f32,
     fixed: bool,
     stage: Stage,
@@ -58,12 +59,14 @@ impl Plugin for CityBoot {
         let entry = Entry {
             path: path.into(),
             target: rig.target,
+            direction: rig.eye_direction,
             distance: rig.distance,
             fixed: rig.fixed,
             stage: Stage::Loading { total: 0 },
         };
         rig.target = city::world(-70.6505, -33.462);
         rig.distance = 36_500.;
+        rig.eye_direction = panorama_direction();
         rig.fixed = true;
         // Present the real title before synchronous terrain and route decoding.
         let presented = Arc::new(AtomicBool::new(false));
@@ -118,6 +121,12 @@ impl Plugin for CityBoot {
                 place_window.run_if(resource_exists::<WindowPlacement>),
             );
     }
+}
+
+// Look east across the basin from above the western foothills.
+fn panorama_direction() -> Vec3 {
+    let (az, el) = (-78_f32.to_radians(), 18_f32.to_radians());
+    Vec3::new(az.sin() * el.cos(), el.sin(), az.cos() * el.cos())
 }
 
 fn start_city(world: &mut World) {
@@ -333,6 +342,8 @@ fn advance(
         }
         Stage::Leaving { since, night } => {
             let opacity = (1. - (now - since) / 0.75).clamp(0., 1.);
+            let turn = 1. - opacity;
+            rig.eye_direction = panorama_direction().slerp(entry.direction, turn * turn * (3. - 2. * turn));
             backgrounds.get_mut(ui.cover).unwrap().0 = ink(0.46 * opacity);
             for (entity, base) in &backing {
                 backgrounds.get_mut(entity).unwrap().0 = ink(base.0 * opacity);

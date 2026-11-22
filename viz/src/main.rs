@@ -4,6 +4,7 @@ mod chat_terminal;
 mod chart;
 mod city;
 mod focus;
+mod halos;
 mod label;
 mod movers;
 mod net;
@@ -347,7 +348,9 @@ fn main() -> AppExit {
             movers::MoversPlugin,
             city::metro_service::MetroServicePlugin,
             movers::events::EventsPlugin,
+            halos::HalosPlugin,
             pixels::PixelMode,
+            city::horizon::HorizonPlugin,
         ))
         .init_resource::<city::SubwayView>()
         .init_resource::<city::street_mask::StreetMask>()

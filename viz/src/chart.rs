@@ -92,7 +92,7 @@ fn draw(
         .spawn((
             Chart(time.elapsed_secs() + chart["show_after_seconds"].as_f64().unwrap_or(0.) as f32),
             Visibility::Hidden,
-            BackgroundColor(Color::srgba(0.05, 0.07, 0.09, 0.85)),
+            BackgroundColor(crate::label::PANEL_INK),
             Node {
                 position_type: PositionType::Absolute,
                 right: px(24),
