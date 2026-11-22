@@ -17,6 +17,7 @@ from tempfile import TemporaryDirectory
 from shapely import STRtree, make_valid, transform, union_all
 from shapely.geometry import LineString, box, shape
 
+from car_tunnels import DryTunnels, with_covered_roads
 from roads import VIEW
 
 DATA = Path("web/data")
@@ -217,6 +218,57 @@ class CrossingIndex:
         return out
 
 
+def restored_curves():
+    curves = {}
+    for line in read("car_street_curves.json.gz"):
+        lengths = [math.dist(metres(*a), metres(*b)) for a, b in zip(line, line[1:])]
+        total = sum(lengths)
+        cumulative = 0.
+        interior = []
+        for point, step in zip(line[1:-1], lengths):
+            cumulative += step
+            interior.append((point, cumulative / total))
+        curves[tuple(line[0]), tuple(line[-1])] = interior
+    return curves
+
+
+def classified(rows, water, tunnels, curves):
+    spans = {}
+    for key, anchors in rows:
+        geometry, axis = [anchors[0]], [0.]
+        for i, (a, b) in enumerate(zip(anchors, anchors[1:])):
+            for point, fraction in curves.get((tuple(a), tuple(b)), ()):
+                geometry.append(point)
+                axis.append(i + fraction)
+            geometry.append(b)
+            axis.append(i + 1)
+        expanded = [(key, geometry)]
+        sections = water.routes(expanded)
+        tunnels.add(expanded, sections)
+
+        def anchor_index(vertex):
+            left = math.floor(vertex)
+            right = math.ceil(vertex)
+            return round(axis[left] + (axis[right] - axis[left]) * (vertex - left), 7)
+
+        key = str(key)
+        if key in sections:
+            # The runtime maps these fractions to the original distance and
+            # clock of each anchor, using the same planar length ratios.
+            ranges = []
+            for start, end, kind in sections[key]:
+                lo, hi = anchor_index(start), anchor_index(end)
+                if hi <= lo:
+                    continue
+                if ranges and ranges[-1][1] == lo and ranges[-1][2] == kind:
+                    ranges[-1][1] = hi
+                else:
+                    ranges.append([lo, hi, kind])
+            if ranges:
+                spans[key] = ranges
+    return spans
+
+
 def main():
     pbf = Path(sys.argv[1])
     digest = sha(pbf)
@@ -232,6 +284,10 @@ def main():
             if g["mode"] == "car" and g.get("route") is not None
         }
     )
+    local_rows = [(i, local["paths"][i]) for i in selected]
+    od_rows = read("car_routes.json").items()
+    curves = restored_curves()
+    tunnels = DryTunnels(with_covered_roads(read("road_centerlines.geojson.gz")["features"], pbf), metres)
     bundle = {
         "attribution": "© OpenStreetMap contributors",
         "license": "ODbL-1.0",
@@ -239,8 +295,8 @@ def main():
         "water": water,
         "water_ids": ids,
         "bridges": index.decks,
-        "local": index.routes((i, local["paths"][i]) for i in selected),
-        "od": index.routes(read("car_routes.json").items()),
+        "local": classified(local_rows, index, tunnels, curves),
+        "od": classified(od_rows, index, tunnels, curves),
     }
     raw = json.dumps(bundle, separators=(",", ":"), ensure_ascii=False).encode()
     dest = DATA / "car_water_spans.json.gz"
