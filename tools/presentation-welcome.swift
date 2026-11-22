@@ -16,7 +16,7 @@ final class WelcomeActions: NSObject {
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
 
-let screen = NSScreen.main!
+let screen = NSScreen.screens.first!
 let window = WelcomeWindow(
     contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false, screen: screen
 )
@@ -127,7 +127,9 @@ Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { timer in
     if background.isReadyForDisplay && FileManager.default.fileExists(atPath: runtime.appendingPathComponent("ready").path) {
         splash.removeFromSuperview()
         start.isEnabled = true
+        window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(start)
+        app.activate(ignoringOtherApps: true)
         timer.invalidate()
     }
 }

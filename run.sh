@@ -37,6 +37,7 @@ terminal_pid=
 terminal_layout_pid=
 runtime=$(mktemp -d "${TMPDIR:-/tmp}/santiago-launch.XXXXXX")
 engine_log="$runtime/engine.log"
+viewer_log="$runtime/viewer.log"
 cleanup() {
     trap - EXIT INT TERM
     for pid in $terminal_layout_pid $terminal_pid $window_pid $welcome_pid $engine_pid; do
@@ -44,7 +45,7 @@ cleanup() {
     done
     if declare -F cleanup_city_terminal_mac >/dev/null; then cleanup_city_terminal_mac || true; fi
     wait 2>/dev/null || true
-    rm -f "$engine_log" "$runtime/engine-starting" "$runtime/ready"
+    rm -f "$engine_log" "$viewer_log" "$runtime/engine-starting" "$runtime/ready"
     rmdir "$runtime"
 }
 trap cleanup EXIT
@@ -86,17 +87,31 @@ curl --fail --silent --show-error --output /dev/null \
 echo "SANTIAGO_API_URL=$api"
 export SANTIAGO_ENGINE="$api"
 if [[ $presentation == --presentation ]]; then
+    set_city_layout_mac
+    export SANTIAGO_WINDOW_RECT="$city_x $city_y $city_width $city_height"
+    export SANTIAGO_DISTANCE="${SANTIAGO_DISTANCE:-38000}"
+    touch "$viewer_log"
+    "${viewer[@]}" > >(tee "$viewer_log") &
+    window_pid=$!
+    # The first activity-height receipt follows loading the city and applying the baseline.
+    until grep -Eq '^Scenario [0-9]+: activity height changed' "$viewer_log"; do
+        kill -0 "$welcome_pid" 2>/dev/null || { wait "$welcome_pid"; exit 1; }
+        kill -0 "$window_pid" 2>/dev/null || { wait "$window_pid"; exit 1; }
+        sleep 0.2
+    done
     touch "$runtime/ready"
     wait "$welcome_pid"
     welcome_pid=
-    export SANTIAGO_DISTANCE="${SANTIAGO_DISTANCE:-38000}"
-fi
-if declare -F open_city_terminal_mac >/dev/null; then
     open_city_terminal_mac
 else
-    open_city_terminal_linux
+    if [[ $platform == Darwin ]]; then
+        set_city_layout_mac
+        open_city_terminal_mac
+    else
+        open_city_terminal_linux
+    fi
+    export SANTIAGO_WINDOW_RECT="$city_x $city_y $city_width $city_height"
+    "${viewer[@]}" &
+    window_pid=$!
 fi
-export SANTIAGO_WINDOW_RECT="$city_x $city_y $city_width $city_height"
-"${viewer[@]}" &
-window_pid=$!
 wait "$window_pid"

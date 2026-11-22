@@ -27,8 +27,8 @@ city_mac_prepare_font() {
     return 1
 }
 
-open_city_terminal_mac() {
-    local layout terminal_left terminal_top terminal_right terminal_bottom owner font_name
+set_city_layout_mac() {
+    local layout
     layout=$(/usr/bin/osascript -l JavaScript <<'JS'
 ObjC.import('AppKit')
 const screen = $.NSScreen.screens.firstObject
@@ -45,6 +45,10 @@ pixels.concat([x + width - strip, y, x + width, y + height].map(Math.round)).joi
 JS
     ) || return
     read -r city_x city_y city_width city_height terminal_left terminal_top terminal_right terminal_bottom <<<"$layout"
+}
+
+open_city_terminal_mac() {
+    local owner font_name
     if city_mac_prepare_font; then
         font_name="JetBrainsMonoNFM-Regular"
     else
