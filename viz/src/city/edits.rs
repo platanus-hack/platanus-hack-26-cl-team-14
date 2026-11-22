@@ -136,12 +136,7 @@ fn draw(feature: &Value, kind: &str, removed: bool, mask: &StreetMask) -> Surfac
             if removed && mask.drape_if_cut(&mut mesh, &footprint, 0.3, color) {
                 return mesh;
             }
-            let height = if removed {
-                0.
-            } else {
-                feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32
-            };
-            mesh.polygon(&footprint, 0.3, height, color, color);
+            mesh.polygon(&footprint, 0.3, 0., color, color);
         }
         "road" | "line" => {
             let lines = if geometry["type"] == "MultiLineString" {
@@ -179,6 +174,24 @@ fn draw(feature: &Value, kind: &str, removed: bool, mask: &StreetMask) -> Surfac
         }
         _ => {}
     }
+    mesh
+}
+
+fn draw_placed_building(feature: &Value, buildings: &Buildings) -> Surface {
+    let footprint = rings(&feature["geometry"]["coordinates"]);
+    let mut mesh = Surface {
+        textured: true,
+        ..default()
+    };
+    let Some(point) = footprint.first().and_then(|ring| ring.first()) else {
+        return mesh;
+    };
+    let height = feature["properties"]["height_m"].as_f64().unwrap_or(0.) as f32;
+    let origin = buildings.boxes.origin;
+    let x = ((point.x - origin.x) / 0.92915) as u16;
+    let y = ((origin.z - point.z) / 1.10905) as u16;
+    let (wall, roof) = super::paint(x, y, height);
+    super::facade::building(&mut mesh, &footprint, height, wall, roof);
     mesh
 }
 
@@ -540,7 +553,11 @@ pub(crate) fn refresh(
             continue;
         }
         if !after.is_null() && !(kind == "building" && moved_landmarks.contains_key(id)) {
-            let shape = draw(after, kind, false, mask);
+            let shape = if kind == "building" {
+                draw_placed_building(after, &buildings)
+            } else {
+                draw(after, kind, false, mask)
+            };
             if !shape.indices.is_empty() {
                 let mesh = Mesh3d(meshes.add(shape.finish()));
                 let depth = transition.map(|_| mesh_depth(&meshes, &mesh, None));
@@ -548,7 +565,7 @@ pub(crate) fn refresh(
                     EditMesh,
                     mesh,
                     MeshMaterial3d(if kind == "building" {
-                        buildings.edit_material.clone()
+                        buildings.facade_material.clone()
                     } else {
                         path_material.clone()
                     }),
