@@ -34,6 +34,7 @@ impl Plugin for ChatTerminal {
 enum Event {
     Ready,
     Toggle,
+    PanelWidth { width: f32 },
     Input { text: String },
     Resize { cols: u16, rows: u16 },
 }
@@ -46,6 +47,7 @@ struct Panel {
     output: Receiver<Vec<u8>>,
     events: Receiver<Event>,
     window_size: Vec2,
+    open_width: Option<f32>,
     ready: bool,
     open: bool,
 }
@@ -76,7 +78,7 @@ impl Panel {
             .with_transparent(true)
             .with_navigation_handler(|url| url == "about:blank")
             .with_new_window_req_handler(|_, _| NewWindowResponse::Deny)
-            .with_bounds(bounds(window_size, true))
+            .with_bounds(bounds(window_size, true, None))
             .with_ipc_handler(move |request| {
                 if let Ok(event) = serde_json::from_str(request.body()) {
                     let _ = send_event.send(event);
@@ -112,6 +114,7 @@ impl Panel {
             output,
             events,
             window_size,
+            open_width: None,
             ready: false,
             open: true,
         })
@@ -119,9 +122,10 @@ impl Panel {
 
     fn update(&mut self, window_size: Vec2) -> Result<(), Box<dyn std::error::Error>> {
         if self.window_size != window_size {
-            self.view.set_bounds(bounds(window_size, self.open))?;
             self.window_size = window_size;
+            self.update_bounds()?;
         }
+        let mut requested_width = None;
         while let Ok(event) = self.events.try_recv() {
             match event {
                 Event::Ready => {
@@ -130,11 +134,21 @@ impl Panel {
                 }
                 Event::Toggle => {
                     self.open = !self.open;
-                    self.view.set_bounds(bounds(window_size, self.open))?;
+                    self.update_bounds()?;
                     self.update_focus()?;
                 }
+                Event::PanelWidth { width } => requested_width = Some(width),
                 Event::Input { text } => self.input.write_all(text.as_bytes())?,
                 Event::Resize { cols, rows } => self.pty.resize(pty_size(cols, rows))?,
+            }
+        }
+        if let Some(width) = requested_width
+            && self.open
+        {
+            let width = clamp_width(self.window_size.x, width);
+            if self.open_width != Some(width) {
+                self.open_width = Some(width);
+                self.update_bounds()?;
             }
         }
         if self.ready {
@@ -146,6 +160,11 @@ impl Panel {
             }
         }
         Ok(())
+    }
+
+    fn update_bounds(&self) -> wry::Result<()> {
+        self.view
+            .set_bounds(bounds(self.window_size, self.open, self.open_width))
     }
 
     fn update_focus(&self) -> wry::Result<()> {
@@ -188,16 +207,22 @@ fn update(
     }
 }
 
-fn bounds(size: Vec2, open: bool) -> Rect {
-    let inset = 18.;
-    let width = if open {
-        (size.x * 0.38).max(440.).min(size.x - 2. * inset)
+fn clamp_width(window_width: f32, width: f32) -> f32 {
+    let maximum = (window_width * 0.62).max(1.);
+    width.clamp(320_f32.min(maximum), maximum)
+}
+
+fn bounds(size: Vec2, open: bool, open_width: Option<f32>) -> Rect {
+    let (width, height) = if open {
+        (
+            clamp_width(size.x, open_width.unwrap_or(size.x * 0.36)),
+            size.y.max(1.),
+        )
     } else {
-        132.
+        (106_f32.min(size.x).max(1.), 30.)
     };
-    let height = if open { size.y - 2. * inset } else { 46. };
     Rect {
-        position: LogicalPosition::new(size.x - width - inset, inset).into(),
+        position: LogicalPosition::new(size.x - width, 0.).into(),
         size: LogicalSize::new(width, height).into(),
     }
 }
