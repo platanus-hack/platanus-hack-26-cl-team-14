@@ -14,6 +14,11 @@ Household size: 1 to 5, where 5 means 5 or more. 255 means unknown.
 
 Output: data/mvp/person_traits_workers.csv   origin_cut,destination_cut,mode,age_band,household_size,commuters
         data/mvp/person_traits_students.csv  cut,age_band,household_size,students
+        data/mvp/person_traits_residents.csv cut,role,age_band,household_size,persons
+          RM residents who are neither an internal commuter of the workers file nor a basic/secondary student.
+          role: 0 under 15, 1 higher education (`asistencia_superior`), 2 employed without an internal
+          commute (`sit_fuerza_trabajo` 1: works at home, outside the RM or without a fixed place),
+          3 unemployed (2), 4 outside the labour force (3), 5 unknown.
 """
 import collections, csv, pathlib, subprocess, sys
 
@@ -28,6 +33,7 @@ def band(age):
 
 
 workers = collections.Counter()
+residents = collections.Counter()
 students = collections.Counter()
 tipo = collections.Counter()
 sizes = collections.Counter()
@@ -42,10 +48,16 @@ def flush(household):
         home = f"{int(row['comuna']):05d}"
         age = band(int(row["edad"]))
         dest = row["p44_lug_trab_esp"]
-        if row["p44_lug_trab"] in ("2", "3") and dest not in MISSING and not dest.zfill(5).endswith("000"):
+        commuter = row["p44_lug_trab"] in ("2", "3") and dest not in MISSING and not dest.zfill(5).endswith("000")
+        if commuter:
             workers[(home, f"{int(dest):05d}", row["p45_medio_transporte"], age, size)] += 1
-        if row["asistencia_basica"] == "1" or row["asistencia_media"] == "1":
+        student = row["asistencia_basica"] == "1" or row["asistencia_media"] == "1"
+        if student:
             students[(home, age, size)] += 1
+        if not student and not (commuter and dest.zfill(5).startswith("13")):
+            role = 0 if age == 0 else 1 if row["asistencia_superior"] == "1" else \
+                {"1": 2, "2": 3, "3": 4}.get(row["sit_fuerza_trabajo"], 5)
+            residents[(home, role, age, size)] += 1
 
 
 proc = subprocess.Popen(["unzip", "-p", str(ZIP), "personas_censo2024.csv"], stdout=subprocess.PIPE)
@@ -80,3 +92,10 @@ with open("data/mvp/person_traits_students.csv", "w", newline="") as f:
     for k, n in sorted(students.items()):
         w.writerow(list(k) + [n])
 print("students", len(students), "rows", sum(students.values()))
+
+with open("data/mvp/person_traits_residents.csv", "w", newline="") as f:
+    w = csv.writer(f)
+    w.writerow(["cut", "role", "age_band", "household_size", "persons"])
+    for k, n in sorted(residents.items()):
+        w.writerow(list(k) + [n])
+print("residents", len(residents), "rows", sum(residents.values()))
