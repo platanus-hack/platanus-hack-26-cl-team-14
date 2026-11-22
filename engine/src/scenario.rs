@@ -226,7 +226,7 @@ impl Scenario {
     }
 
     /// The same persons decide an optional shopping visit before and after the change (shopping/visits.rs), with one paired example.
-    fn optional_visits(&self, pop: &Population, minutes: &[f64], shops: &[shopping::Shop], window: Option<(usize, usize)>, residents_changed: bool) -> Value {
+    fn optional_visits(&self, pop: &Population, minutes: &[f64], unreachable: &[bool], shops: &[shopping::Shop], window: Option<(usize, usize)>, residents_changed: bool) -> Value {
         if residents_changed { return json!({ "not_modeled": "Optional visits pair the same persons before and after; a residents change adds or removes persons." }); }
         let c = &self.choice;
         let (workers, homes, visits) = self.visits.get_or_init(|| {
@@ -237,7 +237,7 @@ impl Scenario {
             let visits = self.shopping.visits(c.n, &homes, &c.minutes);
             (workers, homes, visits)
         });
-        let after = visits.after(shops, &c.minutes, minutes, window);
+        let after = visits.after(shops, &c.minutes, minutes, unreachable, window);
         let mut v = shopping::visits::summary(&c.cuts, &visits.before, &after);
         v["baseline_check"] = json!({ "destination_tv_vs_shopping_layer": (visits.tv_vs_shopping_layer * 10000.0).round() / 10000.0 });
         let cut = |x: Option<u8>| x.map(|d| c.cuts[d as usize].clone());
@@ -328,6 +328,8 @@ impl Scenario {
         let mut job_line_edits = None;
         // For an outage keep the last finite graph time. None means this pair had no graph baseline.
         let mut transit_reference: HashMap<usize, Option<f64>> = HashMap::new();
+        // Comuna pairs that had a transit path and lost it in this request (their minutes keep the last finite value).
+        let mut unreachable = vec![false; n * n];
         let mut job_transit_reference = HashMap::new();
         let mut resident_stock_edits = 0;
         let mut city_edits = Vec::new();
@@ -386,8 +388,10 @@ impl Scenario {
                                         minutes[index] += next - last;
                                         pair["choice_minutes_delta"] = json!(minutes[index].max(1.0) - before);
                                         *reference = Some(next);
+                                        unreachable[index] = false;
                                     }
                                     _ => {
+                                        unreachable[index] = reference.is_some();
                                         pair["choice_minutes_delta"] = Value::Null;
                                         pair["choice_effect_unavailable"] = json!(if reference.is_none() {
                                             "No finite baseline transit path for this comuna pair."
@@ -837,7 +841,7 @@ impl Scenario {
             "trips_delta": trip_deltas(&self.trips, &trips), "trips_base": self.trips, "trips_scenario": trips,
             "events": events,
             "shopping": self.shopping.run(&c.cuts, &c.names, &c.minutes, &minutes, &shops, &shop_sites),
-            "optional_visits": self.optional_visits(&pop, &minutes, &shops, window, resident_stock_edits > 0),
+            "optional_visits": self.optional_visits(&pop, &minutes, &unreachable, &shops, window, resident_stock_edits > 0),
             "population": {
                 "workers": s.od.iter().sum::<f64>(), "students": pop.persons.iter().filter(|p| p.student).count(),
                 "other_residents_by_role": (["under_15", "higher_education", "employed_without_internal_commute", "unemployed", "outside_labour_force", "unknown"]

@@ -68,9 +68,12 @@ fn par<T: Send>(len: usize, n: usize, f: impl Fn(usize, &mut [VisitOption<u8>]) 
     })
 }
 
-fn decide(options: &mut [VisitOption<u8>], v: &[f64], i: usize, skip: f64) -> Option<u8> {
+fn decide(options: &mut [VisitOption<u8>], v: &[f64], unreachable: &[bool], i: usize, skip: f64) -> Option<u8> {
     let score = |x: f64| (x * 1e6) as i32;
-    for (d, option) in options.iter_mut().enumerate() { option.preference = score(v[d] + gumbel(((i as u64) << 7) | d as u64)); }
+    for (d, option) in options.iter_mut().enumerate() {
+        option.preference = score(v[d] + gumbel(((i as u64) << 7) | d as u64));
+        option.available = !unreachable[d];
+    }
     // Time and budget limits have no Santiago source yet, so they do not bind.
     choose_visit(options, u32::MAX, u32::MAX, score(skip + gumbel(((i as u64) << 7) | 127))).copied()
 }
@@ -92,9 +95,10 @@ impl Visits {
             let (u, mut cumulative) = (uniform(((i as u64) << 7) | 126), 0.0);
             profile[o].0.iter().position(|s| { cumulative += s; u < cumulative }).unwrap_or(47) as u8
         }).collect();
+        let none = vec![false; n];
         let before = par(homes.len(), n, |i, options| {
             let o = homes[i];
-            if trips[o] == 0.0 { None } else { decide(options, &base[o * n..][..n], i, skip[o]) }
+            if trips[o] == 0.0 { None } else { decide(options, &base[o * n..][..n], &none, i, skip[o]) }
         });
         let (od, _) = flows(trips, shops, minutes);
         let mut persons = vec![0.0; n];
@@ -107,16 +111,19 @@ impl Visits {
 
     /// Decisions after the change. Only public-transport shoppers who leave inside `window` (all day when None) see
     /// the scenario minutes; everyone sees the scenario shops. A person whose options did not change keeps the decision.
-    pub fn after(&self, shops: &[Shop], base_minutes: &[f64], minutes: &[f64], window: Option<(usize, usize)>) -> Vec<Option<u8>> {
+    /// `unreachable`: comuna pairs that lost every transit path; exposed shoppers cannot choose them.
+    pub fn after(&self, shops: &[Shop], base_minutes: &[f64], minutes: &[f64], unreachable: &[bool], window: Option<(usize, usize)>) -> Vec<Option<u8>> {
         let n = self.n;
         let (moved, kept) = (utilities(n, shops, minutes), utilities(n, shops, base_minutes));
         let same = |v: &[f64], o: usize| v[o * n..][..n] == self.base[o * n..][..n];
-        let (same_moved, same_kept): (Vec<bool>, Vec<bool>) = ((0..n).map(|o| same(&moved, o)).collect(), (0..n).map(|o| same(&kept, o)).collect());
+        let open = vec![false; n];
+        let same_moved: Vec<bool> = (0..n).map(|o| same(&moved, o) && !unreachable[o * n..][..n].contains(&true)).collect();
+        let same_kept: Vec<bool> = (0..n).map(|o| same(&kept, o)).collect();
         par(self.homes.len(), n, |i, options| {
             let o = self.homes[i] as usize;
             let exposed = self.public[i] && window.is_none_or(|(a, z)| (a..z).contains(&(self.depart[i] as usize)));
-            let (v, unchanged) = if exposed { (&moved, same_moved[o]) } else { (&kept, same_kept[o]) };
-            if unchanged || !self.active[o] { self.before[i] } else { decide(options, &v[o * n..][..n], i, self.skip[o]) }
+            let (v, lost, unchanged) = if exposed { (&moved, &unreachable[o * n..][..n], same_moved[o]) } else { (&kept, &open[..], same_kept[o]) };
+            if unchanged || !self.active[o] { self.before[i] } else { decide(options, &v[o * n..][..n], lost, i, self.skip[o]) }
         })
     }
 }

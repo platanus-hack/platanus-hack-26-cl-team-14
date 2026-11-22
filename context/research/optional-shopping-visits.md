@@ -30,5 +30,6 @@ Cost: +1.5 s for the first run (baseline decisions, cached), +1.2 s when shop po
 
 - The skip response is a logit assumption: no Santiago data measures how many people skip shopping when transit gets slower.
 - Huff minutes are public-transport comuna minutes; non-transit shoppers keep baseline minutes.
+- A comuna pair that loses every transit path in the request is unavailable to exposed (public-transport, in-window) shoppers. Removing all buses: 198 such pairs; 3,230 shoppers change destination, 33,937 stop.
 - A residents change in the same request turns this off (`not_modeled`), because persons must match before and after.
 - Destinations are comunas. Inside a comuna the shopping layer splits trips by shop point.
