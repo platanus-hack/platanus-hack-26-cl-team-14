@@ -10,10 +10,13 @@ use std::path::Path;
 
 const ALPHA: f64 = 0.586;
 const BETA: f64 = 0.2047;
-/// Huff fit of EOD 2012 health trips (Proposito 5) to hospital and clinic points: `shopping_huff.py 5 hospital,clinic`.
-pub const HEALTH: (&str, &[&str], f64, f64) = ("health", &["hospital", "clinic"], 1.170, 0.1354);
+/// EOD purpose, destination point kinds (empty: every kind), Huff α, β per minute, points file in the data dir.
+pub type Layer = (&'static str, &'static [&'static str], f64, f64, &'static str);
+/// Huff fit of EOD 2012 health trips (Proposito 5) to the DEIS establishments that patients visit:
+/// `shopping_huff.py 5 all health_points.csv` (tools/pack/deis_health_points.py).
+pub const HEALTH: Layer = ("health", &[], 1.188, 0.1272, "health_points.csv");
 /// The shopping layer: shop, mall and supermarket points.
-pub const SHOPPING: (&str, &[&str], f64, f64) = ("shopping", &["shop", "mall", "supermarket"], ALPHA, BETA);
+pub const SHOPPING: Layer = ("shopping", &["shop", "mall", "supermarket"], ALPHA, BETA, "activity_points.csv");
 
 /// One shop point: longitude, latitude, comuna index, id (baseline points 0..n, added points after).
 pub type Shop = (f64, f64, usize, u32);
@@ -33,7 +36,7 @@ pub struct Shopping {
     /// Total variation between modeled and EOD 2012 destination totals by comuna, at baseline.
     destination_tv: f64,
     /// EOD purpose, destination point kinds and Huff fit (SHOPPING or HEALTH).
-    layer: (&'static str, &'static [&'static str], f64, f64),
+    layer: Layer,
 }
 
 fn records(p: &Path) -> impl Iterator<Item = csv::StringRecord> {
@@ -62,7 +65,7 @@ impl Shopping {
         visits::Visits::new(n, homes, &self.trips, &self.profile, &self.shops, minutes)
     }
 
-    pub fn load(dir: &Path, cuts: &[String], homes: &[Point], minutes: &[f64], layer: (&'static str, &'static [&'static str], f64, f64)) -> Shopping {
+    pub fn load(dir: &Path, cuts: &[String], homes: &[Point], minutes: &[f64], layer: Layer) -> Shopping {
         let n = cuts.len();
         let ix = |c: &str| cuts.iter().position(|x| x == c);
         let mut residents = vec![0.0; n];
@@ -89,8 +92,8 @@ impl Shopping {
         }
         let no_rate = (0..n).filter(|&o| rate[o].is_none()).map(|o| cuts[o].clone()).collect();
         let trips: Vec<f64> = (0..n).map(|o| residents[o] * rate[o].unwrap_or(0.0)).collect();
-        let shops: Vec<Shop> = records(&dir.join("activity_points.csv"))
-            .filter(|r| layer.1.contains(&&r[0]))
+        let shops: Vec<Shop> = records(&dir.join(layer.4))
+            .filter(|r| layer.1.is_empty() || layer.1.contains(&&r[0]))
             .filter_map(|r| Some((r[2].parse().unwrap(), r[3].parse().unwrap(), ix(&r[4])?)))
             .enumerate().map(|(i, (x, y, c))| (x, y, c, i as u32)).collect();
         // EOD 2012 destination totals by comuna, homes pooled. Unknown destinations are left out of both sides.
@@ -174,7 +177,7 @@ impl Shopping {
                      "alpha": self.layer.2, "beta_per_minute": self.layer.3 },
             "comunas_without_eod_rate": self.no_rate,
             "exposed_trips": (0..n).map(|o| self.trips[o] * self.profile[o].1[1] * window.map_or(1.0, |(a, z)| self.profile[o].0[a..z].iter().sum())).sum::<f64>().round(),
-            "unit": format!("weekday outbound {} trips of residents (EOD 2012 rates × Census 2024 residents), not distinct persons; returns are not included. shops_* count the destination points of kinds {}", self.layer.0, self.layer.1.join(", ")),
+            "unit": format!("weekday outbound {} trips of residents (EOD 2012 rates × Census 2024 residents), not distinct persons; returns are not included. shops_* count the destination points of {} {}", self.layer.0, self.layer.4, self.layer.1.join(", ")),
         })
     }
 }

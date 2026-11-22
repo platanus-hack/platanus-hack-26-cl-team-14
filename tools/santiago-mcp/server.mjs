@@ -462,6 +462,7 @@ function shortResult(full, asked, placesUsed) {
     if (placesUsed.length) result.places_used = placesUsed;
     result.blocks_changed = blocks_changed.slice(0, 5);
     if (result.shopping) result.shopping.destinations_changed = result.shopping.destinations_changed.slice(0, 5); // cached results from before #360 have no shopping
+    if (result.health) result.health.destinations_changed = result.health.destinations_changed.slice(0, 5); // cached results from before #536 have no health
     result.omitted = 'Other stations, zones, comuna flows and trip groups are in the city view, not here. Do not describe them.';
     return result;
 }
