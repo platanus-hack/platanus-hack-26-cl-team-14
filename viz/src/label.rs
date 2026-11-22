@@ -11,9 +11,9 @@ use bevy::{
 // The darkest blue-violet ink of the city print, opaque so text stays legible over white roofs.
 pub(crate) const PANEL_INK: Color = Color::srgb_u8(0x24, 0x29, 0x42);
 
-// Glass panels: a translucent ink tint, a bright rim and a soft shadow. The city shows through.
-pub(crate) const GLASS: Color = Color::srgba(0.07, 0.09, 0.16, 0.6);
-pub(crate) const GLASS_RIM: Color = Color::srgba(1., 1., 1., 0.5);
+// Glass panels: a near-black tint, a bright rim and a soft shadow. White text stays legible over white roofs.
+pub(crate) const GLASS: Color = Color::srgba(0., 0., 0., 0.82);
+pub(crate) const GLASS_RIM: Color = Color::srgba(1., 1., 1., 0.35);
 pub(crate) fn glass_shadow() -> BoxShadow {
     BoxShadow::new(Color::srgba(0., 0., 0., 0.35), px(0), px(10), px(0), px(28))
 }
@@ -236,7 +236,7 @@ fn style_arrows(
         background.set_if_neq(BackgroundColor(if enabled {
             GLASS
         } else {
-            Color::srgba(0.45, 0.47, 0.52, 0.3)
+            Color::srgba(0., 0., 0., 0.35)
         }));
         if hidden && !accessibility.is_hidden() {
             accessibility.set_hidden();
