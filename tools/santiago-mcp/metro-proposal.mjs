@@ -292,13 +292,13 @@ export function metroDrafts({ getCatalog, knownPlaces, areaAt }) {
     applying = true;
     try {
       const changes = lineChanges(draft, getCatalog());
-      const result = await run(changes);
+      const full = await run(changes);
       latest = undefined;
       return {
-        ...result, projectId: draft.projectId, projectTitle: draft.title, operation: draft.operation,
+        full, projectId: draft.projectId, projectTitle: draft.title, operation: draft.operation,
         stations: draft.stations.map(({ id, name, coordinates, existing }) => ({ id, name, coordinates, existing })),
         patterns: changes.map(change => change.target.id),
-        demand: result.full.metro_project_demand?.find(item => item.project_id === draft.projectId) ?? null,
+        demand: full.metro_project_demand?.find(item => item.project_id === draft.projectId) ?? null,
         unavailable_activities: missingActivities,
       };
     } finally {

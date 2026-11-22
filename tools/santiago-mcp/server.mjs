@@ -474,7 +474,7 @@ async function dispatch({ method, params }) {
         }] });
       }
     } else if (params.name === applyMetroTool.name) {
-      const applied = await metro.apply(args, changes => runScenario({ changes }, true));
+      const applied = await metro.apply(args, changes => engineJSON('/api/scenario', { changes, require_all: true }));
       const { full, projectId, projectTitle, operation, stations, patterns, demand, unavailable_activities } = applied;
       if (resultDisplay.publishMetroResult) resultDisplay.publishMetroResult(full, { projectId, projectTitle });
       else if (resultStatusTool) publishResultStatus({ cards: [{
