@@ -33,7 +33,7 @@ ODEPA consumer prices in Región Metropolitana supermarkets, 16–20 November 20
 
 ## Price index by chain (Líder = 100)
 
-**Main index: one basket for all chains.** The same 17 food items (one sales pack each), public online prices 19–21 November 2026. Source: https://lukisi.cl/comparar-supermercados, checked by Queltehue (Discord research thread, 21 Nov 2026).
+**Main index: one basket for all chains.** The same 17 food items (one sales pack each), public online prices 19–21 November 2026. Source: https://lukisi.cl/comparar-supermercados, read by Queltehue on 19–21 Nov 2026. That page changes: on 22 Nov it shows 24 items and a different lowest chain. The dated rows used here are the snapshot `alimentos-seis-cadenas.csv` (item, chain, price, read date), posted by Waldemar in the Discord research thread, message 1573858348745359431. Diuca's data PR adds that file to the repo.
 
 | Chain (owner) | 17-item basket | Index |
 | --- | ---: | ---: |
@@ -60,7 +60,7 @@ ODEPA consumer prices in Región Metropolitana supermarkets, 16–20 November 20
 - It is a pantry purchase, not the full CBA.
 - Alvi needs a merchant account and has an $80.000 minimum for online orders.
 
-**The order changes with the basket.** Unimarc is the cheapest chain in the SERNAC 9 pantry items and the most expensive chain in the 17-item list. Santa Isabel and Jumbo also move. Use the 17-item index as the main value. Treat the gaps between chains as uncertain (about ±10 points).
+**The order changes with the basket.** Unimarc is the cheapest chain in the SERNAC 9 pantry items and the most expensive chain in the 17-item list. Santa Isabel and Jumbo also move. Use the 17-item index as the main value.
 
 Superseded: the first version of this brief used the SERNAC Canasta Dieciochera of 2023 (barbecue basket, national) and a 2026 blog (CashControlly, no method). Those values are removed.
 
