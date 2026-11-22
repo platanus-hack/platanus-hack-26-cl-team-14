@@ -455,11 +455,8 @@ fn animate(
         })
         .filter(|(distance, text)| *distance < (rig.distance * 0.8).powi(2) && !text.is_empty())
         .min_by(|(a, _), (b, _)| a.total_cmp(b));
-    panel.set_if_neq(if label.is_some() {
-        Visibility::Inherited
-    } else {
-        Visibility::Hidden
-    });
+    // The cue subtitle bar tells the story. The fan count panel stays hidden.
+    panel.set_if_neq(Visibility::Hidden);
     if let Some((_, text)) = label
         && caption.0 != *text
     {

@@ -71,29 +71,48 @@ fn draw(mut commands: Commands, scenario: Res<Scenario>, mut fonts: ResMut<Asset
 #[derive(Component)]
 struct CaptionBand;
 
+#[derive(Component)]
+struct CaptionText;
+
+// Full-width subtitle bar: the projector audience reads one large line per camera cue.
 fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let font = fonts.add(Font::from_bytes(include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec()));
-    commands.spawn((
-        CaptionBand,
-        Text::default(),
-        TextFont { font: font.into(), font_size: FontSize::Px(34.), ..default() },
-        TextColor(Color::WHITE),
-        Visibility::Hidden,
-        BackgroundColor(PANEL_INK),
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(24),
-            bottom: px(48),
-            max_width: percent(66),
-            padding: UiRect::axes(px(16), px(10)),
-            overflow: Overflow::clip(),
-            ..default()
-        },
-    ));
+    commands
+        .spawn((
+            CaptionBand,
+            Visibility::Hidden,
+            BackgroundColor(PANEL_INK),
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                bottom: px(0),
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+        ))
+        .with_children(|band| {
+            // Accent strip in the red of the stadium stands.
+            band.spawn((
+                BackgroundColor(Color::srgb_u8(0xD6, 0x58, 0x4B)),
+                Node { width: percent(100), height: px(10), ..default() },
+            ));
+            band.spawn((
+                CaptionText,
+                Text::default(),
+                TextFont { font: font.into(), font_size: FontSize::Px(68.), ..default() },
+                TextColor(Color::WHITE),
+                Node { margin: UiRect::axes(px(40), px(26)), ..default() },
+            ));
+        });
 }
 
-fn show_caption(caption: Res<CueCaption>, mut band: Single<(&mut Text, &mut Visibility), With<CaptionBand>>) {
-    let (text, visibility) = &mut *band;
+fn show_caption(
+    caption: Res<CueCaption>,
+    mut band: Single<&mut Visibility, With<CaptionBand>>,
+    mut text: Single<&mut Text, With<CaptionText>>,
+) {
     text.0.clone_from(&caption.0);
-    **visibility = if caption.0.is_empty() { Visibility::Hidden } else { Visibility::Inherited };
+    **band = if caption.0.is_empty() { Visibility::Hidden } else { Visibility::Inherited };
 }

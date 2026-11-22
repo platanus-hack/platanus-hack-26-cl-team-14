@@ -7,8 +7,8 @@ comparison. Press Enter on the welcome screen. In the chat, ask:
 > ¿Qué pasaría si intercambiamos de lugar el MUT y el Estadio Monumental de Colo-Colo?
 
 The chat plays the baseline first. Confirm that you see it before the chat plays
-the experiment. The MUT pair starts at 13:30. The B chart appears at +18 seconds.
-The paired Mapocho and Metro videos use their own playback timing.
+the experiment. The MUT pair starts at 14:00. Each replay is a story of camera
+zooms and subtitles, one for each point of the answer. There is no final chart.
 
 | Scenario | Baseline | Experiment | Saved result |
 | --- | --- | --- | --- |
