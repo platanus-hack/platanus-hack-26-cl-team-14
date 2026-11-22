@@ -360,7 +360,8 @@ async function dispatch({ method, params }) {
   if (method !== 'tools/call' || !tools.some(t => t.name === params?.name)) return null;
   try {
     const args = params.arguments ?? {};
-    if (args.changes?.some(change => change.kind === 'building_placement')) {
+    const placement = args.changes?.some(change => change.kind === 'building_placement');
+    if (placement) {
       const namedPlaces = placeRows.map(r => ({ id: r[0], name: r[1], ...places[r[0]] }));
       args.changes = await expandBuildingPlacements(args.changes, namedPlaces, engineJSON, args.scene?.place);
     }
@@ -377,7 +378,7 @@ async function dispatch({ method, params }) {
       const { scene, changes, stations = [], ...meta } = args;
       replayFile(meta.id);
       await setScene(scene);
-      const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
+      const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations }, placement);
       if (scene.layer === 'metro_service') full.scene.layer = scene.layer;
       for (const cue of meta.cues ?? []) {
         if (!cue.caption) continue;
@@ -390,7 +391,7 @@ async function dispatch({ method, params }) {
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
       text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
-    } else text = (await runScenario(args)).short;
+    } else text = (await runScenario(args, placement)).short;
     return { content: [{ type: 'text', text: JSON.stringify(text) }] };
   } catch (error) {
     return { isError: true, content: [{ type: 'text', text: error.message }] };
@@ -398,7 +399,7 @@ async function dispatch({ method, params }) {
 }
 
 // Changes from the chat: named places become census blocks, then the engine runs once. The map gets the full result; the agent a short copy.
-async function runScenario(args) {
+async function runScenario(args, requireAll) {
     const placesUsed = [];
     for (const change of args.changes ?? []) {
       if (change.kind === 'line' && change.op === 'set') {
@@ -419,7 +420,7 @@ async function runScenario(args) {
       change.target = { type: 'block', id: place.block };
     }
     const { stations: asked = [], ...request } = args;
-    const full = await engineJSON('/api/scenario', request);
+    const full = await engineJSON('/api/scenario', { ...request, ...(requireAll && { require_all: true }) });
     return { full, short: shortResult(structuredClone(full), asked, placesUsed), placesUsed };
 }
 

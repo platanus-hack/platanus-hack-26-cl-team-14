@@ -24,6 +24,8 @@ struct Core {
 #[derive(Deserialize)]
 struct GeneralScenarioRequest {
     changes: Vec<serde_json::Value>,
+    #[serde(default)]
+    require_all: bool,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -58,8 +60,16 @@ fn next_revision(snapshot: &Value) -> u64 {
 async fn general_scenario(
     State(core): State<Arc<Core>>,
     Json(request): Json<GeneralScenarioRequest>,
-) -> Json<Value> {
+) -> Result<Json<Value>, (StatusCode, String)> {
     let mut result = core.scenario.run(&request.changes);
+    let rejected = result["not_modeled"].as_array().unwrap();
+    if request.require_all && !rejected.is_empty() {
+        let reasons = rejected.iter().filter_map(|edit| edit["reason"].as_str()).collect::<Vec<_>>();
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("The placement was not applied. {}", reasons.join(" ")),
+        ));
+    }
     core.scenario_events.send_modify(|latest| {
         result["revision"] = json!(next_revision(latest));
         if let Some(scene) = latest.get("scene") {
@@ -67,7 +77,7 @@ async fn general_scenario(
         }
         *latest = result.clone();
     });
-    Json(result)
+    Ok(Json(result))
 }
 
 // A cached replay: publish a saved engine result to the viewer without a new run.
