@@ -41,6 +41,7 @@ terminal_layout_pid=
 launch_dir=$(mktemp -d "${TMPDIR:-/tmp}/santiago-boot.XXXXXX")
 engine_log="$launch_dir/engine.log"
 export SANTIAGO_BOOT_SIGNAL="$launch_dir/enter"
+export SANTIAGO_RESULT_DISPLAY_FILE="$launch_dir/result-display.json"
 cleanup() {
     trap - EXIT INT TERM
     for pid in $terminal_layout_pid $terminal_pid $window_pid $engine_pid; do
