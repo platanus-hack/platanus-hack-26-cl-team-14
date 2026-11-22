@@ -146,7 +146,7 @@ pub fn summary(cuts: &[String], before: &[Option<u8>], after: &[Option<u8>]) -> 
     let trips = |x: u64| (x as f64 * TRIPS_PER_SHOPPER).round();
     json!({
         "shoppers_base": shoppers(0), "shoppers_scenario": shoppers(1),
-        "same_destination": same, "other_destination": other, "stopped_shopping": stopped, "started_shopping": started,
+        "same_destination": same, "other_destination_comuna": other, "stopped_shopping": stopped, "started_shopping": started,
         "trips_base": trips(shoppers(0)), "trips_scenario": trips(shoppers(1)),
         "destinations_changed": by_dest.iter().enumerate().filter(|(_, d)| d[0] != d[1])
             .map(|(d, x)| json!({ "id": cuts[d], "shoppers_base": x[0], "shoppers_scenario": x[1] })).collect::<Vec<_>>(),

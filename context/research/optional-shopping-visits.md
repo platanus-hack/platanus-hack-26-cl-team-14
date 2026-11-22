@@ -32,4 +32,5 @@ Cost: +1.5 s for the first run (baseline decisions, cached), +1.2 s when shop po
 - Huff minutes are public-transport comuna minutes; non-transit shoppers keep baseline minutes.
 - A comuna pair that loses every transit path in the request is unavailable to exposed (public-transport, in-window) shoppers. Removing all buses: 198 such pairs; 3,230 shoppers change destination, 33,937 stop.
 - A residents change in the same request turns this off (`not_modeled`), because persons must match before and after.
-- Destinations are comunas. Inside a comuna the shopping layer splits trips by shop point.
+- Destinations are comunas. "Other destination" means another comuna, not another identifiable store; inside a comuna the shopping layer splits trips by shop point.
+- Calibration universe: the EOD 15.30% participation counts all residents; here the eligible persons are workers and other residents (students excluded). The skip constant is set per comuna so the trip mass still equals the shopping layer, so the share of eligible persons who shop is not the survey share.
