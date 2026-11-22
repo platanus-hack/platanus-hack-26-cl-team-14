@@ -22,6 +22,8 @@ mod building_permits;
 mod attendance;
 #[path = "fans.rs"]
 mod fans;
+#[path = "fan_itineraries.rs"]
+mod fan_itineraries;
 #[path = "line_riders.rs"]
 mod line_riders;
 #[path = "scenario_stations.rs"]
@@ -486,12 +488,24 @@ impl Scenario {
             if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event" && raw["target"]["type"] == "point" && raw["op"] == "set",
                 raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| v >= 0.0),
                 raw["assumed_end_half_hour"].as_u64().filter(|&e| e < 48)) {
+                let fan_base = raw["audience"] == "colo_colo";
+                let itinerary = if let Some(input) = raw.get("fan_itinerary") {
+                    let Some(itinerary) = fan_itineraries::Request::parse(input).filter(|_| fan_base) else {
+                        let mut v = raw.clone();
+                        v["reason"] = json!("Fan itineraries need a Colo-Colo audience, venue ID and increasing local gate-arrival minutes within one day.");
+                        not_modeled.push(v);
+                        continue;
+                    };
+                    Some(itinerary)
+                } else {
+                    None
+                };
                 let venue_cut = self.cut_at(longitude, latitude);
                 let mut v = raw.clone();
                 v["understood"] = json!({ "comuna": c.names[self.ix(&venue_cut)], "attendance": attendance });
                 applied.push(v);
                 // "audience":"colo_colo" adds the fixed fan base (fans.rs): the same fans at any venue. fan_base.csv loads only for such an event.
-                requests.push((raw["audience"] == "colo_colo", attendance::AttendanceRequest { longitude, latitude, venue_cut, attendance: attendance as u32, assumed_end_half_hour: end as u8 }));
+                requests.push((fan_base, itinerary, attendance::AttendanceRequest { longitude, latitude, venue_cut, attendance: attendance as u32, assumed_end_half_hour: end as u8 }));
                 continue;
             }
             if !["jobs", "residents", "minutes"].contains(&kind) {
@@ -656,10 +670,15 @@ impl Scenario {
                 counts[3] += u32::from(before == 2 && p.mode != 2);
             }
         }
-        let events: Vec<Value> = requests.into_iter().map(|(fan_base, r)| {
+        let events: Vec<Value> = requests.into_iter().map(|(fan_base, itinerary, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
             let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
-            if let Some(f) = f { e["fan_base"] = f; }
+            if let Some(f) = f {
+                if let Some(itinerary) = itinerary {
+                    fan_itineraries::attach(&self.data_dir, &f, itinerary, &mut e);
+                }
+                e["fan_base"] = f;
+            }
             e
         }).collect();
         let added_lines = line_edits.as_ref().map(|edits| edits.added()).unwrap_or_default();

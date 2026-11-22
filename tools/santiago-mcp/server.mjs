@@ -45,6 +45,11 @@ const scalarChange = {
     value: { type: 'number' },
     assumed_end_half_hour: { type: 'integer', description: 'event only: the half hour of the day when the event ends, 0 to 47.' },
     audience: { enum: ['colo_colo'], description: 'event only: colo_colo uses the fixed Colo-Colo fan base by home comuna, the same fans at any venue. Only for a Colo-Colo audience.' },
+    fan_itinerary: { type: 'object', required: ['venue_id', 'gate_arrival_minutes'], additionalProperties: false,
+      description: 'Colo-Colo event only. Request estimated inbound fan routes for the selected venue and gate arrival window.',
+      properties: { venue_id: { type: 'string' }, gate_arrival_minutes: { type: 'array', minItems: 2, maxItems: 2,
+        items: { type: 'integer', minimum: 0, maximum: 1440 } } },
+    },
   },
 };
 
@@ -413,7 +418,7 @@ function shortResult(full, asked, placesUsed) {
       return { id, name, comuna: comuna?.name, comuna_cut: comuna?.cut, base_daily, scenario_daily, delta_daily };
     })
       .sort((a, b) => b.delta_daily - a.delta_daily);
-    result.events = result.events.map(({ attendees_by_census_mode, attendees_by_return_comuna, ...event }) => ({
+    result.events = result.events.map(({ attendees_by_census_mode, attendees_by_return_comuna, itineraries, ...event }) => ({
       ...event, attendees_by_mode: named(attendees_by_census_mode, censusMode), attendees_by_return_comuna: named(attendees_by_return_comuna, comunaName),
       ...(event.fan_base && { fan_base: (({ by_home, ...f }) => ({ ...f, by_home_top5: by_home.sort((x, y) => y.attendees - x.attendees).slice(0, 5) }))(event.fan_base) }) }));
     delete result.summary.top_station_gains;
