@@ -177,6 +177,7 @@ impl AccessFlows {
             return;
         }
         let district = (650. ..3500.).contains(&view_distance);
+        let walker_scale = street_walker_scale(view_distance);
         // Show recent mapped arrivals (15 city seconds in close-up and 60 at district scale). A sample switches
         // from walking to an arrival stamp, so it is drawn once in each frame.
         let mut recent = vec![[0usize; 2]; self.gates.len()];
@@ -251,11 +252,11 @@ impl AccessFlows {
                         if stadium.is_some_and(|s| s.covers(p)) {
                             continue;
                         }
-                        let frame = motion::gait_frame(metres, 1., copy);
+                        let frame = motion::gait_frame(metres, walker_scale, copy);
                         place(
                             Model::Walking(frame),
                             paint,
-                            pose(p, dir, Vec3::ONE),
+                            pose(p, dir, Vec3::splat(walker_scale)),
                         );
                     }
                 }
