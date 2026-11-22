@@ -1,0 +1,99 @@
+{
+  "note": "The April case fits the capture and departure profile. The November case uses those parameters with a reference Saturday from 2024. See context/research/monumental-egress-eval.md.",
+  "cases": [
+    {
+      "id": "2025-04-26",
+      "match": "Colo-Colo vs Coquimbo Unido, men, full time 18:00",
+      "observed_source": "DTPM Subida_Paradero_Estacion_2025.04.xlsb, SUBIDAS_2025_04, SABADO, Metro (FICHA_DATOS: 26 Apr 2025)",
+      "control_source": "data/mvp/metro_observations.json SABADO 2026-04-11 (reference Saturday from another year)",
+      "observed": {
+        "PE": {
+          "35": 332.0,
+          "36": 1675.0,
+          "37": 945.0,
+          "38": 406.0
+        },
+        "MA": {
+          "35": 397.0,
+          "36": 854.0,
+          "37": 742.0,
+          "38": 595.0
+        }
+      },
+      "control": {
+        "PE": {
+          "35": 124.0,
+          "36": 166.0,
+          "37": 160.0,
+          "38": 156.0
+        },
+        "MA": {
+          "35": 354.0,
+          "36": 462.0,
+          "37": 406.0,
+          "38": 438.0
+        }
+      },
+      "request": [
+        {
+          "kind": "event",
+          "target": {
+            "type": "point",
+            "longitude": -70.60596628713479,
+            "latitude": -33.50653677377368
+          },
+          "op": "set",
+          "value": 17756,
+          "assumed_end_half_hour": 36,
+          "audience": "colo_colo"
+        }
+      ],
+      "status": "fitted with a 2026 Saturday reference"
+    },
+    {
+      "id": "2025-11-08",
+      "match": "Colo-Colo vs Palestino, women, full time 21:56",
+      "observed_source": "DTPM dated stages, 8 Nov 2025 (context/research/monumental-match-boardings.md)",
+      "control_source": "DTPM dated stages, Saturday 23 Nov 2024, eve of the regional runoff (same brief)",
+      "observed": {
+        "PE": {
+          "43": 144,
+          "44": 814,
+          "45": 128
+        },
+        "MA": {
+          "43": 297,
+          "44": 212,
+          "45": 94
+        }
+      },
+      "control": {
+        "PE": {
+          "43": 72,
+          "44": 56,
+          "45": 41
+        },
+        "MA": {
+          "43": 211,
+          "44": 118,
+          "45": 86
+        }
+      },
+      "request": [
+        {
+          "kind": "event",
+          "target": {
+            "type": "point",
+            "longitude": -70.60596628713479,
+            "latitude": -33.50653677377368
+          },
+          "op": "set",
+          "value": 3746,
+          "assumed_end_half_hour": 44,
+          "audience": "colo_colo"
+        }
+      ],
+      "status": "descriptive check with a 2024 Saturday reference"
+    }
+  ]
+}

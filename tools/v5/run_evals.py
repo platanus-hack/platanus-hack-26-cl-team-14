@@ -24,13 +24,17 @@ def run_scenario(command, changes):
     payload = json.loads(result.stdout)
     if payload["not_modeled"] or len(payload["applied"]) != len(changes):
         raise SystemExit(f"Cannot score a partial scenario: {payload['not_modeled']}")
+    return payload
+
+
+def station_bins(payload):
     return {station["id"]: station["scenario_half_hour"] for station in payload["stations"]}
 
 
 def score_line1(command):
     case = read_json("tools/v5/line1.json")
-    baseline = run_scenario(command, [])
-    event = run_scenario(command, read_json(case["changes"]))
+    baseline = station_bins(run_scenario(command, []))
+    event = station_bins(run_scenario(command, read_json(case["changes"])))
     cells = {}
     print("Line 1 split service, 18 Nov 2024 (development comparison)")
     print("Station  Bin   Modeled change  Observed change  Reference entries")
@@ -56,6 +60,28 @@ def score_line1(command):
         print(f"{station}: closed station entries {counts}")
 
 
+def score_monumental(command):
+    for case in read_json("tools/v5/monumental.json")["cases"]:
+        egress = run_scenario(command, case["request"])["events"][0]["metro_egress"]
+        by_station = {station["id"]: station["entries_by_half_hour"] for station in egress["stations"]}
+        print(f"Monumental {case['id']} ({case['status']})")
+        print("Station  Start  Modeled total  Observed entries  Reference entries")
+        error = no_event = observed_total = cells = 0
+        for station, bins in case["observed"].items():
+            for bin_index, observed in bins.items():
+                reference = case["control"][station][bin_index]
+                predicted = reference + by_station.get(station, {}).get(bin_index, 0)
+                error += abs(predicted - observed)
+                no_event += abs(reference - observed)
+                observed_total += observed
+                cells += 1
+                half_hour = int(bin_index)
+                time = f"{half_hour // 2:02}:{half_hour % 2 * 30:02}"
+                print(f"{station:7} {time} {predicted:14.1f} {observed:17.0f} {reference:18.0f}")
+        print(f"{cells} cells: error / observed entries = {error / observed_total:.4f}"
+              f" (no event: {no_event / observed_total:.4f})")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", type=Path, help="Use a prebuilt scenario binary.")
@@ -66,8 +92,7 @@ def main():
         command = [str(args.scenario.resolve())]
 
     score_line1(command)
-    print("Monumental, April 2025: pending a case on the current engine.")
-    print("Monumental, November 2025: pending a comparable Saturday reference.")
+    score_monumental(command)
     print("Mapocho: pending a measured service comparison.")
 
 

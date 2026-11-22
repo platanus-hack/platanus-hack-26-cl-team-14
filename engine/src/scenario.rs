@@ -25,6 +25,8 @@ mod attendance;
 mod fans;
 #[path = "fan_itineraries.rs"]
 mod fan_itineraries;
+#[path = "event_egress.rs"]
+mod event_egress;
 #[path = "optional_visit.rs"]
 mod optional_visit;
 #[path = "optional_point_visit.rs"]
@@ -837,7 +839,14 @@ impl Scenario {
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, itinerary, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
             let point = [r.longitude, r.latitude];
+            let egress = f.as_ref().and_then(|fans| event_egress::project(
+                &self.data_dir, fans, &r, &self.stations,
+                c.cuts.iter().cloned().zip(self.comunas.iter().copied()),
+            ));
             let mut e = json!(attendance::project(r, fan_base));
+            if let Some(egress) = egress {
+                e["metro_egress"] = egress;
+            }
             if let Some(f) = f {
                 if let Some(itinerary) = itinerary {
                     fan_itineraries::attach(&self.data_dir, &f, itinerary, point, &mut e);
