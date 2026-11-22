@@ -1,3 +1,4 @@
+use crate::chart::ChartFont;
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
@@ -107,10 +108,11 @@ struct Row {
     bar: Option<f32>,
 }
 
-fn text(value: impl Into<String>, size: f32, color: Color) -> impl Bundle {
+fn text(font: &Handle<Font>, value: impl Into<String>, size: f32, color: Color) -> impl Bundle {
     (
         Text::new(value),
         TextFont {
+            font: font.clone().into(),
             font_size: FontSize::Px(size),
             ..default()
         },
@@ -121,6 +123,7 @@ fn text(value: impl Into<String>, size: f32, color: Color) -> impl Bundle {
 fn read_receipt(
     mut commands: Commands,
     time: Res<Time>,
+    font: Res<ChartFont>,
     mut feed: ResMut<Feed>,
     old: Query<Entity, With<ResultSurface>>,
 ) {
@@ -149,6 +152,7 @@ fn read_receipt(
         return;
     }
 
+    let font = &font.0;
     commands
         .spawn((
             ResultSurface,
@@ -180,7 +184,7 @@ fn read_receipt(
                     ..default()
                 })
                 .with_children(|header| {
-                    header.spawn(text("Consulta", 21., PAPER));
+                    header.spawn(text(font, "Consulta", 21., PAPER));
                     header
                         .spawn((
                             Dismiss,
@@ -193,7 +197,7 @@ fn read_receipt(
                             },
                         ))
                         .with_children(|button| {
-                            button.spawn(text("Cerrar", 16., MUTED));
+                            button.spawn(text(font, "Cerrar", 16., MUTED));
                         });
                 });
             panel
@@ -216,7 +220,7 @@ fn read_receipt(
                             row_gap: px(5),
                             ..default()
                         })
-                        .with_children(|section| render_card(section, card));
+                        .with_children(|section| render_card(section, font, card));
                     }
                 });
         });
@@ -235,23 +239,24 @@ fn unreadable_receipt() -> Vec<Card> {
     }]
 }
 
-fn render_card(section: &mut ChildSpawnerCommands, card: Card) {
+fn render_card(section: &mut ChildSpawnerCommands, font: &Handle<Font>, card: Card) {
     section.spawn(text(
+        font,
         format!("{} · {}", card.status.label(), card.source),
         16.,
         ACCENT,
     ));
-    section.spawn(text(card.title, 24., PAPER));
-    for detail in [card.unit, card.scope, card.coverage] {
+    section.spawn(text(font, card.title, 24., PAPER));
+    for detail in [card.unit, card.coverage] {
         if !detail.is_empty() {
-            section.spawn(text(detail, 17., MUTED));
+            section.spawn(text(font, detail, 17., MUTED));
         }
     }
     if !card.columns.is_empty() {
-        render_row(section, String::new(), card.columns, 15., MUTED);
+        render_row(section, font, String::new(), card.columns, 15., MUTED);
     }
     for row in card.rows {
-        render_row(section, row.label, row.values, 17., PAPER);
+        render_row(section, font, row.label, row.values, 17., PAPER);
         if let Some(bar) = row.bar {
             section.spawn((
                 BackgroundColor(ACCENT),
@@ -263,10 +268,14 @@ fn render_card(section: &mut ChildSpawnerCommands, card: Card) {
             ));
         }
     }
+    if !card.scope.is_empty() {
+        section.spawn(text(font, card.scope, 17., MUTED));
+    }
 }
 
 fn render_row(
     section: &mut ChildSpawnerCommands,
+    font: &Handle<Font>,
     label: String,
     values: Vec<String>,
     size: f32,
@@ -280,7 +289,7 @@ fn render_row(
         })
         .with_children(|row| {
             row.spawn((
-                text(label, size, color),
+                text(font, label, size, color),
                 Node {
                     flex_grow: 2.,
                     flex_basis: px(0),
@@ -290,7 +299,7 @@ fn render_row(
             ));
             for value in values {
                 row.spawn((
-                    text(value, size, color),
+                    text(font, value, size, color),
                     Node {
                         flex_grow: 1.,
                         flex_basis: px(0),
