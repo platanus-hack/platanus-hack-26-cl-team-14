@@ -232,7 +232,7 @@ const createReplayTool = {
   name: 'create_replay',
   description: 'Create a saved replay for a confirmed new experiment. Run the general engine once with the agreed scene, changes and optional route activity, then save the full result with the agreed duration and analysis in data/replays/<id>.json. Use this tool instead of simulate_city when the user asks to save the new experiment. Choose a fresh id for a new replay. An existing id is replaced.',
   inputSchema: {
-    type: 'object', required: ['id', 'title', 'question', 'scene', 'changes', 'duration_half_hours', 'analyze'],
+    type: 'object', required: ['id', 'title', 'question', 'scene', 'changes', 'duration_half_hours', 'analyze', 'cues'],
     properties: {
       id: { type: 'string', pattern: '^[a-z0-9-]+$' },
       title: { type: 'string' },
@@ -251,7 +251,7 @@ const createReplayTool = {
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
       analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
       cues: {
-        type: 'array', description: 'Camera moves during the replay, after the first scene. Example: whole city, then zoom to a station.',
+        type: 'array', description: 'The story of the replay: one camera zoom and one short subtitle for each point of the answer, about 7 seconds apart. Zoom to the place that shows the point: a station, a venue, a closed street. Put the number in the caption.',
         items: { type: 'object', required: ['after_seconds', 'longitude', 'latitude', 'distance'], properties: {
           after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts.' },
           longitude: { type: 'number' }, latitude: { type: 'number' },
@@ -454,7 +454,6 @@ async function dispatch({ method, params }) {
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
       if (meta.cues) result.scene.cues = meta.cues;
-      if (meta.chart) result.chart = chartValues(meta);
       await engineJSON('/api/replay', result);
       text = { replay: replayMetadataForChat(meta), result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
     } else if (params.name === createReplayTool.name) {
