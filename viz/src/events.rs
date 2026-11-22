@@ -144,7 +144,7 @@ fn setup(
             Node {
                 position_type: PositionType::Absolute,
                 left: px(24),
-                bottom: px(48),
+                bottom: px(240),
                 padding: UiRect::axes(px(14), px(8)),
                 flex_direction: FlexDirection::Column,
                 ..default()
