@@ -24,6 +24,9 @@ struct Core {
 #[derive(Deserialize)]
 struct GeneralScenarioRequest {
     changes: Vec<serde_json::Value>,
+    #[serde(default)]
+    require_all: bool,
+    scene: Option<SceneRequest>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -42,6 +45,47 @@ struct SceneRequest {
     half_hour: Option<u8>,
 }
 
+impl SceneRequest {
+    fn validate(&self) -> Result<(), (StatusCode, &'static str)> {
+        let place = &self.place;
+        let named_place = matches!(place.kind.as_str(), "station" | "place" | "comuna" | "line")
+            && place.id.as_ref().is_some_and(|id| !id.is_empty());
+        if place.kind != "point" && !named_place {
+            return Err((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Use a point or a station, place, comuna or line with its catalog id.",
+            ));
+        }
+        if self.half_hour.is_some_and(|bin| bin >= 48)
+            || !(-180.0..=180.0).contains(&place.longitude)
+            || !(-90.0..=90.0).contains(&place.latitude)
+        {
+            return Err((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Use WGS84 coordinates and a half_hour from 0 to 47.",
+            ));
+        }
+        Ok(())
+    }
+
+    fn value(&self, revision: u64) -> Value {
+        let mut scene = json!({"revision": revision, "place": self.place});
+        if let Some(bin) = self.half_hour {
+            scene["half_hour"] = json!(bin);
+        }
+        scene
+    }
+}
+
+async fn building_footprint(
+    State(core): State<Arc<Core>>,
+    Json(locator): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    core.scenario.mapped_footprint(&locator)
+        .map(Json)
+        .map_err(|reason| (StatusCode::UNPROCESSABLE_ENTITY, reason))
+}
+
 fn next_revision(snapshot: &Value) -> u64 {
     snapshot["revision"].as_u64().unwrap_or(0) + 1
 }
@@ -49,16 +93,30 @@ fn next_revision(snapshot: &Value) -> u64 {
 async fn general_scenario(
     State(core): State<Arc<Core>>,
     Json(request): Json<GeneralScenarioRequest>,
-) -> Json<Value> {
+) -> Result<Json<Value>, (StatusCode, String)> {
+    if let Some(scene) = &request.scene {
+        scene.validate().map_err(|(status, reason)| (status, reason.to_owned()))?;
+    }
     let mut result = core.scenario.run(&request.changes);
+    let rejected = result["not_modeled"].as_array().unwrap();
+    if request.require_all && !rejected.is_empty() {
+        let reasons = rejected.iter().filter_map(|edit| edit["reason"].as_str()).collect::<Vec<_>>();
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("The placement was not applied. {}", reasons.join(" ")),
+        ));
+    }
     core.scenario_events.send_modify(|latest| {
-        result["revision"] = json!(next_revision(latest));
-        if let Some(scene) = latest.get("scene") {
+        let revision = next_revision(latest);
+        result["revision"] = json!(revision);
+        if let Some(scene) = request.scene {
+            result["scene"] = scene.value(revision);
+        } else if let Some(scene) = latest.get("scene") {
             result["scene"] = scene.clone();
         }
         *latest = result.clone();
     });
-    Json(result)
+    Ok(Json(result))
 }
 
 // A cached replay: publish a saved engine result to the viewer without a new run.
@@ -77,25 +135,7 @@ async fn set_scene(
     State(core): State<Arc<Core>>,
     Json(request): Json<SceneRequest>,
 ) -> Result<Json<Value>, (StatusCode, &'static str)> {
-    let place = request.place;
-    let named_place = matches!(place.kind.as_str(), "station" | "place" | "comuna" | "line")
-        && place.id.as_ref().is_some_and(|id| !id.is_empty());
-    if place.kind != "point" && !named_place {
-        return Err((
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Use a point or a station, place, comuna or line with its catalog id.",
-        ));
-    }
-    if request.half_hour.is_some_and(|bin| bin >= 48)
-        || !(-180.0..=180.0).contains(&place.longitude)
-        || !(-90.0..=90.0).contains(&place.latitude)
-    {
-        return Err((
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Use WGS84 coordinates and a half_hour from 0 to 47.",
-        ));
-    }
-
+    request.validate()?;
     let needs_base = core.scenario_events.borrow().is_null();
     let baseline = needs_base.then(|| core.scenario.run(&[]));
     let mut response = Value::Null;
@@ -104,10 +144,7 @@ async fn set_scene(
         if latest.is_null() {
             *latest = baseline.unwrap();
         }
-        let mut scene = json!({"revision": revision, "place": place});
-        if let Some(bin) = request.half_hour {
-            scene["half_hour"] = json!(bin);
-        }
+        let scene = request.value(revision);
         latest["scene"] = scene.clone();
         latest["revision"] = json!(revision);
         response = json!({"revision": revision, "scene": scene});
@@ -158,6 +195,7 @@ async fn main() {
                 ([("cache-control", "no-store")], Json(result))
             }),
         )
+        .route("/api/building-footprint", post(building_footprint))
         .route("/api/scene", post(set_scene))
         .route("/api/scenario-events", get(scenario_events))
         .route("/api/scenario", post(general_scenario))

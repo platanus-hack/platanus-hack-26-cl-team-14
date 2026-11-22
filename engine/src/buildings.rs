@@ -48,6 +48,27 @@ impl Buildings {
         }
     }
 
+    pub fn mapped_footprint(&self, locator: &Value) -> Result<Value, String> {
+        if locator["outline"]["type"] == "Polygon" {
+            geometry::area_m2(&locator["outline"])?;
+            return self.catalog.matching_outline(&locator["outline"])
+                .ok_or_else(|| "No native building matches that mapped outline.".into());
+        }
+        let point: [f64; 2] = serde_json::from_value(locator["point"].clone())
+            .map_err(|_| "Select a building using a WGS84 point or a mapped outline.")?;
+        if !(-180.0..=180.0).contains(&point[0]) || !(-90.0..=90.0).contains(&point[1]) {
+            return Err("Use WGS84 coordinates.".into());
+        }
+        let mut mapped = self.catalog.at_point(point).into_iter()
+            .filter_map(|id| self.catalog.feature(&id))
+            .filter(|feature| feature["properties"]["source"] == "osm");
+        let footprint = mapped.next().ok_or("No mapped building contains that point.")?;
+        if mapped.next().is_some() {
+            return Err("Several mapped buildings contain that point. Select a more precise point.".into());
+        }
+        Ok(footprint)
+    }
+
     fn building(&self, mut feature: Value, inputs: Value) -> Result<Building, String> {
         let area = geometry::area_m2(&feature["geometry"])?;
         let cut = feature["properties"]["cut"].as_str().unwrap_or("");
