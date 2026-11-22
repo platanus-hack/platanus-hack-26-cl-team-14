@@ -64,7 +64,7 @@ pub(crate) struct ReplayStarted;
 pub(crate) struct HistorySurface;
 
 #[derive(Component)]
-struct Panel;
+pub(crate) struct Panel;
 #[derive(Component)]
 struct Catalogue;
 #[derive(Component)]
