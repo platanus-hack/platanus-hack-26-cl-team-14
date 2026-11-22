@@ -120,9 +120,22 @@ fn frame(mut points: impl Iterator<Item = Vec3>, minimum: f32, aspect: f32) -> O
 #[derive(Default, Resource)]
 pub(super) struct CueCaption(pub String);
 
-// A click on a caption arrow: -1 steps back, 1 steps forward.
 #[derive(Default, Resource)]
-pub(super) struct CueStep(pub i32);
+pub(super) struct CueStep {
+    pub click: i32, // -1 steps back, 1 steps forward.
+    next: usize,
+    count: usize,
+}
+
+impl CueStep {
+    pub fn can_step(&self, direction: i32) -> bool {
+        if direction < 0 {
+            self.next > 1
+        } else {
+            self.next < self.count
+        }
+    }
+}
 
 // A cue changes the caption and, when the camera is unlocked, starts a flight.
 // The arrow keys and the caption arrows step through the cues like slides. A step stops the timer.
@@ -132,32 +145,31 @@ pub(super) fn cue(
     scenario: Res<Scenario>,
     mut rig: ResMut<Rig>,
     mut caption: ResMut<CueCaption>,
-    mut clicked: ResMut<CueStep>,
+    mut controls: ResMut<CueStep>,
     mut scene_revision: Local<Option<u64>>,
     mut start: Local<f32>,
-    mut next: Local<usize>,
     mut manual: Local<bool>,
 ) {
     let scene = &scenario.0["scene"];
     if scene["revision"].as_u64() != *scene_revision {
         *scene_revision = scene["revision"].as_u64();
         *start = time.elapsed_secs();
-        *next = 0;
+        controls.next = 0;
         *manual = false;
         caption.0.clear();
     }
-    let count = scene["cues"].as_array().map_or(0, Vec::len);
-    let click = std::mem::take(&mut clicked.0);
-    let step = if (keys.just_pressed(KeyCode::ArrowRight) || click > 0) && *next < count {
+    controls.count = scene["cues"].as_array().map_or(0, Vec::len);
+    let click = std::mem::take(&mut controls.click);
+    let step = if (keys.just_pressed(KeyCode::ArrowRight) || click > 0) && controls.can_step(1) {
         true
-    } else if (keys.just_pressed(KeyCode::ArrowLeft) || click < 0) && *next > 1 {
-        *next -= 2;
+    } else if (keys.just_pressed(KeyCode::ArrowLeft) || click < 0) && controls.can_step(-1) {
+        controls.next -= 2;
         true
     } else {
         false
     };
     *manual |= step;
-    let Some(cue) = scene["cues"].get(*next) else { return };
+    let Some(cue) = scene["cues"].get(controls.next) else { return };
     if !step && (*manual || time.elapsed_secs() - *start < cue["after_seconds"].as_f64().unwrap() as f32) {
         return;
     }
@@ -165,9 +177,9 @@ pub(super) fn cue(
     if !rig.fixed {
         let (target, distance) = (shot_position(cue).unwrap(), cue["distance"].as_f64().unwrap() as f32);
         rig.fly_to(target, distance);
-        info!("Camera cue {} at {target:?}, distance {distance} m", *next);
+        info!("Camera cue {} at {target:?}, distance {distance} m", controls.next);
     }
-    *next += 1;
+    controls.next += 1;
 }
 
 fn shot_position(row: &Value) -> Option<Vec3> {
