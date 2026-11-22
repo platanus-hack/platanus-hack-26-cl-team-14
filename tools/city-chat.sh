@@ -38,34 +38,21 @@ fi
 
 if [[ $provider == claude ]]; then
     config=$(node -p 'JSON.stringify({mcpServers:{santiago:{command:"node",args:[process.argv[1]],env:{SANTIAGO_API_URL:process.env.SANTIAGO_API_URL}}}})' "$server")
-    cli=(claude --strict-mcp-config --mcp-config "$config" --setting-sources ''
-        --settings '{"disableAllHooks":true,"claudeMdExcludes":["**/CLAUDE.md","**/CLAUDE.local.md"],"autoMemoryEnabled":false}'
-        --tools '' --permission-mode dontAsk --disallowedTools mcp__santiago__create_replay
-        --allowedTools mcp__santiago__simulate_city mcp__santiago__set_scene mcp__santiago__list_replays mcp__santiago__run_replay --system-prompt "$role")
+    claude --strict-mcp-config --mcp-config "$config" --setting-sources '' \
+        --settings '{"disableAllHooks":true}' --tools '' --permission-mode dontAsk \
+        --allowedTools mcp__santiago__simulate_city mcp__santiago__set_scene mcp__santiago__list_replays mcp__santiago__run_replay --system-prompt "$role"
 else
     args=$(node -p 'JSON.stringify([process.argv[1]])' "$server")
     api=$(node -p 'JSON.stringify(process.env.SANTIAGO_API_URL)')
     instructions=$(node -p 'JSON.stringify(process.argv[1])' "$role")
-    cli=(codex --disable plugins --disable apps --disable hooks --disable memories)
-    # The interactive CLI merges user MCP settings with command-line overrides.
-    others=$("${cli[@]}" mcp list --json | node -e '
-        const servers = JSON.parse(require("fs").readFileSync(0, "utf8"));
-        for (const s of servers) if (s.enabled && s.name !== "santiago") console.log(s.name)')
-    while IFS= read -r name; do
-        [[ -z $name ]] || cli+=(-c "mcp_servers.$name.enabled=false")
-    done <<< "$others"
-    cli+=(--sandbox read-only --ask-for-approval on-request -c 'project_doc_max_bytes=0'
-        -c "developer_instructions=$instructions"
-        -c 'mcp_servers.santiago.command="node"' -c "mcp_servers.santiago.args=$args"
-        -c "mcp_servers.santiago.env.SANTIAGO_API_URL=$api"
-        -c 'mcp_servers.santiago.enabled_tools=["simulate_city","set_scene","list_replays","run_replay"]'
-        -c 'mcp_servers.santiago.enabled=true' -c 'mcp_servers.santiago.required=true')
+    codex --sandbox read-only --ask-for-approval on-request \
+        -c "developer_instructions=$instructions" \
+        -c 'mcp_servers.santiago.command="node"' -c "mcp_servers.santiago.args=$args" \
+        -c "mcp_servers.santiago.env.SANTIAGO_API_URL=$api" \
+        -c 'mcp_servers.santiago.enabled=true' -c 'mcp_servers.santiago.required=true'
 fi
 
-if [[ -z ${1:-} ]]; then
-    exec "${cli[@]}"
-fi
-"${cli[@]}"
+if [[ -z ${1:-} ]]; then exit 0; fi
 read -r -p '¿Viste el chat listo para escribir una pregunta? [s/N] ' answer
 case "$answer" in
     s|S) ;;
