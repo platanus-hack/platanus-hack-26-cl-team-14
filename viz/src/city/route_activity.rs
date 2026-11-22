@@ -149,12 +149,22 @@ fn refresh(
         return;
     }
     let activity: Activity = serde_json::from_value(value.clone()).unwrap();
-    for (index, segment) in activity.segments.iter().enumerate() {
+    for segment in &activity.segments {
+        let Some(index) = activity.steps[0]
+            .segments
+            .iter()
+            .position(|counts| counts.id == segment.id)
+        else {
+            continue;
+        };
         let points: Vec<_> = segment
             .geometry
             .iter()
             .map(|&[lon, lat]| world(lon, lat))
             .collect();
+        let [first, .., last] = points.as_slice() else {
+            continue;
+        };
         let mut surface = Surface::default();
         ribbon(&mut surface, &points, 3., 0.55, [1.; 4]);
         commands.spawn((
@@ -167,8 +177,8 @@ fn refresh(
             Visibility::Hidden,
         ));
         for (kind, point, material) in [
-            (Mark::Queue, points[0], &art.queue),
-            (Mark::Visit, *points.last().unwrap(), &art.visit),
+            (Mark::Queue, *first, &art.queue),
+            (Mark::Visit, *last, &art.visit),
         ] {
             commands.spawn((
                 SegmentMark { index, kind },
@@ -220,12 +230,7 @@ fn draw(
     *displayed = Some(key);
     let step = &activity.steps[current];
     for (mark, mut material, mut visible) in &mut marks {
-        let id = &activity.segments[mark.index].id;
-        let counts = step
-            .segments
-            .iter()
-            .find(|counts| counts.id == *id)
-            .unwrap();
+        let counts = &step.segments[mark.index];
         let show = match mark.kind {
             Mark::Route => {
                 let ink = if counts.moving > 0 {
