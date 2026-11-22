@@ -1,4 +1,4 @@
-use super::{Approach, Path, Replay, STOP_DISTANCE, Site, ms};
+use super::{Approach, Path, Replay, STOP_DISTANCE, Site};
 use crate::movers::{CAR_LANE_OFFSET, Vehicle, right, road_water};
 use bevy::prelude::*;
 use serde::Deserialize;
@@ -6,7 +6,6 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs::File,
     io::BufReader,
-    ops::RangeInclusive,
 };
 
 const MATCH_RADIUS: f32 = 5.;
@@ -271,8 +270,7 @@ impl Topology {
 pub(super) fn register(
     path: &Path,
     junction: usize,
-    first: f32,
-    last: f32,
+    centre: f32,
     sites: &mut HashMap<usize, Site>,
 ) -> Approach {
     let sample = |metres: f32| {
@@ -281,19 +279,16 @@ pub(super) fn register(
             .unwrap();
         (p + right(dir) * CAR_LANE_OFFSET).xz()
     };
-    let entry = sample(first - 38.);
-    let heading = (sample(first - 23.) - entry).normalize_or_zero();
-    let stop = first - STOP_DISTANCE;
+    let entry = sample(centre - 38.);
+    let heading = (sample(centre - 23.) - entry).normalize_or_zero();
+    let stop = centre - STOP_DISTANCE;
     let speed = Vehicle::Car.speed();
-    let limit = last + 22.;
+    let limit = centre + 14.;
     let curve = (0..)
         .map(|i| stop + i as f32 * 3.)
         .take_while(|&metres| metres < limit)
         .chain([limit])
-        .map(|metres| Sample {
-            position: sample(metres),
-            time: ms((metres - stop) / speed) as i32,
-        })
+        .map(sample)
         .collect();
     let movement = sites
         .entry(junction)
@@ -303,6 +298,8 @@ pub(super) fn register(
         junction,
         movement,
         stop_age: stop / speed,
+        slot: 0,
+        exit_capacity: 0,
     }
 }
 
@@ -318,51 +315,11 @@ fn project(p: Vec2, a: Vec2, b: Vec2) -> f32 {
     ((p - a).dot(d) / d.length_squared()).clamp(0., 1.)
 }
 
-#[derive(Clone, Copy)]
-pub(super) struct Sample {
-    pub(super) position: Vec2,
-    pub(super) time: i32,
-}
-
-pub(super) type Window = RangeInclusive<u32>;
-
-// The two outputs are the unsafe start offsets for a after b, and b after a.
-pub(super) fn conflict_windows(a: &[Sample], b: &[Sample]) -> (Vec<Window>, Vec<Window>) {
-    // Both cars' half lengths at the rendered scale, rounded up to one second of travel.
-    const BODY_TIME_MS: i32 = 1_000;
-    let mut a_after_b = Vec::new();
-    let mut b_after_a = Vec::new();
-    for a in a.windows(2) {
-        for b in b.windows(2) {
-            if !segments_conflict(a[0].position, a[1].position, b[0].position, b[1].position) {
-                continue;
-            }
-            let start = b[0].time - a[1].time - BODY_TIME_MS;
-            let end = b[1].time - a[0].time + BODY_TIME_MS;
-            if end >= 0 {
-                a_after_b.push(start.max(0) as u32..=end as u32);
-            }
-            if start <= 0 {
-                b_after_a.push((-end).max(0) as u32..=(-start) as u32);
-            }
-        }
-    }
-    (merge_windows(a_after_b), merge_windows(b_after_a))
-}
-
-fn merge_windows(mut windows: Vec<Window>) -> Vec<Window> {
-    windows.sort_unstable_by_key(|window| *window.start());
-    let mut merged: Vec<Window> = Vec::new();
-    for window in windows {
-        if let Some(last) = merged.last_mut()
-            && *window.start() <= *last.end() + 1
-        {
-            *last = *last.start()..=(*last.end()).max(*window.end());
-        } else {
-            merged.push(window);
-        }
-    }
-    merged
+pub(super) fn conflict(a: &[Vec2], b: &[Vec2]) -> bool {
+    a.windows(2).any(|a| {
+        b.windows(2)
+            .any(|b| segments_conflict(a[0], a[1], b[0], b[1]))
+    })
 }
 
 fn segments_conflict(p: Vec2, q: Vec2, r: Vec2, s: Vec2) -> bool {
