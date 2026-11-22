@@ -44,6 +44,7 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
     let crease = depth_line(z, z_at(p-dx), z_at(p+dx)) || depth_line(z, z_at(p-dy), z_at(p+dy));
     let rgb = textureLoad(scene, p, 0).rgb;
     let l = dot(rgb, vec3<f32>(.30,.55,.15));
+    let neutral = max(max(rgb.r,rgb.g),rgb.b) - min(min(rgb.r,rgb.g),rgb.b) < .20*max(l,.001);
     // One-sided contrast also traces coplanar material boundaries such as curbs.
     let boundary = max(light(p+dx), light(p+dy)) - l > .09;
     let grid = vec2<u32>(p) / 2u;
@@ -55,8 +56,13 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
         outline = min(level, 2u);
     } else {
         let value = smoothstep(.024, .56, l);
-        level = u32(clamp(7. + value*6.2 + rank, 0., 13.));
+        // Give shaded violet walls and neutral paving more ink while lit paper still reaches 13.
+        let violet = rgb.b > 1.4*max(rgb.r,rgb.g) && rgb.g < 1.5*rgb.r;
+        let structure = violet || neutral;
+        let shadow = select(7., 4.5, structure);
+        level = u32(clamp(mix(shadow, 13.2, value) + rank, 0., 13.));
         outline = select(5u, 3u, crease);
+        if structure { outline -= 1u; }
     }
     let shade = select(level, outline, crease || boundary);
     let base = ink(shade);
@@ -73,8 +79,9 @@ fn print_city(pos: vec4<f32>, dark: bool) -> vec4<f32> {
         color = select(vec3<f32>(.48,.74,.53), vec3<f32>(.65,1.25,.80), dark) * v;
     } else if rgb.g > 1.9*rgb.r && rgb.b > 1.25*rgb.g {
         color = vec3<f32>(.32, .67, .95) * v;
-    } else if max(max(rgb.r,rgb.g),rgb.b) - min(min(rgb.r,rgb.g),rgb.b) < .20*max(l,.001) {
-        color = vec3<f32>(.90, .92, .94) * v;
+    } else if neutral {
+        let gray = vec3<f32>(.90, .92, .94) * v;
+        color = select(mix(gray, base, .35), gray, dark);
     }
     return vec4<f32>(color, 1.);
 }

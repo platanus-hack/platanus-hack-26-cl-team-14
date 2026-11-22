@@ -217,7 +217,7 @@ fn refresh(
                 ..default()
             },
             TextColor(Color::WHITE),
-            BackgroundColor(Color::srgba(0.05, 0.07, 0.09, 0.78)),
+            BackgroundColor(crate::label::PANEL_INK),
             Node {
                 position_type: PositionType::Absolute,
                 left: px(24),
