@@ -129,9 +129,9 @@ const tool = {
 
 const sceneTool = {
   name: 'set_scene',
-  description: 'Focus the city view on a place and a half hour. For a station change, first call set_scene for that station with half_hour "base_peak". Wait for the scene receipt, then call simulate_city. Keep the same scene for the comparison. The engine retains it when applying the change. For a time the user specifies, use its bin (0 = midnight, 1 = 00:30, 47 = 23:30).',
+  description: 'Focus the city view on a place. Omit half_hour to keep the current clock. For a station change, first call set_scene for that station with half_hour "base_peak". Wait for the scene receipt, then call simulate_city. Keep the same scene for the comparison. The engine retains it when applying the change. For a time the user specifies, use its bin (0 = midnight, 1 = 00:30, 47 = 23:30).',
   inputSchema: {
-    type: 'object', required: ['place', 'half_hour'],
+    type: 'object', required: ['place'],
     properties: {
       place: { oneOf: [
         { type: 'object', required: ['type', 'id'], properties: {
@@ -177,6 +177,7 @@ const createReplayTool = {
       question: { type: 'string', description: 'The question the presenter types.' },
       scene: {
         ...sceneTool.inputSchema,
+        required: ['place', 'half_hour'],
         properties: {
           ...sceneTool.inputSchema.properties,
           layer: { enum: ['metro_service'], description: 'Show the Metro service lines for this saved shot.' },
@@ -371,6 +372,7 @@ async function dispatch({ method, params }) {
     } else if (params.name === createReplayTool.name) {
       const { scene, changes, stations = [], ...meta } = args;
       replayFile(meta.id);
+      if (scene.half_hour == null) throw new Error('Select a start time for the replay.');
       await setScene(scene);
       const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
       if (scene.layer === 'metro_service') full.scene.layer = scene.layer;

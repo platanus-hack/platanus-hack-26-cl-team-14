@@ -39,7 +39,7 @@ struct ScenePlace {
 #[derive(Deserialize)]
 struct SceneRequest {
     place: ScenePlace,
-    half_hour: u8,
+    half_hour: Option<u8>,
 }
 
 fn next_revision(snapshot: &Value) -> u64 {
@@ -86,7 +86,7 @@ async fn set_scene(
             "Use a point or a station, place, comuna or line with its catalog id.",
         ));
     }
-    if request.half_hour >= 48
+    if request.half_hour.is_some_and(|bin| bin >= 48)
         || !(-180.0..=180.0).contains(&place.longitude)
         || !(-90.0..=90.0).contains(&place.latitude)
     {
@@ -104,7 +104,10 @@ async fn set_scene(
         if latest.is_null() {
             *latest = baseline.unwrap();
         }
-        let scene = json!({"revision": revision, "place": place, "half_hour": request.half_hour});
+        let mut scene = json!({"revision": revision, "place": place});
+        if let Some(bin) = request.half_hour {
+            scene["half_hour"] = json!(bin);
+        }
         latest["scene"] = scene.clone();
         latest["revision"] = json!(revision);
         response = json!({"revision": revision, "scene": scene});
