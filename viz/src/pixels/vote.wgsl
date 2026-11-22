@@ -10,10 +10,11 @@ struct PrintView {
 }
 @group(0) @binding(2) var<uniform> view: PrintView;
 
+// Ultramarine pen ink on warm paper, from full ink to bare paper.
 const INKS = array<u32, 14>(
-    0x242942u, 0x343957u, 0x50557au, 0x666d98u, 0x7a81adu, 0x9099c2u,
-    0xa9b2d6u, 0xbcc4e2u, 0xccd2e9u, 0xdadeefu, 0xe5e8f4u,
-    0xeff1f8u, 0xf5f6fbu, 0xfdfcf9u
+    0x10158au, 0x1c25a9u, 0x3342d4u, 0x4e5edeu, 0x6575e7u, 0x7f8ef0u,
+    0x9da9f4u, 0xb3bdf7u, 0xc5ccfau, 0xd4d9fau, 0xe1e4f9u,
+    0xedeef7u, 0xf4f4f6u, 0xfbfaf5u
 );
 const BAYER = array<u32,16>(0u,8u,2u,10u,12u,4u,14u,6u,3u,11u,1u,9u,15u,7u,13u,5u);
 
@@ -106,7 +107,8 @@ fn print_city(pos: vec4<f32>, dark: bool, walls: bool) -> vec4<f32> {
     } else if distance(rgb, vec3<f32>(.0080, .0704, .0931)) < .008 {
         color = rgb;
     } else if rgb.g > 1.18*rgb.r && rgb.g > 1.05*rgb.b {
-        color = select(vec3<f32>(.48,.74,.53), vec3<f32>(.65,1.25,.80), dark) * v;
+        // Day flora is a muted matcha green.
+        color = select(vec3<f32>(.41,.56,.24), vec3<f32>(.65,1.25,.80), dark) * v;
     } else if rgb.g > 1.9*rgb.r && rgb.b > 1.25*rgb.g {
         color = vec3<f32>(.32, .67, .95) * v;
     } else if neutral {
