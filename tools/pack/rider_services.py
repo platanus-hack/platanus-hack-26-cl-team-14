@@ -1,6 +1,7 @@
 """Build the service options for each published public ride leg on a regular Monday."""
 import csv
 import gzip
+import hashlib
 import io
 import json
 import math
@@ -10,6 +11,16 @@ from pathlib import Path
 from zipfile import ZipFile
 
 feed_path, data_dir, out_path = map(Path, sys.argv[1:])
+feed_sha = hashlib.sha256(feed_path.read_bytes()).hexdigest()
+# DTPM U19 Annex 4, Tabla Horaria rows 2401 and 3092, gives the planned bus types.
+# Source hashes and the March trip crosswalk: context/research/red-articulated-march.md.
+planned_types = {
+    'f10945e80beebc39ea2ac70de997d3d69714897b575de6fbf4e3ca643013b77b': {
+        '205-R-L-B03': [(23400, 'C2D')],
+        '210-R-L-B04': [(28800, 'C2D')],
+    },
+}.get(feed_sha, {})
+
 def time_seconds(s):
     h,m,s=map(int,s.split(':'))
     return h*3600+m*60+s
@@ -106,21 +117,27 @@ def project_stops(path,seq):
     return indices[::-1]
 shape_idx={k:i for i,k in enumerate(shape_ids)}
 ptn_index={};templates=[];patterns=[]
+planned_buses=[]
 for k in surface_keys:
     route,direction,shape,sids=k
     axis=project_stops(shapes[shape],sids)
     pi=len(patterns); patterns.append([shape_idx[shape],axis])
     ids=defaultdict(set)
+    fleet_by_offsets=defaultdict(list)
     for tid in groups[k]:
         cs=calls[tid];first=cs[0][3]
         off=tuple((a-first,d-first) for _,s,a,d in cs)
-        if tid in windows:
-            for a,b,h in windows[tid]:
-                ids[off].update(range(a,b,h))
-        else:ids[off].add(first)
+        starts = {s for a,b,h in windows[tid] for s in range(a,b,h)} if tid in windows else {first}
+        ids[off].update(starts)
+        for start, vehicle_type in planned_types.get(tid, []):
+            if start in starts:
+                fleet_by_offsets[off].append((tid, start, vehicle_type))
     indices=[]
     for off,starts in sorted(ids.items()):
-        indices.append(len(templates))
+        template = len(templates)
+        for tid, start, vehicle_type in sorted(fleet_by_offsets[off]):
+            planned_buses.append({'trip_id': tid, 'template': template, 'start': start, 'dtpm_type': vehicle_type})
+        indices.append(template)
         templates.append([pi,off,sorted(starts),routes[route]['route_type']])
     ptn_index[k]=indices
 legs=[]
@@ -133,9 +150,8 @@ for (service,first,last),os in sorted(opts.items()):
         else:
             for ti in ptn_index[k]:surface.add((ti,i,j))
     legs.append([service,first,last,sorted(metro),sorted(surface)])
-import hashlib
 bundle={'source_url':'https://www.dtpm.cl/descargas/gtfs/GTFS_20260321_v3.zip',
-        'source_sha256':hashlib.sha256(feed_path.read_bytes()).hexdigest(),
-        'shapes':[shapes[k] for k in shape_ids],'patterns':patterns,'templates':templates,'legs':legs}
+        'source_sha256':feed_sha,
+        'shapes':[shapes[k] for k in shape_ids],'patterns':patterns,'templates':templates,'legs':legs,'planned_buses':planned_buses}
 out_path.write_bytes(gzip.compress(json.dumps(bundle,separators=(',',':')).encode(),compresslevel=9,mtime=0))
 print('surface shapes/patterns/templates',len(shapes),len(patterns),len(templates),'size',out_path.stat().st_size,'sha256',hashlib.sha256(out_path.read_bytes()).hexdigest(),flush=True)

@@ -3,121 +3,81 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Entradas al Metro en día laboral</title>
+  <title>Entradas al Metro</title>
   <style>
     :root {
       color-scheme: dark;
-      background: #101b34;
       color: #faf4df;
-      font: 500 clamp(18px, 2vw, 38px)/1.2 system-ui, sans-serif;
+      font: 500 clamp(18px, 1.25vw, 24px)/1.2 system-ui, sans-serif;
+      --edge: clamp(12px, 1.6vw, 30px);
     }
 
     body { margin: 0; }
 
     main {
       box-sizing: border-box;
-      display: grid;
-      align-content: center;
-      gap: 1.4rem;
-      min-height: 100svh;
-      max-width: 2000px;
-      margin-inline: auto;
-      padding: 5vw;
+      position: fixed;
+      left: var(--edge);
+      bottom: clamp(50px, 6.7vh, 80px);
+      width: clamp(300px, 22vw, 420px);
+      max-width: calc(100% - 2 * var(--edge));
+      padding: .75rem .9rem;
+      border: 1px solid #4b6186;
+      border-radius: .45rem;
+      background: #101b34;
     }
 
     h1 {
-      margin: 0 0 .4rem;
-      font-size: 2.35rem;
-      line-height: 1.03;
-      letter-spacing: -.045em;
+      margin: 0 0 .2rem;
+      font-size: 1.38rem;
+      letter-spacing: -.035em;
     }
 
-    p { margin: 0; color: #c5d0e7; }
+    p { margin: 0; color: #c5d0e7; font-size: .86rem; }
 
     table {
       width: 100%;
+      margin-top: .5rem;
       border-collapse: collapse;
       font-variant-numeric: tabular-nums;
     }
 
-    th, td { padding: 0; }
-    thead th { color: #c5d0e7; font-size: .8rem; }
-    tbody th { width: 23%; font-size: 1.15rem; text-align: left; }
+    th, td { padding: .24rem 0; border-top: 1px solid #4b6186; }
+    th { text-align: left; }
 
-    .plot {
-      position: relative;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: center;
-      height: 3rem;
-    }
-
-    .plot::before {
-      position: absolute;
-      inset: 0 auto 0 50%;
-      width: 2px;
-      transform: translateX(-50%);
-      background: #c5d0e7;
-      content: "";
-    }
-
-    .bar {
-      box-sizing: border-box;
-      position: relative;
-      grid-column: 2;
-      display: grid;
-      place-items: center;
-      width: calc(100% * var(--delta) / 3000);
-      height: 1.95rem;
-      padding-inline: .15rem;
-      border-radius: 0 .2rem .2rem 0;
-      background: #79ddd4;
-      color: #101b34;
-      font-size: .91rem;
-      font-weight: 800;
+    td {
+      text-align: right;
+      color: #79ddd4;
+      font-size: 1.17rem;
+      font-weight: 750;
       white-space: nowrap;
     }
 
-    .decrease .bar {
-      grid-column: 1;
-      justify-self: end;
-      width: calc(-100% * var(--delta) / 3000);
-      border-radius: .2rem 0 0 .2rem;
-      background: #ffdc78;
-    }
-
-    @media (max-width: 620px) {
-      h1 { font-size: 1.85rem; }
-      tbody th { width: 29%; font-size: 1rem; }
-      .bar { font-size: .75rem; }
-    }
+    .decrease td { color: #ffdc78; }
   </style>
 </head>
 <body>
   <main>
     <header>
-      <h1 id="title">Entradas al Metro en día laboral</h1>
-      <p id="scenario">Cambio estimado al intercambiar los empleos de dos manzanas</p>
+      <h1 id="title">Entradas al Metro</h1>
+      <p id="scenario">Cambio estimado · día laboral</p>
     </header>
 
     <!-- Ejemplo de la corrida A/B eee8cf8b60c35bba7810771d25c12cae9ce84370.
          Fuente: https://discord.com/channels/1573514576400752640/1573809606277337280/1573818751726387290 -->
     <table aria-labelledby="title" aria-describedby="scenario">
-      <thead>
-        <tr><td></td><th scope="col" aria-label="Cambio estimado respecto de cero">0</th></tr>
-      </thead>
       <tbody>
-        <tr class="decrease" style="--delta: -2584.3">
+        <tr class="decrease" data-delta="-2584.3">
           <th scope="row">Tobalaba</th>
-          <td><div class="plot"><span class="bar">−2,6 mil</span></div></td>
+          <td>−2,6 mil</td>
         </tr>
-        <tr style="--delta: 2278.2">
+        <tr data-delta="2278.2">
           <th scope="row">Pedrero</th>
-          <td><div class="plot"><span class="bar">+2,3 mil</span></div></td>
+          <td>+2,3 mil</td>
         </tr>
-        <tr style="--delta: 1843.5">
+        <tr data-delta="1843.5">
           <th scope="row">Mirador</th>
-          <td><div class="plot"><span class="bar">+1,8 mil</span></div></td>
+          <td>+1,8 mil</td>
         </tr>
       </tbody>
     </table>

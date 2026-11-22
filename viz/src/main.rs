@@ -38,6 +38,7 @@ impl Plugin for MiniatureCamera {
                 Update,
                 (
                     focus::select.run_if(resource_changed::<net::Scenario>),
+                    focus::cue,
                     navigate,
                     focus::advance,
                     aim,
@@ -45,7 +46,7 @@ impl Plugin for MiniatureCamera {
                     .chain()
                     .before(city::draw_buildings),
             )
-            .add_plugins(movers::clock::ClockPlugin)
+            .add_plugins((movers::clock::ClockPlugin, movers::follow::FollowPlugin))
             .add_systems(Last, measure);
     }
 }
@@ -342,6 +343,7 @@ fn main() -> AppExit {
             chart::ChartPlugin,
             label::LabelPlugin,
             movers::MoversPlugin,
+            city::metro_service::MetroServicePlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,
         ))

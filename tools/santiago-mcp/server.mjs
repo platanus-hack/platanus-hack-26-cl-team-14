@@ -87,6 +87,7 @@ const featureChanges = [
   properties: {
     kind: { enum: [kind] }, target, op: { enum: ['add', 'set', 'move', 'remove'] },
     ...(kind === 'line' && { temporary: { type: 'boolean', description: 'True: the change lasts one day, so it moves mode choice only.' } }),
+    ...(kind === 'line' && { half_hours: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 48 }, minItems: 2, maxItems: 2, description: 'Closure window [start, end) in half-hours from 00:00, with temporary true. Example [14, 20] = 07:00 to 10:00. Only workers who leave home inside it face the change; read closure_window for workers by mode in the window. Station entries change only inside it.' } }),
     properties: { type: 'object', properties, additionalProperties: false },
     geometry: { oneOf: geometries.map(type => ({
       type: 'object', required: ['type', 'coordinates'],
@@ -159,11 +160,34 @@ const createReplayTool = {
       id: { type: 'string', pattern: '^[a-z0-9-]+$' },
       title: { type: 'string' },
       question: { type: 'string', description: 'The question the presenter types.' },
-      scene: sceneTool.inputSchema,
+      scene: {
+        ...sceneTool.inputSchema,
+        properties: {
+          ...sceneTool.inputSchema.properties,
+          layer: { enum: ['metro_service'], description: 'Show the Metro service lines for this saved shot.' },
+        },
+      },
       changes: tool.inputSchema.properties.changes,
       stations: tool.inputSchema.properties.stations,
       duration_half_hours: { type: 'integer', minimum: 1, maximum: 48, description: 'How long the replay runs from the scene half hour.' },
       analyze: { type: 'string', description: 'What the replay analyzes, for example congestion at the stadium stations.' },
+      cues: {
+        type: 'array', description: 'Camera moves during the replay, after the first scene. Example: whole city, then zoom to a station.',
+        items: { type: 'object', required: ['after_seconds', 'longitude', 'latitude', 'distance'], properties: {
+          after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts.' },
+          longitude: { type: 'number' }, latitude: { type: 'number' },
+          distance: { type: 'number', exclusiveMinimum: 0, description: 'Camera distance in meters: 360 street, 4000 comuna, 18000 whole city.' },
+          caption: { type: 'string', description: 'Short line to show until the next cue. Use {{field.path}} to insert a number from this saved result, for example {{line_riders.0.riders_to_work}}.' },
+        } },
+      },
+      comparison: {
+        type: 'object', required: ['fields', 'unit'],
+        description: 'One number for the side-by-side tile. Sum these numeric fields from the saved result and display it with the unit and time window.',
+        properties: {
+          fields: { type: 'array', minItems: 1, items: { type: 'string' } },
+          unit: { type: 'string' },
+        },
+      },
       chart: {
         type: 'object', required: ['title', 'unit', 'bars'],
         description: 'The final chart of the replay, drawn in the city view as stacked bars. Each bar reads one field of a saved result: a number, or an object of numbers (one stack segment per key). Example: {"title":"Entradas al Metro","unit":"entradas por día hábil","bars":[{"label":"Antes","field":"summary.boardings_base"},{"label":"Después","field":"summary.boardings_scenario"}]}.',
@@ -320,6 +344,7 @@ async function dispatch({ method, params }) {
     else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
+      if (meta.cues) result.scene.cues = meta.cues;
       if (meta.chart) result.chart = chartValues(meta);
       await engineJSON('/api/replay', result);
       text = { replay: meta, result: shortResult(structuredClone(result), meta.stations ?? [], meta.places_used ?? []) };
@@ -328,6 +353,15 @@ async function dispatch({ method, params }) {
       replayFile(meta.id);
       await setScene(scene);
       const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
+      if (scene.layer === 'metro_service') full.scene.layer = scene.layer;
+      for (const cue of meta.cues ?? []) {
+        if (!cue.caption) continue;
+        cue.caption = cue.caption.replace(/\r?\n/g, ' ').replace(/\{\{([\w.]+)\}\}/g, (_, field) => {
+          const value = field.split('.').reduce((row, key) => row?.[key], full);
+          if (!Number.isFinite(value)) throw new Error(`Caption field ${field} is not a number in replay ${meta.id}.`);
+          return new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(value);
+        });
+      }
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
       text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };
