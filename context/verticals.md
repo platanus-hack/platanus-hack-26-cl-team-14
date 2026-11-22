@@ -1,6 +1,6 @@
 # Verticals
 
-There are four verticals. Each vertical has one team and one Discord thread.
+There are five verticals. Each vertical has one team and one Discord thread.
 Each team plans and takes its own tasks.
 The golden rule still applies: every task must serve a moment in `context/pitch.md`.
 
@@ -11,7 +11,8 @@ The golden rule still applies: every task must serve a moment in `context/pitch.
 - **V1 owns the model and the engine.** It defines the entity types, their properties, and the general engine that turns property changes into results.
 - **V2 owns how the city looks.** It draws every entity that V1 models.
 - **V3 owns the demo.** It sets entity properties through the MCP, makes the replays with the engine, and shows them on the V2 map.
-- **V4 owns the evals.** It measures how well the V1 engine predicts real events.
+- **V4 owns the eval slide.** It shows how well the V1 engine predicts real events.
+- **V5 makes the demo plausible.** It starts when V1 is finished. It builds evals for real situations related to the demo scenes and improves the engine modules and entities against them.
 
 When a vertical needs something from another vertical, ask in that vertical's thread. Do not build it yourself.
 
@@ -39,7 +40,7 @@ The engine does not run during the pitch, so it does not need to be fast enough 
 - People have declared properties from real data sources, and their daily trips match the real origin-destination data for Santiago.
 - Each other entity type has declared properties, and each property has a real data source.
 - The three demo scenarios use only changes to entity properties. No scenario code.
-- The fixed score against real data (the V4 eval) improves.
+- The April Metro score and the Line 1 cells do not get worse. Label each score with what it measures.
 - The "close the full metro" result is compared with real data from the October 2019 metro closure, and the comparison is in the demo.
 
 ## V2 · City interface
@@ -98,7 +99,7 @@ Human taste decides this vertical. Agents decide the technical work. Show visual
 2. Set up the event in the engine as a property change, the same way the demo scenarios do. No code for one event.
 3. Compare the prediction with the real data, and give one clear score per event.
 
-**The eval is the fixed score for the project.** V1 runs it on each layer that it adds, and a new layer must improve it. The "close the full metro" check against October 2019 stays in V1, because the demo shows it.
+The "close the full metro" check against October 2019 stays in V1, because the demo shows it. After V1 is finished, V5 owns the evals that guide engine changes.
 
 **Output:** one slide in the pitch. It shows the three events, the prediction next to the real data, and the score, with large shapes and very little text.
 
@@ -107,6 +108,35 @@ Human taste decides this vertical. Agents decide the technical work. Show visual
 - Each of the three events has a real data source, a prediction, and a score.
 - Any agent can run the eval again with one command.
 - The slide is in the pitch deck.
+
+## V5 · Make the demo plausible
+
+**Starts when the humans say V1 is finished.** Do not take V5 tasks before that.
+
+**Goal:** Improve the simulator so the three demo scenes are plausible.
+
+The demo scenes are hypothetical, so nobody can measure them. Real situations that use the same mechanisms can be measured. If the engine reproduces them, the demo scenes are plausible.
+
+**Agents choose the evals.** Each eval must:
+- Be a real, plausible situation with public data.
+- Be related to a demo scene. Write which scene it supports and why.
+
+Situations not related to the demo are out of scope. Examples of related situations: people flows before and after a football match (MUT swap), a station or line closure (Metro closure), a new line opening (Mapocho). These are examples, not a list to complete.
+
+**The goal is a better engine, not a better report.** The loop:
+1. Choose a related real situation with data.
+2. Set it up as a property change, the same way as the demo. No code for one situation.
+3. Find the biggest error.
+4. Research existing models. Follow the "Research first" rule in `AGENTS.md`.
+5. Improve the module or the entity.
+6. Rerun. Keep the change only if the score improves. Report before and after.
+
+Fitting the engine to these evals is the intent. When a score goes on the pitch slide, label it as fitted to the data.
+
+**Done when:**
+- The humans say V5 is finished.
+- Each demo scene has at least one related eval whose score improved through engine changes.
+- One command reruns all evals.
 
 ## Open
 
