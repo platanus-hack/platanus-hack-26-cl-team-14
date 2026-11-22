@@ -618,6 +618,12 @@ pub(crate) fn draw_buildings(
 #[derive(Component)]
 pub(crate) struct NamedBuilding(usize, usize);
 
+impl NamedBuilding {
+    pub(crate) fn is_monumental(&self) -> bool {
+        (self.0, self.1) == ground::NAMED[4]
+    }
+}
+
 pub(crate) fn setup_ground(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
