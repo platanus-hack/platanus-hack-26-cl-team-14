@@ -258,7 +258,6 @@ pub(crate) struct Buildings {
     tiles: Vec<Option<(Detail, Entity)>>,
     material: Handle<StandardMaterial>,
     facade_material: Handle<StandardMaterial>,
-    edit_material: Handle<StandardMaterial>,
     pub ready: bool,
     pub pending_tiles: usize,
     dirty: Vec<bool>,
@@ -408,13 +407,6 @@ pub fn load_buildings(
         perceptual_roughness: 0.9,
         ..default()
     });
-    let edit_material = materials.add(StandardMaterial {
-        unlit: true,
-        alpha_mode: AlphaMode::Blend,
-        cull_mode: None,
-        perceptual_roughness: 0.9,
-        ..default()
-    });
     let dirty = vec![false; tiles.len()];
     commands.insert_resource(Buildings {
         boxes,
@@ -422,7 +414,6 @@ pub fn load_buildings(
         tiles,
         material,
         facade_material,
-        edit_material,
         ready: false,
         pending_tiles: 0,
         dirty,
@@ -464,21 +455,22 @@ pub(crate) fn toggle_subway(
             Visibility::Inherited
         };
     }
-    for (handle, alpha) in layers.materials.iter().map(|(h, a)| (h, *a)).chain([
-        (&buildings.facade_material, 0.045),
-        (&buildings.edit_material, 0.045),
-    ]) {
+    for (handle, alpha) in layers
+        .materials
+        .iter()
+        .map(|(handle, alpha)| (handle, *alpha))
+        .chain([(&buildings.facade_material, 0.045)])
+    {
         let mut material = materials.get_mut(handle).unwrap();
         material
             .base_color
             .set_alpha(if mode.0 { alpha } else { 1. });
-        let edit = handle == &buildings.edit_material;
-        material.alpha_mode = if mode.0 || edit {
+        material.alpha_mode = if mode.0 {
             AlphaMode::Blend
         } else {
             AlphaMode::Opaque
         };
-        material.unlit = mode.0 || edit;
+        material.unlit = mode.0;
     }
 }
 
