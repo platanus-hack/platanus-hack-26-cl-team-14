@@ -70,6 +70,14 @@ fn scheduled_legs(
     let gate_seconds = gate["seconds"].as_f64()?;
     let gate_path = gate["geometry"]["coordinates"].as_array()?;
     let lines = plan["legs"].as_array()?;
+    let first = lines.first()?;
+    let ingress = if first["mode"] == "metro" {
+        let platform = first["board_platform_id"].as_str()?;
+        let route = access["station_ingress"].get(platform)?;
+        Some((route, route["seconds"].as_f64()?))
+    } else {
+        None
+    };
     let options = plan["departure_options"].as_array()?;
     let midpoint = (gate_window[0] + gate_window[1]) * 0.5;
     let (option, board, arrives) = options
@@ -97,9 +105,17 @@ fn scheduled_legs(
             "geometry": {"type": "LineString", "coordinates": path},
         })
     };
-    let depart = board - access_seconds;
+    let door = board - ingress.map_or(0.0, |(_, seconds)| seconds);
+    let depart = door - access_seconds;
     let mut previous_end = board;
-    let mut legs = vec![walk(access_path, depart, previous_end)];
+    let mut legs = vec![walk(access_path, depart, door)];
+    if let Some((route, seconds)) = ingress {
+        legs.push(json!({
+            "mode": "station_ingress", "minutes": seconds / 60.0,
+            "departure_seconds": door, "arrival_seconds": board,
+            "route_ref": route,
+        }));
+    }
     for (line, ride) in lines.iter().zip(rides) {
         let begin = ride["departure_seconds"].as_f64()?;
         let end = ride["arrival_seconds"].as_f64()?;
