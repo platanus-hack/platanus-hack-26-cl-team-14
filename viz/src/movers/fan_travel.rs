@@ -22,6 +22,7 @@ struct CarTrip {
     start: f32,
     end: f32,
     style: u16,
+    relocated: bool,
 }
 
 pub(crate) struct FanGroup {
@@ -75,11 +76,11 @@ impl FanJourneys {
                         dir,
                     )
                 {
-                    place(
-                        Model::Car(car.style),
-                        Paint::Plain,
-                        pose(at, dir, Vec3::splat(size_at(at))),
-                    );
+                    let transform = pose(at, dir, Vec3::splat(size_at(at)));
+                    place(Model::Car(car.style), Paint::Plain, transform);
+                    if car.relocated {
+                        place(Model::CarChange, Paint::Rerouted, transform);
+                    }
                 }
             }
             for ride in &group.rides {
@@ -163,7 +164,7 @@ fn schedule(legs: &[Value], index: usize, routes: &Routes) -> Option<(Vec<Ride>,
     Some((rides, first_departure))
 }
 
-fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet) -> Vec<FanGroup> {
+fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet, relocated: bool) -> Vec<FanGroup> {
     let mut result = Vec::new();
     for row in event["itineraries"].as_array().into_iter().flatten() {
         let Some(people) = row["people"].as_f64() else {
@@ -256,10 +257,21 @@ fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet) -> Vec<FanGroup>
                     start,
                     end: group.alight_seconds,
                     style: styles[copy],
+                    relocated,
                 });
             } else if mode == FanMode::Public {
                 let (rides, _) = &schedules[(q * schedules.len() as f32) as usize];
-                group.alight_seconds = rides.last().unwrap().alight;
+                // The train loses its riders at the platform. The street figure
+                // appears only after they traverse the GTFS station exit.
+                let exit_seconds: f32 = legs
+                    .iter()
+                    .rev()
+                    .skip(1)
+                    .take_while(|leg| leg["mode"] == "station_egress")
+                    .filter_map(|leg| leg["minutes"].as_f64())
+                    .map(|minutes| (minutes * 60.) as f32)
+                    .sum();
+                group.alight_seconds = rides.last().unwrap().alight + exit_seconds;
                 group.rides = rides.clone();
             }
             group.gate_seconds = group.alight_seconds + walk_seconds;
@@ -273,6 +285,7 @@ pub(super) fn refresh(
     result: Res<Scenario>,
     routes: Res<Routes>,
     fleet: Res<fleet::Fleet>,
+    replay: Res<Replay>,
     mut journeys: ResMut<FanJourneys>,
 ) {
     if result.is_changed() {
@@ -280,7 +293,17 @@ pub(super) fn refresh(
             .as_array()
             .into_iter()
             .flatten()
-            .map(|event| groups(event, &routes, &fleet))
+            .map(|event| {
+                let relocated = replay.stadium.as_ref().is_some_and(|footprint| {
+                    let (Some(lon), Some(lat)) =
+                        (event["longitude"].as_f64(), event["latitude"].as_f64())
+                    else {
+                        return false;
+                    };
+                    footprint.covers(world(lon, lat))
+                });
+                groups(event, &routes, &fleet, relocated)
+            })
             .collect();
     }
 }
