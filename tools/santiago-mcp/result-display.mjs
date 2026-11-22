@@ -5,7 +5,7 @@ const displayFile = process.env.SANTIAGO_RESULT_DISPLAY_FILE;
 const number = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
 const stateNames = { base: 'Base', scenario: 'Escenario', delta: 'Cambio' };
 const operations = { sum: 'Total', count: 'Conteo', mean: 'Promedio', share: 'Proporción', histogram: 'Distribución' };
-const worksiteUnits = { 'modeled workers': 'trabajadores modelados', 'modeled minutes': 'minutos modelados' };
+const worksiteUnits = { 'modeled workers': 'trabajadores modelados', 'modeled minutes': 'minutos estimados' };
 const worksiteModes = {
   car: 'Auto', public: 'Transporte público', walk: 'A pie', bicycle_or_scooter: 'Bicicleta o scooter',
   motorcycle: 'Moto', horse_or_boat: 'Caballo o bote', other: 'Otro', unknown: 'Sin respuesta',
@@ -185,7 +185,7 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
     const timing = {
       title: `Tiempo de viaje · ${title}`, source,
       status: !hasTimes ? 'unavailable' : modes.some(mode => mode.missing_workers) ? 'partial' : 'result',
-      unit: 'Trabajadores modelados por intervalo en minutos',
+      unit: 'Trabajadores modelados por intervalo en minutos estimados',
       scope: site.time_scope,
       coverage: hasTimes ? undefined : modes.map(modeCoverage).join('. '),
       columns: hasTimes ? ['Trabajadores'] : [],
