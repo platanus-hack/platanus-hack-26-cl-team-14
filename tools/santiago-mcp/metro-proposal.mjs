@@ -277,7 +277,10 @@ export function metroDrafts({ getCatalog, knownPlaces, areaAt }) {
         speed_kmh: assumedSpeed, new_stop_dwell_minutes: newDwell,
         assumed_direction_headway_minutes: draft.headway,
         preserves_catalog_service: draft.operation === 'extend',
-        demand_scope: 'Viajes de ida al trabajo en un día hábil. Procedencia por modo: transporte público, auto y otros.',
+        routing_service_scope: draft.operation === 'extend'
+          ? 'El grafo conserva los horarios de los patrones existentes.'
+          : 'En el grafo, las salidas del primer terminal de cada sentido se modelan entre las 08:00 y las 09:00.',
+        demand_scope: 'Estimación exploratoria separada para viajes de ida al trabajo en un día hábil, con la frecuencia supuesta aplicada a las franjas de salida laboral. No estima demanda restringida a la hora del grafo ni confirma un horario de servicio de día completo. Procedencia por modo: transporte público, auto y otros.',
         unavailable_activities: missingActivities,
       },
       status: 'pending_confirmation',
@@ -292,7 +295,7 @@ export function metroDrafts({ getCatalog, knownPlaces, areaAt }) {
       const result = await run(changes);
       latest = undefined;
       return {
-        ...result, projectId: draft.projectId, projectTitle: draft.title,
+        ...result, projectId: draft.projectId, projectTitle: draft.title, operation: draft.operation,
         stations: draft.stations.map(({ id, name, coordinates, existing }) => ({ id, name, coordinates, existing })),
         patterns: changes.map(change => change.target.id),
         demand: result.full.metro_project_demand?.find(item => item.project_id === draft.projectId) ?? null,

@@ -475,7 +475,7 @@ async function dispatch({ method, params }) {
       }
     } else if (params.name === applyMetroTool.name) {
       const applied = await metro.apply(args, changes => runScenario({ changes }, true));
-      const { full, projectId, projectTitle, stations, patterns, demand, unavailable_activities } = applied;
+      const { full, projectId, projectTitle, operation, stations, patterns, demand, unavailable_activities } = applied;
       if (resultDisplay.publishMetroResult) resultDisplay.publishMetroResult(full, { projectId, projectTitle });
       else if (resultStatusTool) publishResultStatus({ cards: [{
         title: projectTitle.slice(0, 100), status: 'unavailable',
@@ -484,6 +484,9 @@ async function dispatch({ method, params }) {
       text = {
         status: 'applied', revision: full.revision, project_id: projectId, title: projectTitle,
         stations, patterns_applied: patterns.length, work_estimate: demand,
+        ...(operation === 'create' && {
+          routing_service_scope: 'Salidas en el grafo de 08:00 a 09:00. La estimación laboral usa la frecuencia supuesta a lo largo de las franjas de salida laboral, sin limitarse a esa hora.',
+        }),
         unavailable_activities: demand?.activities ?? unavailable_activities,
       };
     } else if (params.name === sceneTool.name) text = await setScene(args);
