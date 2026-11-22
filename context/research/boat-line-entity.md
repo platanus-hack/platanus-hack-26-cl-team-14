@@ -9,13 +9,13 @@ A boat line is a general transit line (`kind:"line"`, `op:"add"`) with `mode:"bo
 | Property | Value for the Mapocho run | Source |
 | --- | --- | --- |
 | Piers (`new_stops`) | MAP01–MAP10, one about every 2 km on the river axis | [piers.json](mapocho/piers.json). **Assumption**: no pier plan exists ([brief §1](mapocho-navegable.md#1-previous-projects)). |
-| Speed → `segment_minutes` | 17 km/h on the straight pier-to-pier distance, 77.1 min end to end | Brisbane CityCat mean operating speed, Tanko & Burke 2019, as cited in [brief §7](mapocho-navegable.md#7-second-engine-test-the-boat-as-faster-travel-minutes). |
+| Speed → `segment_minutes` | 17 km/h on the distance along the river centerline (OSM relation 7548664, 22.79 km), 80.4 min end to end | Brisbane CityCat mean operating speed, Tanko & Burke 2019, as cited in [brief §7](mapocho-navegable.md#7-second-engine-test-the-boat-as-faster-travel-minutes). |
 | `dwell_minutes` | 1 at each intermediate pier | Same assumption as `mapocho_boat_trips.py`. |
 | `headway_minutes` | 10 | Thames Clippers runs a boat every 10–20 min ([brief §4](mapocho-navegable.md#4-comparable-river-buses)); 10 is the low end. |
 | `vehicle_capacity` | 162 passengers | Brisbane CityCat 2nd and 3rd generation ([Wikipedia, RiverCity Ferries](https://en.wikipedia.org/wiki/RiverCity_Ferries)). |
 | Season | not modeled | Brief §2 gives an assumed September–April season. A replay must state the month. |
 
-Input file: [mapocho/boat_line.json](mapocho/boat_line.json) (two changes, east and west).
+Input file: [mapocho/boat_line.json](mapocho/boat_line.json) (two changes, east and west), written by `python3 -I tools/pack/mapocho_boat_line.py`. Each change carries a `geometry` that follows the river centerline; all 746 vertices are inside the mapped water polygons of `web/data/mapocho_detail.geojson`.
 
 ## How people choose it (`engine/src/line_riders.rs`)
 
@@ -38,16 +38,16 @@ Run: engine at this branch, `POST /api/scenario` with the two changes in `boat_l
 | Measure | East (MAP01→MAP10) | West (MAP10→MAP01) |
 | --- | ---: | ---: |
 | Workers with a usable pier pair (1 km each end) | 11,094 | 4,173 |
-| Share where the boat beats the comuna-pair public time | 8.2 % | 7.1 % |
+| Share where the boat beats the comuna-pair public time | 7.7 % | 6.5 % |
 | Demand, trips to work per weekday | 3,510 | 942 |
-| Riders after the segment capacity cap | 3,510 | 942 |
-| Taken from public / car / other | 2,469 / 456 / 585 | 420 / 249 / 273 |
-| Busiest segment, modeled daily on board | MAP06→MAP07, 2,395 | MAP07→MAP06, 280 |
-| Peak half hour (07:00–07:30), modeled demand on the busiest segment / seats | 409 / 486 = 84 % | 48 / 486 = 10 % |
+| Riders after the segment capacity cap | 3,470 | 932 |
+| Taken from public / car / other | 2,439 / 451 / 580 | 416 / 245 / 271 |
+| Busiest segment, modeled daily on board | MAP06→MAP07, 2,367 | MAP07→MAP06, 278 |
+| Peak half hour (07:00–07:30), modeled demand on the busiest segment / seats | 404 / 486 = 83 % | 47 / 486 = 10 % |
 | Busiest boarding / alighting pier | MAP06 1,159 / MAP08 1,476 | MAP08 212 / MAP06 242 |
 
 EOD 2012 reference ([mapocho/boat_trips.md](mapocho/boat_trips.md), same 17 km/h and 10 min): the boat beats the reported time on **36.8 %** of 51,929 weekday trips between any two piers (800 m each end), and 45.4 % when the piers are 3 km or more apart.
 
-Reading: the engine's faster share (7–8 %) is far below the EOD share. This does not prove the comparator is unbiased, because the two measures differ: EOD compares with the time each person reported for any mode and purpose; the engine compares with the modeled public time of the comuna pair, for workers only, and includes short one-pier hops. The engine result is a modeled demand, not a forecast: no Mapocho boat survey exists.
+Reading: the engine's faster share (6–8 %) is far below the EOD share. This does not prove the comparator is unbiased, because the two measures differ: EOD compares with the time each person reported for any mode and purpose; the engine compares with the modeled public time of the comuna pair, for workers only, and includes short one-pier hops. The engine result is a modeled demand, not a forecast: no Mapocho boat survey exists.
 
-Story for the replay: about 4,450 trips to work per weekday. Modeled demand on the busiest eastbound segment (Santiago centro → Providencia) is 84 % of seats at 07:00–07:30; the westbound boat stays at 10 % or less.
+Story for the replay: about 4,400 trips to work per weekday. Modeled demand on the busiest eastbound segment (Santiago centro → Providencia) is 83 % of seats at 07:00–07:30; the westbound boat stays at 10 % or less.
