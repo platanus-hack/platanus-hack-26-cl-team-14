@@ -10,6 +10,10 @@ use std::path::Path;
 
 const ALPHA: f64 = 0.586;
 const BETA: f64 = 0.2047;
+/// Huff fit of EOD 2012 health trips (Proposito 5) to hospital and clinic points: `shopping_huff.py 5 hospital,clinic`.
+pub const HEALTH: (&str, &[&str], f64, f64) = ("health", &["hospital", "clinic"], 1.170, 0.1354);
+/// The shopping layer: shop, mall and supermarket points.
+pub const SHOPPING: (&str, &[&str], f64, f64) = ("shopping", &["shop", "mall", "supermarket"], ALPHA, BETA);
 
 /// One shop point: longitude, latitude, comuna index, id (baseline points 0..n, added points after).
 pub type Shop = (f64, f64, usize, u32);
@@ -28,6 +32,8 @@ pub struct Shopping {
     profile: Vec<([f64; 48], [f64; 5])>,
     /// Total variation between modeled and EOD 2012 destination totals by comuna, at baseline.
     destination_tv: f64,
+    /// EOD purpose, destination point kinds and Huff fit (SHOPPING or HEALTH).
+    layer: (&'static str, &'static [&'static str], f64, f64),
 }
 
 fn records(p: &Path) -> impl Iterator<Item = csv::StringRecord> {
@@ -35,15 +41,15 @@ fn records(p: &Path) -> impl Iterator<Item = csv::StringRecord> {
 }
 
 /// Trips by comuna pair (row = home, column = destination).
-fn flows(trips: &[f64], shops: &[Shop], minutes: &[f64]) -> (Vec<f64>, Vec<f64>) {
+fn flows(trips: &[f64], shops: &[Shop], minutes: &[f64], alpha: f64, beta: f64) -> (Vec<f64>, Vec<f64>) {
     let n = trips.len();
     let mut size = vec![0.0_f64; n];
     for s in shops { size[s.2] += 1.0; }
-    let attraction: Vec<f64> = size.iter().map(|s| (s + 1.0).powf(ALPHA)).collect(); // +1: comunas outside the OSM extract
+    let attraction: Vec<f64> = size.iter().map(|s| (s + 1.0).powf(alpha)).collect(); // +1: comunas outside the OSM extract
     let mut od = vec![0.0; n * n];
     for o in 0..n {
         let row = &mut od[o * n..][..n];
-        for d in 0..n { row[d] = attraction[d] * (-BETA * minutes[o * n + d]).exp(); }
+        for d in 0..n { row[d] = attraction[d] * (-beta * minutes[o * n + d]).exp(); }
         let total: f64 = row.iter().sum();
         row.iter_mut().for_each(|x| *x *= trips[o] / total);
     }
@@ -56,17 +62,17 @@ impl Shopping {
         visits::Visits::new(n, homes, &self.trips, &self.profile, &self.shops, minutes)
     }
 
-    pub fn load(dir: &Path, cuts: &[String], homes: &[Point], minutes: &[f64]) -> Shopping {
+    pub fn load(dir: &Path, cuts: &[String], homes: &[Point], minutes: &[f64], layer: (&'static str, &'static [&'static str], f64, f64)) -> Shopping {
         let n = cuts.len();
         let ix = |c: &str| cuts.iter().position(|x| x == c);
         let mut residents = vec![0.0; n];
         for p in homes { residents[ix(&p.cut).unwrap()] += p.weight; }
         let mut rate = vec![None; n];
-        for r in records(&dir.join("eod_trip_rates.csv")).filter(|r| &r[1] == "shopping") {
+        for r in records(&dir.join("eod_trip_rates.csv")).filter(|r| &r[1] == layer.0) {
             if let Some(o) = ix(&r[0]) { rate[o] = Some(r[6].parse::<f64>().unwrap()); }
         }
         let mut profile = vec![([0.0; 48], [0.0; 5]); n];
-        for r in records(&dir.join("eod_trip_profiles.csv")).filter(|r| &r[1] == "shopping") {
+        for r in records(&dir.join("eod_trip_profiles.csv")).filter(|r| &r[1] == layer.0) {
             let (Some(o), Ok(bin)) = (ix(&r[0]), r[3].parse::<usize>()) else { continue }; // bin "unknown" has no time
             let w: f64 = r[6].parse().unwrap();
             match &r[2] {
@@ -84,19 +90,19 @@ impl Shopping {
         let no_rate = (0..n).filter(|&o| rate[o].is_none()).map(|o| cuts[o].clone()).collect();
         let trips: Vec<f64> = (0..n).map(|o| residents[o] * rate[o].unwrap_or(0.0)).collect();
         let shops: Vec<Shop> = records(&dir.join("activity_points.csv"))
-            .filter(|r| ["shop", "mall", "supermarket"].contains(&&r[0]))
+            .filter(|r| layer.1.contains(&&r[0]))
             .filter_map(|r| Some((r[2].parse().unwrap(), r[3].parse().unwrap(), ix(&r[4])?)))
             .enumerate().map(|(i, (x, y, c))| (x, y, c, i as u32)).collect();
         // EOD 2012 destination totals by comuna, homes pooled. Unknown destinations are left out of both sides.
         let mut observed = vec![0.0; n];
-        for r in records(&dir.join("eod_destinations.csv")).filter(|r| &r[1] == "shopping") {
+        for r in records(&dir.join("eod_destinations.csv")).filter(|r| &r[1] == layer.0) {
             if let Some(d) = ix(&r[3]) { observed[d] += r[6].parse::<f64>().unwrap(); }
         }
-        let (od, _) = flows(&trips, &shops, minutes);
+        let (od, _) = flows(&trips, &shops, minutes, layer.2, layer.3);
         let modeled: Vec<f64> = (0..n).map(|d| (0..n).map(|o| od[o * n + d]).sum()).collect();
         let (m, s) = (modeled.iter().sum::<f64>(), observed.iter().sum::<f64>());
         let destination_tv = (0..n).map(|d| (modeled[d] / m - observed[d] / s).abs()).sum::<f64>() / 2.0;
-        Shopping { trips, shops, no_rate, profile, destination_tv }
+        Shopping { trips, shops, no_rate, profile, destination_tv, layer }
     }
 
     /// Add `delta` shop points at a point (comuna `cut`), with ids from `next_id`, or remove the `-delta` nearest shop points.
@@ -117,11 +123,16 @@ impl Shopping {
         (json!({ "shops_removed": removed.len(), "farthest_removed_m": farthest.round() }), removed)
     }
 
-    /// Base and scenario shopping trips. `sites` are the edited points: (longitude, latitude, shops removed there, shops added there).
-    pub fn run(&self, cuts: &[String], names: &[String], base_minutes: &[f64], minutes: &[f64], shops: &[Shop], sites: &[(f64, f64, Vec<Shop>, Vec<Shop>)]) -> Value {
+    /// Base and scenario trips. `sites` are the edited points: (longitude, latitude, shops removed there, shops added there).
+    /// Only the public-transport trips that leave inside `window` (all day when None) see the scenario minutes: share of the
+    /// home comuna's EOD 2012 profile (public mode share × departure share in the window). The rest keep the base minutes.
+    pub fn run(&self, cuts: &[String], names: &[String], base_minutes: &[f64], minutes: &[f64], shops: &[Shop], sites: &[(f64, f64, Vec<Shop>, Vec<Shop>)], window: Option<(usize, usize)>) -> Value {
         let n = cuts.len();
-        let (b, b_size) = flows(&self.trips, &self.shops, base_minutes);
-        let (s, s_size) = flows(&self.trips, shops, minutes);
+        let (b, b_size) = flows(&self.trips, &self.shops, base_minutes, self.layer.2, self.layer.3);
+        let (moved, s_size) = flows(&self.trips, shops, minutes, self.layer.2, self.layer.3);
+        let (kept, _) = flows(&self.trips, shops, base_minutes, self.layer.2, self.layer.3);
+        let exposed: Vec<f64> = self.profile.iter().map(|(time, mode)| mode[1] * window.map_or(1.0, |(a, z)| time[a..z].iter().sum())).collect();
+        let s: Vec<f64> = (0..n * n).map(|i| exposed[i / n] * moved[i] + (1.0 - exposed[i / n]) * kept[i]).collect();
         let inflow = |od: &[f64], d: usize| (0..n).map(|o| od[o * n + d]).sum::<f64>();
         // Trips to a set of shop points, by home comuna: each point gets 1 / shops of its comuna.
         let visitors = |od: &[f64], size: &[f64], points: &[Shop]| -> Vec<f64> {
@@ -160,9 +171,10 @@ impl Shopping {
             "trips_total": self.trips.iter().sum::<f64>().round(),
             "sites": sites, "destinations_changed": destinations,
             "fit": { "destination_total_variation_vs_eod_2012": (self.destination_tv * 1000.0).round() / 1000.0,
-                     "alpha": ALPHA, "beta_per_minute": BETA },
+                     "alpha": self.layer.2, "beta_per_minute": self.layer.3 },
             "comunas_without_eod_rate": self.no_rate,
-            "unit": "weekday outbound shopping trips of residents (EOD 2012 rates × Census 2024 residents), not distinct persons; returns are not included",
+            "exposed_trips": (0..n).map(|o| self.trips[o] * self.profile[o].1[1] * window.map_or(1.0, |(a, z)| self.profile[o].0[a..z].iter().sum())).sum::<f64>().round(),
+            "unit": format!("weekday outbound {} trips of residents (EOD 2012 rates × Census 2024 residents), not distinct persons; returns are not included. shops_* count the destination points of kinds {}", self.layer.0, self.layer.1.join(", ")),
         })
     }
 }
