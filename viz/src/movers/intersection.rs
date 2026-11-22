@@ -56,6 +56,7 @@ struct Incoming {
 #[derive(Default)]
 struct Storage {
     waiting: usize,
+    ready: u32,
     first_arrivals: Vec<u32>,
     first_entered: usize,
     incoming: Vec<Incoming>,
@@ -64,9 +65,22 @@ struct Storage {
 
 impl Storage {
     fn demand(&self, arrive: u32) -> usize {
-        self.waiting
-            + self.first_arrivals[self.first_entered..].partition_point(|&time| time <= arrive)
-            + self.incoming.partition_point(|car| car.arrive <= arrive)
+        let arrivals = &self.first_arrivals[self.first_entered..];
+        let first = arrivals.partition_point(|&time| time <= arrive);
+        let booked = self.incoming.partition_point(|car| car.arrive <= arrive);
+        if self.waiting != 0 || booked != 0 {
+            return self.waiting + first + booked;
+        }
+        // A free lane can serve first arrivals before the next car reaches it.
+        let mut ready = self.ready;
+        arrivals[..first]
+            .iter()
+            .filter(|&&time| {
+                let release = ready.max(time);
+                ready = release + HEADWAY;
+                release > arrive
+            })
+            .count()
     }
 
     fn has_room(&self, arrive: u32, capacity: usize) -> bool {
@@ -88,6 +102,7 @@ impl Storage {
 #[derive(Default)]
 struct Lane {
     slot: usize,
+    stand_back: f32,
     ready: u32,
     previous: Option<usize>,
     waiting: VecDeque<Pending>,
@@ -204,13 +219,14 @@ impl Site {
         }
         self.lanes[lane].waiting.pop_front();
         self.lanes[lane].ready = now + HEADWAY;
+        let clearance = CLEARANCE + ms(self.lanes[lane].stand_back);
         if let Some((_, until, followers)) =
             self.occupied.iter_mut().find(|(id, _, _)| *id == movement)
         {
-            *until = now + CLEARANCE;
+            *until = now + clearance;
             *followers = if order == oldest { 0 } else { *followers + 1 };
         } else {
-            self.occupied.push((movement, now + CLEARANCE, 0));
+            self.occupied.push((movement, now + clearance, 0));
         }
         Some((pending, self.lanes[lane].previous))
     }
@@ -287,7 +303,7 @@ impl Queues {
                 for (node, metres) in topology.approaches(&flow.path, replay) {
                     approaches.push(register(&flow.path, node, metres, &mut sites));
                 }
-                routes.push((Arc::as_ptr(&flow.path), approaches));
+                routes.push((&flow.path, approaches));
             }
         }
         sites.retain(|_, site| site.active());
@@ -309,23 +325,58 @@ impl Queues {
                 })
                 .collect();
         }
+        let mut origins = vec![Vec::new(); storage.len()];
+        for (path, approaches) in &mut routes {
+            approaches.retain(|approach| sites.contains_key(&approach.junction));
+            for approach in approaches.iter_mut() {
+                let site = &sites[&approach.junction];
+                approach.slot = site.lanes[site.movements[approach.movement].lane].slot;
+            }
+            if let Some(first) = approaches.first() {
+                origins[first.slot].push(path.points[0].xz());
+            }
+        }
+        for (path, approaches) in &routes {
+            for pair in approaches.windows(2) {
+                let [approach, exit] = [pair[0], pair[1]];
+                let stop = approach.stop_age * Vehicle::Car.speed();
+                let (point, heading, _) = path.at(stop, &path.metres).unwrap();
+                let direction = heading.xz().normalize_or_zero();
+                let gap = HEADWAY as f32 / 1_000. * Vehicle::Car.speed();
+                let stand_back = origins[exit.slot]
+                    .iter()
+                    .filter_map(|&origin| {
+                        let offset = origin - point.xz();
+                        let ahead = offset.dot(direction);
+                        ((0. ..gap).contains(&ahead) && offset.perp_dot(direction).abs() < 2.)
+                            .then_some((gap - ahead) / Vehicle::Car.speed())
+                    })
+                    .fold(0., f32::max);
+                let site = sites.get_mut(&approach.junction).unwrap();
+                let lane = &mut site.lanes[site.movements[approach.movement].lane];
+                lane.stand_back = lane.stand_back.max(stand_back);
+            }
+        }
         let routes: HashMap<_, Arc<[Approach]>> = routes
             .into_iter()
             .map(|(path, mut approaches)| {
-                approaches.retain(|approach| sites.contains_key(&approach.junction));
-                let mut following: Option<Approach> = None;
-                for approach in approaches.iter_mut().rev() {
+                for approach in &mut approaches {
                     let site = &sites[&approach.junction];
-                    approach.slot = site.lanes[site.movements[approach.movement].lane].slot;
-                    if let Some(next) = following {
-                        // Preserve room after the upstream crossing before forming a queue.
-                        let travel = ms(next.stop_age - approach.stop_age);
-                        approach.exit_capacity =
-                            (travel.saturating_sub(2_500) / HEADWAY + 1) as usize;
-                    }
-                    following = Some(*approach);
+                    approach.stop_age -=
+                        site.lanes[site.movements[approach.movement].lane].stand_back;
                 }
-                (path, approaches.into())
+                // Adjacent stop lines must follow the order of the route.
+                for i in 1..approaches.len() {
+                    approaches[i].stop_age = approaches[i]
+                        .stop_age
+                        .max(approaches[i - 1].stop_age + 0.001);
+                }
+                for i in 1..approaches.len() {
+                    let travel = ms(approaches[i].stop_age - approaches[i - 1].stop_age);
+                    approaches[i - 1].exit_capacity =
+                        (travel.saturating_sub(2_500) / HEADWAY + 1) as usize;
+                }
+                (Arc::as_ptr(path), approaches.into())
             })
             .collect();
 
@@ -436,6 +487,15 @@ impl Queues {
                     });
                     calendar.push(Reverse((next, false, pending.trip, pending.stop + 1)));
                 }
+            }
+            for (index, lane) in site.lanes.iter().enumerate() {
+                storage[lane.slot].ready = site
+                    .movements
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, movement)| movement.lane == index)
+                    .map(|(movement, _)| site.blocked_until(movement))
+                    .fold(lane.ready, u32::max);
             }
             let next = site.next_wake(now, &trips);
             if let Some(next) = next
