@@ -6,6 +6,14 @@ set -eu
 cd "$(dirname "$0")/.."
 out=${1:-$PWD/Santiaguito-x86_64.AppImage}
 tool=${APPIMAGETOOL:-appimagetool}
+if ! command -v "$tool" >/dev/null; then
+    tool="${XDG_CACHE_HOME:-$HOME/.cache}/santiaguito/appimagetool"
+    if [ ! -x "$tool" ]; then
+        mkdir -p "$(dirname "$tool")"
+        curl -fL -o "$tool" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x "$tool"
+    fi
+fi
 dir=$(mktemp -d)
 trap 'rm -rf "$dir"' EXIT
 app="$dir/AppDir/app"
