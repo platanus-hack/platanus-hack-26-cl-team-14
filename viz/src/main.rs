@@ -33,7 +33,7 @@ impl Plugin for MiniatureCamera {
             .insert_resource(WinitSettings::continuous())
             .insert_resource(ClearColor(DAY_SKY))
             .add_systems(Startup, setup)
-            .add_systems(Update, city::paper_light)
+            .add_systems(Update, (city::paper_light, city::fade_outskirts).chain())
             .add_systems(
                 Update,
                 (
@@ -344,6 +344,7 @@ fn main() -> AppExit {
             city::metro_service::MetroServicePlugin,
             movers::events::EventsPlugin,
             pixels::PixelMode,
+            city::horizon::HorizonPlugin,
         ))
         .init_resource::<city::SubwayView>()
         .init_resource::<city::street_mask::StreetMask>()

@@ -2,6 +2,9 @@ mod activity;
 pub(crate) mod edits;
 mod facade;
 mod ground;
+pub(crate) mod horizon;
+mod outskirts;
+pub(crate) use outskirts::fade as fade_outskirts;
 pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
 pub(crate) mod street_mask;
@@ -663,6 +666,7 @@ pub(crate) fn setup_ground(
             entity.insert(seating);
         }
     }
+    outskirts::spawn(&mut commands, &mut meshes, &mut materials, root);
     let (terrain, scenery, bridges) = ground::load_ground(Path::new("."));
     for (name, mesh) in terrain {
         commands.spawn((
