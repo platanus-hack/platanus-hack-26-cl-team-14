@@ -1,6 +1,12 @@
 //! Large label of a side-by-side tile, from the `label` that tools/replay-relay.mjs adds.
 use crate::{focus::{self, CueCaption, CueStep}, net::Scenario};
-use bevy::{prelude::*, text::FontSize, ui::RelativeCursorPosition};
+use accesskit::{Node as AccessNode, Role};
+use bevy::{
+    a11y::AccessibilityNode,
+    prelude::*,
+    text::FontSize,
+    ui::RelativeCursorPosition,
+};
 
 // The darkest blue-violet ink of the city print, opaque so text stays legible over white roofs.
 pub(crate) const PANEL_INK: Color = Color::srgb_u8(0x24, 0x29, 0x42);
@@ -14,6 +20,7 @@ impl Plugin for LabelPlugin {
             .add_systems(Update, (
                 draw.run_if(resource_changed::<Scenario>),
                 click_arrow.before(focus::cue),
+                style_arrows.after(focus::cue),
                 show_caption.after(focus::cue).run_if(resource_changed::<CueCaption>),
             ));
     }
@@ -109,9 +116,14 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                 ..default()
             })
             .with_children(|row| {
-                for (step, glyph) in [(-1, "<"), (1, ">")] {
+                for (step, glyph, label) in [(-1, "<", "Previous cue"), (1, ">", "Next cue")] {
+                    let mut accessibility = AccessNode::new(Role::Button);
+                    accessibility.set_label(label);
+                    accessibility.set_disabled();
+                    accessibility.set_hidden();
                     row.spawn((
                         CueArrow(step),
+                        AccessibilityNode(accessibility),
                         RelativeCursorPosition::default(),
                         BackgroundColor(PANEL_INK),
                         Node {
@@ -164,7 +176,35 @@ fn click_arrow(
     if !mouse.just_pressed(MouseButton::Left) || **band == Visibility::Hidden {
         return;
     }
-    if let Some((arrow, _)) = arrows.iter().find(|(_, cursor)| cursor.cursor_over()) {
-        step.0 = arrow.0;
+    if let Some((arrow, _)) = arrows.iter().find(|(arrow, cursor)| {
+        step.can_step(arrow.0) && cursor.cursor_over()
+    }) {
+        step.click = arrow.0;
+    }
+}
+
+fn style_arrows(
+    step: Res<CueStep>,
+    caption: Res<CueCaption>,
+    mut arrows: Query<(&CueArrow, &mut BackgroundColor, &mut AccessibilityNode)>,
+) {
+    let hidden = caption.0.is_empty();
+    for (arrow, mut background, mut accessibility) in &mut arrows {
+        let enabled = step.can_step(arrow.0);
+        background.set_if_neq(BackgroundColor(if enabled {
+            PANEL_INK
+        } else {
+            Color::srgb_u8(0x64, 0x68, 0x75)
+        }));
+        if hidden && !accessibility.is_hidden() {
+            accessibility.set_hidden();
+        } else if !hidden && accessibility.is_hidden() {
+            accessibility.clear_hidden();
+        }
+        if enabled && accessibility.is_disabled() {
+            accessibility.clear_disabled();
+        } else if !enabled && !accessibility.is_disabled() {
+            accessibility.set_disabled();
+        }
     }
 }

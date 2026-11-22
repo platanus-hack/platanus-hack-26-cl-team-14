@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+accesskit = "0.24"
 bevy = { version = "=0.20.1", default-features = false, features = ["std", "default_app", "multi_threaded", "bevy_winit", "bevy_pbr", "bevy_post_process", "bevy_ui_render", "default_font", "png"] }
 flate2 = "1"
 geo = { version = "0.33.1", default-features = false }
