@@ -50,7 +50,15 @@ else
     args=$(node -p 'JSON.stringify([process.argv[1]])' "$server")
     api=$(node -p 'JSON.stringify(process.env.SANTIAGO_API_URL)')
     instructions=$(node -p 'JSON.stringify(process.argv[1])' "$role")
-    codex --sandbox read-only --ask-for-approval on-request \
+    codex_command=(codex --sandbox read-only --ask-for-approval on-request)
+    if [[ -z ${1:-} && ${SANTIAGO_EMBEDDED_CHAT:-} == 1 ]]; then
+        codex_command+=(
+            -c 'tui.status_line=[]'
+            -c 'tui.status_line_provider="default"'
+            -c 'tui.show_tooltips=false'
+        )
+    fi
+    "${codex_command[@]}" \
         -c "developer_instructions=$instructions" \
         -c 'mcp_servers.santiago.command="node"' -c "mcp_servers.santiago.args=$args" \
         -c "mcp_servers.santiago.env.SANTIAGO_API_URL=$api" \
