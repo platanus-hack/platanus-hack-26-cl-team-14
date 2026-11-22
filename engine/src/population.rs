@@ -139,8 +139,9 @@ impl Population {
             residents.extend(traits.into_iter().map(|(_, r)| Resident { home: home.take(home_step), role: r.role, age_band: r.age_band, household_size: r.household_size }));
         }
         // Higher education. Unverified assumption: the in-person + hybrid share of SIES 2026 registrations (69.6 %) is
-        // the share of Census higher-education residents who travel on a weekday. That share goes to a campus of `higher_ed.csv`, drawn region-wide in proportion to its
-        // in-person + hybrid registrations. A campus without a point sits at its comuna centroid (`communes.csv`).
+        // the share of Census higher-education residents who travel on a weekday. That share goes to a campus of `higher_ed.csv`, drawn with
+        // P(campus | home comuna) ∝ (in-person + hybrid registrations) × exp(−beta × minutes), the work destination beta fitted to
+        // Census commutes (choice.rs). Assumption: students weigh travel time like workers; no campus OD data exists. A campus without a point sits at its comuna centroid (`communes.csv`).
         let mut schools = schools;
         let centroid: HashMap<String, (f64, f64)> = rows::<Commune>(&data.join("communes.csv")).into_iter().map(|c| (c.cut, (c.longitude, c.latitude))).collect();
         let campuses: Vec<Campus> = rows(&data.join("higher_ed.csv"));
@@ -149,9 +150,11 @@ impl Population {
             let (longitude, latitude) = c.longitude.zip(c.latitude).unwrap_or(centroid[&c.cut]);
             Point { id: format!("{}|{}", c.institution, c.campus), cut: c.cut.clone(), longitude, latitude, weight: c.in_person + c.hybrid }
         }));
-        let pool: Vec<Point> = schools[first..].iter().map(|p| Point { id: String::new(), cut: String::new(), longitude: 0.0, latitude: 0.0, weight: p.weight }).collect();
-        let mut campus = Sampler::by_cut(&pool).remove("").unwrap();
-        let travel = pool.iter().map(|p| p.weight).sum::<f64>() / campuses.iter().map(|c| c.enrollment).sum::<f64>();
+        let travel = campuses.iter().map(|c| c.in_person + c.hybrid).sum::<f64>() / campuses.iter().map(|c| c.enrollment).sum::<f64>();
+        let choice = crate::choice::Choice::load(data);
+        let ix = |c: &str| choice.cuts.iter().position(|x| x == c).unwrap();
+        let campus_cut: Vec<usize> = schools[first..].iter().map(|p| ix(&p.cut)).collect();
+        let mut campus: HashMap<usize, Sampler> = HashMap::new();
         let campus_step = std::f64::consts::E.fract();
         let mut k = 0.0;
         residents.retain(|r| {
@@ -159,7 +162,13 @@ impl Population {
             k += 1.0;
             // Systematic selection keeps exactly the travelling share, spread evenly over the comuna-ordered list.
             if (k * travel).floor() == ((k - 1.0) * travel).floor() { return true; }
-            persons.push(Person { home: r.home, dest: (first + campus.take(campus_step) as usize) as u32, student: true, mode: -1,
+            let o = ix(&homes[r.home as usize].cut);
+            let sampler = campus.entry(o).or_insert_with(|| {
+                let pool: Vec<Point> = schools[first..].iter().zip(&campus_cut).map(|(p, &d)| Point { id: String::new(), cut: String::new(),
+                    longitude: 0.0, latitude: 0.0, weight: p.weight * (-choice.beta * choice.minutes[o * choice.n + d]).exp() }).collect();
+                Sampler::by_cut(&pool).remove("").unwrap()
+            });
+            persons.push(Person { home: r.home, dest: (first + sampler.take(campus_step) as usize) as u32, student: true, mode: -1,
                 age_band: r.age_band, household_size: r.household_size });
             false
         });
