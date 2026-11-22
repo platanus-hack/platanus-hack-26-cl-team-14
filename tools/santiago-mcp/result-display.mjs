@@ -164,10 +164,40 @@ export function publishMetricResult(args, result, { sourceTitle, comunaNames, er
   }]);
 }
 
+function activityCards(activity, source, closedRoad, rejectedClosure) {
+  const finalStep = activity.steps.at(-1);
+  const time = minute => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+  const visits = activity.steps.filter(step => step.open).flatMap(step => step.segments)
+    .reduce((total, segment) => total + segment.visits_started, 0);
+  const closureMissing = rejectedClosure || (activity.motor_access === 'closed' && !closedRoad);
+  const cards = [{
+    title: 'Actividad en la ruta', source, status: closureMissing ? 'partial' : 'result',
+    unit: 'Personas y visitas modeladas',
+    scope: `${time(activity.start_minute)}–${time(activity.end_minute)}. Las entradas corresponden a llegadas programadas. Las visitas cuentan inicios de paradas.`,
+    rows: [
+      { label: 'Personas que ingresaron', values: [cell(finalStep.entered)] },
+      { label: 'Personas que salieron', values: [cell(finalStep.exited)] },
+      { label: 'Personas que quedaron al cierre', values: [cell(finalStep.remaining)] },
+      { label: 'Visitas iniciadas', values: [cell(visits)] },
+    ],
+  }];
+  if (closureMissing) {
+    cards.push({
+      title: 'Cierre vial sin aplicar', source, status: 'unavailable',
+      coverage: rejectedClosure?.reason ?? 'El resultado de la actividad quedó sin el cierre vial indicado.',
+    });
+  } else if (closedRoad) {
+    cards[0].scope += ' El cierre vial aplicado al escenario dura todo el día.';
+  }
+  return cards;
+}
+
 export function publishExperimentResult(raw, { sourceTitle } = {}) {
   if (!displayFile) return;
   const source = sourceTitle ? `Replay · ${sourceTitle}` : 'Escenario actual';
   const missing = raw.not_modeled ?? [];
+  const isRoadClosure = change => change.kind === 'road' && change.op === 'remove';
+  const rejectedClosure = raw.activity && missing.find(isRoadClosure);
   const cards = (raw.worksite_cohorts ?? []).flatMap(site => {
     const modes = site.outside_by_mode ?? [];
     const title = site.name ?? 'Trabajadores del lugar';
@@ -198,6 +228,9 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
     };
     return [counts, timing];
   });
+  if (raw.activity) {
+    cards.push(...activityCards(raw.activity, source, raw.city_edits?.some(isRoadClosure), rejectedClosure));
+  }
   if (!cards.length && (!missing.length || raw.applied?.length) && Number.isFinite(raw.summary?.workers_moved)) {
     cards.push({
       title: 'Cambio de lugar de trabajo', source, status: 'result', unit: 'trabajadores modelados',
@@ -205,10 +238,11 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
       rows: [{ label: 'Trabajadores reasignados', values: [cell(raw.summary.workers_moved)] }],
     });
   }
-  if (missing.length) {
+  const otherMissing = missing.filter(change => change !== rejectedClosure);
+  if (otherMissing.length) {
     cards.push({
       title: 'Cambios sin resultado', source, status: 'unavailable',
-      coverage: missing.map(change => change.reason).filter(Boolean).join(' ') || 'El motor no pudo aplicar parte de la solicitud.',
+      coverage: otherMissing.map(change => change.reason).filter(Boolean).join(' ') || 'El motor no pudo aplicar parte de la solicitud.',
     });
   }
   if (cards.length) publish(cards);

@@ -140,8 +140,14 @@ impl Path {
         Self::new(points, vec![Leg { end, vehicle, scheduled: None, walk_path: None }])
     }
 
+    fn crossing_at(&self, metres: f32) -> Option<road_water::Crossing> {
+        self.crossings.iter().find_map(|&(start, end, kind)| {
+            (start..end).contains(&metres).then_some(kind)
+        })
+    }
+
     fn on_bridge(&self, metres: f32) -> bool {
-        self.crossings.iter().any(|&(start, end, kind)| kind == road_water::Crossing::Bridge && (start..end).contains(&metres))
+        self.crossing_at(metres) == Some(road_water::Crossing::Bridge)
     }
 
     fn walk_lane(&self, metres: f32) -> f32 {
@@ -1361,7 +1367,7 @@ fn draw(
                 let Some((pos, dir, kind, metres)) = movement else {
                     continue;
                 };
-                if !visible(pos, 100.) || (kind == Vehicle::Car && replay.road_edits.hides(pos, dir)) {
+                if !visible(pos, 100.) || (kind == Vehicle::Car && replay.road_edits.hides_on(pos, dir, g.path.crossing_at(metres))) {
                     continue;
                 }
                 let model = match kind {

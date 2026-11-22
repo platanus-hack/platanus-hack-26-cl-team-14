@@ -159,7 +159,7 @@ fn read_receipt(
             RelativeCursorPosition::default(),
             GlobalZIndex(18),
             BackgroundColor(crate::label::PANEL_INK),
-            BorderColor::all(Color::srgb(0.34, 0.44, 0.53)),
+            BorderColor::all(Color::srgb_u8(0x4e, 0x5e, 0xde)),
             Node {
                 position_type: PositionType::Absolute,
                 top: px(156),
@@ -188,7 +188,7 @@ fn read_receipt(
                     header
                         .spawn((
                             Dismiss,
-                            BackgroundColor(Color::srgb(0.19, 0.25, 0.35)),
+                            BackgroundColor(Color::srgb_u8(0x1c, 0x25, 0xa9)),
                             RelativeCursorPosition::default(),
                             Node {
                                 padding: UiRect::axes(px(9), px(4)),

@@ -117,21 +117,26 @@ const featureChanges = [
 
 const routeActivity = {
   type: 'object',
-  description: 'Confirmed route activity. Use an empty changes list for activity only. Step 0 starts at start_minute. Use stated assumptions for any arrivals, capacities or visits without measured inputs. The activity result reports visit starts and person-minutes spent waiting or visiting.',
+  description: 'Confirmed route activity. Include every confirmed city change in the same request. If a road closure fails, keep the confirmed scope and ask the user to resolve the crossing. Get new confirmation before offering a different scope. Step 0 starts at start_minute. Label assumed arrivals, capacities and visits.',
   required: ['start_minute', 'step_minutes', 'steps', 'segments', 'arrivals', 'geometry'],
+  additionalProperties: false,
   properties: {
     start_minute: { type: 'integer', minimum: 0, maximum: 1439, description: 'Exact local minute from midnight. 495 is 08:15.' },
     step_minutes: { type: 'integer', minimum: 1 },
     steps: { type: 'integer', minimum: 1, description: 'Number of open steps. The activity ends within the same local day.' },
     mode: { type: 'string', description: 'Participant mode for display, such as bike or walk.' },
-    motor_access: { type: 'string', description: 'Known motor access rule during the activity. This describes access and does not apply a road edit.' },
+    motor_access: { type: 'string', description: 'Access label for the activity. If access is closed, also provide the agreed road_closure scope.' },
+    road_closure: {
+      enum: ['full_day', 'assumed_closed'],
+      description: 'After the user accepts a full-day road closure, use full_day and include the road remove edits. Their scope is the entire modeled weekday. Use assumed_closed only when the user explicitly agrees to count the activity under assumed closed access without changing the road network.',
+    },
     segments: {
       type: 'array', minItems: 1,
       items: {
-        type: 'object', required: ['id', 'travel_steps', 'capacity_per_step'],
+        type: 'object', required: ['id', 'travel_steps', 'capacity_per_step'], additionalProperties: false,
         properties: {
           id: { type: 'string' },
-          travel_steps: { type: 'integer', minimum: 1 },
+          travel_steps: { type: 'integer', minimum: 1, description: 'Travel duration in steps. Use 4 for 40 minutes at 10 minutes per step.' },
           capacity_per_step: { type: 'integer', minimum: 0 },
           visit: {
             type: 'object', required: ['place_id', 'dwell_steps', 'starts_per_step'],
@@ -146,7 +151,7 @@ const routeActivity = {
     },
     arrivals: {
       type: 'array', items: {
-        type: 'object', required: ['step', 'segment', 'participants'],
+        type: 'object', required: ['step', 'segment', 'participants'], additionalProperties: false,
         properties: {
           step: { type: 'integer', minimum: 0 },
           segment: { type: 'integer', minimum: 0, description: 'Zero-based index in the ordered route.' },
@@ -156,7 +161,7 @@ const routeActivity = {
     },
     geometry: {
       type: 'array', minItems: 1, description: 'One mapped polyline for each segment ID.', items: {
-        type: 'object', required: ['id', 'geometry'],
+        type: 'object', required: ['id', 'geometry'], additionalProperties: false,
         properties: {
           id: { type: 'string', description: 'ID of the matching route segment.' },
           geometry: {
@@ -437,8 +442,9 @@ async function dispatch({ method, params }) {
   if (method !== 'tools/call' || !tools.some(t => t.name === params?.name)) return null;
   try {
     const args = params.arguments ?? {};
-    const placement = [tool.name, createReplayTool.name].includes(params.name) &&
-      args.changes?.some(change => change.kind === 'building_placement');
+    const experiment = [tool.name, createReplayTool.name].includes(params.name);
+    if (experiment) checkRoadClosureScope(args);
+    const placement = experiment && args.changes?.some(change => change.kind === 'building_placement');
     if (placement) {
       const namedPlaces = placeRows.map(r => ({ id: r[0], name: r[1], ...places[r[0]] }));
       args.changes = await expandBuildingPlacements(args.changes, namedPlaces, engineJSON, args.scene?.place);
@@ -504,6 +510,26 @@ async function dispatch({ method, params }) {
   }
 }
 
+function checkRoadClosureScope({ activity, changes = [] }) {
+  const closures = changes.filter(change => change.kind === 'road' && change.op === 'remove');
+  if (closures.some(change => change.half_hours !== undefined || change.temporary === true)) {
+    throw new Error('El cierre vial solo se puede aplicar durante el día hábil completo. El horario de la actividad es independiente. No se aplicó el experimento.');
+  }
+  if (!activity) return;
+
+  const scope = activity.road_closure;
+  if (scope !== undefined && scope !== 'full_day' && scope !== 'assumed_closed') {
+    throw new Error('Para cerrar la calle, acuerda el día hábil completo. Para simular solo la actividad, confirma ese alcance por separado.');
+  }
+  if (closures.length && scope !== 'full_day') {
+    throw new Error('Pide confirmación para el cierre de día hábil completo junto con la actividad. No se aplicó el experimento.');
+  }
+  const closed = ['closed', 'assumed_closed'].includes(activity.motor_access);
+  if (!closures.length && (scope === 'full_day' || (closed && scope !== 'assumed_closed'))) {
+    throw new Error('Falta el cierre vial. Conserva el tramo y la actividad confirmados. Si el cruce no se puede resolver, pide aclaración antes de volver a ejecutar.');
+  }
+}
+
 // Changes from the chat: named places become census blocks, then the engine runs once. The map gets the full result; the agent a short copy.
 async function runScenario(args, requireAll, scene) {
     const placesUsed = [];
@@ -533,8 +559,9 @@ async function runScenario(args, requireAll, scene) {
       placesUsed.push({ place: change.target.id, block: place.block, status: place.status, nearby_candidate_blocks: place.nearby_candidate_blocks });
       change.target = { type: 'block', id: place.block };
     }
-    const { stations: asked = [], ...request } = args;
-    const full = await engineJSON('/api/scenario', { ...request, ...(requireAll && { require_all: true }), scene });
+    const { stations: asked = [], activity, ...request } = args;
+    const activityRequest = activity?.road_closure === 'assumed_closed' ? { ...activity, motor_access: 'assumed_closed' } : activity;
+    const full = await engineJSON('/api/scenario', { ...request, activity: activityRequest, ...(requireAll && { require_all: true }), scene });
     const short = shortResult(structuredClone(full), asked, placesUsed);
     if (sections.length) short.road_sections = sections.map(section => sectionReceipt(section, full, short));
     return { full, short, placesUsed };
@@ -558,6 +585,7 @@ function sectionReceipt({ ids, ...section }, full, short) {
   })).sort((a, b) => (b.added_minutes ?? Infinity) - (a.added_minutes ?? Infinity));
   return {
     ...section, roads_changed: edits.length, changed_pair_count: rows.length,
+    ...(section.op === 'remove' && edits.length && { closure_scope: 'full_day' }),
     newly_unreachable: rows.filter(row => row.after_minutes === null).length,
     largest_changes: rows.slice(0, 5),
     scope: 'Free-flow car minutes between fixed comuna points, before the first road change of the section and after the last. No traffic, turns or local access. Other pairs did not change.',
