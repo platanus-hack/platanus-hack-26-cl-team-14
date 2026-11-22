@@ -91,6 +91,7 @@ struct Leg {
 
 struct Path {
     crossings: Vec<(f32, f32, road_water::Crossing)>,
+    footway_spans: Vec<(f32, f32)>,
     points: Vec<Vec3>,
     metres: Vec<f32>,
     seconds: Vec<f32>,
@@ -113,6 +114,7 @@ impl Path {
         }
         Arc::new(Self {
             crossings: Vec::new(),
+            footway_spans: Vec::new(),
             points,
             metres,
             seconds,
@@ -123,6 +125,13 @@ impl Path {
     fn single(points: Vec<Vec3>, vehicle: Vehicle) -> Arc<Self> {
         let end = points.len() - 1;
         Self::new(points, vec![Leg { end, vehicle, scheduled: None, walk_path: None }])
+    }
+
+    fn walk_lane(&self, metres: f32) -> f32 {
+        let i = self.footway_spans.partition_point(|&(_, end)| end < metres);
+        let Some(&(start, end)) = self.footway_spans.get(i) else { return 3.4 };
+        // Return to the verified footway over 3.4 metres at each end of the span.
+        3.4 - (metres - start).min(end - metres).clamp(0., 3.4)
     }
 
     fn nearest(&self, pos: Vec3) -> (Vec3, Vec3, f32) {
@@ -404,6 +413,8 @@ fn gzip_json(file: &str) -> Value {
 fn local_routes(riders: &RiderNetwork, water: &road_water::Pack) -> HashMap<LocalKey, Arc<Path>> {
     let mut local = HashMap::new();
     let active = gzip_json("web/data/local_mover_routes.json.gz");
+    let footways: HashMap<usize, Vec<(usize, f32, f32)>> =
+        serde_json::from_str(include_str!("../../web/data/walk_footways.json")).unwrap();
     for g in active["groups"].as_array().unwrap() {
         let mode = g["mode"].as_str().unwrap();
         let kind = match mode {
@@ -412,11 +423,20 @@ fn local_routes(riders: &RiderNetwork, water: &road_water::Pack) -> HashMap<Loca
             "walk" => Vehicle::Walk,
             _ => unreachable!(),
         };
-        let line = points(&active["paths"][g["route"].as_u64().unwrap() as usize]);
+        let route = g["route"].as_u64().unwrap() as usize;
+        let line = points(&active["paths"][route]);
         let key = local_key(g["id"].as_u64().unwrap(), mode, &g["origin"], &g["destination"]);
         let mut path = Path::single(line, kind);
         if kind == Vehicle::Car {
             road_water::set_crossings(&mut path, water.local.get(&g["route"].to_string()));
+        }
+        if kind == Vehicle::Walk && let Some(spans) = footways.get(&route) {
+            let path = Arc::get_mut(&mut path).unwrap();
+            path.footway_spans = spans.iter().map(|&(i, lo, hi)| {
+                let start = path.metres[i];
+                let length = path.metres[i + 1] - start;
+                (start + lo * length, start + hi * length)
+            }).collect();
         }
         local.insert(key, path);
     }
@@ -1276,7 +1296,7 @@ fn draw(
                 } else {
                     size_at(pos)
                 } * presence;
-                let lane = if kind == Vehicle::Walk { 3.4 } else { 1.6 };
+                let lane = if kind == Vehicle::Walk { g.path.walk_lane(metres) } else { 1.6 };
                 let mut position = pos + right(dir) * lane + Vec3::Y * 0.25;
                 if kind == Vehicle::Car {
                     let Some(surface) = routes.water.surface_position(&g.path, metres, position, dir) else { continue; };
