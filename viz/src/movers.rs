@@ -1267,7 +1267,7 @@ fn draw(
                     match plan.at(age) {
                         Some(state @ (RiderState::Walking(p, dir) | RiderState::Waiting(p, dir))) => {
                             if visible(p, 100.) && (subway.0 || p.y >= terrain_from_xz(p.x, p.z) - 0.6) {
-                                let scale = pedestrian_scale(eye.distance(p), 1.2) * presence;
+                                let scale = presence;
                                 let model = if matches!(state, RiderState::Walking(..)) {
                                     plan.walking_model(age, scale)
                                 } else {
@@ -1317,7 +1317,7 @@ fn draw(
                 let scale = if tier == 2 {
                     size_at(pos).max(eye.distance(pos) * 0.0012)
                 } else if kind == Vehicle::Walk {
-                    pedestrian_scale(eye.distance(pos), size_at(pos))
+                    1. // The pedestrian mesh is already 1.75 m tall.
                 } else {
                     size_at(pos)
                 } * presence;
@@ -1447,7 +1447,7 @@ fn draw(
         }
     }
     for station in &replay.platforms {
-        station.draw(now, subway.0, eye, rig.distance, replay.stadium.as_ref(), &visible, &mut place);
+        station.draw(now, subway.0, rig.distance, replay.stadium.as_ref(), &visible, &mut place);
     }
     for batch in pool.0.values() {
         for &id in &batch.entities[batch.used..] {
