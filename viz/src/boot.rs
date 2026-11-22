@@ -168,7 +168,7 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let terrain: serde_json::Value =
         serde_json::from_slice(include_bytes!("../../web/data/terrain.json")).unwrap();
     let credits = format!(
-        "© OpenStreetMap contributors · openstreetmap.org/copyright · ODbL 1.0\nGoogle Research Open Buildings 2.5D Temporal (2023) · CC BY 4.0 · Sentinel-2\n{}",
+        "© OpenStreetMap contributors · openstreetmap.org/copyright · ODbL 1.0 · Google Research Open Buildings 2.5D Temporal (2023) · CC BY 4.0 · Sentinel-2 · {}",
         terrain["attribution"].as_str().unwrap()
     );
     let font = fonts.add(Font::from_bytes(
@@ -262,12 +262,12 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
         .id();
     commands.spawn((
         ChildOf(cover),
-        text(&credits, FontSize::Px(27.)),
+        text(&credits, FontSize::Vw(0.62)),
         Node {
             position_type: PositionType::Absolute,
             bottom: px(0),
             width: percent(100),
-            padding: UiRect::axes(px(24), px(8)),
+            padding: UiRect::axes(px(8), px(2)),
             ..default()
         },
         BackgroundColor(ink(0.90)),
