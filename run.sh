@@ -10,12 +10,17 @@ case $(uname -s) in
     *) echo "The city launcher supports macOS and Linux." >&2; exit 1 ;;
 esac
 
+if [[ ${1:-} == --prepare-chat ]]; then
+    exec "$repo/tools/city-chat.sh" --prepare
+fi
+
 port=${PORT:-8787}
 api="http://127.0.0.1:$port"
 if curl --silent --max-time 1 --output /dev/null "$api/api/scenario-latest"; then
     echo "Port $port is already in use. Choose a free port with PORT." >&2
     exit 1
 fi
+"$repo/tools/city-chat.sh" --ensure-prepared
 
 target=${CARGO_TARGET_DIR:-engine/target}
 cargo build --locked --release --manifest-path engine/Cargo.toml \
