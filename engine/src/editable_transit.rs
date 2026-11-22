@@ -5,7 +5,7 @@ mod timetable;
 use routing::Routing;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use timetable::{Calendar, EncodedSchedule, Exception, Schedule, Starts, active_services};
@@ -258,7 +258,8 @@ impl LineEdits<'_> {
     pub fn added(&self) -> Vec<AddedLine> {
         self.changes
             .iter()
-            .filter(|(id, _)| !self.catalog.pack.lines.contains_key(*id))
+            // Sections of a cut route are existing service, not added lines.
+            .filter(|(id, _)| !self.catalog.pack.lines.contains_key(*id) && !id.contains("#cut"))
             .filter_map(|(id, pattern)| pattern.as_ref().map(|p| (id, p)))
             .map(|(id, p)| AddedLine {
                 id: id.clone(),
@@ -275,6 +276,9 @@ impl LineEdits<'_> {
     }
 
     pub fn apply(&mut self, raw: &Value) -> Result<Value, String> {
+        if raw["target"]["type"] == "route" {
+            return self.cut_route(raw);
+        }
         if raw["target"]["type"] == "mode" {
             return self.remove_mode(raw);
         }
@@ -344,6 +348,87 @@ impl LineEdits<'_> {
             "effects": {"pairs": pairs},
             "assumptions": ASSUMPTIONS
         }))
+    }
+
+    /// Split every active pattern of one route into the runs of calls that avoid the given stops (a line cut in
+    /// sections, for example Line 1 between Baquedano and Escuela Militar). One reroute.
+    fn cut_route(&mut self, raw: &Value) -> Result<Value, String> {
+        let route = raw["target"]["id"].as_str().unwrap_or("");
+        if raw["op"] != "cut" {
+            return Err("A route target supports only op cut.".into());
+        }
+        let cut: Vec<&str> = raw["properties"]["stop_ids"].as_array().ok_or("A cut needs properties.stop_ids.")?
+            .iter().filter_map(Value::as_str).collect();
+        let active: Vec<(String, Pattern)> = self.catalog.pack.lines.iter()
+            .filter(|(id, _)| !self.changes.contains_key(*id))
+            .chain(self.changes.iter().filter_map(|(id, p)| p.as_ref().map(|p| (id, p))))
+            .filter(|(_, p)| p.route_id.as_deref() == Some(route))
+            .map(|(id, p)| (id.clone(), p.clone()))
+            .collect();
+        if active.is_empty() {
+            return Err(format!("No active line has route {route}."));
+        }
+        let mut sections = 0;
+        for (id, pattern) in active {
+            self.changes.insert(id.clone(), None);
+            let mut start = 0;
+            for end in 0..=pattern.stop_ids.len() {
+                if end < pattern.stop_ids.len() && !cut.contains(&pattern.stop_ids[end].as_str()) { continue; }
+                if end - start >= 2 {
+                    let mut part = pattern.clone();
+                    part.stop_ids = pattern.stop_ids[start..end].to_vec();
+                    part.segment_minutes = pattern.segment_minutes[start..end - 1].to_vec();
+                    part.dwell_minutes = pattern.dwell_minutes[start..end].to_vec();
+                    part.pickup_type = pattern.pickup_type[start..end].to_vec();
+                    part.drop_off_type = pattern.drop_off_type[start..end].to_vec();
+                    part.shape_id = None;
+                    part.geometry = None;
+                    // shortcut: the section reuses the pattern's start times at its own first stop.
+                    part.schedules = Arc::new(vec![Schedule { calls: part.call_times(), starts: Starts::combine(&pattern.schedules) }]);
+                    self.changes.insert(format!("{id}#cut{sections}"), Some(part));
+                    sections += 1;
+                }
+                start = end + 1;
+            }
+        }
+        let pairs = self.reroute();
+        Ok(json!({
+            "kind": "line", "op": "cut", "id": format!("route:{route}"), "stop_ids": cut,
+            "sections": sections, "before": null, "after": null,
+            "effects": {"pairs": pairs},
+            "assumptions": ASSUMPTIONS.iter().copied().chain(["A cut section keeps the pattern's departures at its own first stop, so its timetable is shifted by the time from the original first stop."]).collect::<Vec<_>>()
+        }))
+    }
+
+    /// Station IDs grouped by the part of the operating Metro network they reach without leaving it.
+    pub fn metro_components(&self) -> HashMap<String, usize> {
+        let mut parent: HashMap<String, String> = HashMap::new();
+        fn find(parent: &mut HashMap<String, String>, x: &str) -> String {
+            let p = parent.entry(x.to_owned()).or_insert_with(|| x.to_owned()).clone();
+            if p == x { return p; }
+            let root = find(parent, &p);
+            parent.insert(x.to_owned(), root.clone());
+            root
+        }
+        let station = |id: &String| self.catalog.pack.stops.get(id).and_then(|s| s.parent_id.clone()).unwrap_or_else(|| id.clone());
+        let active = self.catalog.pack.lines.iter()
+            .filter(|(id, _)| !self.changes.contains_key(*id))
+            .map(|(_, p)| p)
+            .chain(self.changes.values().filter_map(Option::as_ref))
+            .filter(|p| p.mode == "metro");
+        for p in active {
+            for pair in p.stop_ids.windows(2) {
+                let (a, b) = (find(&mut parent, &station(&pair[0])), find(&mut parent, &station(&pair[1])));
+                if a != b { parent.insert(a, b); }
+            }
+        }
+        let keys: Vec<String> = parent.keys().cloned().collect();
+        let mut roots: HashMap<String, usize> = HashMap::new();
+        keys.into_iter().map(|k| {
+            let r = find(&mut parent, &k);
+            let n = roots.len();
+            (k, *roots.entry(r).or_insert(n))
+        }).collect()
     }
 
     /// Route the current edited network and return the comuna pairs whose minutes changed.
