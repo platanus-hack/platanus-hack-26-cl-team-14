@@ -22,7 +22,6 @@ struct CarTrip {
     start: f32,
     end: f32,
     style: u16,
-    relocated: bool,
 }
 
 #[derive(Clone)]
@@ -41,6 +40,7 @@ pub(crate) struct FanGroup {
     pub gate_seconds: f32,
     pub walk_path: Vec<Vec3>,
     pub origin_walk: Option<TimedWalk>,
+    relocated: bool,
     rides: Vec<Ride>,
     car: Option<CarTrip>,
 }
@@ -67,7 +67,7 @@ impl FanJourneys {
         size_at: &impl Fn(Vec3) -> f32,
         place: &mut impl FnMut(Model, Paint, Transform),
     ) {
-        let mut aboard = HashMap::<RideKey, f64>::new();
+        let mut aboard = HashMap::<RideKey, (f64, f64)>::new();
         for group in self.0.iter().flatten() {
             if let Some(car) = &group.car
                 && (car.start..car.end).contains(&now)
@@ -86,19 +86,23 @@ impl FanJourneys {
                 {
                     let transform = pose(at, dir, Vec3::splat(size_at(at)));
                     place(Model::Car(car.style), Paint::Plain, transform);
-                    if car.relocated {
+                    if group.relocated {
                         place(Model::CarChange, Paint::Rerouted, transform);
                     }
                 }
             }
             for ride in &group.rides {
                 if (ride.board..ride.alight).contains(&now) {
-                    *aboard.entry(ride.key).or_default() += group.people;
+                    let load = aboard.entry(ride.key).or_default();
+                    load.0 += group.people;
+                    if group.relocated {
+                        load.1 += group.people;
+                    }
                 }
             }
         }
         // Quantize once per service so several small groups share a passenger mark.
-        for (service, people) in aboard {
+        for (service, (people, relocated_people)) in aboard {
             let marks = (people / PERSONS_PER_MOVER).round() as usize;
             if marks == 0 {
                 continue;
@@ -107,6 +111,9 @@ impl FanJourneys {
                 RideKey::Metro { track, run } => {
                     if let Some(train) = trains[track].iter_mut().find(|t| t.run_index == run) {
                         train.riders += marks;
+                        train.fan_riders += marks;
+                        train.relocated_riders +=
+                            (relocated_people / PERSONS_PER_MOVER).round() as usize;
                     }
                 }
                 RideKey::Surface { template, start } => {
@@ -268,6 +275,7 @@ fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet, relocated: bool)
                 gate_seconds: 0.,
                 walk_path: walk_path.clone(),
                 origin_walk: origin_walk.clone(),
+                relocated,
                 rides: Vec::new(),
                 car: None,
             };
@@ -279,7 +287,6 @@ fn groups(event: &Value, routes: &Routes, fleet: &fleet::Fleet, relocated: bool)
                     start,
                     end: group.alight_seconds,
                     style: styles[copy],
-                    relocated,
                 });
             } else if mode == FanMode::Public {
                 let (rides, _) = &schedules[(q * schedules.len() as f32) as usize];

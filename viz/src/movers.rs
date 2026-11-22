@@ -1053,6 +1053,8 @@ struct Train<'a> {
     distance: f32,
     pos: Vec3,
     riders: usize,
+    fan_riders: usize,
+    relocated_riders: usize,
     paint: Paint,
 }
 
@@ -1072,6 +1074,8 @@ fn trains(routes: &Routes, now: f32) -> Vec<Vec<Train<'_>>> {
                     distance,
                     pos: line.centre(distance),
                     riders: 0,
+                    fan_riders: 0,
+                    relocated_riders: 0,
                     paint: Paint::Plain,
                 });
             }
@@ -1379,15 +1383,22 @@ fn draw(
         }
         // Keep each three-car set centred at the station, with room for the opposite track.
         let scale = 1.35;
-        for offset in [14.3, 0., -14.3] {
+        for (car, offset) in [14.3, 0., -14.3].into_iter().enumerate() {
             let distance = train.distance + offset * scale;
             if !subway.0 && train.line.levels.at(distance) < -0.6 {
                 continue;
             }
             let (p, dir) = train.line.coach(distance);
             place(Model::Coach, train.paint, pose(p, dir, Vec3::splat(scale)));
-            // The illuminated roof strip shows the workers riding this service in this frame.
-            if train.riders > 0 {
+            if train.fan_riders > 0 {
+                // Split the service-wide sample over its three roofs. Seats are schematic.
+                let in_car = |marks: usize| (marks + 2 - car) / 3;
+                let count = in_car(train.riders);
+                if count > 0 {
+                    let ordinary = in_car(train.riders - train.relocated_riders);
+                    bus_load::draw(count, ordinary, p, dir, scale, &mut place);
+                }
+            } else if train.riders > 0 {
                 let length = 10. * train.riders as f32 / (train.riders as f32 + 4.);
                 place(
                     Model::Window,
