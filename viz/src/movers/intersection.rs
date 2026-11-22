@@ -13,6 +13,7 @@ use topology::{Topology, cell, conflict, register};
 
 const CLEARANCE: u32 = 3_800;
 const HEADWAY: u32 = 1_300;
+const FOLLOWING_CARS: u8 = 3;
 const STOP_DISTANCE: f32 = 14.;
 const SCALE_RADIUS: f32 = 155.;
 
@@ -46,10 +47,42 @@ struct Movement {
     curve: Vec<Vec2>,
 }
 
+struct Incoming {
+    trip: usize,
+    arrive: u32,
+    capacity: usize,
+}
+
 #[derive(Default)]
 struct Storage {
-    cars: usize,
+    waiting: usize,
+    first_arrivals: Vec<u32>,
+    first_entered: usize,
+    incoming: Vec<Incoming>,
     waiters: Vec<usize>,
+}
+
+impl Storage {
+    fn demand(&self, arrive: u32) -> usize {
+        self.waiting
+            + self.first_arrivals[self.first_entered..].partition_point(|&time| time <= arrive)
+            + self.incoming.partition_point(|car| car.arrive <= arrive)
+    }
+
+    fn has_room(&self, arrive: u32, capacity: usize) -> bool {
+        let first = self.incoming.partition_point(|car| car.arrive < arrive);
+        self.demand(arrive) < capacity
+            && self.incoming[first..]
+                .iter()
+                .all(|car| self.demand(car.arrive) < car.capacity)
+    }
+
+    fn reserve(&mut self, incoming: Incoming) {
+        let index = self
+            .incoming
+            .partition_point(|car| car.arrive <= incoming.arrive);
+        self.incoming.insert(index, incoming);
+    }
 }
 
 #[derive(Default)]
@@ -66,7 +99,7 @@ struct Site {
     movements: Vec<Movement>,
     conflicts: Vec<Vec<bool>>,
     lanes: Vec<Lane>,
-    occupied: Vec<(usize, u32)>,
+    occupied: Vec<(usize, u32, u8)>,
     wake: Option<u32>,
 }
 
@@ -115,8 +148,8 @@ impl Site {
     fn blocked_until(&self, movement: usize) -> u32 {
         self.occupied
             .iter()
-            .filter(|&&(other, _)| self.conflicts[movement][other])
-            .map(|&(_, until)| until)
+            .filter(|&&(other, _, _)| self.conflicts[movement][other])
+            .map(|&(_, until, _)| until)
             .max()
             .unwrap_or(0)
     }
@@ -128,8 +161,9 @@ impl Site {
         storage: &mut [Storage],
         junction: usize,
     ) -> Option<(Pending, Option<usize>)> {
-        self.occupied.retain(|&(_, until)| until > now);
+        self.occupied.retain(|&(_, until, _)| until > now);
         let mut first = None;
+        let mut ready = None;
         for (lane, queue) in self.lanes.iter().enumerate() {
             let Some(pending) = queue.waiting.front().copied() else {
                 continue;
@@ -138,30 +172,45 @@ impl Site {
             let approach = trip.approaches[pending.stop];
             if let Some(exit) = trip.approaches.get(pending.stop + 1) {
                 let receiving = &mut storage[exit.slot];
-                if receiving.cars >= approach.exit_capacity {
+                let arrive = now + ms(exit.stop_age - approach.stop_age);
+                if !receiving.has_room(arrive, approach.exit_capacity) {
                     if !receiving.waiters.contains(&junction) {
                         receiving.waiters.push(junction);
                     }
                     continue;
                 }
             }
-            if first.is_none_or(|(_, earlier): (usize, Pending)| {
-                (pending.arrive, pending.trip) < (earlier.arrive, earlier.trip)
-            }) {
-                first = Some((lane, pending));
+            let order = (pending.arrive, pending.trip);
+            if first.is_none_or(|(earlier, _)| order < earlier) {
+                first = Some((order, approach.movement));
+            }
+            if queue.ready <= now
+                && self.blocked_until(approach.movement) <= now
+                && ready.is_none_or(|(earlier, _, _, _)| order < earlier)
+            {
+                ready = Some((order, lane, pending, approach.movement));
             }
         }
-        let (lane, pending) = first?;
-        let movement = trips[pending.trip].approaches[pending.stop].movement;
-        if self.lanes[lane].ready > now || self.blocked_until(movement) > now {
+        let (order, lane, pending, movement) = ready?;
+        let (oldest, priority) = first.unwrap();
+        if order != oldest
+            && self.conflicts[priority][movement]
+            && !self
+                .occupied
+                .iter()
+                .any(|&(id, _, followers)| id == movement && followers < FOLLOWING_CARS)
+        {
             return None;
         }
         self.lanes[lane].waiting.pop_front();
         self.lanes[lane].ready = now + HEADWAY;
-        if let Some((_, until)) = self.occupied.iter_mut().find(|(id, _)| *id == movement) {
+        if let Some((_, until, followers)) =
+            self.occupied.iter_mut().find(|(id, _, _)| *id == movement)
+        {
             *until = now + CLEARANCE;
+            *followers = if order == oldest { 0 } else { *followers + 1 };
         } else {
-            self.occupied.push((movement, now + CLEARANCE));
+            self.occupied.push((movement, now + CLEARANCE, 0));
         }
         Some((pending, self.lanes[lane].previous))
     }
@@ -295,7 +344,9 @@ impl Queues {
                 };
                 for copy in 0..flow.cars.len() {
                     let start = bin as f32 * BIN + departure_offset(flow.phase, copy);
-                    calendar.push(Reverse((ms(start + first.stop_age), false, trips.len(), 0)));
+                    let arrive = ms(start + first.stop_age);
+                    storage[first.slot].first_arrivals.push(arrive);
+                    calendar.push(Reverse((arrive, false, trips.len(), 0)));
                     trips.push(Trip {
                         car: (bin, group, copy),
                         start,
@@ -303,6 +354,10 @@ impl Queues {
                     });
                 }
             }
+        }
+
+        for lane in &mut storage {
+            lane.first_arrivals.sort_unstable();
         }
 
         let mut coverage = (0usize, 0usize);
@@ -321,9 +376,19 @@ impl Queues {
                 let approach = trips[id].approaches[stop];
                 let site = sites.get_mut(&approach.junction).unwrap();
                 let lane = site.movements[approach.movement].lane;
+                let receiving = &mut storage[approach.slot];
                 if stop == 0 {
-                    storage[approach.slot].cars += 1;
+                    receiving.first_entered += 1;
+                } else {
+                    let i = receiving
+                        .incoming
+                        .iter()
+                        .position(|car| car.trip == id)
+                        .unwrap();
+                    receiving.incoming.remove(i);
+                    wake_for_room.append(&mut receiving.waiters);
                 }
+                receiving.waiting += 1;
                 site.lanes[lane].waiting.push_back(Pending {
                     trip: id,
                     stop,
@@ -337,7 +402,7 @@ impl Queues {
                 let approach = trip.approaches[pending.stop];
                 let release = now as f32 / 1_000.;
                 let occupied = &mut storage[approach.slot];
-                occupied.cars -= 1;
+                occupied.waiting -= 1;
                 wake_for_room.append(&mut occupied.waiters);
                 let lane = site.movements[approach.movement].lane;
                 let index = self.passes.len();
@@ -363,8 +428,12 @@ impl Queues {
                 coverage.0 += usize::from(now > pending.arrive);
                 coverage.1 += usize::from(pending.stop > 0);
                 if let Some(following) = trip.approaches.get(pending.stop + 1) {
-                    storage[following.slot].cars += 1;
                     let next = now + ms(following.stop_age - approach.stop_age);
+                    storage[following.slot].reserve(Incoming {
+                        trip: pending.trip,
+                        arrive: next,
+                        capacity: approach.exit_capacity,
+                    });
                     calendar.push(Reverse((next, false, pending.trip, pending.stop + 1)));
                 }
             }
@@ -383,7 +452,10 @@ impl Queues {
                 }
             }
         }
-        let pending: usize = storage.iter().map(|lane| lane.cars).sum();
+        let pending: usize = storage
+            .iter()
+            .map(|lane| lane.waiting + lane.incoming.len())
+            .sum();
         delays.sort_unstable_by(f32::total_cmp);
         let percentile = |p: usize| delays.get(delays.len() * p / 100).copied().unwrap_or(0.);
         info!(
