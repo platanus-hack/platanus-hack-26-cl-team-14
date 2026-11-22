@@ -32,12 +32,13 @@ impl Fleet {
         );
         let mesh = meshes.add(mesh);
         if models.ink {
-            // Keep the body profile and cutouts from each source sprite. The paper
-            // windows separate the cabin from the bonnet at street zoom.
+            // Keep the source profile, cutouts and dark tyres. Paper windows
+            // separate the cabin from the bonnet at street zoom.
             for pixel in image.data.as_mut().unwrap().chunks_exact_mut(4) {
                 if pixel[3] != 0 {
                     let ink = match pixel[0..3] {
                         [43, 62, 83] | [91, 126, 151] | [255, 225, 152] => super::PAPER,
+                        [24, 33, 45] | [41, 48, 57] => [24, 33, 45],
                         _ => super::CAR_INK,
                     };
                     pixel[..3].copy_from_slice(&ink);
