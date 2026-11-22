@@ -1360,6 +1360,8 @@ fn draw(
                 };
                 let scale = if kind == Vehicle::Walk {
                     walker_scale
+                } else if kind == Vehicle::Car {
+                    queues.car_scale(pos, size_at(pos))
                 } else {
                     size_at(pos)
                 } * presence;

@@ -1,5 +1,6 @@
 //! Display-only yielding at UOCT junction J071171 (Tobalaba/Larraín).
 use super::{BIN, DAY, Life, Path, Replay, Vehicle, departure_offset, world};
+use bevy::prelude::Vec3;
 use std::{collections::HashMap, sync::Arc};
 
 // City seconds between entries into the junction. At 9 m/s, the preceding
@@ -8,6 +9,7 @@ const CLEARANCE: f32 = 4.5;
 // At the close camera scale this leaves room for the full rendered body.
 const HEADWAY: f32 = 1.3;
 const STOP_DISTANCE: f32 = 14.;
+const QUEUE_RADIUS: f32 = 80.;
 
 type Car = (usize, usize, usize);
 
@@ -27,6 +29,7 @@ struct Pass {
 
 #[derive(Default)]
 pub(super) struct Queues {
+    junction: Vec3,
     passes: Vec<Pass>,
     by_car: HashMap<Car, usize>,
     pub(super) longest_wait: f32,
@@ -38,7 +41,7 @@ impl Queues {
         self.by_car.clear();
         self.longest_wait = 0.;
         // OSM node 256366826 is the shared node on the two routed streets.
-        let junction = world(-70.558968, -33.4521462);
+        self.junction = world(-70.558968, -33.4521462);
         let mut routes = HashMap::new();
         for (bin, groups) in replay.departures.iter().enumerate() {
             for (group, flow) in groups.iter().enumerate() {
@@ -50,7 +53,7 @@ impl Queues {
                 }
                 let approach = routes
                     .entry(Arc::as_ptr(&flow.path))
-                    .or_insert_with(|| approach(&flow.path, junction, replay));
+                    .or_insert_with(|| approach(&flow.path, self.junction, replay));
                 let Some(approach) = *approach else {
                     continue;
                 };
@@ -97,6 +100,15 @@ impl Queues {
         }
     }
 
+    // Large map-scale bodies would overlap a close-spaced queue. Keep
+    // the local footprint stable and restore map-scale sizing beyond it.
+    pub(super) fn car_scale(&self, position: Vec3, scale: f32) -> f32 {
+        let offset = position - self.junction;
+        let distance = offset.x.hypot(offset.z);
+        let blend = ((distance - QUEUE_RADIUS) / 30.).clamp(0., 1.);
+        1.35 + (scale - 1.35) * blend
+    }
+
     pub(super) fn age(&self, day_bin: i32, group: usize, copy: usize, age: f32) -> f32 {
         let key = (day_bin.rem_euclid(48) as usize, group, copy);
         self.by_car.get(&key).map_or(age, |&index| {
@@ -105,7 +117,7 @@ impl Queues {
     }
 }
 
-fn approach(path: &Path, junction: bevy::prelude::Vec3, replay: &Replay) -> Option<Approach> {
+fn approach(path: &Path, junction: Vec3, replay: &Replay) -> Option<Approach> {
     // Route packs may simplify a straight crossing into one segment. Match its
     // passage through the shared node, including ample route on both sides.
     let (near, dir, metres) = path.nearest(junction);
