@@ -33,6 +33,15 @@ fn light(p: vec2<i32>) -> f32 {
     return dot(rgb, vec3<f32>(.30,.55,.15));
 }
 
+// Project a diagonal of the facade into the image. Grid spacing is in screen
+// cells, so even a narrow wall keeps readable ink when the camera turns.
+fn hatch_line(cell: vec2<f32>, stroke: vec3<f32>, spacing: f32) -> bool {
+    let across = vec2<f32>(stroke.y, stroke.x);
+    let length_sq = dot(across, across);
+    let phase = dot(cell, across) * inverseSqrt(max(length_sq, .0001)) / spacing;
+    return length_sq > .0001 && abs(fract(phase + .5) - .5) * spacing < .5;
+}
+
 fn print_city(pos: vec4<f32>, dark: bool, hatch: bool) -> vec4<f32> {
     let p = vec2<i32>(pos.xy);
     let z = z_at(p);
@@ -81,8 +90,11 @@ fn print_city(pos: vec4<f32>, dark: bool, hatch: bool) -> vec4<f32> {
                                          z - dot(pos.xy-center, slope)));
             let sun = dot(n, view.sun_and_title.xyz);
             if abs(dot(n, view.up_and_focal.xyz)) < .25 && sun < .15 {
-                let stripe = (grid.x + grid.y) % 6u == 0u;
-                let crossed = sun < -.35 && l < .12 && ((grid.x - grid.y) & 7u) == 0u;
+                let up = view.up_and_focal.xyz;
+                let along_wall = normalize(cross(up, n));
+                let cell = vec2<f32>(grid) - .5 * center;
+                let stripe = hatch_line(cell, along_wall + up, 4.5);
+                let crossed = sun < -.35 && l < .12 && hatch_line(cell, along_wall - up, 6.);
                 level = select(min(level + 2u, 12u), level - 2u, stripe || crossed);
             }
         }
