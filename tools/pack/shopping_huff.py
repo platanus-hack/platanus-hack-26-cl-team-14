@@ -5,7 +5,8 @@ P(d | o) ∝ (shops_d + 1)^alpha × exp(−beta × minutes_od). shops_d = mapped
 choice.rs for missing pairs. Trips: viajes.Proposito 11 (De compras), weight FactorLaboralNormal × Factor_LaboralNormal,
 home comuna from Hogares, destination comuna from viajes.ComunaDestino.
 Run from the repo root: python3 -I tools/pack/shopping_huff.py
-Other purposes: python3 -I tools/pack/shopping_huff.py PURPOSE KINDS, e.g. `5 hospital,clinic` (De salud); prints the fit only.
+Other purposes: python3 -I tools/pack/shopping_huff.py PURPOSE KINDS [POINTS], e.g. `5 hospital,clinic` (De salud), or `5 all health_points.csv`
+(every kind of that file); prints the fit only.
 """
 import csv
 import math
@@ -18,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 EOD = ROOT / "data/raw/eod2012/x/eod2012/EOD_STGO"
 MVP = ROOT / "data/mvp"
 PURPOSE, KINDS = (sys.argv[1], sys.argv[2].split(",")) if len(sys.argv) > 2 else ("11", ["shop", "mall", "supermarket"])
+POINTS = sys.argv[3] if len(sys.argv) > 3 else "activity_points.csv"
 # The MUT: 26 mapped shop points inside its OSM bbox. Points: named_places.csv (MUT) and the Monumental bbox centre.
 MUT_SHOPS = 26
 SITES = {"mut_site": (-70.601132, -33.417280, "13114"), "monumental_site": (-70.60598, -33.50650, "13118")}
@@ -60,8 +62,8 @@ intercept = (sy - slope * sx) / m
 minutes = [[t if not math.isnan(t) else intercept + slope * km[o][d] for d, t in enumerate(row)] for o, row in enumerate(minutes)]
 
 shops = [0.0] * n
-for r in rows(MVP / "activity_points.csv"):
-    if r["kind"] in KINDS and r["cut"] in ix:
+for r in rows(MVP / POINTS):
+    if (KINDS == ["all"] or r["kind"] in KINDS) and r["cut"] in ix:
         shops[ix[r["cut"]]] += 1
 
 home = {r["Hogar"]: by_name.get(key(r["Comuna"])) for r in rows(EOD / "Hogares.csv", ";")}
