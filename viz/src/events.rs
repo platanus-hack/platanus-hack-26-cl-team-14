@@ -510,7 +510,9 @@ fn animate(
                 };
                 let step = (opacity * SOLID as f32).round() as usize;
                 paint.set_if_neq(MeshMaterial3d(art.paint[group.mode][step].clone()));
-                let scale = if admitted < GATE_FADE_SECONDS {
+                // Beyond 300 m a fan keeps the screen height of the former 3 m glyph.
+                let legible = 1. + (3. / 1.75 - 1.) * ((rig.distance - 300.) / 200.).clamp(0., 1.);
+                let scale = legible * if admitted < GATE_FADE_SECONDS {
                     pedestrian_scale(rig.distance, map_scale)
                 } else {
                     map_scale.min(1.15)

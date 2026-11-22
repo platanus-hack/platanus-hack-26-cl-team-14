@@ -229,6 +229,7 @@ fn atlas() -> Image {
         }
     }
     // White texels carry the shape in alpha; the material colour tints them.
+    // Each smaller level gains alpha so thin limbs do not fade at a distance.
     let mut data = Vec::new();
     let (mut w, mut h) = (width, height);
     for level in 0..MIPS {
@@ -237,7 +238,7 @@ fn atlas() -> Image {
             let next: Vec<u8> = (0..h / 2 * (w / 2))
                 .map(|i| {
                     let (x, y) = (i % (w / 2) * 2, i / (w / 2) * 2);
-                    ((at(x, y) + at(x + 1, y) + at(x, y + 1) + at(x + 1, y + 1)) / 4) as u8
+                    ((at(x, y) + at(x + 1, y) + at(x, y + 1) + at(x + 1, y + 1)) * 3 / 8).min(255) as u8
                 })
                 .collect();
             (alpha, w, h) = (next, w / 2, h / 2);
