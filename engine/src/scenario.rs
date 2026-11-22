@@ -938,7 +938,7 @@ impl Scenario {
         if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
         if !reach.is_empty() {
             result["metro_reach"] = json!(reach);
-            result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a Metro line edit, each station's entries are multiplied by its remaining accessibility: the other open stations weighted by baseline entries and exp(-beta x scheduled Metro minutes), divided by the same sum on the baseline network. beta is the job-choice coefficient fitted on the Census. Transfers inside a station cost zero; waits are not counted. Riders who lose accessibility leave the Metro (bus or other); they are not counted at another station."));
+            result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a Metro line edit, each station's entries are multiplied by its remaining accessibility: the other open stations weighted by baseline entries and exp(-beta x scheduled Metro minutes), divided by the same sum on the baseline network. beta is the job-choice coefficient fitted on the Census. Changing trains costs an assumed 2 minutes; the first wait is not counted. Riders who lose accessibility leave the Metro (bus or other); they are not counted at another station."));
         }
         if !car_shares.is_empty() {
             let cars = self.car_ownership.as_ref().unwrap();
