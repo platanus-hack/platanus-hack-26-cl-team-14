@@ -71,8 +71,9 @@ fn show(
     mut night: ResMut<crate::Night>,
     mut text: Single<(&mut Text, &mut Visibility), With<ClockText>>,
 ) {
-    clock.1 = time.elapsed_secs() * rate.0;
-    clock.0 = fixed.0.or(replay.clock_offset.map(|offset| offset + clock.1));
+    // Add each frame, so a replay that changes the rate does not make this clock jump.
+    clock.1 += time.delta_secs() * rate.0;
+    clock.0 = fixed.0.or(replay.clock_offset.map(|offset| offset + time.elapsed_secs() * rate.0));
     let Some(now) = clock.0 else {
         return;
     };

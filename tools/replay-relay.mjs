@@ -7,6 +7,7 @@ const [port, id] = process.argv.slice(2);
 const { meta, result } = JSON.parse(readFileSync(new URL(`../data/replays/${id}.json`, import.meta.url), 'utf8'));
 // Same camera cues as run_replay. The final chart is too wide for a tile, so tiles show the map only.
 if (meta.cues) result.scene.cues = meta.cues;
+if (meta.clock_rate) result.scene.clock_rate = meta.clock_rate;
 result.label = meta.title;
 if (meta.comparison) {
   const { fields, unit } = meta.comparison;
