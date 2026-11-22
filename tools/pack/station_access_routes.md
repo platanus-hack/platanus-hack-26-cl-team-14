@@ -76,3 +76,32 @@ consumer's rendering, matching and before/after capture remain separate gates.
 
 Manual inspection opened the generated metadata, representative coordinate
 arrays and source share coverage. `git diff --check` passed. No tests per repo.
+
+## Grecia and Fernando Castillo Velasco
+
+`web/data/station_access_routes_grecia_larrain.json.gz` extends the viewer's
+geometry to RGR and FCV. It uses the same schema and the same regional foot MLD
+graph as the original pack. It contains 311 RGR and 186 FCV routes. The largest
+origin or entrance snap is 90.0 m. The viewer draws these paths with the
+current result's walk shares and half-hour entries.
+
+Use the generator, entrance pack and saved MUT A from commit
+`c533f9001e587b9202eeda7d9a3bbf68c21bd0a1`. Work in a temporary checkout so the
+generator's default output path cannot replace the original pack.
+
+```sh
+jq -c '.result | {revision,stations:[.stations[]|select(.id=="FCV" or .id=="RGR")]}' \
+  data/replays/mut-monumental-routes-a.json > mut-a-fcv-rgr.json
+python3 tools/pack/station_access_routes.py mut-a-fcv-rgr.json \
+  --stations RGR FCV --port 19447 --pbf "$regional_pbf" --profile "$foot_profile"
+```
+
+Use a local OSRM 26.11.0 foot MLD router on that port. Rename the temporary
+output to `station_access_routes_grecia_larrain.json.gz`. The recorded input
+name is part of the pack metadata. The source extraction SHA-256 is
+`23a5463bd1bf374e5974421e42de24a174f823c9f3edbaa07e5b3062dfa87288`.
+The produced gzip SHA-256 is
+`d51b8244dfd94890951bfed0b02bd5ce8719844d591c9486ed0c1a9776ae946b`.
+The paths represent modeled access to Metro. The engine does not estimate all
+pedestrian activity on these streets.
+[Routing receipt](https://discord.com/channels/1573514576400752640/1573915515787935856/1573943406185676850)

@@ -1203,6 +1203,11 @@ fn pedestrian_scale(distance: f32, distant_scale: f32) -> f32 {
     1. + (distant_scale - 1.) * blend
 }
 
+fn street_walker_scale(distance: f32) -> f32 {
+    // At street and district distances the ink grid needs a larger walking symbol.
+    (distance / 135.).clamp(1., 3.)
+}
+
 fn right(dir: Vec3) -> Vec3 {
     Vec3::new(-dir.z, 0., dir.x)
 }
@@ -1239,7 +1244,7 @@ fn draw(
     let eye = camera.translation();
     let tier = usize::from(rig.distance >= 1_000.);
     // These figures represent groups. Give the walking silhouette room on the ink grid.
-    let walker_scale = (rig.distance / 180.).clamp(1., 2.5);
+    let walker_scale = street_walker_scale(rig.distance);
     let surface_walker_scale = if subway.0 { 1. } else { walker_scale };
     let visible = |pos: Vec3, radius| {
         frustum.intersects_sphere(
