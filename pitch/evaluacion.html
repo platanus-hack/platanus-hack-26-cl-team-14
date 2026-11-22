@@ -18,10 +18,8 @@
       overflow: hidden;
       height: 100svh;
       margin: 0;
-      padding: 6vh 6vw 4vh;
+      padding: 6vh 4vw 5vh;
       display: grid;
-      grid-template-rows: auto 1fr;
-      gap: 3vh;
       color: #fff;
       background: #101923;
       font-family: Barlow, system-ui, sans-serif;
@@ -35,62 +33,97 @@
       object-fit: cover;
       filter: blur(3px) brightness(.22);
     }
-    h1 { margin: 0; font-size: clamp(1.8rem, min(4.6vw, 8vh), 6rem); font-weight: 400; line-height: 1.02; }
-    p, h2 { margin: 0; font-weight: 400; }
-    main { display: grid; grid-template-rows: repeat(3, 1fr); min-height: 0; }
-    /* One row per case: the accuracy on the left, one track on the right. */
-    .eval { display: grid; grid-template-columns: 24vw 1fr; align-items: center; gap: 3vw; }
-    .eval + .eval { border-top: 1px solid #2c3d4f; }
-    .pct { text-align: right; font-size: clamp(4rem, min(11vw, 20vh), 15rem); line-height: .9; }
-    .pct span { font-size: .45em; color: #8d9aa8; }
-    h2 { font-size: clamp(1.2rem, min(2.6vw, 4.6vh), 3.4rem); line-height: 1.1; }
-    /* --sim and --real are drawn lengths in % of the track, set by hand. */
-    .pista { position: relative; height: 3vh; margin: 2.6vh 0 2vh; background: #ffffff24; }
+    p { margin: 0; }
+    /* Three cases side by side. */
+    main { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vw; min-height: 0; }
+    .eval {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 2.4vh;
+      padding: 3vh 1.6vw;
+      background: #0b1219d9;
+      border-top: .5vh solid #4aa8ff;
+    }
+    /* The prompt in a terminal. */
+    .q { padding: 1.2vh .9vw; background: #05090d; border: 1px solid #2c3d4f; border-radius: .3em; font: 400 clamp(.9rem, min(1.55vw, 3vh), 2rem) / 1.25 JetBrainsMono, monospace; }
+    .q > span { color: #8dd0ff; }
+    .q .r { visibility: hidden; }
+    .q .c { display: none; width: .55em; height: 1em; margin-left: .05em; vertical-align: -.12em; background: #fff; animation: blink 1s steps(1) infinite; }
+    .typing .q .c { display: inline-block; }
+    @keyframes blink { 50% { opacity: 0; } }
+    /* What happened in real life. */
+    .case { color: #8dd0ff; font-size: clamp(.9rem, min(1.6vw, 3vh), 2rem); line-height: 1.2; }
+    /* One track per case. --sim and --real are drawn lengths in % of the track, set by hand. */
+    .vs { display: grid; align-content: center; gap: 1.4vh; }
+    .lbl { width: calc(var(--at) * 1%); text-align: right; white-space: nowrap; line-height: 1; letter-spacing: .08em; font-size: clamp(.8rem, min(1.3vw, 2.6vh), 1.7rem); }
+    .lbl b { margin-left: .25em; font-weight: 400; letter-spacing: 0; font-size: clamp(2rem, min(4vw, 9vh), 6rem); }
+    .lbl.sim { --at: var(--sim); color: #4aa8ff; }
+    .lbl.real { --at: var(--real); }
+    .pista { position: relative; height: 4.5vh; }
     .pista i { position: absolute; top: 0; bottom: 0; }
     .pista .real { left: 0; width: 0; background: #fff; transition: width 1.2s ease-out .3s; }
-    .go .pista .real { width: calc(var(--real) * 1%); }
+    .s1 .pista .real { width: calc(var(--real) * 1%); }
+    .pista .gap { left: calc(min(var(--sim), var(--real)) * 1%); width: calc((max(var(--sim), var(--real)) - min(var(--sim), var(--real))) * 1%); background: repeating-linear-gradient(135deg, #4aa8ff 0 .7vh, #4aa8ff55 .7vh 1.4vh); opacity: 0; transition: opacity .6s 1.5s; }
+    .s1 .pista .gap { opacity: 1; }
     .pista .mark { top: -1.4vh; bottom: -1.4vh; left: calc(var(--sim) * 1%); width: .6vw; margin-left: -.6vw; background: #4aa8ff; }
-    .nums { color: #c3ccd5; font-size: clamp(.9rem, min(1.6vw, 2.8vh), 2rem); }
-    .nums b { font-weight: 400; color: #fff; }
-    .nums .sim, .nums .sim b { color: #4aa8ff; }
-    .small { margin-top: .8vh; color: #6f7d8b; font-size: clamp(.6rem, min(.95vw, 1.7vh), 1.15rem); }
+    .acc { color: #c3ccd5; font-size: clamp(1rem, min(1.9vw, 3.6vh), 2.4rem); }
+    .acc b { color: #fff; font-weight: 400; font-size: 2.2em; }
+    .case, .vs, .acc { opacity: 0; transition: opacity .6s; }
+    .s1 .case, .s1 .vs, .s1 .acc { opacity: 1; }
   </style>
 </head>
 <body>
   <video id="fondo" src="media/santiago-fondo.mp4" muted loop autoplay playsinline oncanplay="this.playbackRate = .15"></video>
-  <h1>3 casos reales. 86 % de precisión promedio.</h1>
   <main>
-    <section class="eval" style="--sim: 92; --real: 100">
-      <p class="pct">92<span>%</span></p>
-      <div>
-        <h2>Cierre de la USACH</h2>
-        <div class="pista"><i class="real"></i><i class="mark"></i></div>
-        <p class="nums"><span class="sim">Santiaguito <b>469</b></span> · Real <b>662</b></p>
-        <p class="small">¿Cuántos pasajeros más recibe Estación Central si cierran la USACH? · Lunes 21 abr 2025: Metro cerró Universidad de Santiago a las 19:20</p>
+    <section class="eval">
+      <p class="q" data-text="¿Cuántos pasajeros más recibe Estación Central si cierran la USACH?"><span>❯</span> </p>
+      <p class="case">* Lunes 21 abr 2025: Metro cerró Universidad de Santiago a las 19:20</p>
+      <div class="vs" style="--sim: 92; --real: 100">
+        <p class="lbl sim">SANTIAGUITO<b>469</b></p>
+        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
+        <p class="lbl real">REAL<b>662</b></p>
       </div>
+      <p class="acc"><b>92 %</b> de precisión</p>
     </section>
-    <section class="eval" style="--sim: 100; --real: 85">
-      <p class="pct">82<span>%</span></p>
-      <div>
-        <h2>Extensión de la Línea 2</h2>
-        <div class="pista"><i class="real"></i><i class="mark"></i></div>
-        <p class="nums"><span class="sim">Santiaguito <b>59.798</b></span> · Real <b>50.625</b></p>
-        <p class="small">¿Cuántas entradas diarias tendrán las cuatro estaciones nuevas de la Línea 2? · Noviembre 2023: abrieron cuatro estaciones nuevas de la Línea 2</p>
+    <section class="eval">
+      <p class="q" data-text="¿Cuántas entradas diarias tendrán las cuatro estaciones nuevas de la Línea 2?"><span>❯</span> </p>
+      <p class="case">* Noviembre 2023: abrieron cuatro estaciones nuevas de la Línea 2</p>
+      <div class="vs" style="--sim: 100; --real: 85">
+        <p class="lbl sim">SANTIAGUITO<b>59.798</b></p>
+        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
+        <p class="lbl real">REAL<b>50.625</b></p>
       </div>
+      <p class="acc"><b>82 %</b> de precisión</p>
     </section>
-    <section class="eval" style="--sim: 100; --real: 86">
-      <p class="pct">83<span>%</span></p>
-      <div>
-        <h2>Partido en el Monumental</h2>
-        <div class="pista"><i class="real"></i><i class="mark"></i></div>
-        <p class="nums"><span class="sim">Santiaguito <b>1.956</b></span> · Real <b>1.675</b></p>
-        <p class="small">¿Cuántos hinchas entran a Pedrero a las 18:00 después del partido? · Sábado 26 abr 2025: Colo-Colo vs Coquimbo en el Monumental, 17.756 hinchas</p>
+    <section class="eval">
+      <p class="q" data-text="¿Cuántos hinchas entran a Pedrero a las 18:00 después del partido?"><span>❯</span> </p>
+      <p class="case">* Sábado 26 abr 2025: Colo-Colo vs Coquimbo en el Monumental, 17.756 hinchas</p>
+      <div class="vs" style="--sim: 100; --real: 86">
+        <p class="lbl sim">SANTIAGUITO<b>1.956</b></p>
+        <div class="pista"><i class="real"></i><i class="gap"></i><i class="mark"></i></div>
+        <p class="lbl real">REAL<b>1.675</b></p>
       </div>
+      <p class="acc"><b>83 %</b> de precisión</p>
     </section>
   </main>
   <script>
-    // Grow the real bars up to the simulation mark.
-    requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('go')));
+    // One case after the other: type the question, press Enter, then show the real case and the result.
+    // The untyped rest stays hidden in place, so the card does not jump while typing.
+    const cards = [...document.querySelectorAll('.eval')];
+    cards.forEach(card => {
+      const q = card.querySelector('.q');
+      q.insertAdjacentHTML('beforeend', '<b class="t"></b><i class="c"></i><b class="r"></b>');
+      q.querySelector('.r').textContent = q.dataset.text;
+    });
+    let at = 400;
+    cards.forEach(card => {
+      const text = card.querySelector('.q').dataset.text, t = card.querySelector('.t'), r = card.querySelector('.r');
+      setTimeout(() => card.classList.add('typing'), at);
+      [...text].forEach((_, n) => setTimeout(() => { t.textContent = text.slice(0, n + 1); r.textContent = text.slice(n + 1); }, at + n * 18));
+      at += text.length * 18 + 300;
+      setTimeout(() => { card.classList.remove('typing'); card.classList.add('s1'); }, at);
+      at += 1400;
+    });
   </script>
 </body>
 </html>
