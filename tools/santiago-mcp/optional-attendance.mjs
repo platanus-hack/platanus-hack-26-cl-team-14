@@ -4,7 +4,7 @@ const object = (properties, required = Object.keys(properties)) => ({
   type: 'object', properties, required, additionalProperties: false,
 });
 const roundTrip = object({
-  in_vehicle_seconds: whole, wait_seconds: whole, walk_seconds: whole, fare_clp: whole, source: text,
+  in_vehicle_seconds: whole, wait_seconds: whole, walk_seconds: whole, cycle_seconds: whole, fare_clp: whole, source: text,
 });
 const option = object({
   id: text, place: text, interest_clp: { type: 'integer' }, duration_minutes: whole,
@@ -21,7 +21,7 @@ export const optionalAttendanceChange = {
       }),
       available_minutes: whole, budget_clp: whole, preference_basis: text,
       time_values: object({
-        in_vehicle_clp_per_hour: whole, wait_clp_per_hour: whole, walk_clp_per_hour: whole, source: text,
+        in_vehicle_clp_per_hour: whole, wait_clp_per_hour: whole, walk_clp_per_hour: whole, cycle_clp_per_hour: whole, source: text,
       }),
       options: { type: 'array', minItems: 1, items: option },
     }),

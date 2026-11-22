@@ -27,6 +27,7 @@ struct TimeValues {
     in_vehicle_clp_per_hour: u32,
     wait_clp_per_hour: u32,
     walk_clp_per_hour: u32,
+    cycle_clp_per_hour: u32,
     source: String,
 }
 
@@ -38,6 +39,8 @@ struct RoundTrip {
     wait_seconds: u32,
     #[serde(default)]
     walk_seconds: u32,
+    #[serde(default)]
+    cycle_seconds: u32,
     fare_clp: u32,
     source: String,
 }
@@ -103,13 +106,15 @@ impl Request {
             if route.source.trim().is_empty() {
                 return Err("Supply a source for round-trip time and fare.");
             }
-            let seconds = u64::from(route.in_vehicle_seconds) + u64::from(route.wait_seconds) + u64::from(route.walk_seconds);
+            let seconds = [route.in_vehicle_seconds, route.wait_seconds, route.walk_seconds, route.cycle_seconds]
+                .into_iter().map(u64::from).sum::<u64>();
             let total_minutes = u32::try_from(seconds.div_ceil(60) + u64::from(option.duration_minutes))
                 .map_err(|_| "Activity time is too large.")?;
             let cash = route.fare_clp.checked_add(option.admission_clp).ok_or("Activity cash cost is too large.")?;
             let time_cost = (f64::from(route.in_vehicle_seconds) * f64::from(self.time_values.in_vehicle_clp_per_hour)
                            + f64::from(route.wait_seconds) * f64::from(self.time_values.wait_clp_per_hour)
-                           + f64::from(route.walk_seconds) * f64::from(self.time_values.walk_clp_per_hour)) / 3600.0;
+                           + f64::from(route.walk_seconds) * f64::from(self.time_values.walk_clp_per_hour)
+                           + f64::from(route.cycle_seconds) * f64::from(self.time_values.cycle_clp_per_hour)) / 3600.0;
             let generalized_cost = u64::from(cash) + time_cost.round() as u64;
             let preference = i32::try_from(i64::from(option.interest_clp) - generalized_cost as i64)
                 .map_err(|_| "Activity utility is outside the supported range.")?;
