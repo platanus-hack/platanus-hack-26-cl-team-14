@@ -31,9 +31,19 @@ struct Edge {
     to: String,
 }
 
+struct DirectedEdge {
+    nodes: [Node; 2],
+    start: Vec2,
+    end: Vec2,
+    heading: Vec2,
+    ground: bool,
+}
+
 pub(super) struct Topology {
     pub(super) nodes: Vec<(Node, Vec2)>,
     cells: HashMap<Cell, Vec<usize>>,
+    edges: Vec<DirectedEdge>,
+    edge_cells: HashMap<Cell, Vec<usize>>,
 }
 
 impl Topology {
@@ -41,14 +51,44 @@ impl Topology {
         let file = File::open("web/data/local_car_graph.json.gz").unwrap();
         let pack: Pack =
             serde_json::from_reader(BufReader::new(flate2::read::GzDecoder::new(file))).unwrap();
+        let positions: HashMap<Node, Vec2> = pack
+            .nodes
+            .into_iter()
+            .filter_map(|(id, [lon, lat])| {
+                Some((id.parse().ok()?, crate::movers::world(lon, lat).xz()))
+            })
+            .collect();
         let mut links: BTreeMap<Node, Vec<Node>> = BTreeMap::new();
-        for way in pack.ways.values().filter(|way| way.structure == "ground") {
-            for edge in &way.edges {
+        let mut edges = Vec::new();
+        let mut edge_cells: HashMap<Cell, Vec<usize>> = HashMap::new();
+        for way in pack.ways.into_values() {
+            let ground = way.structure == "ground";
+            for edge in way.edges {
                 let (Ok(from), Ok(to)) = (edge.from.parse(), edge.to.parse()) else {
                     continue;
                 };
-                links.entry(from).or_default().push(to);
-                links.entry(to).or_default().push(from);
+                let (start, end) = (positions[&from], positions[&to]);
+                let Some(heading) = (end - start).try_normalize() else {
+                    continue;
+                };
+                if ground {
+                    links.entry(from).or_default().push(to);
+                    links.entry(to).or_default().push(from);
+                }
+                let (x0, z0) = cell(start.min(end), CELL);
+                let (x1, z1) = cell(start.max(end), CELL);
+                for x in x0..=x1 {
+                    for z in z0..=z1 {
+                        edge_cells.entry((x, z)).or_default().push(edges.len());
+                    }
+                }
+                edges.push(DirectedEdge {
+                    nodes: [from, to],
+                    start,
+                    end,
+                    heading,
+                    ground,
+                });
             }
         }
         let mut nodes = Vec::new();
@@ -59,12 +99,48 @@ impl Topology {
             if neighbors.len() < 3 {
                 continue;
             }
-            let [lon, lat] = pack.nodes[&node.to_string()];
-            let p = crate::movers::world(lon, lat).xz();
+            let p = positions[&node];
             cells.entry(cell(p, CELL)).or_default().push(nodes.len());
             nodes.push((node, p));
         }
-        Self { nodes, cells }
+        Self {
+            nodes,
+            cells,
+            edges,
+            edge_cells,
+        }
+    }
+
+    fn route_edge(&self, point: Vec2, direction: Vec2) -> Option<&DirectedEdge> {
+        let radius = Vec2::splat(MATCH_RADIUS);
+        let (x0, z0) = cell(point - radius, CELL);
+        let (x1, z1) = cell(point + radius, CELL);
+        (x0..=x1)
+            .flat_map(|x| (z0..=z1).map(move |z| (x, z)))
+            .flat_map(|cell| self.edge_cells.get(&cell).into_iter().flatten())
+            .filter_map(|&i| {
+                let edge = &self.edges[i];
+                let alignment = direction.dot(edge.heading);
+                let fraction = project(point, edge.start, edge.end);
+                let gap = point.distance_squared(edge.start.lerp(edge.end, fraction));
+                (alignment >= 0.8 && gap <= MATCH_RADIUS * MATCH_RADIUS)
+                    .then_some((edge, gap + 9. * (1. - alignment)))
+            })
+            .min_by(|(a, left), (b, right)| {
+                left.total_cmp(right)
+                    .then(a.ground.cmp(&b.ground))
+                    .then(a.nodes.cmp(&b.nodes))
+            })
+            .map(|(edge, _)| edge)
+    }
+
+    fn connects(&self, path: &Path, distance: f32, node: Node) -> bool {
+        // Sample both directed legs. Nearby decks can share the same map position.
+        [(-3., 1), (3., 0)].into_iter().all(|(offset, side)| {
+            let (point, heading, _) = path.at(distance + offset, &path.metres).unwrap();
+            self.route_edge(point.xz(), heading.xz().normalize_or_zero())
+                .is_some_and(|edge| edge.ground && edge.nodes[side] == node)
+        })
     }
 
     pub(super) fn approaches(&self, path: &Path, replay: &Replay) -> Vec<(usize, f32)> {
@@ -103,22 +179,21 @@ impl Topology {
         for (junction, (_, distance)) in hits {
             // Require enough approach and exit to fit a car. Match only grade
             // crossings reached along the route, never a bridge or tunnel.
+            let crossing = path.crossing_at(distance);
             if distance < 40.
                 || total - distance < 25.
-                || path.crossings.iter().any(|&(a, b, kind)| {
-                    (a..=b).contains(&distance)
-                        && matches!(
-                            kind,
-                            road_water::Crossing::Bridge | road_water::Crossing::Tunnel
-                        )
-                })
+                || matches!(
+                    crossing,
+                    Some(road_water::Crossing::Bridge | road_water::Crossing::Tunnel)
+                )
+                || !self.connects(path, distance, self.nodes[junction].0)
             {
                 continue;
             }
             let Some((p, dir, _)) = path.at(distance, &path.metres) else {
                 continue;
             };
-            if replay.road_edits.hides(p, dir) {
+            if replay.road_edits.hides_on(p, dir, crossing) {
                 continue;
             }
             approaches.push((junction, distance));
