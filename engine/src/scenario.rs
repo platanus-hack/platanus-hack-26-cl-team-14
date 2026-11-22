@@ -2,7 +2,7 @@
 //! `Scenario::run` starts from the baseline each time, applies all changes to one state, lets the workers choose
 //! again once (rechoose.rs) and projects the station day once (station_access.rs, L9). The map and the MCP tool read the same result.
 use crate::choice::Choice;
-use crate::population::household_income::HouseholdIncome;
+use crate::population::household_income::{self, HouseholdIncome};
 use crate::population::{FineModes, NEW_OTHER_MODE, Person, UNKNOWN, Point, Population, TripGroup, TripPlan, person_departure, trip_deltas};
 use crate::rechoose::{Base, rechoose};
 use crate::stations::access::{EntryOrigins, StationAccess, planned::PlannedStations};
@@ -89,7 +89,7 @@ pub struct Scenario {
     ratio: Vec<f64>,
     shopping: Shopping,
     /// Baseline optional shopping visits: eligible persons (worker indices, then other residents) and their decisions.
-    visits: OnceLock<(Vec<usize>, Vec<usize>, shopping::visits::Visits)>,
+    visits: OnceLock<(Vec<usize>, Vec<usize>, shopping::visits::Visits, Vec<[u32; 4]>)>,
 }
 
 const ASSUMPTIONS: [&str; 10] = [
@@ -236,13 +236,13 @@ impl Scenario {
     fn optional_visits(&self, pop: &Population, minutes: &[f64], unreachable: &[bool], shops: &[shopping::Shop], window: Option<(usize, usize)>, residents_changed: bool) -> Value {
         if residents_changed { return json!({ "not_modeled": "Optional visits pair the same persons before and after; a residents change adds or removes persons." }); }
         let c = &self.choice;
-        let (workers, homes, visits) = self.visits.get_or_init(|| {
+        let (workers, homes, visits, income) = self.visits.get_or_init(|| {
             let home_ix: Vec<usize> = self.pop.homes.iter().map(|h| self.ix(&h.cut)).collect();
             let workers: Vec<usize> = (0..self.pop.persons.len()).filter(|&i| !self.pop.persons[i].student).collect();
             let homes: Vec<usize> = workers.iter().map(|&i| home_ix[self.pop.persons[i].home as usize])
                 .chain(self.pop.residents.iter().map(|r| home_ix[r.home as usize])).collect();
             let visits = self.shopping.visits(c.n, &homes, &c.minutes);
-            (workers, homes, visits)
+            (workers, homes, visits, household_income::comuna_weights(&self.data_dir, &c.cuts))
         });
         let after = visits.after(shops, &c.minutes, minutes, unreachable, window);
         let mut v = shopping::visits::summary(&c.cuts, &visits.before, &after);
@@ -250,7 +250,7 @@ impl Scenario {
         // Workers by imputed CASEN household income band (#497): band size and how many change. Index 4 = unmodeled.
         let mut bands = [(0u64, 0u64, 0u64, 0u64, 0u32, None); 5];
         for (k, &i) in workers.iter().enumerate() {
-            let x = match self.pop.persons[i].household_income(i) {
+            let x = match self.pop.persons[i].household_income(i, &income[homes[k]]) {
                 HouseholdIncome::Imputed { band, monthly_clp_min, monthly_clp_max, .. } => {
                     let x = &mut bands[band as usize - 1];
                     (x.4, x.5) = (monthly_clp_min, monthly_clp_max);
@@ -271,7 +271,7 @@ impl Scenario {
                 "workers": n, "work_mode_changed": mode, "stopped_shopping": stopped, "shopping_changed": visit,
                 "work_mode_changed_pct": share(mode, n), "stopped_shopping_pct": share(stopped, n), "shopping_changed_pct": share(visit, n),
             })).collect::<Vec<_>>(),
-            "unit": "workers (synthetic persons with a modeled work trip); pct = count / workers in the band. Band = imputed CASEN 2024 RM monthly household monetary income, November 2024 CLP, drawn by age (#497). Unmodeled: unknown private household or age outside the source.",
+            "unit": "workers (synthetic persons with a modeled work trip); pct = count / workers in the band. Band = imputed CASEN 2024 monthly household monetary income, November 2024 CLP, drawn from the CASEN workers of the home comuna (commune is not a CASEN survey domain). Unmodeled: unknown private household or age outside the source.",
         });
         let cut = |x: Option<u8>| x.map(|d| c.cuts[d as usize].clone());
         if let Some(k) = (0..workers.len()).find(|&k| visits.before[k] != after[k]) {
@@ -279,7 +279,7 @@ impl Scenario {
             v["example_worker"] = json!({ "person": workers[k], "home_comuna": c.cuts[homes[k]],
                 "job_block_base": self.pop.jobs[b.dest as usize].id, "job_block_scenario": pop.jobs[a.dest as usize].id,
                 "work_mode_base": b.mode, "work_mode_scenario": a.mode,
-                "household_income": b.household_income(workers[k]),
+                "household_income": b.household_income(workers[k], &income[homes[k]]),
                 "spending_budget_clp": null,
                 "spending_budget_status": "Unmodeled. The aggregate choice uses a nonbinding budget.",
                 "visit_comuna_base": cut(visits.before[k]), "visit_comuna_scenario": cut(after[k]) });
