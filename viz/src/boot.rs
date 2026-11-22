@@ -355,6 +355,13 @@ fn advance(
             }
             commands.entity(ui.cover).despawn();
             commands.entity(ui.camera).despawn();
+            commands.remove_resource::<Entry>();
+            commands.remove_resource::<Elements>();
+            #[cfg(target_os = "macos")]
+            if env::var_os(crate::chat_terminal::ENABLE).is_some() {
+                commands.insert_resource(crate::chat_terminal::ChatReady);
+                return;
+            }
             #[cfg(target_os = "macos")]
             let signal = {
                 let (window, monitors) = &display;
@@ -378,8 +385,6 @@ fn advance(
                     exit.write(AppExit::error());
                 }
             }
-            commands.remove_resource::<Entry>();
-            commands.remove_resource::<Elements>();
         }
     }
 }

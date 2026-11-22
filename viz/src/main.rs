@@ -1,4 +1,6 @@
 mod boot;
+#[cfg(target_os = "macos")]
+mod chat_terminal;
 mod chart;
 mod city;
 mod focus;
@@ -330,8 +332,10 @@ fn measure(
 }
 
 fn main() -> AppExit {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+    let mut app = App::new();
+    #[cfg(target_os = "macos")]
+    app.add_plugins(chat_terminal::ChatTerminal);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(window()),
             ..default()
         }))

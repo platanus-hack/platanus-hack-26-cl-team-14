@@ -5,7 +5,12 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 repo=$PWD
 case $(uname -s) in
-    Darwin) source "$repo/tools/city-terminal-mac.sh" ;;
+    Darwin)
+        export SANTIAGO_EMBEDDED_CHAT=1
+        if [[ -z ${SANTIAGO_CHAT_CLI:-} ]] && command -v codex >/dev/null; then
+            export SANTIAGO_CHAT_CLI=codex
+        fi
+        ;;
     Linux)  source "$repo/tools/city-terminal-linux.sh" ;;
     *) echo "The city launcher supports macOS and Linux." >&2; exit 1 ;;
 esac
@@ -40,7 +45,6 @@ cleanup() {
     for pid in $terminal_layout_pid $terminal_pid $window_pid $engine_pid; do
         kill -TERM -- "-$pid" 2>/dev/null || true
     done
-    if declare -F cleanup_city_terminal_mac >/dev/null; then cleanup_city_terminal_mac || true; fi
     wait 2>/dev/null || true
     rm -rf "$launch_dir"
 }
@@ -64,16 +68,14 @@ if declare -F open_city_terminal_linux >/dev/null; then
 fi
 cargo run --locked --release --manifest-path viz/Cargo.toml &
 window_pid=$!
-while [[ ! -e "$SANTIAGO_BOOT_SIGNAL" ]] && kill -0 "$window_pid" 2>/dev/null; do
-    sleep 0.1
-done
-if [[ -e "$SANTIAGO_BOOT_SIGNAL" ]] && kill -0 "$window_pid" 2>/dev/null; then
-    if declare -F open_city_terminal_mac >/dev/null; then
-        open_city_terminal_mac
-    else
+if declare -F open_city_terminal_linux >/dev/null; then
+    while [[ ! -e "$SANTIAGO_BOOT_SIGNAL" ]] && kill -0 "$window_pid" 2>/dev/null; do
+        sleep 0.1
+    done
+    if [[ -e "$SANTIAGO_BOOT_SIGNAL" ]] && kill -0 "$window_pid" 2>/dev/null; then
         open_city_terminal_linux
+        printf '%s %s %s %s\n' "$city_x" "$city_y" "$city_width" "$city_height" > "$launch_dir/layout.tmp"
+        mv "$launch_dir/layout.tmp" "$SANTIAGO_BOOT_SIGNAL.rect"
     fi
-    printf '%s %s %s %s\n' "$city_x" "$city_y" "$city_width" "$city_height" > "$launch_dir/layout.tmp"
-    mv "$launch_dir/layout.tmp" "$SANTIAGO_BOOT_SIGNAL.rect"
 fi
 wait "$window_pid"

@@ -67,9 +67,9 @@ Install Rust 1.97.1 or newer with Cargo, curl, Node.js, and either Claude Code o
 ./run.sh
 ```
 
-On first use, the launcher opens the selected CLI in a private Santiago folder before starting the city. Review the folder in the CLI’s trust dialog. Once you see the chat prompt, type `/exit` and confirm with `s` in the launch terminal. The same user can reuse this setup across clones. Run `./run.sh --prepare-chat` to prepare before the presentation or after resetting trust. Claude is the default when both CLIs are installed. Set `SANTIAGO_CHAT_CLI=codex` to select Codex for preparation and launch.
+On first use, the launcher opens the selected CLI in a private Santiago folder before starting the city. Review the folder in the CLI’s trust dialog. Once you see the chat prompt, type `/exit` and confirm with `s` in the launch terminal. The same user can reuse this setup across clones. Run `./run.sh --prepare-chat` to prepare before the presentation or after resetting trust. macOS prefers Codex when both CLIs are installed. Linux prefers Claude. Set `SANTIAGO_CHAT_CLI=codex` or `SANTIAGO_CHAT_CLI=claude` to select a provider for preparation and launch.
 
-The launcher starts the engine on port 8787 and opens the native city window. When “Enter para empezar” appears, press Enter to enter Santiago and open the chat on the right. Drag to pan and scroll to zoom. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
+The launcher starts the engine on port 8787 and opens the native city window. When “Enter para empezar” appears, press Enter to enter Santiago and open the chat on the right. On macOS, use **Ocultar chat** and **Abrir chat** to switch between the map and the same conversation. Drag to pan and scroll to zoom. Press Ctrl-C in the launch terminal to stop the engine and window. To select a free port, use `PORT=8790 ./run.sh`.
 
 The six saved pitch replays are in [data/replays](data/replays/README.md). The replay guide gives the presenter setup and the exact chat question.
 

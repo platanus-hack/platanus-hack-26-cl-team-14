@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>/* XTERM_CSS */</style>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    color: #f1eee5;
+    font: 14px system-ui, sans-serif;
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    background: rgba(17, 30, 49, .94);
+    border: 1px solid #60758a;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    flex: 0 0 44px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px 0 16px;
+  }
+  header strong { font-size: 15px; font-weight: 650; }
+  button {
+    width: 106px;
+    min-height: 30px;
+    padding: 0 11px;
+    color: inherit;
+    background: #23364d;
+    border: 1px solid #60758a;
+    border-radius: 6px;
+    font: inherit;
+    cursor: pointer;
+  }
+  button:hover { background: #334b63; }
+  button:focus-visible { outline: 2px solid #a9d8d1; outline-offset: 2px; }
+  .panel.open header { border-bottom: 1px solid #465a70; }
+  .panel:not(.open) header { justify-content: flex-end; }
+  .panel:not(.open) header strong { display: none; }
+  .panel:not(.open) #terminal { visibility: hidden; }
+  #terminal { flex: 1; min-height: 0; padding: 11px 12px; }
+  .xterm-viewport { background: transparent !important; }
+  .session-brand { visibility: hidden; }
+  .composer-hint { position: relative; }
+  .composer-hint > span { visibility: hidden; }
+  .composer-hint::after {
+    content: "›  Escribe un mensaje";
+    position: absolute;
+    inset: 0 auto auto 0;
+    color: #c4cfdb;
+    white-space: pre;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div class="panel open">
+  <header>
+    <strong>Chat</strong>
+    <button id="toggle" type="button" aria-controls="terminal" aria-expanded="true">Ocultar chat</button>
+  </header>
+  <div id="terminal" aria-label="Terminal"></div>
+</div>
+<script>/* XTERM_JS */</script>
+<script>/* FIT_JS */</script>
+<script>
+  const send = event => window.ipc.postMessage(JSON.stringify(event));
+  const panel = document.querySelector('.panel');
+  const mount = document.querySelector('#terminal');
+  const toggle = document.querySelector('#toggle');
+  const term = new Terminal({
+    allowTransparency: true,
+    cursorBlink: true,
+    fontFamily: 'Menlo, monospace',
+    fontSize: 15,
+    lineHeight: 1.18,
+    theme: { background: '#00000000', foreground: '#f1eee5', cursor: '#a9d8d1' }
+  });
+  const fit = new FitAddon.FitAddon();
+  term.loadAddon(fit);
+  term.open(mount);
+  // The startup header has the chat directory on the next line. Explicit
+  // status cards, trust prompts, and conversation text keep their original display.
+  const sessionBrand = /^\s*>_ OpenAI Codex \(v[\w.+-]+\)\s*$/;
+  const composerHint = /^\s*›\s+Ask Codex to do anything\s*$/;
+  term.onRender(({ start, end }) => {
+    const rows = mount.querySelector('.xterm-rows').children;
+    for (let row = Math.max(start - 1, 0); row <= end; row++) {
+      const line = rows[row];
+      const directory = rows[row + 1]?.textContent.trim();
+      const startsSession = sessionBrand.test(line.textContent)
+        && (directory === 'chat' || directory?.endsWith('/chat'));
+      line.classList.toggle('session-brand', startsSession);
+      line.classList.toggle('composer-hint',
+        composerHint.test(line.textContent) && line.querySelector('.xterm-dim') !== null);
+    }
+  });
+  term.onData(text => send({ kind: 'input', text }));
+  term.onResize(({ cols, rows }) => send({ kind: 'resize', cols, rows }));
+  toggle.addEventListener('click', () => send({ kind: 'toggle' }));
+  const fitOpenPanel = () => {
+    if (panel.classList.contains('open') && window.innerHeight > 150) fit.fit();
+  };
+  new ResizeObserver(fitOpenPanel).observe(mount);
+  window.chatOutput = data => {
+    term.write(Uint8Array.from(atob(data), character => character.charCodeAt(0)));
+  };
+  window.chatOpen = visible => {
+    panel.classList.toggle('open', visible);
+    toggle.textContent = visible ? 'Ocultar chat' : 'Abrir chat';
+    toggle.setAttribute('aria-expanded', visible);
+    if (visible) {
+      fitOpenPanel();
+      term.focus();
+    } else {
+      term.blur();
+    }
+  };
+  send({ kind: 'ready' });
+</script>
+</body>
+</html>
