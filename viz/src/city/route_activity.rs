@@ -189,7 +189,7 @@ fn refresh(
             ));
         }
     }
-    playback.0 = Some((activity, clock.0.unwrap()));
+    playback.0 = Some((activity, clock.elapsed_replay_seconds()));
 }
 
 fn draw(
@@ -213,11 +213,10 @@ fn draw(
         *displayed = None;
         return;
     };
-    let now = clock.0.unwrap();
     let minute = if art.fixed_clock {
-        now / 60.
+        clock.0.unwrap() / 60.
     } else {
-        f32::from(activity.steps[0].minute) + (now - origin) / 60.
+        f32::from(activity.steps[0].minute) + (clock.elapsed_replay_seconds() - origin) / 60.
     };
     let current = activity
         .steps
