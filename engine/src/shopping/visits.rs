@@ -100,7 +100,7 @@ impl Visits {
             let o = homes[i];
             if trips[o] == 0.0 { None } else { decide(options, &base[o * n..][..n], &none, i, skip[o]) }
         });
-        let (od, _) = flows(trips, shops, minutes);
+        let (od, _) = flows(trips, shops, minutes, ALPHA, BETA);
         let mut persons = vec![0.0; n];
         for d in before.iter().flatten() { persons[*d as usize] += 1.0; }
         let huff: Vec<f64> = (0..n).map(|d| (0..n).map(|o| od[o * n + d]).sum()).collect();

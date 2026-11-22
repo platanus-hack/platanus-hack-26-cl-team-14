@@ -5,9 +5,11 @@ P(d | o) ∝ (shops_d + 1)^alpha × exp(−beta × minutes_od). shops_d = mapped
 choice.rs for missing pairs. Trips: viajes.Proposito 11 (De compras), weight FactorLaboralNormal × Factor_LaboralNormal,
 home comuna from Hogares, destination comuna from viajes.ComunaDestino.
 Run from the repo root: python3 -I tools/pack/shopping_huff.py
+Other purposes: python3 -I tools/pack/shopping_huff.py PURPOSE KINDS, e.g. `5 hospital,clinic` (De salud); prints the fit only.
 """
 import csv
 import math
+import sys
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
@@ -15,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 EOD = ROOT / "data/raw/eod2012/x/eod2012/EOD_STGO"
 MVP = ROOT / "data/mvp"
+PURPOSE, KINDS = (sys.argv[1], sys.argv[2].split(",")) if len(sys.argv) > 2 else ("11", ["shop", "mall", "supermarket"])
 # The MUT: 26 mapped shop points inside its OSM bbox. Points: named_places.csv (MUT) and the Monumental bbox centre.
 MUT_SHOPS = 26
 SITES = {"mut_site": (-70.601132, -33.417280, "13114"), "monumental_site": (-70.60598, -33.50650, "13118")}
@@ -58,7 +61,7 @@ minutes = [[t if not math.isnan(t) else intercept + slope * km[o][d] for d, t in
 
 shops = [0.0] * n
 for r in rows(MVP / "activity_points.csv"):
-    if r["kind"] in ("shop", "mall", "supermarket") and r["cut"] in ix:
+    if r["kind"] in KINDS and r["cut"] in ix:
         shops[ix[r["cut"]]] += 1
 
 home = {r["Hogar"]: by_name.get(key(r["Comuna"])) for r in rows(EOD / "Hogares.csv", ";")}
@@ -68,7 +71,7 @@ sample = 0
 for r in rows(EOD / "viajes.csv", ";"):
     o, d = home.get(r["Hogar"]), eod_cut.get(r["ComunaDestino"])
     weight = w(r["FactorLaboralNormal"]) * person[r["Persona"]]
-    if r["Proposito"] == "11" and o in ix and d in ix and weight > 0:
+    if r["Proposito"] == PURPOSE and o in ix and d in ix and weight > 0:
         flows[ix[o]][ix[d]] += weight
         sample += 1
 
@@ -100,7 +103,10 @@ alpha = (lo + hi) / 2
 beta = best_beta(alpha)
 total = sum(map(sum, flows))
 fit = sum(abs(sum(flows[o][d] for o in range(n)) / total - sum(sum(flows[o]) * shares(alpha, beta, o)[d] for o in range(n)) / total) for d in range(n)) / 2
-print(f"shopping trips: {sample} sample, {total:,.0f} expanded; alpha {alpha:.3f}, beta {beta:.4f} per minute; destination total variation {fit:.3f}")
+print(f"purpose {PURPOSE} trips to {'/'.join(KINDS)}: {sample} sample, {total:,.0f} expanded; alpha {alpha:.3f}, beta {beta:.4f} per minute; destination total variation {fit:.3f}")
+
+if PURPOSE != "11":
+    sys.exit()
 
 # The MUT as one more destination, at each site. Minutes from origin o to the site: the comuna-pair minutes to the site's comuna.
 out = MVP / "shopping_huff.csv"

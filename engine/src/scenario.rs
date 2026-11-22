@@ -88,6 +88,8 @@ pub struct Scenario {
     /// Baseline workers per resident of each comuna (persons / blocks.csv population).
     ratio: Vec<f64>,
     shopping: Shopping,
+    /// Weekday health trips to hospital and clinic points, same rule as shopping (shopping::HEALTH).
+    health: Shopping,
     /// Baseline optional shopping visits: eligible persons (worker indices, then other residents) and their decisions.
     visits: OnceLock<(Vec<usize>, Vec<usize>, shopping::visits::Visits, Vec<[u32; 4]>)>,
 }
@@ -140,8 +142,9 @@ impl Scenario {
         let comunas = csv::Reader::from_path(dir.join("communes.csv")).unwrap().into_records()
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
-        let shopping = Shopping::load(dir, &choice.cuts, &pop.homes, &choice.minutes);
-        let mut sc = Scenario { shopping, visits: OnceLock::new(), data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
+        let shopping = Shopping::load(dir, &choice.cuts, &pop.homes, &choice.minutes, shopping::SHOPPING);
+        let health = Shopping::load(dir, &choice.cuts, &pop.homes, &choice.minutes, shopping::HEALTH);
+        let mut sc = Scenario { shopping, health, visits: OnceLock::new(), data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
         sc.base = sc.state(&sc.pop, &Network::new(&sc.access), &mut []);
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -974,7 +977,8 @@ impl Scenario {
             "blocks_changed": blocks, "blocks_changed_total": blocks_total,
             "trips_delta": trip_deltas(&self.trips, &trips), "trips_base": self.trips, "trips_scenario": trips,
             "events": events,
-            "shopping": self.shopping.run(&c.cuts, &c.names, &c.minutes, &minutes, &shops, &shop_sites),
+            "shopping": self.shopping.run(&c.cuts, &c.names, &c.minutes, &minutes, &shops, &shop_sites, window),
+            "health": self.health.run(&c.cuts, &c.names, &c.minutes, &minutes, &self.health.shops, &[], window),
             "optional_visits": self.optional_visits(&pop, &minutes, &unreachable, &shops, window, resident_stock_edits > 0),
             "population": {
                 "workers": s.od.iter().sum::<f64>(), "students": pop.persons.iter().filter(|p| p.student).count(),
