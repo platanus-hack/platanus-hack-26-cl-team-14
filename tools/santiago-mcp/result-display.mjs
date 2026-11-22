@@ -5,6 +5,12 @@ const displayFile = process.env.SANTIAGO_RESULT_DISPLAY_FILE;
 const number = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
 const stateNames = { base: 'Base', scenario: 'Escenario', delta: 'Cambio' };
 const operations = { sum: 'Total', count: 'Conteo', mean: 'Promedio', share: 'Proporción', histogram: 'Distribución' };
+const worksiteUnits = { 'modeled workers': 'trabajadores modelados', 'modeled minutes': 'minutos modelados' };
+const worksiteModes = {
+  car: 'Auto', public: 'Transporte público', walk: 'A pie', bicycle_or_scooter: 'Bicicleta o scooter',
+  motorcycle: 'Moto', horse_or_boat: 'Caballo o bote', other: 'Otro', unknown: 'Sin respuesta',
+};
+const worksiteMode = mode => worksiteModes[mode] ?? mode;
 const times = ({ min_inclusive: min, max_exclusive: max }) =>
   min === null ? `< ${cell(max)}` : max === null ? `≥ ${cell(min)}` : `${cell(min)} a < ${cell(max)}`;
 const titles = {
@@ -75,18 +81,19 @@ function cell(value) {
   return '—';
 }
 
-function groupLabel(group = {}, comunaNames = {}) {
+function groupLabel(group = {}, comunaNames = {}, worksite = false) {
   return Object.entries(group).map(([key, value]) => {
     if (key === 'half_hour') {
       return `${String(Math.floor(value / 2)).padStart(2, '0')}:${value % 2 ? '30' : '00'}`;
     }
+    if (worksite && key === 'mode') return worksiteMode(value);
     return key === 'origin_cut' || key === 'destination_cut' ? comunaNames[value] ?? value : value;
   }).join(' · ');
 }
 
-function displayRows(result, states, comunaNames) {
+function displayRows(result, states, comunaNames, worksite) {
   return result.results.flatMap(({ group, value, selected_workers, covered_workers, selected_rows, valid_rows, valid_weight }) => {
-    const label = groupLabel(group, comunaNames);
+    const label = groupLabel(group, comunaNames, worksite);
     let coverage = '';
     if (label && Number.isFinite(covered_workers)) {
       coverage = `${cell(covered_workers)} de ${cell(selected_workers)} con datos`;
@@ -133,14 +140,16 @@ export function publishMetricResult(args, result, { sourceTitle, comunaNames, er
   }
   const states = result.state === 'compare' ? ['base', 'scenario'] : [result.state];
   const c = result.coverage ?? {};
-  const rows = displayRows(result, states, comunaNames);
+  const worksite = ['worksite_workers', 'worksite_minutes'].includes(args.data);
+  const rows = displayRows(result, states, comunaNames, worksite);
   const available = c.valid_rows !== 0 && rows.some(row => row.values.some(value => value !== '—'));
   const incomplete = c.missing_or_unreachable_rows || c.missing_workers || c.pairs_without_positive_public_weight ||
     c.may_be_truncated || c.groups_returned < c.groups || c.commuters_with_paired_times < c.observed_public_commuters_in_scope;
-  const unit = result.aggregate === 'histogram' ? `${result.unit} · intervalos en ${result.measured_unit}` : result.unit;
+  const unitLabel = value => worksite ? worksiteUnits[value] ?? value : value;
+  const unit = result.aggregate === 'histogram' ? `${unitLabel(result.unit)} · intervalos en ${unitLabel(result.measured_unit)}` : unitLabel(result.unit);
   const operators = { eq: '=', gt: '>', gte: '≥', lt: '<', lte: '≤' };
   const describe = filters => filters?.map(({ field, op, value }) =>
-    `${field} ${operators[op]} ${groupLabel({ [field]: value }, comunaNames)}`).join(', ');
+    `${field} ${operators[op]} ${groupLabel({ [field]: value }, comunaNames, worksite)}`).join(', ');
   const filters = describe(args.filters);
   const numerator = describe(args.share_filters);
   const scope = [
@@ -163,16 +172,16 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
     const modes = site.outside_by_mode ?? [];
     const title = site.name ?? 'Trabajadores del lugar';
     const counts = {
-      title, source, status: 'result', unit: site.unit, scope: site.scope, columns: ['Trabajadores'],
+      title, source, status: 'result', unit: worksiteUnits[site.unit] ?? site.unit, scope: site.scope, columns: ['Trabajadores'],
       rows: [
         { label: 'Asignados al lugar', values: [cell(site.assigned_workers)] },
         { label: 'Desde otras comunas', values: [cell(site.outside_workers)] },
-        ...modes.map(mode => ({ label: mode.mode, values: [cell(mode.workers)] })),
+        ...modes.map(mode => ({ label: worksiteMode(mode.mode), values: [cell(mode.workers)] })),
       ],
     };
     if (!modes.length) return [counts];
     const hasTimes = modes.some(mode => mode.timed_workers > 0);
-    const modeCoverage = mode => `${mode.mode} · ${cell(mode.timed_workers)} de ${cell(mode.workers)} con datos`;
+    const modeCoverage = mode => `${worksiteMode(mode.mode)} · ${cell(mode.timed_workers)} de ${cell(mode.workers)} con datos`;
     const timing = {
       title: `Tiempo de viaje · ${title}`, source,
       status: !hasTimes ? 'unavailable' : modes.some(mode => mode.missing_workers) ? 'partial' : 'result',
@@ -183,7 +192,7 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
       rows: hasTimes ? modes.flatMap(mode => {
         const label = modeCoverage(mode);
         return mode.bins?.map((bin, index) => ({
-          label: `${index === 0 ? label : mode.mode} · ${times(bin)}`, values: [cell(bin.workers)],
+          label: `${index === 0 ? label : worksiteMode(mode.mode)} · ${times(bin)}`, values: [cell(bin.workers)],
         })) ?? [{ label: `${label} · tiempo no disponible`, values: ['—'] }];
       }) : [],
     };
