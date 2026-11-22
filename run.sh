@@ -6,6 +6,7 @@ export PATH="$HOME/.cargo/bin:$PATH"
 repo=$PWD
 case $(uname -s) in
     Darwin)
+        export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
         export SANTIAGO_EMBEDDED_CHAT=1
         if [[ -z ${SANTIAGO_CHAT_CLI:-} ]] && command -v codex >/dev/null; then
             export SANTIAGO_CHAT_CLI=codex

@@ -129,9 +129,7 @@ impl Panel {
                     self.update_focus()?;
                 }
                 Event::Toggle => {
-                    self.open = !self.open;
-                    self.view.set_bounds(bounds(window_size, self.open))?;
-                    self.update_focus()?;
+                    self.set_open(!self.open)?;
                 }
                 Event::Input { text } => self.input.write_all(text.as_bytes())?,
                 Event::Resize { cols, rows } => self.pty.resize(pty_size(cols, rows))?,
@@ -146,6 +144,12 @@ impl Panel {
             }
         }
         Ok(())
+    }
+
+    fn set_open(&mut self, open: bool) -> wry::Result<()> {
+        self.open = open;
+        self.view.set_bounds(bounds(self.window_size, open))?;
+        self.update_focus()
     }
 
     fn update_focus(&self) -> wry::Result<()> {
@@ -171,6 +175,7 @@ fn update(
     window: Single<(&Window, &RawHandleWrapper), With<PrimaryWindow>>,
     mut panel: NonSendMut<Option<Panel>>,
     mut failed: Local<bool>,
+    mut replays: MessageReader<crate::history::ReplayStarted>,
 ) {
     if *failed {
         return;
@@ -178,8 +183,14 @@ fn update(
     let (window, handle) = *window;
     let size = UVec2::new(window.physical_width(), window.physical_height()).as_vec2()
         / window.resolution.base_scale_factor();
+    let hide_chat = replays.read().count() != 0;
     let result = match panel.as_mut() {
-        Some(panel) => panel.update(size),
+        Some(panel) => panel.update(size).and_then(|()| {
+            if hide_chat && panel.open {
+                panel.set_open(false)?;
+            }
+            Ok(())
+        }),
         None => Panel::open(size, handle).map(|new_panel| *panel = Some(new_panel)),
     };
     if let Err(error) = result {
