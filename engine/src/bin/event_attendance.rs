@@ -1,20 +1,18 @@
-//! event_attendance <data dir> <request.json> [closed GTFS parent IDs...]
+//! event_attendance <data dir> <request.json>
 #[path = "../attendance.rs"]
 mod attendance;
-#[path = "../population.rs"]
-mod population;
-#[path = "../stations.rs"]
-mod stations;
 use std::path::Path;
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     let data = Path::new(&args[1]);
-    let request = serde_json::from_reader(std::fs::File::open(&args[2]).unwrap()).unwrap();
-    let pop = population::Population::build(data);
-    let access = stations::access::StationAccess::load(data);
-    let mut active = access.all_parent_ids();
-    for id in &args[3..] { active.remove(id); }
-    let result = attendance::project(&pop, &access, &active, request);
+    let request: attendance::AttendanceRequest =
+        serde_json::from_reader(std::fs::File::open(&args[2]).unwrap()).unwrap();
+    if let Some(profile) = &request.audience_profile {
+        let cuts = csv::Reader::from_path(data.join("communes.csv")).unwrap().records()
+            .map(|row| row.unwrap()[0].to_owned()).collect::<Vec<_>>();
+        assert!(profile.valid(&cuts), "Expected a source and valid origin shares for known comuna CUTs.");
+    }
+    let result = attendance::project(request, false);
     serde_json::to_writer(std::io::stdout().lock(), &result).unwrap();
 }

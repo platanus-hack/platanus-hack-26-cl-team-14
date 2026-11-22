@@ -18,6 +18,8 @@ for f in g['features']:
 flows=[{'o':f['origin'],'d':round(f['base']-f['scenario'])} for f in r['flows'] if f['destination']=='13114' and f['base']!=f['scenario']]
 flows=[dict(f,lon=float(cm[f['o']]['longitude']),lat=float(cm[f['o']]['latitude'])) for f in flows if f['d']>20]
 ev=r['events'][0]
+if ev.get('audience_status'):
+    sys.exit('This archived pitch graphic requires a saved legacy event result. Current event outputs carry different audience evidence.')
 ret=[{'cut':k,'n':round(v),'lon':float(cm[k]['longitude']),'lat':float(cm[k]['latitude'])} for k,v in ev['attendees_by_return_comuna'].items() if v>30]
 st=[{'name':s['name'],'lon':s['longitude'],'lat':s['latitude'],'d':s['delta_daily']} for s in r['stations']]
 m=ev['attendees_by_census_mode']

@@ -1,6 +1,6 @@
 # Generalist cases
 
-Small cases outside the MUT ↔ Monumental swap, to check that the engine is general (Mac, 16:16 UTC). Main `acdd1c3`, release engine, 200–300 ms each. Values are modeled weekday Metro boardings. Requests are the exact `changes` lists.
+Small cases outside the MUT ↔ Monumental swap, to check that the engine is general (Mac, 16:16 UTC). Main `acdd1c3`, release engine, 200–300 ms each. Values are historical model outputs at the stated revision. Requests are the exact `changes` lists.
 
 ## The engine can represent
 
@@ -12,7 +12,7 @@ Small cases outside the MUT ↔ Monumental swap, to check that the engine is gen
 | Concert, 45,000, Estadio Nacional, ends 23:00 | `[{"kind":"event","target":{"type":"point","longitude":-70.61064,"latitude":-33.46447},"op":"set","value":45000,"assumed_end_half_hour":46}]` | `events[]` only: 27,928 by public transport, 8,861 Metro users with access |
 | Same concert, 15,000, Movistar Arena | same, point −70.661845, −33.462739 | 3,045 Metro users with access |
 
-An event does not change station bars or trip groups: its estimate is separate by design.
+The two event rows used the retired worker-audience prior. Current generic event results keep the supplied attendance and leave travel unestimated. The event stays separate from commuter station bars and trip groups. [Current contract](event-attendance-april-2026.md#current-scenario-contract)
 
 ## The engine cannot represent yet
 
