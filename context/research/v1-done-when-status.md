@@ -1,6 +1,14 @@
 # V1 done-when status
 
-Checked against `main` at `94af501` (22 Nov, 00:45 UTC). Criteria from [verticals.md](../verticals.md). Bruno asked to close V1 ([message](https://discord.com/channels/1573514576400752640/1573809708047798364/1573860885666209864)). Only the humans close it.
+Original snapshot checked against `main` at `94af501` (22 Nov, 00:45 UTC). Criteria from [verticals.md](../verticals.md). Bruno asked to close V1 ([message](https://discord.com/channels/1573514576400752640/1573809708047798364/1573860885666209864)). Only the humans close it.
+
+## Follow-up for criteria 1b, 3 and 4
+
+- **Shopping on main.** #402 supplies the choice rule. #416 reports aggregate weekday shopping trips. #486 pairs the same people by destination comuna under a change. In the canonical 07:00–10:00 closure, 216 modeled shoppers change comuna and 2,371 skip. #495 compares supplied time, cash and access at exact OSM points. The same synthetic worker in Maipú keeps their home, work block and work mode, and selects Jumbo at CLP 16,000 or Tottus at CLP 14,000. At 39 minutes they skip. The price inputs are quotes by chain and comuna for the same nine SERNAC items. #487 carries the price data and provenance. [Main run and Maipú replay](https://discord.com/channels/1573514576400752640/1573809708047798364/1573870299416363062)
+- **Stadium calculation and replay.** On main `f8ed126094be47bf8d3e0d3b1c7cc2c0b74bc289`, #469 and #480 preserve 39,222 fans and route 52 car groups and 16 of 52 public groups at each venue. The MUT case applies 38 edits. On the M4 it took 1.84 s over HTTP and 1.16 s on repeat, with 896 MiB peak server RSS. MCP playback preserved both itinerary sets. V3 owns the native check and promotion of the replay. [M4 receipt](https://discord.com/channels/1573514576400752640/1573809708047798364/1573870299416363062)
+- **Other venues and points.** The same release binary and pack passed four MCP checks in Maipú and La Florida. The engine rejected a missing job block and kept 1,500 attendees with zero routes when given the wrong venue key. #494 also keeps generic audience origins and travel unknown when the request provides no evidence. [Generalization receipt](https://discord.com/channels/1573514576400752640/1573809708047798364/1573869929021837452) · [Generic audience evidence](https://github.com/platanus-hack/platanus-hack-26-cl-team-14/pull/494)
+
+## Original snapshot
 
 | # | Criterion | Evidence in main | Gap left | Owner |
 | --- | --- | --- | --- | --- |
