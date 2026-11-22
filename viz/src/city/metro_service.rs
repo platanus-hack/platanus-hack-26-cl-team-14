@@ -13,7 +13,8 @@ pub(crate) struct MetroServicePlugin;
 
 impl Plugin for MetroServicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (setup, fade).chain().after(UpdateClock));
+        app.add_systems(Startup, setup)
+            .add_systems(Update, fade.after(UpdateClock));
     }
 }
 
@@ -32,55 +33,46 @@ fn half_width(result: &Value, distance: f32) -> Option<f32> {
     }
 }
 
+// Build every width at boot. A lazy build parses the routes and stalls a camera flight.
 fn setup(
-    scenario: Res<Scenario>,
-    rig: Res<Rig>,
-    subway: Res<SubwayView>,
-    lines: Query<&ServiceLines>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let Some(width) = half_width(&scenario.0, rig.distance) else {
-        return;
-    };
-    if scenario.0.is_null() || subway.0 || lines.iter().any(|line| line.0 == width) {
-        return;
-    }
     let routes: Vec<Value> =
         serde_json::from_reader(File::open("web/data/transit_paths.json").unwrap()).unwrap();
-    let mut mesh = Surface::default();
-    for route in routes
+    let lines: Vec<_> = routes
         .iter()
         .filter(|route| route["mode"] == "metro" && route["direction"] == 0)
-    {
-        let points: Vec<_> = route["path"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|p| world(p[0].as_f64().unwrap(), p[1].as_f64().unwrap()))
-            .collect();
-        let color = Srgba::hex(route["color"].as_str().unwrap()).unwrap();
-        ribbon(
-            &mut mesh,
-            &points,
-            width,
-            1.2,
-            Color::from(color).to_linear().to_f32_array(),
-        );
+        .map(|route| {
+            let points: Vec<_> = route["path"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|p| world(p[0].as_f64().unwrap(), p[1].as_f64().unwrap()))
+                .collect();
+            let color = Srgba::hex(route["color"].as_str().unwrap()).unwrap();
+            (points, Color::from(color).to_linear().to_f32_array())
+        })
+        .collect();
+    for width in [115., 34., 8.] {
+        let mut mesh = Surface::default();
+        for (points, color) in &lines {
+            ribbon(&mut mesh, points, width, 1.2, *color);
+        }
+        commands.spawn((
+            ServiceLines(width),
+            Mesh3d(meshes.add(mesh.finish())),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: service_color(1.0),
+                unlit: true,
+                cull_mode: None,
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            })),
+            Visibility::Hidden,
+        ));
     }
-    commands.spawn((
-        ServiceLines(width),
-        Mesh3d(meshes.add(mesh.finish())),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: service_color(1.0),
-            unlit: true,
-            cull_mode: None,
-            alpha_mode: AlphaMode::Blend,
-            ..default()
-        })),
-        Visibility::Hidden,
-    ));
 }
 
 fn service_color(alpha: f32) -> Color {
