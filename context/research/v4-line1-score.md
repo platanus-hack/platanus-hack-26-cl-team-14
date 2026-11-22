@@ -1,6 +1,6 @@
 # V4 score · Line 1 interruption, 18 November 2024
 
-The current engine scores **1.0082** on the Line 1 interruption. The no-change reference scores 0.8830. Lower is better. The engine is worse than "no change". The target, cells, and formula come from [the event brief](v4-line1-interruption.md).
+With a five-station closure only (engine 22ceabe, before #473), the engine scores **1.0082** on the Line 1 interruption. The no-change reference scores 0.8830. Lower is better. The engine is worse than "no change". The target, cells, and formula come from [the event brief](v4-line1-interruption.md).
 
 ## Run
 
@@ -32,7 +32,7 @@ Score = sum |predicted change − observed change| / 3,368 Thursday stages.
 | Escuela Militar (EM) | 13:30 | 1,175.0 | 1,924.9 | +749.9 | −734 |
 | Escuela Militar (EM) | 14:00 | 1,135.3 | 1,859.9 | +724.6 | −826 |
 
-Sum of absolute errors: 3,395.7. Score 3,395.7 / 3,368 = **1.0082**.
+Sum of absolute errors: 31.8 + 329.3 + 1,483.9 + 1,550.6 = 3,395.6. Score 3,395.6 / 3,368 = **1.0082**.
 
 - Baquedano: the direction is correct and the 13:30 size is close (error 32). At 14:00 the engine is 329 low.
 - Escuela Militar: the sign is wrong. The engine sends the riders of Alcántara and El Golf to Escuela Militar, the nearest open station. The observed entries fell by about 80%. This cell pair gives 89% of the error.
@@ -47,3 +47,8 @@ Sum of absolute errors: 3,395.7. Score 3,395.7 / 3,368 = **1.0082**.
 - Baquedano and Tobalaba mix lines (L1 + L5, L1 + L4). The observed counts combine all lines at the station.
 - The reference is one Thursday (21 Nov 2024). The engine baseline is a 2026 weekday. Baseline engine entries at Escuela Militar (1,175) are higher than the Thursday count (909).
 - The cells are four numbers. One event cannot separate the suspension effect from day-to-day variation.
+
+## Later results
+
+- #473 (Line 1 cut into two sections plus `metro_reach`), main 94af501: 4 cells **0.3482** vs 0.8830 no change. Reproduced by Arrayán.
+- Same run with Los Leones and Tobalaba added (8 cells): **0.7796** vs 0.6072 no change. The model loses: it adds entries at both transfer stations, and the real entries fell.
