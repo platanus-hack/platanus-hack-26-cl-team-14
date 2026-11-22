@@ -670,7 +670,7 @@ fn read_result(
     bowls: Query<(&crate::city::NamedBuilding, &crate::city::StadiumSeating, &Transform, &Visibility)>,
     mut base_access: Local<Option<Value>>,
     time: Res<Time>,
-    rate: Res<PlaybackRate>,
+    mut rate: ResMut<PlaybackRate>,
     result: Res<Scenario>,
     routes: Res<Routes>,
     fleet: Res<fleet::Fleet>,
@@ -701,6 +701,13 @@ fn read_result(
         None => 0..48,
     });
     let stations = r["stations"].as_array().unwrap();
+    // A time-lapse replay sets its own rate. Each other result returns to the usual rate.
+    let old_rate = rate.0;
+    rate.0 = r["scene"]["clock_rate"].as_f64().map_or(rate.1, |rate| rate as f32);
+    if let Some(offset) = &mut replay.clock_offset {
+        // Keep the city time continuous when a result changes the rate but not the scene time.
+        *offset += time.elapsed_secs() * (old_rate - rate.0);
+    }
     let elapsed = time.elapsed_secs() * rate.0;
     if let Some(bin) = r["scene"]["half_hour"].as_u64() {
         // Replay each result from the same selected scene time so the two runs compare.
@@ -974,8 +981,9 @@ fn sprite_stack_width(bytes: &[u8], slices: u32, [columns, rows]: [u32; 2], frac
 #[derive(Resource)]
 struct FixedClock(Option<f32>);
 
+// City seconds per real second: the rate of the active result, and the usual rate.
 #[derive(Resource)]
-struct PlaybackRate(f32);
+struct PlaybackRate(f32, f32);
 
 fn setup(
     mut commands: Commands,
@@ -993,7 +1001,7 @@ fn setup(
         s.parse().expect("SANTIAGO_PLAYBACK_RATE must be a number")
     });
     assert!(rate.is_finite() && rate > 0., "Playback rate must be finite and positive");
-    commands.insert_resource(PlaybackRate(rate));
+    commands.insert_resource(PlaybackRate(rate, rate));
     let ink = std::env::var("SANTIAGO_PIXEL").as_deref() != Ok("0");
     let sprites: [(Model, &[u8], u32); 4] = [
         (Model::BusTail, include_bytes!("../assets/bus.png"), 27),

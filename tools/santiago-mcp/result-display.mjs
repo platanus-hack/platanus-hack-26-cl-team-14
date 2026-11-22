@@ -188,6 +188,8 @@ function activityCards(activity, source, closedRoad, rejectedClosure) {
     });
   } else if (closedRoad) {
     cards[0].scope += ' El cierre vial aplicado al escenario dura todo el día.';
+  } else if (activity.motor_access === 'assumed_closed') {
+    cards[0].scope += ' La actividad supone un cierre a los autos. El motor conserva el acceso vial y deja sin estimar los cambios en los tiempos en auto.';
   }
   return cards;
 }

@@ -1,6 +1,6 @@
 # Cached replays
 
-The presenter can use the six checked-in replay files from a clean checkout.
+The presenter can use the eight checked-in replay files from a clean checkout.
 Start the viewer with `./run.sh`. Press Enter on the welcome screen. In the chat, ask:
 
 > ¿Qué pasaría si intercambiamos de lugar el MUT y el Estadio Monumental de Colo-Colo?
@@ -15,6 +15,7 @@ show each point of the saved answer in order.
 | MUT and Monumental | `mut-monumental-routes-a` | `mut-monumental-routes-b` | [Itinerary pair](https://discord.com/channels/1573514576400752640/1573809606277337280/1573870047825236010) |
 | Mapocho ferry | `mapocho-muelle-base` | `mapocho-muelle-ferry` | [Mapocho pair](https://discord.com/channels/1573514576400752640/1573809606277337280/1573846221167263784) |
 | Metro closure | `metro-window-baseline` | `metro-window-closure` | [Metro pair](https://discord.com/channels/1573514576400752640/1573809606277337280/1573855157962407936) |
+| Tower in Puente Alto (time-lapse, `clock_rate` 200) | `torre-puente-alto-base` | `torre-puente-alto` | Copy of the Gran Torre Costanera with 5,863 jobs, 06:00 to 09:00 |
 
 Run `shasum -a 256 -c data/replays/SHA256SUMS` from the repository root to
 verify the files. To open the two experiments directly with Bun installed, run
@@ -26,4 +27,4 @@ verify the files. To open the two experiments directly with Bun installed, run
 - `list_replays` returns the `meta` of each file.
 - `run_replay` posts `result` to `/api/replay`. The engine relays it to the viewer.
 
-File: `{ meta: { id, title, question, scene, changes, stations, duration_half_hours, analyze, places_used, created_at }, result: <full /api/scenario result> }`.
+File: `{ meta: { id, title, question, scene, changes, stations, duration_half_hours, clock_rate, analyze, places_used, created_at }, result: <full /api/scenario result> }`.

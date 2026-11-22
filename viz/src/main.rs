@@ -10,6 +10,7 @@ mod label;
 mod movers;
 mod net;
 mod pixels;
+mod record;
 use crate::city::world;
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
@@ -80,6 +81,7 @@ pub fn window() -> Window {
     if env::var_os("SANTIAGO_BOOT_SIGNAL").is_some() {
         window.set_maximized(true);
     }
+    window.visible = env::var_os("SANTIAGO_RECORD").is_none();
     window
 }
 
@@ -366,6 +368,7 @@ fn main() -> AppExit {
             movers::events::EventsPlugin,
             halos::HalosPlugin,
             pixels::PixelMode,
+            record::RecordPlugin,
         ))
         .init_resource::<city::SubwayView>()
         .init_resource::<city::street_mask::StreetMask>()
