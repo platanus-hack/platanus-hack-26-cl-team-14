@@ -3,6 +3,7 @@
 pub(crate) mod events;
 pub(crate) mod clock;
 pub(crate) mod follow;
+pub(crate) mod fan_travel;
 mod fleet;
 mod motion;
 mod car_geometry;
@@ -49,6 +50,8 @@ impl Plugin for MoversPlugin {
             .add_systems(Startup, setup)
             .add_systems(Update, levels::toggle_tracks)
             .init_resource::<Replay>()
+            .init_resource::<fan_travel::FanJourneys>()
+            .add_systems(Update, fan_travel::refresh.in_set(fan_travel::RefreshFanJourneys).after(read_result).before(draw))
             .add_systems(Update, (read_result.after(crate::city::edits::refresh), draw, stations::position_closed_signs).chain());
     }
 }
@@ -1074,6 +1077,8 @@ struct Train<'a> {
     distance: f32,
     pos: Vec3,
     riders: usize,
+    fan_riders: usize,
+    relocated_riders: usize,
     paint: Paint,
 }
 
@@ -1093,6 +1098,8 @@ fn trains(routes: &Routes, now: f32) -> Vec<Vec<Train<'_>>> {
                     distance,
                     pos: line.centre(distance),
                     riders: 0,
+                    fan_riders: 0,
+                    relocated_riders: 0,
                     paint: Paint::Plain,
                 });
             }
@@ -1168,6 +1175,7 @@ fn departure_offset(phase: f32, copy: usize) -> f32 {
 fn draw(
     time: Res<Time>,
     replay: Res<Replay>,
+    fan_journeys: Res<fan_travel::FanJourneys>,
     rig: Res<crate::Rig>,
     clock: Res<FixedClock>,
     rate: Res<PlaybackRate>,
@@ -1369,6 +1377,7 @@ fn draw(
             }
         }
     }
+    fan_journeys.draw(now, &routes, &replay.road_edits, &mut trains, &mut surface_load, &visible, &size_at, &mut place);
     for ((template, start), (paint, count)) in surface_load {
         if let Some((p, dir, kind)) = routes.riders.surface_pose(template, start, now) {
             if visible(p, 100.) {
@@ -1398,15 +1407,22 @@ fn draw(
         }
         // Keep each three-car set centred at the station, with room for the opposite track.
         let scale = 1.35;
-        for offset in [14.3, 0., -14.3] {
+        for (car, offset) in [14.3, 0., -14.3].into_iter().enumerate() {
             let distance = train.distance + offset * scale;
             if !subway.0 && train.line.levels.at(distance) < -0.6 {
                 continue;
             }
             let (p, dir) = train.line.coach(distance);
             place(Model::Coach, train.paint, pose(p, dir, Vec3::splat(scale)));
-            // The illuminated roof strip shows the workers riding this service in this frame.
-            if train.riders > 0 {
+            if train.fan_riders > 0 {
+                // Split the service-wide sample over its three roofs. Seats are schematic.
+                let in_car = |marks: usize| (marks + 2 - car) / 3;
+                let count = in_car(train.riders);
+                if count > 0 {
+                    let ordinary = in_car(train.riders - train.relocated_riders);
+                    bus_load::draw(count, ordinary, p, dir, scale, &mut place);
+                }
+            } else if train.riders > 0 {
                 let length = 10. * train.riders as f32 / (train.riders as f32 + 4.);
                 place(
                     Model::Window,

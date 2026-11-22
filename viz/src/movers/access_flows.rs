@@ -20,7 +20,7 @@ impl AccessFootprint {
         Self { polygon, bounds }
     }
 
-    fn covers(&self, p: Vec3) -> bool {
+    pub(in crate::movers) fn covers(&self, p: Vec3) -> bool {
         let point = geo::Point::new(p.x, p.z);
         self.bounds.intersects(&point) && self.polygon.intersects(&point)
     }

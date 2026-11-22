@@ -319,6 +319,14 @@ impl RiderNetwork {
         Some((hinge - rear_heading * BUS_TAIL_HALF, rear_heading))
     }
 
+    pub(super) fn fan_ride_times(&self, template: usize, start: i32, from: usize, to: usize) -> Option<(f32, f32)> {
+        let service = self.surface.get(template)?;
+        service.starts.binary_search(&start).ok()?;
+        let board = service.run.calls.get(from)?.departure + start as f32;
+        let alight = service.run.calls.get(to)?.arrival + start as f32;
+        (alight > board).then_some((board, alight))
+    }
+
     pub(super) fn surface_pose(
         &self,
         template: usize,
