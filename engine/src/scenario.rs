@@ -24,6 +24,8 @@ mod attendance;
 mod fans;
 #[path = "fan_itineraries.rs"]
 mod fan_itineraries;
+#[path = "optional_visit.rs"]
+mod optional_visit;
 #[path = "shopping.rs"]
 mod shopping;
 use shopping::Shopping;
@@ -81,6 +83,8 @@ pub struct Scenario {
     /// Baseline workers per resident of each comuna (persons / blocks.csv population).
     ratio: Vec<f64>,
     shopping: Shopping,
+    /// Baseline optional shopping visits: eligible persons (worker indices, then other residents) and their decisions.
+    visits: OnceLock<(Vec<usize>, Vec<usize>, shopping::visits::Visits)>,
 }
 
 const ASSUMPTIONS: [&str; 10] = [
@@ -132,7 +136,7 @@ impl Scenario {
             .map(|r| r.unwrap()).map(|r| (r[5].parse().unwrap(), r[6].parse().unwrap())).collect();
         let placed = Base::new(&choice, &pop);
         let shopping = Shopping::load(dir, &choice.cuts, &pop.homes, &choice.minutes);
-        let mut sc = Scenario { shopping, data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
+        let mut sc = Scenario { shopping, visits: OnceLock::new(), data_dir: dir.to_path_buf(), placed, base: State { od: vec![], modes: vec![], day: vec![] }, ratio: vec![], trips: plan.sample(&pop), plan, fine_modes: FineModes::from_baseline(&pop), roads: RoadGraph::load(dir), lines: OnceLock::new(), choice, car_ownership, buildings, pop, share, access, planned, stations, comunas };
         sc.base = sc.state(&sc.pop, &Network::new(&sc.access), &mut []);
         let n = sc.choice.n;
         let mut residents = vec![0.0; n];
@@ -223,6 +227,32 @@ impl Scenario {
         }
     }
 
+    /// The same persons decide an optional shopping visit before and after the change (shopping/visits.rs), with one paired example.
+    fn optional_visits(&self, pop: &Population, minutes: &[f64], unreachable: &[bool], shops: &[shopping::Shop], window: Option<(usize, usize)>, residents_changed: bool) -> Value {
+        if residents_changed { return json!({ "not_modeled": "Optional visits pair the same persons before and after; a residents change adds or removes persons." }); }
+        let c = &self.choice;
+        let (workers, homes, visits) = self.visits.get_or_init(|| {
+            let home_ix: Vec<usize> = self.pop.homes.iter().map(|h| self.ix(&h.cut)).collect();
+            let workers: Vec<usize> = (0..self.pop.persons.len()).filter(|&i| !self.pop.persons[i].student).collect();
+            let homes: Vec<usize> = workers.iter().map(|&i| home_ix[self.pop.persons[i].home as usize])
+                .chain(self.pop.residents.iter().map(|r| home_ix[r.home as usize])).collect();
+            let visits = self.shopping.visits(c.n, &homes, &c.minutes);
+            (workers, homes, visits)
+        });
+        let after = visits.after(shops, &c.minutes, minutes, unreachable, window);
+        let mut v = shopping::visits::summary(&c.cuts, &visits.before, &after);
+        v["baseline_check"] = json!({ "destination_tv_vs_shopping_layer": (visits.tv_vs_shopping_layer * 10000.0).round() / 10000.0 });
+        let cut = |x: Option<u8>| x.map(|d| c.cuts[d as usize].clone());
+        if let Some(k) = (0..workers.len()).find(|&k| visits.before[k] != after[k]) {
+            let (b, a) = (&self.pop.persons[workers[k]], &pop.persons[workers[k]]);
+            v["example_worker"] = json!({ "person": workers[k], "home_comuna": c.cuts[homes[k]],
+                "job_block_base": self.pop.jobs[b.dest as usize].id, "job_block_scenario": pop.jobs[a.dest as usize].id,
+                "work_mode_base": b.mode, "work_mode_scenario": a.mode,
+                "visit_comuna_base": cut(visits.before[k]), "visit_comuna_scenario": cut(after[k]) });
+        }
+        v
+    }
+
     fn ix(&self, cut: &str) -> usize { self.choice.cuts.iter().position(|c| c == cut).unwrap() }
 
     /// The comuna of a new point: the comuna of the nearest home block.
@@ -311,6 +341,8 @@ impl Scenario {
         let mut job_line_edits = None;
         // For an outage keep the last finite graph time. None means this pair had no graph baseline.
         let mut transit_reference: HashMap<usize, Option<f64>> = HashMap::new();
+        // Comuna pairs that had a transit path and lost it in this request (their minutes keep the last finite value).
+        let mut unreachable = vec![false; n * n];
         let mut job_transit_reference = HashMap::new();
         let mut resident_stock_edits = 0;
         let mut city_edits = Vec::new();
@@ -369,8 +401,10 @@ impl Scenario {
                                         minutes[index] += next - last;
                                         pair["choice_minutes_delta"] = json!(minutes[index].max(1.0) - before);
                                         *reference = Some(next);
+                                        unreachable[index] = false;
                                     }
                                     _ => {
+                                        unreachable[index] = reference.is_some();
                                         pair["choice_minutes_delta"] = Value::Null;
                                         pair["choice_effect_unavailable"] = json!(if reference.is_none() {
                                             "No finite baseline transit path for this comuna pair."
@@ -524,7 +558,7 @@ impl Scenario {
                 continue;
             }
             if let (true, Some(longitude), Some(latitude), Some(attendance), Some(end)) = (kind == "event" && raw["target"]["type"] == "point" && raw["op"] == "set",
-                raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| v >= 0.0),
+                raw["target"]["longitude"].as_f64(), raw["target"]["latitude"].as_f64(), raw["value"].as_f64().filter(|&v| (0.0..=f64::from(u32::MAX)).contains(&v) && v.fract() == 0.0),
                 raw["assumed_end_half_hour"].as_u64().filter(|&e| e < 48)) {
                 let fan_base = raw["audience"] == "colo_colo";
                 let itinerary = if let Some(input) = raw.get("fan_itinerary") {
@@ -538,18 +572,33 @@ impl Scenario {
                 } else {
                     None
                 };
+                let audience_profile = if let Some(input) = raw.get("audience_profile") {
+                    let profile = serde_json::from_value::<attendance::AudienceOrigins>(input.clone()).ok()
+                        .filter(|profile| !fan_base && profile.valid(&c.cuts));
+                    let Some(profile) = profile else {
+                        let mut v = raw.clone();
+                        v["reason"] = json!("audience_profile needs a source and origin_shares for known comuna CUTs totaling at most 1. Use it without a Colo-Colo audience.");
+                        not_modeled.push(v);
+                        continue;
+                    };
+                    Some(profile)
+                } else {
+                    None
+                };
                 let venue_cut = self.cut_at(longitude, latitude);
                 let mut v = raw.clone();
                 v["understood"] = json!({ "comuna": c.names[self.ix(&venue_cut)], "attendance": attendance });
                 applied.push(v);
-                // "audience":"colo_colo" adds the fixed fan base (fans.rs): the same fans at any venue. fan_base.csv loads only for such an event.
-                requests.push((fan_base, itinerary, attendance::AttendanceRequest { longitude, latitude, venue_cut, attendance: attendance as u32, assumed_end_half_hour: end as u8 }));
+                requests.push((fan_base, itinerary, attendance::AttendanceRequest {
+                    longitude, latitude, venue_cut, attendance: attendance as u32,
+                    assumed_end_half_hour: end as u8, audience_profile,
+                }));
                 continue;
             }
             if !["jobs", "residents", "minutes"].contains(&kind) {
                 let mut v = raw.clone();
                 v["reason"] = json!(match kind {
-                    "event" => "An event change needs a point target, op set, the attendance (0 or more) as value and an integer assumed_end_half_hour (0 to 47).",
+                    "event" => "An event change needs a point target, op set, the nonnegative whole-person attendance as value and an integer assumed_end_half_hour (0 to 47).",
                     _ => "The engine does not know this kind of change.",
                 });
                 not_modeled.push(v);
@@ -711,7 +760,7 @@ impl Scenario {
         let events: Vec<Value> = requests.into_iter().map(|(fan_base, itinerary, r)| {
             let f = fan_base.then(|| fans::Fans::load(&self.data_dir).project(car_choice.as_ref().unwrap_or(c), &minutes, &r.venue_cut, f64::from(r.attendance)));
             let point = [r.longitude, r.latitude];
-            let mut e = json!(attendance::project_with_additions(&pop, &self.access, &network.open, r, &network.additions));
+            let mut e = json!(attendance::project(r, fan_base));
             if let Some(f) = f {
                 if let Some(itinerary) = itinerary {
                     fan_itineraries::attach(&self.data_dir, &f, itinerary, point, &mut e);
@@ -857,12 +906,13 @@ impl Scenario {
             "trips_delta": trip_deltas(&self.trips, &trips), "trips_base": self.trips, "trips_scenario": trips,
             "events": events,
             "shopping": self.shopping.run(&c.cuts, &c.names, &c.minutes, &minutes, &shops, &shop_sites),
+            "optional_visits": self.optional_visits(&pop, &minutes, &unreachable, &shops, window, resident_stock_edits > 0),
             "population": {
                 "workers": s.od.iter().sum::<f64>(), "students": pop.persons.iter().filter(|p| p.student).count(),
                 "other_residents_by_role": (["under_15", "higher_education", "employed_without_internal_commute", "unemployed", "outside_labour_force", "unknown"]
                     .iter().enumerate().map(|(r, name)| (name.to_string(), json!(self.pop.residents.iter().filter(|x| x.role as usize == r).count()))).collect::<serde_json::Map<_, _>>()),
                 "other_residents": self.pop.residents.len(),
-                "source": "workers: Census 2024 internal commuters (mode_od.csv); students: MINEDUC 2026 enrollment (school_od.csv); other_residents: Census 2024 persons who are neither (person_traits_residents.csv). A commuting student can count as both a worker and a student. Other residents have a home and traits; no trip is modeled for them yet.",
+                "source": "workers: Census 2024 internal commuters (mode_od.csv); students: MINEDUC 2026 enrollment (school_od.csv); other_residents: Census 2024 persons who are neither an internal commuter nor attend basic or secondary school (Census attendance, person_traits_residents.csv). The MINEDUC student count and the Census exclusion cover different school levels, and a commuting student can count as both a worker and a student, so the three groups can overlap. Other residents have a home and traits; their only modeled trip is the optional shopping visit (optional_visits).",
             },
             "assumptions": assumptions,
             "elapsed_ms": t.elapsed().as_millis() as u64,

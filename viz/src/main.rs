@@ -1,3 +1,4 @@
+mod boot;
 mod chart;
 mod city;
 mod focus;
@@ -13,7 +14,6 @@ use bevy::{
     post_process::dof::{DepthOfField, DepthOfFieldMode},
     prelude::*,
     render::view::screenshot::{Screenshot, ScreenshotCaptured},
-    text::FontSize,
     window::{PrimaryWindow, WindowPosition, WindowResolution},
     winit::WinitSettings,
 };
@@ -47,7 +47,7 @@ impl Plugin for MiniatureCamera {
                     .before(city::draw_buildings),
             )
             .add_plugins((movers::clock::ClockPlugin, movers::follow::FollowPlugin))
-            .add_systems(Last, measure);
+            .add_systems(Last, measure.run_if(resource_exists::<city::Buildings>));
     }
 }
 
@@ -55,6 +55,7 @@ impl Plugin for MiniatureCamera {
 pub fn window() -> Window {
     let mut window = Window {
         title: "santiaguito.cl".into(),
+        name: env::var("SANTIAGO_CITY_WINDOW_CLASS").ok(),
         resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
         ..default()
     };
@@ -69,8 +70,10 @@ pub fn window() -> Window {
         window.position = WindowPosition::At(IVec2::new(x, y));
         window.resolution =
             WindowResolution::new(width as u32, height as u32).with_scale_factor_override(1.);
-        window.name = env::var("SANTIAGO_CITY_WINDOW_CLASS").ok();
         window.focused = false;
+    }
+    if env::var_os("SANTIAGO_BOOT_SIGNAL").is_some() {
+        window.set_maximized(true);
     }
     window
 }
@@ -129,7 +132,7 @@ fn shadows(distance: f32) -> CascadeShadowConfig {
     .build()
 }
 
-fn setup(mut commands: Commands, rig: Res<Rig>, mut fonts: ResMut<Assets<Font>>) {
+fn setup(mut commands: Commands, rig: Res<Rig>) {
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
@@ -150,32 +153,6 @@ fn setup(mut commands: Commands, rig: Res<Rig>, mut fonts: ResMut<Assets<Font>>)
         },
         Transform::from_xyz(-0.65, 0.95, 0.48).looking_at(Vec3::ZERO, Vec3::Y),
         shadows(rig.distance),
-    ));
-    let terrain: serde_json::Value =
-        serde_json::from_slice(include_bytes!("../../web/data/terrain.json")).unwrap();
-    let credit = format!(
-        "© OpenStreetMap contributors · Google Research, Open Buildings 2.5D Temporal · {}",
-        terrain["attribution"].as_str().unwrap()
-    );
-    let font = fonts.add(Font::from_bytes(
-        include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec(),
-    ));
-    commands.spawn((
-        Text::new(credit),
-        TextFont {
-            font: font.into(),
-            font_size: FontSize::Px(13.0),
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        BackgroundColor(Color::srgba(0.09, 0.10, 0.16, 0.8)),
-        Node {
-            position_type: PositionType::Absolute,
-            padding: UiRect::axes(px(5), px(2)),
-            bottom: px(8),
-            right: px(12),
-            ..default()
-        },
     ));
 }
 
@@ -368,5 +345,6 @@ fn main() -> AppExit {
                 .before(bevy::ui::UiSystems::Layout),
         )
         .add_systems(Update, city::draw_buildings)
+        .add_plugins(boot::CityBoot)
         .run()
 }

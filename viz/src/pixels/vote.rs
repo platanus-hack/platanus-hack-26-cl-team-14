@@ -4,20 +4,25 @@ use bevy::{
     render::{
         Extract, ExtractSchedule, RenderApp,
         render_resource::*,
-        renderer::{RenderContext, ViewQuery},
+        renderer::{RenderContext, RenderQueue, ViewQuery},
         view::{ViewDepthStencilTexture, ViewTarget},
     },
 };
 
 #[derive(Resource, Default)]
-struct DarkPaper(bool);
+struct DarkPaper {
+    night: bool,
+    title: Option<f32>,
+}
 
 fn extract_paper(
     night: Extract<Res<crate::Night>>,
+    title: Extract<Res<crate::boot::TitleLight>>,
     subway: Extract<Res<crate::city::SubwayView>>,
     mut paper: ResMut<DarkPaper>,
 ) {
-    paper.0 = night.0 || subway.0;
+    paper.night = night.0 || subway.0;
+    paper.title = title.0;
 }
 
 #[derive(Resource)]
@@ -38,6 +43,7 @@ pub fn install(app: &mut App) {
             (
                 binding_types::texture_2d(TextureSampleType::Float { filterable: false }),
                 binding_types::texture_depth_2d(),
+                binding_types::uniform_buffer::<Vec4>(false),
             ),
         ),
     );
@@ -60,11 +66,20 @@ fn draw(
     pass: Res<VotePass>,
     fullscreen: Res<FullscreenShader>,
     paper: Res<DarkPaper>,
-    mut selected: Local<Option<((TextureFormat, bool), CachedRenderPipelineId)>>,
+    queue: Res<RenderQueue>,
+    mut blend: Local<UniformBuffer<Vec4>>,
+    mut selected: Local<Option<((TextureFormat, &'static str), CachedRenderPipelineId)>>,
 ) {
     let (target, depth) = view.into_inner();
     let format = target.main_texture_format();
-    let key = (format, paper.0);
+    let entry = if paper.title.is_some() {
+        "title"
+    } else if paper.night {
+        "night"
+    } else {
+        "day"
+    };
+    let key = (format, entry);
     if selected.as_ref().map(|p| p.0) != Some(key) {
         let id = cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: Some("city pixel vote".into()),
@@ -72,7 +87,7 @@ fn draw(
             vertex: fullscreen.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: pass.shader.clone(),
-                entry_point: Some(if paper.0 { "night" } else { "day" }.into()),
+                entry_point: Some(entry.into()),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: None,
@@ -90,11 +105,16 @@ fn draw(
     let Some(z) = depth.attachment.depth_stencil_views().depth_only_view() else {
         return;
     };
+    let value = Vec4::splat(paper.title.unwrap_or_default());
+    if blend.binding().is_none() || *blend.get() != value {
+        blend.set(value);
+        blend.write_buffer(ctx.render_device(), &queue);
+    }
     let post = target.post_process_write();
     let bindings = ctx.render_device().create_bind_group(
         "city pixel vote",
         &cache.get_bind_group_layout(&pass.layout),
-        &BindGroupEntries::sequential((post.source, z)),
+        &BindGroupEntries::sequential((post.source, z, blend.binding().unwrap())),
     );
     let mut render = ctx
         .command_encoder()

@@ -14,9 +14,12 @@ const BETA: f64 = 0.2047;
 /// One shop point: longitude, latitude, comuna index, id (baseline points 0..n, added points after).
 pub type Shop = (f64, f64, usize, u32);
 
+#[path = "shopping/visits.rs"]
+pub mod visits;
+
 pub struct Shopping {
     /// Weekday shopping trips by home comuna. Zero for a comuna without an EOD 2012 rate.
-    trips: Vec<f64>,
+    pub trips: Vec<f64>,
     pub shops: Vec<Shop>,
     /// Comunas without an EOD 2012 rate (outside the survey area).
     no_rate: Vec<String>,
@@ -48,6 +51,11 @@ fn flows(trips: &[f64], shops: &[Shop], minutes: &[f64]) -> (Vec<f64>, Vec<f64>)
 }
 
 impl Shopping {
+    /// Baseline optional visits of the eligible persons (shopping/visits.rs).
+    pub fn visits(&self, n: usize, homes: &[usize], minutes: &[f64]) -> visits::Visits {
+        visits::Visits::new(n, homes, &self.trips, &self.profile, &self.shops, minutes)
+    }
+
     pub fn load(dir: &Path, cuts: &[String], homes: &[Point], minutes: &[f64]) -> Shopping {
         let n = cuts.len();
         let ix = |c: &str| cuts.iter().position(|x| x == c);

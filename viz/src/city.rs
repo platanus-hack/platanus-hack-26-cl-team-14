@@ -252,6 +252,7 @@ pub(crate) struct Buildings {
     facade_material: Handle<StandardMaterial>,
     edit_material: Handle<StandardMaterial>,
     pub ready: bool,
+    pub pending_tiles: usize,
     dirty: Vec<bool>,
     heights: activity::HeightScales,
     hidden: HashSet<(usize, usize)>,
@@ -412,6 +413,7 @@ pub fn load_buildings(
         facade_material,
         edit_material,
         ready: false,
+        pending_tiles: 0,
         dirty,
         heights: activity::HeightScales::load(Path::new("web/data/city_building_block_ids.bin.gz")),
         hidden: HashSet::new(),
@@ -471,6 +473,7 @@ pub(crate) fn toggle_subway(
 
 pub(crate) fn paper_light(
     night: Res<crate::Night>,
+    title: Res<crate::boot::TitleLight>,
     mode: Res<SubwayView>,
     buildings: Res<Buildings>,
     layers: Res<SurfaceLayers>,
@@ -479,32 +482,23 @@ pub(crate) fn paper_light(
     mut ambient: Single<&mut AmbientLight>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if !night.is_changed() && !mode.is_changed() {
+    if !night.is_changed() && !mode.is_changed() && !title.is_changed() {
         return;
     }
-    sky.0 = if mode.0 {
+    let dark = title.0.unwrap_or(if night.0 && !mode.0 { 1. } else { 0. });
+    let blend = |day: Color, night: Color| Color::from(day.to_srgba().mix(&night.to_srgba(), dark));
+    sky.0 = if mode.0 && title.0.is_none() {
         Color::srgb_u8(32, 43, 54)
-    } else if night.0 {
-        Color::srgb_u8(57, 65, 91)
     } else {
-        crate::DAY_SKY
+        blend(crate::DAY_SKY, Color::srgb_u8(57, 65, 91))
     };
-    let dark = night.0 && !mode.0;
-    sun.illuminance = if dark { 1700. } else { 12_000. };
-    sun.color = if dark { Color::srgb_u8(184, 184, 190) } else { Color::srgb_u8(255, 245, 231) };
-    ambient.brightness = if dark { 300. } else { 950. };
-    ambient.color = if dark { Color::srgb_u8(164, 164, 173) } else { Color::srgb_u8(226, 228, 255) };
+    sun.illuminance = 12_000. - 10_300. * dark;
+    sun.color = blend(Color::srgb_u8(255, 245, 231), Color::srgb_u8(184, 184, 190));
+    ambient.brightness = 950. - 650. * dark;
+    ambient.color = blend(Color::srgb_u8(226, 228, 255), Color::srgb_u8(164, 164, 173));
     let (street, _) = &layers.materials[2];
-    materials.get_mut(street).unwrap().emissive = if dark {
-        LinearRgba::rgb(0.13, 0.14, 0.15)
-    } else {
-        LinearRgba::BLACK
-    };
-    materials.get_mut(&buildings.facade_material).unwrap().emissive = if dark {
-        LinearRgba::rgb(1.4, 1.15, 0.84)
-    } else {
-        LinearRgba::BLACK
-    };
+    materials.get_mut(street).unwrap().emissive = LinearRgba::rgb(0.13 * dark, 0.14 * dark, 0.15 * dark);
+    materials.get_mut(&buildings.facade_material).unwrap().emissive = LinearRgba::rgb(1.4 * dark, 1.15 * dark, 0.84 * dark);
 }
 
 pub(crate) fn draw_buildings(
@@ -564,6 +558,7 @@ pub(crate) fn draw_buildings(
         }
         jobs.push((d, tile, desired));
     }
+    buildings.pending_tiles = jobs.len();
     buildings.ready = jobs.is_empty();
     jobs.sort_by(|a, b| a.0.total_cmp(&b.0));
     for (_, tile, detail) in jobs.into_iter().take(8) {
