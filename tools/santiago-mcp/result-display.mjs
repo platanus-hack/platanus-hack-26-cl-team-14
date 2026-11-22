@@ -136,6 +136,7 @@ export function publishMetricResult(args, result, { sourceTitle, comunaNames, er
 export function publishExperimentResult(raw, { sourceTitle } = {}) {
   if (!displayFile) return;
   const source = sourceTitle ? `Replay · ${sourceTitle}` : 'Escenario actual';
+  const missing = raw.not_modeled ?? [];
   const cards = (raw.worksite_cohorts ?? []).map(site => ({
     title: site.name ?? 'Trabajadores del lugar', source, status: 'result', unit: site.unit,
     scope: site.scope, columns: ['Trabajadores'],
@@ -144,11 +145,17 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
       { label: 'Desde otras comunas', values: [cell(site.outside_workers)] },
     ],
   }));
-  if (!cards.length && Number.isFinite(raw.summary?.workers_moved)) {
+  if (!cards.length && (!missing.length || raw.applied?.length) && Number.isFinite(raw.summary?.workers_moved)) {
     cards.push({
       title: 'Cambio de lugar de trabajo', source, status: 'result', unit: 'trabajadores modelados',
       scope: 'Día hábil típico. Incluye cambios de lugar de trabajo dentro de una misma comuna.',
       rows: [{ label: 'Trabajadores reasignados', values: [cell(raw.summary.workers_moved)] }],
+    });
+  }
+  if (missing.length) {
+    cards.push({
+      title: 'Cambios sin resultado', source, status: 'unavailable',
+      coverage: missing.map(change => change.reason).filter(Boolean).join(' ') || 'El motor no pudo aplicar parte de la solicitud.',
     });
   }
   if (cards.length) publish(cards);
