@@ -10,15 +10,15 @@
   body {
     margin: 0;
     overflow: hidden;
-    color: #eceaf4;
-    font: 16px system-ui, sans-serif;
+    color: #fff;
+    font: 16px "Helvetica Neue", Helvetica, sans-serif;
   }
   .panel {
     display: flex;
     flex-direction: column;
     height: 100dvh;
-    background: rgba(14, 16, 28, .93);
-    border-left: 2px solid #8d93c9;
+    background: rgba(36, 41, 66, .95);
+    border-left: 2px solid #7a81ad;
     overflow: hidden;
   }
   header {
@@ -32,21 +32,20 @@
     width: 106px;
     min-height: 30px;
     padding: 0;
-    color: #b9bde0;
+    color: #ccd2e9;
     background: none;
     border: 0;
-    font: 500 14px system-ui, sans-serif;
-    letter-spacing: .02em;
+    font: 400 15px "Helvetica Neue", Helvetica, sans-serif;
     cursor: pointer;
   }
   button:hover { color: #fff; }
-  button:focus-visible { outline: 2px solid #b9bde0; outline-offset: -2px; }
+  button:focus-visible { outline: 2px solid #ccd2e9; outline-offset: -2px; }
   .panel:not(.open) { background: none; border: 0; }
   .panel:not(.open) header { flex-basis: 30px; }
   .panel:not(.open) button {
-    color: #eceaf4;
-    background: rgba(14, 16, 28, .9);
-    border-left: 2px solid #8d93c9;
+    color: #fff;
+    background: rgba(36, 41, 66, .95);
+    border-left: 2px solid #7a81ad;
   }
   .panel:not(.open) #grip { display: none; }
   .panel:not(.open) #terminal { visibility: hidden; }
@@ -67,9 +66,9 @@
     left: 2px;
     width: 3px;
     height: 48px;
-    background: #5d6290;
+    background: #666d98;
   }
-  #grip:hover::after, #grip:focus-visible::after { background: #b9bde0; }
+  #grip:hover::after, #grip:focus-visible::after { background: #ccd2e9; }
   .xterm-viewport { background: transparent !important; }
   .session-brand { visibility: hidden; }
   .composer-hint { position: relative; }
@@ -78,7 +77,7 @@
     content: "›  Escribe un mensaje";
     position: absolute;
     inset: 0 auto auto 0;
-    color: #8f93b8;
+    color: #a9b2d6;
     white-space: pre;
     pointer-events: none;
   }
@@ -128,16 +127,16 @@
     lineHeight: 1.3,
     // Ink palette of the city: lavender and blue accents on dark ink.
     theme: {
-      background: '#00000000', foreground: '#eceaf4', cursor: '#b9bde0',
-      selectionBackground: '#3a3f6b',
-      black: '#1b1e33', brightBlack: '#8a8eae',
+      background: '#00000000', foreground: '#ffffff', cursor: '#ccd2e9',
+      selectionBackground: '#50557a',
+      black: '#343957', brightBlack: '#9099c2',
       red: '#f08a8a', brightRed: '#ffadad',
       green: '#8fd6b0', brightGreen: '#b3ecc9',
       yellow: '#ecd48c', brightYellow: '#f6e5b0',
       blue: '#8ea2ff', brightBlue: '#b4c1ff',
       magenta: '#c9a2f0', brightMagenta: '#dcc2fa',
       cyan: '#8fcfe6', brightCyan: '#b5e2f2',
-      white: '#d6d4e3', brightWhite: '#ffffff'
+      white: '#dadeef', brightWhite: '#ffffff'
     }
   });
   const fit = new FitAddon.FitAddon();

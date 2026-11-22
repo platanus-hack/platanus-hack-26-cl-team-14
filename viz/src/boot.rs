@@ -274,8 +274,9 @@ fn splash(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     });
 }
 
+// The darkest ink of the city print (`pixels/vote.wgsl`), shared with the HUD panels.
 fn ink(alpha: f32) -> Color {
-    Color::srgba(0.055, 0.063, 0.108, alpha)
+    crate::label::PANEL_INK.with_alpha(alpha)
 }
 
 fn hide_hud(
