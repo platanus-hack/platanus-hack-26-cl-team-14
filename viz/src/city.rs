@@ -643,7 +643,7 @@ pub(crate) fn setup_ground(
         .spawn((Transform::default(), Visibility::Inherited))
         .id();
     let foliage = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(trees::canopies())),
+        base_color_texture: Some(images.add(trees::crowns())),
         alpha_mode: AlphaMode::Mask(0.45),
         cull_mode: None,
         perceptual_roughness: 1.,

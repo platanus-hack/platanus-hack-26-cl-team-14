@@ -158,7 +158,6 @@ impl AccessFlows {
     pub(in crate::movers) fn draw(
         &self,
         now: f32,
-        eye: Vec3,
         view_distance: f32,
         stadium: Option<&AccessFootprint>,
         visible: &impl Fn(Vec3, f32) -> bool,
@@ -177,7 +176,6 @@ impl AccessFlows {
         if self.approaches.is_empty() {
             return;
         }
-        let size = (view_distance * 0.012).clamp(1.8, 22.);
         let district = (650. ..3500.).contains(&view_distance);
         // Show recent mapped arrivals (15 city seconds in close-up and 60 at district scale). A sample switches
         // from walking to an arrival stamp, so it is drawn once in each frame.
@@ -219,11 +217,6 @@ impl AccessFlows {
                         && visible(p, 20.)
                     {
                         let paint = if gained { Paint::Gain } else { Paint::Plain };
-                        let scale = if view_distance >= 150. {
-                            size
-                        } else {
-                            pedestrian_scale(eye.distance(p), size)
-                        };
                         // The tapered trace follows the last few metres of the same path.
                         if district && gained {
                             let mut head = p;
@@ -258,11 +251,11 @@ impl AccessFlows {
                         if stadium.is_some_and(|s| s.covers(p)) {
                             continue;
                         }
-                        let frame = motion::gait_frame(metres, scale, copy);
+                        let frame = motion::gait_frame(metres, 1., copy);
                         place(
                             Model::Walking(frame),
                             paint,
-                            pose(p, dir, Vec3::splat(scale)),
+                            pose(p, dir, Vec3::ONE),
                         );
                     }
                 }
@@ -276,10 +269,9 @@ impl AccessFlows {
             for i in 0..plain + gain {
                 let col = (i % 5) as f32 - 2.;
                 let row = (i / 5) as f32;
-                let stamp_size = size * 0.8;
                 let pos = at
-                    + outward * (5. + row * stamp_size * 0.9)
-                    + right(outward) * col * stamp_size * 0.85;
+                    + outward * (5. + row * 0.9)
+                    + right(outward) * col * 0.85;
                 if stadium.is_some_and(|s| s.covers(pos)) {
                     continue;
                 }
@@ -287,7 +279,7 @@ impl AccessFlows {
                 place(
                     Model::Person,
                     tint,
-                    pose(pos, -outward, Vec3::splat(stamp_size)),
+                    pose(pos, -outward, Vec3::ONE),
                 );
             }
         }

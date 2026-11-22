@@ -168,7 +168,7 @@ const runReplayTool = {
 };
 const createReplayTool = {
   name: 'create_replay',
-  description: 'Before the demo only. Run the general engine once with a scene and a list of changes (the same changes as simulate_city) and save the full result as a cached replay in data/replays/<id>.json. An existing id is replaced.',
+  description: 'Create a saved replay for a confirmed new experiment. Run the general engine once with the agreed scene and changes, then save the full result with the agreed duration and analysis in data/replays/<id>.json. Use this tool instead of simulate_city when the user asks to save the new experiment. Choose a fresh id for a new replay. An existing id is replaced.',
   inputSchema: {
     type: 'object', required: ['id', 'title', 'question', 'scene', 'changes', 'duration_half_hours', 'analyze'],
     properties: {

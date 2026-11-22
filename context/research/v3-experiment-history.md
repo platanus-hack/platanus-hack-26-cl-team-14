@@ -41,7 +41,13 @@ six entries and published Mapocho with revision 1, half-hour 14, and cues at
 
 ## New experiments
 
-`simulate_city` does not save its result. `create_replay` runs the model before
-saving. To keep a new result in history, the next slice needs a way to save the
-result from the confirmed run, with the question, parameters, analysis and
-scene revision. Agree on that write path before enabling new saves in the panel.
+If the user asks to save a new experiment, the chat asks for confirmation
+of its start, duration and outcome. After confirmation, `create_replay` runs
+the model once and writes a new replay file. The next `list_replays` call
+includes its metadata. Reload the catalog when the panel opens so it includes
+the latest saved results. Play the new entry through the same replay path.
+[Launcher](../../tools/city-chat.sh) · [Confirmed authoring fixture](https://discord.com/channels/1573514576400752640/1573889710286180484/1573897224927060061)
+
+`simulate_city` does not save its result. Saving an already-computed run
+requires a separate write path that keeps the confirmed inputs, result and
+scene revision together.
