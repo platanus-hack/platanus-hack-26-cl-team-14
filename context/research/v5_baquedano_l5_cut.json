@@ -1,0 +1,20 @@
+[
+ {
+  "kind": "line",
+  "op": "cut",
+  "target": {
+   "type": "route",
+   "id": "L5"
+  },
+  "properties": {
+   "stop_ids": [
+    "BA-BQ"
+   ]
+  },
+  "temporary": true,
+  "half_hours": [
+   27,
+   29
+  ]
+ }
+]
