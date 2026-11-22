@@ -19,6 +19,8 @@ DTPM publishes dated etapas for these weeks: Apr and Aug 2022, Apr, Aug and Nov 
 | 8–14 Nov 2025 | None. The nearest were 3–4 Nov and 17–18 Nov, outside the week. |
 | 11–17 Apr 2026 | None. The nearest were 5–6 Apr and 28 Apr (Line 4), outside the week. |
 | 6–12 Nov 2023 | None. Line 2 closed on 13 Nov, one day after the week. |
+| 15–21 Apr 2024 | None. The search found only 4 Apr (Line 4), outside the week. |
+| Apr and Aug 2022, Apr and Aug 2023 | Not searched. |
 
 News search is not complete. A scan of the DTPM counts for zero-entry stations in each week would be complete, but each week is about 2 GB at about 1 MB/s.
 
@@ -50,7 +52,7 @@ Engine: main 7ff285d (includes #502). Rule parameters are unchanged. Baseline re
 
 - Noise check fails. Baquedano Tue − Thu in the noise bins: +6, +24, −1, −34 (11:00–13:00) and −22, +64, −64, −13 (15:00–17:00), so the range is −64 to +64. The event-bin changes (−4, −62) are inside that range. One direction skipping one line at a shared L1 + L5 station does not show in the station totals.
 - Reach at 13:30: the cut gives Baquedano 0.862, Bellas Artes 0.869 and Parque Bustamante 0.764. The skip gives 0.939, 0.961 and 1.0.
-- One weak result is still usable. The cut predicts about −100 at Baquedano, which is outside the noise range. The counts do not show that drop. This agrees with the expected overstatement: the cut removes L5 through trains that really ran. For the skip, every predicted change is inside the noise range.
+- Post hoc reading, outside the frozen rule. Each station has its own noise band in bins 22–25 and 30–33: Baquedano −64 to +64, Bellas Artes −26 to +62, Parque Bustamante −45 to +29. All six observed event-bin changes are inside their bands. The cut predicts about −100 at Baquedano, −110 at Bellas Artes and −135 at Parque Bustamante, which is outside all three bands. The skip is inside the band at Baquedano and Parque Bustamante, and just outside it at Bellas Artes (−33 and −32 against −26). This reading tests the cut input, which removes L5 through trains that really ran. It does not test the reach rule with a correct input.
 - The Thursday file matches the V4 hash (`4a8fef77…`, 2,307,896 Metro rows), and Baquedano matches the V4 Thursday cells (706, 712). The Tuesday member `2024-11-19.etapas.csv.gz` has SHA-256 `afbc70d3cf040a28c3b9c4f611f11f80de77e65a397ed66c6abef5d95eb1a882` and 2,338,836 Metro rows.
 
 ## Limits
