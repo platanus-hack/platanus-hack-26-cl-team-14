@@ -200,12 +200,12 @@ impl BuildingEdits<'_> {
             if matches!(op, "move" | "add") {
                 let polygon = &change["geometry"];
                 geometry::area_m2(polygon)?;
-                let (block, cut, longitude, latitude) = self.base.catalog.block(polygon)?;
+                let allocation = self.base.catalog.block(polygon)?;
                 feature["geometry"] = polygon.clone();
-                feature["properties"]["block_id"] = json!(block);
-                feature["properties"]["cut"] = json!(cut);
-                feature["properties"]["block_longitude"] = json!(longitude);
-                feature["properties"]["block_latitude"] = json!(latitude);
+                feature["properties"]
+                    .as_object_mut()
+                    .unwrap()
+                    .extend(allocation.as_object().unwrap().clone());
             }
         }
         let after = match (after, before.as_ref()) {
@@ -263,6 +263,18 @@ impl BuildingEdits<'_> {
                     assumptions.push(note.clone());
                 }
             }
+            if building.feature["properties"]["block_shares"]
+                .as_array()
+                .is_some_and(|s| s.len() > 1)
+                || building.feature["properties"]["block_covered_fraction"]
+                    .as_f64()
+                    .is_some_and(|f| f < 0.999999)
+            {
+                let note = "Known stocks use uniform density over the footprint's covered census-block area. Shares sum to one across covered area; street gaps receive no stock. Scalar block metadata and any occupancy rate use the largest-area block.".to_owned();
+                if !assumptions.contains(&note) {
+                    assumptions.push(note);
+                }
+            }
         }
         let effects = block_effects(before.as_ref(), after.as_ref(), &mut assumptions);
         let edit = json!({"kind":"building","op":op,"id":id,
@@ -270,6 +282,24 @@ impl BuildingEdits<'_> {
             "effects":{"blocks":effects},"assumptions":assumptions});
         self.changed.insert(id, after);
         Ok(edit)
+    }
+}
+
+fn block_shares(properties: &Value) -> Vec<Value> {
+    if let Some(shares) = properties["block_shares"].as_array() {
+        return shares.clone();
+    }
+    if properties["block_id"].is_string()
+        && properties["cut"].is_string()
+        && properties["block_longitude"].is_number()
+        && properties["block_latitude"].is_number()
+    {
+        vec![
+            json!({"block_id":properties["block_id"],"cut":properties["cut"],
+            "longitude":properties["block_longitude"],"latitude":properties["block_latitude"],"share":1.0}),
+        ]
+    } else {
+        Vec::new()
     }
 }
 
@@ -320,21 +350,22 @@ fn block_effects(
                 "Only the known scenario contribution to block {field} is applied or withdrawn."
             ));
         }
-        if before.iter().chain(after.iter()).any(|b| {
-            let p = &b.feature["properties"];
-            !p["block_id"].is_string()
-                || !p["cut"].is_string()
-                || !p["block_longitude"].is_number()
-                || !p["block_latitude"].is_number()
-        }) {
+        if before
+            .iter()
+            .chain(after.iter())
+            .any(|b| block_shares(&b.feature["properties"]).is_empty())
+        {
             notes.push(format!("The footprint lacks a mapped Census block. This edit does not apply a {field} delta."));
             continue;
         }
         for (p, contribution) in sides {
-            let id = p["block_id"].as_str().unwrap();
-            let row = blocks.entry(id.to_owned()).or_insert_with(|| json!({"block_id":id,"cut":p["cut"],"longitude":p["block_longitude"],"latitude":p["block_latitude"]}));
-            let value = row[delta].as_f64().unwrap_or(0.0) + contribution;
-            row[delta] = json!(value);
+            for share in block_shares(p) {
+                let id = share["block_id"].as_str().unwrap();
+                let row = blocks.entry(id.to_owned()).or_insert_with(|| json!({"block_id":id,"cut":share["cut"],"longitude":share["longitude"],"latitude":share["latitude"]}));
+                let value = row[delta].as_f64().unwrap_or(0.0)
+                    + contribution * share["share"].as_f64().unwrap();
+                row[delta] = json!(value);
+            }
         }
     }
     blocks.into_values().collect()

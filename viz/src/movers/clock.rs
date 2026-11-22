@@ -1,11 +1,23 @@
 //! Top-left panel with the replay day and time, sized for a projector.
+#[path = "../ferry/mod.rs"]
+mod ferry;
+
 use super::{DAY, FixedClock, PlaybackRate, Replay};
 use bevy::{prelude::*, text::FontSize};
+
+#[derive(Resource, Default)]
+pub(crate) struct CityClock(pub Option<f32>);
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct UpdateClock;
 
 pub(crate) struct ClockPlugin;
 impl Plugin for ClockPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn).add_systems(Update, show);
+        app.init_resource::<CityClock>()
+            .add_plugins(ferry::FerryPlugin)
+            .add_systems(Startup, spawn)
+            .add_systems(Update, show.in_set(UpdateClock).after(super::read_result));
     }
 }
 
@@ -43,13 +55,14 @@ fn show(
     replay: Res<Replay>,
     fixed: Res<FixedClock>,
     rate: Res<PlaybackRate>,
+    mut clock: ResMut<CityClock>,
     mut night: ResMut<crate::Night>,
     mut text: Single<(&mut Text, &mut Visibility), With<ClockText>>,
 ) {
-    let Some(now) = fixed
-        .0
-        .or(replay.clock_offset.map(|offset| offset + time.elapsed_secs() * rate.0))
-    else {
+    clock.0 = fixed.0.or(replay
+        .clock_offset
+        .map(|offset| offset + time.elapsed_secs() * rate.0));
+    let Some(now) = clock.0 else {
         return;
     };
     let minutes = (now.rem_euclid(DAY) / 60.) as u32;

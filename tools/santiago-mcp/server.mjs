@@ -177,6 +177,7 @@ const createReplayTool = {
           after_seconds: { type: 'number', minimum: 0, description: 'Seconds after the replay starts.' },
           longitude: { type: 'number' }, latitude: { type: 'number' },
           distance: { type: 'number', exclusiveMinimum: 0, description: 'Camera distance in meters: 360 street, 4000 comuna, 18000 whole city.' },
+          caption: { type: 'string', description: 'Short line to show until the next cue. Use {{field.path}} to insert a number from this saved result, for example {{line_riders.0.riders_to_work}}.' },
         } },
       },
       comparison: {
@@ -353,6 +354,14 @@ async function dispatch({ method, params }) {
       await setScene(scene);
       const { full, short, placesUsed } = await runScenario({ changes: structuredClone(changes), stations });
       if (scene.layer === 'metro_service') full.scene.layer = scene.layer;
+      for (const cue of meta.cues ?? []) {
+        if (!cue.caption) continue;
+        cue.caption = cue.caption.replace(/\r?\n/g, ' ').replace(/\{\{([\w.]+)\}\}/g, (_, field) => {
+          const value = field.split('.').reduce((row, key) => row?.[key], full);
+          if (!Number.isFinite(value)) throw new Error(`Caption field ${field} is not a number in replay ${meta.id}.`);
+          return new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(value);
+        });
+      }
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
       text = { saved: `data/replays/${meta.id}.json`, replay: replay.meta, result: short };

@@ -1,11 +1,16 @@
 //! Large label of a side-by-side tile, from the `label` that tools/replay-relay.mjs adds.
-use crate::net::Scenario;
+use crate::{focus::{self, CueCaption}, net::Scenario};
 use bevy::{prelude::*, text::FontSize};
 
 pub struct LabelPlugin;
 impl Plugin for LabelPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, draw.run_if(resource_changed::<Scenario>));
+        app.init_resource::<CueCaption>()
+            .add_systems(Startup, spawn_caption)
+            .add_systems(Update, (
+                draw.run_if(resource_changed::<Scenario>),
+                show_caption.after(focus::cue).run_if(resource_changed::<CueCaption>),
+            ));
     }
 }
 
@@ -57,4 +62,35 @@ fn draw(mut commands: Commands, scenario: Res<Scenario>, mut fonts: ResMut<Asset
                 }
             });
         });
+}
+
+
+#[derive(Component)]
+struct CaptionBand;
+
+fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
+    let font = fonts.add(Font::from_bytes(include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec()));
+    commands.spawn((
+        CaptionBand,
+        Text::default(),
+        TextFont { font: font.into(), font_size: FontSize::Px(34.), ..default() },
+        TextColor(Color::WHITE),
+        Visibility::Hidden,
+        BackgroundColor(Color::srgba(0.05, 0.07, 0.09, 0.90)),
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(24),
+            bottom: px(48),
+            max_width: percent(66),
+            padding: UiRect::axes(px(16), px(10)),
+            overflow: Overflow::clip(),
+            ..default()
+        },
+    ));
+}
+
+fn show_caption(caption: Res<CueCaption>, mut band: Single<(&mut Text, &mut Visibility), With<CaptionBand>>) {
+    let (text, visibility) = &mut *band;
+    text.0.clone_from(&caption.0);
+    **visibility = if caption.0.is_empty() { Visibility::Hidden } else { Visibility::Inherited };
 }

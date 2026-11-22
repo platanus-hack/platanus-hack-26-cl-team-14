@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Santiago en el simulador</title>
+<link rel="stylesheet" href="santiaguito.css">
+<style>
+body { align-content: start; padding-top: 9vh; }
+.metrics { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 1.3vw; }
+.metric { min-width: 0; border-top: .5vh solid var(--accent); }
+.metric:nth-child(1) { --accent: var(--blue); }
+.metric:nth-child(2) { --accent: var(--green); }
+.metric:nth-child(3) { --accent: var(--purple); }
+.number { color: var(--accent); font-size: 1.95rem; line-height: 1.02; font-variant-numeric: tabular-nums; }
+.label { margin-top: .2rem; font-size: 1.03rem; }
+.detail { margin-top: .3rem; color: var(--muted); font-size: .66rem; }
+.rules, .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: .85rem; }
+.rules { padding-block: .59rem; }
+.controls { border-left: .22vw solid var(--blue); padding-block: .56rem; }
+.rules p, .controls p { font-size: .77rem; line-height: 1.22; }
+strong { display: block; font-size: .82rem; font-weight: 700; margin-bottom: .15rem; }
+.timing { width: fit-content; color: var(--muted); font-size: .64rem; padding-block: .38rem; }
+</style>
+<body>
+<h1>Santiago en el simulador</h1>
+<div class="metrics">
+  <section class="panel metric">
+    <p class="number">3.966.150</p>
+    <p class="label">registros sintéticos</p>
+    <p class="detail">2.688.814 de trabajo · 1.277.336 de estudio<br>Una persona puede aparecer en ambos grupos.</p>
+  </section>
+  <section class="panel metric">
+    <p class="number">52.646</p>
+    <p class="label">registros de áreas censales</p>
+    <p class="detail">52 comunas · Censo 2024</p>
+  </section>
+  <section class="panel metric">
+    <p class="number">126</p>
+    <p class="label">estaciones físicas de Metro</p>
+    <p class="detail">Estaciones del GTFS DTPM · marzo 2026</p>
+  </section>
+</div>
+<section class="panel rules" aria-label="Reglas y fuentes del modelo">
+  <p><strong>Destinos</strong>Empleos y tiempo de viaje</p>
+  <p><strong>Modo de viaje</strong>Tiempo, distancia y acceso a auto</p>
+  <p><strong>Red y datos</strong>416 recorridos de micro en GTFS DTPM</p>
+</section>
+<section class="panel controls" aria-label="Parámetros de la demo">
+  <p><strong>Monumental</strong>39.222 asistentes · 28 retiros · seis vías cerradas</p>
+  <p><strong>Mapocho</strong>10 muelles · 162 plazas · 17 km/h · cada 10 min</p>
+  <p><strong>Metro</strong>Cierre de 07:00 a 10:00 · salidas al trabajo por modo</p>
+</section>
+<p class="panel timing">Medición en MacBook Air M2 · 0,91 s base · 13,44 s cierre total · incluye inicio del motor y escritura del resultado</p>
+<div class="credits">© OpenStreetMap contributors · Google Research, Open Buildings 2.5D Temporal · Copernicus WorldDEM-90 © DLR e.V. 2010–2014 and Airbus Defence and Space GmbH 2014–2018, provided by the European Union and ESA.</div>
+<a class="slide-link" href="enjambre.html">Enjambre ›</a>
+<script>
+  document.addEventListener("keydown", event => {
+    if (!["ArrowRight", "PageDown", " "].includes(event.key) || event.altKey || event.metaKey || event.ctrlKey) return;
+    event.preventDefault();
+    window.location.href = "enjambre.html";
+  });
+</script>
+</body>
+</html>

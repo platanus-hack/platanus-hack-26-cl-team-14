@@ -24,6 +24,31 @@ fn heights() -> &'static [i16] {
     })
 }
 
+/// Integer terrain heights and grid transform used by the ferry depth shader.
+pub(crate) fn ferry_depth_grid() -> (Image, Vec4) {
+    use bevy::{
+        asset::RenderAssetUsages,
+        render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    };
+
+    let data = heights()
+        .iter()
+        .flat_map(|h| (h - DATUM as i16).to_le_bytes())
+        .collect();
+    let image = Image::new(
+        Extent3d {
+            width: W as u32,
+            height: H as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        data,
+        TextureFormat::R16Sint,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    (image, Vec4::new(WEST, NORTH, DX, DZ))
+}
+
 pub fn cursor_ground(ray: Ray3d) -> Option<Vec3> {
     let hit = ground_on_line(ray.origin, ray.direction, ray.origin.y);
     let east = WEST + (W - 1) as f32 * DX;

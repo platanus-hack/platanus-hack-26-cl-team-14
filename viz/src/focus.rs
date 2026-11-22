@@ -110,11 +110,15 @@ fn frame(mut points: impl Iterator<Item = Vec3>, minimum: f32, aspect: f32) -> O
     Some((center, minimum.max(1.15 * radius / half_angle.sin())))
 }
 
-// Camera cues of a cached replay: fly to each place at its time after the scene starts.
+#[derive(Default, Resource)]
+pub(super) struct CueCaption(pub String);
+
+// A cue changes the caption and, when the camera is unlocked, starts a flight.
 pub(super) fn cue(
     time: Res<Time<Real>>,
     scenario: Res<Scenario>,
     mut rig: ResMut<Rig>,
+    mut caption: ResMut<CueCaption>,
     mut scene_revision: Local<Option<u64>>,
     mut start: Local<f32>,
     mut next: Local<usize>,
@@ -124,14 +128,18 @@ pub(super) fn cue(
         *scene_revision = scene["revision"].as_u64();
         *start = time.elapsed_secs();
         *next = 0;
+        caption.0.clear();
     }
     let Some(cue) = scene["cues"].get(*next) else { return };
-    if rig.fixed || time.elapsed_secs() - *start < cue["after_seconds"].as_f64().unwrap() as f32 {
+    if time.elapsed_secs() - *start < cue["after_seconds"].as_f64().unwrap() as f32 {
         return;
     }
-    let (target, distance) = (shot_position(cue).unwrap(), cue["distance"].as_f64().unwrap() as f32);
-    rig.fly_to(target, distance);
-    info!("Camera cue {} at {target:?}, distance {distance} m", *next);
+    caption.0 = cue["caption"].as_str().unwrap_or_default().to_owned();
+    if !rig.fixed {
+        let (target, distance) = (shot_position(cue).unwrap(), cue["distance"].as_f64().unwrap() as f32);
+        rig.fly_to(target, distance);
+        info!("Camera cue {} at {target:?}, distance {distance} m", *next);
+    }
     *next += 1;
 }
 
