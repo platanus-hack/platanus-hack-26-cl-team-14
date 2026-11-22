@@ -82,14 +82,16 @@ function groupLabel(group = {}, comunaNames = {}) {
 }
 
 function displayRows(result, states, comunaNames) {
-  return result.results.flatMap(({ group, value }) => {
+  return result.results.flatMap(({ group, value, selected_workers, covered_workers }) => {
     const label = groupLabel(group, comunaNames);
+    const coverage = label && Number.isFinite(selected_workers) && Number.isFinite(covered_workers)
+      ? `${cell(covered_workers)} de ${cell(selected_workers)} con datos` : '';
     const values = states.length === 1 ? [value] : states.map(state => value?.[state]);
     const bins = values.find(Array.isArray);
-    if (!bins) return [{ label: label || 'Valor', values: values.map(cell) }];
+    if (!bins) return [{ label: [label, coverage].filter(Boolean).join(' · ') || 'Valor', values: values.map(cell) }];
     return bins.map(({ min_inclusive: min, max_exclusive: max }, index) => {
       const range = min === null ? `< ${cell(max)}` : max === null ? `≥ ${cell(min)}` : `${cell(min)} a < ${cell(max)}`;
-      return { label: [label, range].filter(Boolean).join(' · '), values: values.map(value => cell(value?.[index]?.count)) };
+      return { label: [label, range, index === 0 && coverage].filter(Boolean).join(' · '), values: values.map(value => cell(value?.[index]?.count)) };
     });
   });
 }
@@ -126,8 +128,9 @@ export function publishMetricResult(args, result, { sourceTitle, comunaNames, er
   const incomplete = c.missing_or_unreachable_rows || c.missing_workers || c.pairs_without_positive_public_weight ||
     c.may_be_truncated || c.groups_returned < c.groups || c.commuters_with_paired_times < c.observed_public_commuters_in_scope;
   const unit = result.aggregate === 'histogram' ? `${result.unit} · intervalos en ${result.measured_unit}` : result.unit;
+  const scope = [result.scope, result.data === 'route_minutes' && result.weighting].filter(Boolean).join(' ');
   publish([{
-    title, source, status: !available ? 'unavailable' : incomplete ? 'partial' : 'result', unit, scope: result.scope,
+    title, source, status: !available ? 'unavailable' : incomplete ? 'partial' : 'result', unit, scope,
     coverage: coverageText(c), columns: states.map(state => result.state_labels?.[state] ?? stateNames[state]),
     rows: available ? rows : [],
   }]);
