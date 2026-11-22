@@ -1,0 +1,3 @@
+© OpenStreetMap contributors (https://www.openstreetmap.org/copyright)
+Google Research, Open Buildings 2.5D Temporal (https://sites.research.google/gr/open-buildings/temporal/)
+Produced using Copernicus WorldDEM-90 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018 provided under COPERNICUS by the European Union and ESA; all rights reserved.
