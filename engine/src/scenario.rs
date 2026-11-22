@@ -81,7 +81,7 @@ const ASSUMPTIONS: [&str; 10] = [
     "Persons are synthetic and consistent with the Census 2024 margins. They are not microdata.",
     "The station model (L9) is fitted on the baseline. Its scale, classes and profiles do not change.",
     "Travel times are comuna to comuna and lower than survey times. The effect of a time change is an unvalidated sensitivity; the size and direction of its error are unknown.",
-    "A mode change does not reach the stations yet: stations use the baseline public share of the home comuna.",
+    "Stations use the baseline public share of the home comuna, scaled by the change in its public-transport workers.",
     "Open city for residents: more or fewer residents change the total of workers, with the baseline workers per resident of the comuna.",
     "Station access (L9): a walk within 1,000 m, or else one bus. A closed station does not change the travel minutes between comunas or the job choice.",
     "Students do not choose again.",
@@ -235,8 +235,17 @@ impl Scenario {
             let o = home[p.home as usize];
             od[o * n + work[p.dest as usize]] += 1.0;
             modes[o][match p.mode { 2 => 0, 1 => 1, _ => 2 }] += 1;
-            h[p.home as usize] += share[o];
-            j[p.dest as usize] += share[o];
+        }
+        // A mode change reaches the stations: the comuna's public share moves with its public workers
+        // relative to the baseline (factor 1 at baseline, and while the baseline itself is built).
+        let factor: Vec<f64> = (0..n).map(|o| match self.base.modes.get(o) {
+            Some(base) if base[0] > 0 => f64::from(modes[o][0]) / f64::from(base[0]),
+            _ => 1.0,
+        }).collect();
+        for p in pop.persons.iter().filter(|p| !p.student) {
+            let o = home[p.home as usize];
+            h[p.home as usize] += share[o] * factor[o];
+            j[p.dest as usize] += share[o] * factor[o];
         }
         let pts = |v: &[Point], m: &[f64]| v.iter().zip(m).map(|(p, &x)| (p.longitude, p.latitude, x)).collect::<Vec<_>>();
         self.access.weight_job_masses(pop.jobs.iter().map(|p| (p.id.as_str(), p.cut.as_str())), &mut j);
