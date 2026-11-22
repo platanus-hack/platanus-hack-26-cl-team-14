@@ -26,7 +26,7 @@ Consensus: a new mode changes choices only through **time, cost and a mode const
 
 - **Scale.** Access is measured from the comuna point. A mode that serves a thin corridor (a river boat) loses to the walk from the comuna point. Test in [the Mapocho brief](mapocho-navegable.md#7-second-engine-test-the-boat-as-faster-travel-minutes): 0 of 42 pairs faster.
 - **New stations.** The station projection treats a new point like Metro (L9 access). Good for Metro lines, wrong for a slower, smaller mode.
-- **Moved place (MUT ↔ Monumental).** Jobs move through gravity; event attendees come from workers of the venue comuna (`attendance.rs`), so moving a venue changes who attends. Published models keep the attendee origin fixed and change only the trip cost.
+- **Moved place (MUT ↔ Monumental).** Jobs move through gravity; the historical generic event copied workers of the venue comuna (`attendance.rs`). Current generic events keep fixed attendance and require separate origin evidence. Published models keep the attendee origin fixed and change only the trip cost.
 
 ## Smallest next step (proposal, not built)
 
