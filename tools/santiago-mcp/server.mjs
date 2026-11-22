@@ -1,5 +1,7 @@
 import { queryResult, queryResultTool } from './query-result.mjs';
-import { publishExperimentError, publishExperimentResult, publishMetricResult, publishResultStatus, resultStatusTool } from './result-display.mjs';
+import * as resultDisplay from './result-display.mjs';
+import { applyMetroTool, metroDrafts, proposeMetroTool } from './metro-proposal.mjs';
+const { publishExperimentError, publishExperimentResult, publishMetricResult, publishResultStatus, resultStatusTool } = resultDisplay;
 import { buildingPlacementChange, expandBuildingPlacements } from './building-placement.mjs';
 import { optionalAttendanceChange } from './optional-attendance.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -23,6 +25,14 @@ const censusMode = { 1: 'car', 2: 'public transport (bus, Metro, train, taxi, co
 const named = (counts, names) => Object.fromEntries(Object.entries(counts).map(([k, v]) => [names[k] ?? k, v]));
 const comunaAt = (p) => communes.find((f) => f.geometry.coordinates.some(([outer, ...holes]) => inRing(p, outer) && !holes.some((h) => inRing(p, h))))?.properties;
 const stationCatalog = JSON.parse(data('metro_training.json'));
+let metroCatalog;
+const metro = metroDrafts({
+  getCatalog: () => metroCatalog ??= JSON.parse(data('editable_transit.json')),
+  knownPlaces: placeRows.map(row => ({
+    id: row[0], name: row[1], aliases: [row[1].split(' (')[0]], coordinates: [+row[3], +row[4]],
+  })),
+  areaAt: point => comunaAt(point)?.name,
+});
 const currentStations = new Set(stationCatalog.map(s => s.id));
 
 const api = process.env.SANTIAGO_API_URL ?? 'http://127.0.0.1:8787';
@@ -78,6 +88,8 @@ const lineProperties = {
   vehicle_capacity: { type: 'number', exclusiveMinimum: 0, description: 'Passengers per vehicle. Caps line_riders per half hour.' },
   segment_minutes: numbers, dwell_minutes: numbers, headway_minutes: { type: ['number', 'null'], exclusiveMinimum: 0, description: 'Use a positive headway for new service. Use null to restore a null catalog headway.' },
   pickup_type: stopRules, drop_off_type: stopRules,
+  metro_project_id: { type: 'string' },
+  demand_headway_minutes: { type: 'number', exclusiveMinimum: 0 },
 };
 const featureChanges = [
   {
@@ -437,7 +449,7 @@ async function dispatch({ method, params }) {
     serverInfo: { name: 'santiago', version: '2.0.0' },
   };
   if (method === 'ping') return {};
-  const tools = [tool, sceneTool, listReplaysTool, runReplayTool, createReplayTool, queryResultTool];
+  const tools = [tool, sceneTool, listReplaysTool, runReplayTool, createReplayTool, queryResultTool, proposeMetroTool, applyMetroTool];
   if (resultStatusTool) tools.push(resultStatusTool);
   if (method === 'tools/list') return { tools };
   if (method !== 'tools/call' || !tools.some(t => t.name === params?.name)) return null;
@@ -452,7 +464,29 @@ async function dispatch({ method, params }) {
     }
     let text;
     if (params.name === resultStatusTool?.name) text = publishResultStatus(args);
-    else if (params.name === sceneTool.name) text = await setScene(args);
+    else if (params.name === proposeMetroTool.name) {
+      text = metro.propose(args);
+      if (resultStatusTool) {
+        const names = text.stations.map(station => station.name).join(' → ');
+        publishResultStatus({ cards: [{
+          title: text.title.slice(0, 100), status: 'pending',
+          scope: `${text.stations.length} estaciones. ${names}`.slice(0, 600),
+        }] });
+      }
+    } else if (params.name === applyMetroTool.name) {
+      const applied = await metro.apply(args, changes => runScenario({ changes }, true));
+      const { full, projectId, projectTitle, stations, patterns, demand, unavailable_activities } = applied;
+      if (resultDisplay.publishMetroResult) resultDisplay.publishMetroResult(full, { projectId, projectTitle });
+      else if (resultStatusTool) publishResultStatus({ cards: [{
+        title: projectTitle.slice(0, 100), status: 'unavailable',
+        scope: 'La línea se aplicó. La tarjeta de demanda todavía no está disponible en este visor.',
+      }] });
+      text = {
+        status: 'applied', revision: full.revision, project_id: projectId, title: projectTitle,
+        stations, patterns_applied: patterns.length, work_estimate: demand,
+        unavailable_activities: demand?.activities ?? unavailable_activities,
+      };
+    } else if (params.name === sceneTool.name) text = await setScene(args);
     else if (params.name === queryResultTool.name) {
       const { source } = args;
       const valid = source?.type === 'current' && Object.keys(source).length === 1 ||
