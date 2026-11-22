@@ -1,7 +1,7 @@
 """Match illustrative stadium arrivals to the same regular-weekday GTFS runs the viewer draws.
 
-Run from the repo root: python3 tools/pack/event_transit_routes.py GTFS_20260321_v3.zip
-Requires Shapely 2. The event result supplies all demand; this file supplies geometry references.
+Run from the repo root: python3 tools/pack/event_transit_routes.py GTFS_20260321_v3.zip urban.osm.pbf B-full-result.json
+Requires Shapely 2 and osmium-tool. The event result supplies all demand; this file supplies geometry references.
 """
 
 import bisect
@@ -17,14 +17,15 @@ from functools import lru_cache
 from pathlib import Path
 from zipfile import ZipFile
 
+from event_gate_walks import GATE, degrees, egress, gate_networks, indoor_routes
 from shapely.geometry import Point, shape
 
 DATA = Path("web/data")
 VENUES = {
     "mut": ([-70.601132, -33.417280], {"TB-TOB"}),
-    "monumental": ([-70.605966, -33.506537], {"PE", "MA"}),
+    "monumental": ([-70.605966, -33.506537], {"PE", "MA", "SJ"}),
 }
-BUS_EXIT_RADIUS_M = 500
+BUS_EXIT_RADIUS_M = 1200
 WINDOW_START = 14 * 3600
 WINDOW_END = 15 * 3600
 
@@ -44,7 +45,9 @@ def clock(value):
     return h * 3600 + m * 60 + s
 
 
-feed = Path(sys.argv[1])
+feed, pbf, scenario = map(Path, sys.argv[1:])
+networks = gate_networks(pbf, json.loads(scenario.read_bytes()), VENUES)
+doors = read("metro_entrances.json.gz")["stations"]
 surface = read("rider_services.json.gz")
 metro = read("metro_schedule.json.gz")
 digest = hashlib.sha256(feed.read_bytes()).hexdigest()
@@ -64,6 +67,12 @@ with ZipFile(feed) as archive:
         for k, s in stops.items()
         if s["stop_lon"]
     }
+    source_pathways = {r["pathway_id"]: r for r in rows("pathways")}
+    station_graph = indoor_routes(source_pathways.values())
+    areas = defaultdict(list)
+    for sid, stop in stops.items():
+        if stop["location_type"] == "4":
+            areas[stop["parent_station"]].append(sid)
     weekday = {r["service_id"] for r in rows("calendar") if r["monday"] == "1"}
     trips = {r["trip_id"]: r for r in rows("trips") if r["service_id"] in weekday}
     route_type = {r["route_id"]: r["route_type"] for r in rows("routes")}
@@ -130,12 +139,13 @@ for service, begin, end, _, candidates in surface["legs"]:
 
 boundaries = [
     (f["properties"]["cut"], shape(f["geometry"]))
-    for f in json.load(open("data/mvp/communes.geojson"))["features"]
+    for f in json.loads(Path("data/mvp/communes.geojson").read_bytes())["features"]
 ]
-centres = {
-    r["cut"]: [float(r["longitude"]), float(r["latitude"])]
-    for r in csv.DictReader(open("data/mvp/communes.csv"))
-}
+with Path("data/mvp/communes.csv").open() as census:
+    centres = {
+        r["cut"]: [float(r["longitude"]), float(r["latitude"])]
+        for r in csv.DictReader(census)
+    }
 
 
 @lru_cache(None)
@@ -160,8 +170,67 @@ def rail_times(track, start, end):
     return sorted(options)
 
 
-def example_metro(legs):
-    deadline = WINDOW_END - 1
+@lru_cache(None)
+def final_walk(venue, stop_id, platform=None):
+    network = networks[venue]
+    choices = []
+    if platform is None:
+        for node in network.platforms.get(stop_id, []):
+            walk = network.walk(node)
+            offset = metres(coords[stop_id], degrees(network.nodes[node]))
+            if walk and offset <= 50:
+                walk["gtfs_to_osm_platform_offset_m"] = round(offset, 1)
+                choices.append((offset, walk))
+    else:
+        for door in doors.get(stop_id, []):
+            if (
+                not door.get("osm")
+                or venue == "mut"
+                and door["gtfs"] in {"TB-TOB:B", "TB-TOB:E", "TB-TOB:F"}
+            ):
+                continue
+            walk = network.walk(door["osm"])
+            inside = (
+                egress(station_graph, areas[platform], door["gtfs"]) if walk else None
+            )
+            if inside:
+                lengths = [
+                    source_pathways[pid]["length"] for pid in inside["pathway_ids"]
+                ]
+                walk["station_egress"] = {
+                    "platform_id": platform,
+                    **inside,
+                    "known_distance_m": sum(float(m) for m in lengths if m),
+                    "distance_complete": all(lengths),
+                }
+                choices.append((inside["seconds"] + walk["seconds"], walk))
+    if not choices:
+        return None
+    walk = min(choices, key=lambda c: c[0])[1]
+    walk["total_seconds"] = walk["seconds"] + walk.get("station_egress", {}).get(
+        "seconds", 0
+    )
+    walk["mode"] = "walk"
+    walk["minutes"] = walk["seconds"] / 60
+    return walk
+
+
+@lru_cache(None)
+def final_platform(track, end):
+    # Every native run that calls here must use the same original GTFS platform.
+    parent = tracks[track]["parent_station_ids"][end]
+    platforms = {
+        sid
+        for tid, calls in rail_runs[track]
+        if any(c[3] == end for c in calls)
+        for _, sid, _, _ in ordered[tid]
+        if stops[sid]["parent_station"] == parent
+    }
+    if len(platforms) == 1:
+        return next(iter(platforms))
+
+
+def example_metro(legs, deadline):
     evidence = []
     for track, start, end in reversed(legs):
         times = rail_times(track, start, end)
@@ -288,7 +357,7 @@ def feeder_links():
     return links.values()
 
 
-def connections(legs, transfer):
+def connections(legs, transfer, walk):
     """One complete chain per eligible final run, with no fabricated service starts."""
     schedules = []
     for leg in legs:
@@ -310,7 +379,8 @@ def connections(legs, transfer):
 
     options = []
     for last in schedules[-1]:
-        if not WINDOW_START <= last[0] < WINDOW_END:
+        gate_arrival = last[0] + walk["total_seconds"]
+        if not WINDOW_START <= gate_arrival < WINDOW_END:
             continue
         chain = [last]
         for previous in reversed(range(len(legs) - 1)):
@@ -342,9 +412,43 @@ def connections(legs, transfer):
                 call.update(template=vehicle, start_seconds=start)
             calls.append(call)
         options.append(
-            {"departure_seconds": chain[0][1], "alight_seconds": last[0], "legs": calls}
+            {
+                "departure_seconds": chain[0][1],
+                "alight_seconds": last[0],
+                "gate_arrival_seconds": gate_arrival,
+                "legs": calls,
+            }
         )
     return options
+
+
+def offer(best, center, legs, evidence, walk, transfer=None):
+    origin, end = legs[0]["board_stop_id"], legs[-1]["alight_stop_id"]
+    cut = home(origin)
+    if not cut or evidence[-1]["arrival"] + walk["total_seconds"] < WINDOW_START:
+        return
+    home_m, exit_m = (
+        metres(centres[cut], coords[origin]),
+        metres(center, coords[end]),
+    )
+    mode = legs[0]["mode"]
+    # A representative origin inside the comuna, closest to its published center.
+    # Break ties by fewest transfers, latest usable boarding, then venue proximity.
+    score = (round(home_m), len(legs), -evidence[0]["departure"], round(exit_m))
+    if (venue_key := (cut, mode)) not in best or score < best[venue_key][0]:
+        best[venue_key] = (
+            score,
+            {
+                "legs": legs,
+                "board": coords[origin],
+                "alight": coords[end],
+                "origin_center_distance_m": round(home_m),
+                "venue_distance_m": round(exit_m),
+                "walk_path": walk,
+            },
+        )
+        if transfer:
+            best[venue_key][1]["transfer"] = transfer
 
 
 def make_venues():
@@ -353,53 +457,37 @@ def make_venues():
     for venue, (center, stations) in VENUES.items():
         best = {}
 
-        def offer(legs, evidence, transfer=None):
-            origin, end = legs[0]["board_stop_id"], legs[-1]["alight_stop_id"]
-            cut = home(origin)
-            if not cut or evidence[-1]["arrival"] < WINDOW_START:
-                return
-            home_m, exit_m = (
-                metres(centres[cut], coords[origin]),
-                metres(center, coords[end]),
-            )
-            mode = legs[0]["mode"]
-            # A representative origin inside the comuna, closest to its published center.
-            # Break ties by fewest transfers, latest usable boarding, then venue proximity.
-            score = (round(home_m), len(legs), -evidence[0]["departure"], round(exit_m))
-            if (venue_key := (cut, mode)) not in best or score < best[venue_key][0]:
-                best[venue_key] = (
-                    score,
-                    {
-                        "legs": legs,
-                        "board": coords[origin],
-                        "alight": coords[end],
-                        "origin_center_distance_m": round(home_m),
-                        "venue_distance_m": round(exit_m),
-                    },
-                )
-                if transfer:
-                    best[venue_key][1]["transfer"] = transfer
-
         rail_by_origin = defaultdict(list)
         for path in metro_options(stations):
-            evidence = example_metro(path)
+            track, _, end = path[-1]
+            platform = final_platform(track, end)
+            if not platform:
+                continue
+            walk = final_walk(venue, tracks[track]["parent_station_ids"][end], platform)
+            if not walk:
+                continue
+            evidence = example_metro(path, WINDOW_END - 1 - walk["total_seconds"])
             if evidence:
                 legs = [rail_leg(*leg) for leg in path]
-                offer(legs, evidence)
-                rail_by_origin[legs[0]["board_stop_id"]].append((legs, evidence))
+                offer(best, center, legs, evidence, walk)
+                rail_by_origin[legs[0]["board_stop_id"]].append((legs, evidence, walk))
         for pattern, candidates in templates.items():
             service, direction, _, stop_ids = active_patterns[pattern]
             for j, end in enumerate(stop_ids):
                 if metres(center, coords[end]) > BUS_EXIT_RADIUS_M:
                     continue
+                walk = final_walk(venue, end)
+                if not walk:
+                    continue
                 for i, start in enumerate(stop_ids[:j]):
                     # Do not use a loop to carry people away from a venue stop and back.
-                    if (
-                        start == end
-                        or metres(center, coords[start]) <= BUS_EXIT_RADIUS_M
+                    if start == end or metres(center, coords[start]) <= metres(
+                        center, coords[end]
                     ):
                         continue
-                    example = bus_example(candidates, i, j, (WINDOW_END - 1))
+                    example = bus_example(
+                        candidates, i, j, WINDOW_END - 1 - walk["total_seconds"]
+                    )
                     if example:
                         leg = {
                             "mode": "bus",
@@ -411,29 +499,32 @@ def make_venues():
                             "board_stop_id": start,
                             "alight_stop_id": end,
                         }
-                        offer([leg], [example])
+                        offer(best, center, [leg], [example], walk)
         direct = {cut for cut, _ in best}
         for bus, link in feeders:
             # Expand geographic coverage without replacing direct options.
             cut = home(bus["board_stop_id"])
             if not cut or cut in direct:
                 continue
-            for rail, timings in rail_by_origin.get(link["to_station"], []):
+            for rail, timings, walk in rail_by_origin.get(link["to_station"], []):
                 gap = max(300, math.ceil(link["distance_m"] / 1.4))
                 deadline = timings[0]["departure"] - gap
                 example = bus_example(
                     bus["templates"], bus["from"], bus["to"], deadline
                 )
                 if example and deadline - example["arrival"] <= 1800:
-                    offer([bus, *rail], [example, *timings], link)
+                    offer(best, center, [bus, *rail], [example, *timings], walk, link)
         by_cut = {}
         for (cut, mode), (_, option) in sorted(best.items()):
-            departures = connections(option["legs"], option.get("transfer"))
+            departures = connections(
+                option["legs"], option.get("transfer"), option["walk_path"]
+            )
             if departures:
                 option["departure_options"] = departures
                 by_cut.setdefault(cut, []).append(option)
         venues[venue] = {
             "center": center,
+            "gate": degrees(networks[venue].gate.coords[0]),
             "communes": by_cut,
             "unresolved": sorted(set(centres) - by_cut.keys()),
         }
@@ -449,13 +540,23 @@ result = {
             "rider_services.json.gz",
             "metro_schedule.json.gz",
             "transit_paths.json",
+            "metro_entrances.json.gz",
+            "estadio_monumental_parts.geojson",
         )
     },
+    "walk_source": {
+        "osm_source": read("metro_entrances.json.gz")["osm_source"],
+        "osm_credit": "© OpenStreetMap contributors, ODbL 1.0",
+        "extract_sha256": hashlib.file_digest(pbf.open("rb"), "sha256").hexdigest(),
+        "scenario_sha256": hashlib.sha256(scenario.read_bytes()).hexdigest(),
+        "gate_osm_node": GATE,
+        "walk_kmh": 4.8,
+    },
     "service_day": "regular Monday",
-    "alight_window_seconds": [WINDOW_START, WINDOW_END],
+    "gate_arrival_window_seconds": [WINDOW_START, WINDOW_END],
     "time_unit": "seconds since midnight in Santiago; end exclusive",
     "maximum_bus_exit_distance_m": BUS_EXIT_RADIUS_M,
-    "method": "Illustrative inbound options. Origin stop inside the comuna nearest its census center. Direct bus or up to two Metro lines at a common station. Else use a feeder bus and a transfer already listed in a published OD plan. Each departure option reaches the destination stop from 14:00 inclusive to 15:00 exclusive. The consumer must add the final walk and check gate arrival against the same bounds. Match day was Sunday; the native regular Monday is a replay assumption. Connections allow at least five minutes to transfer. Distances to centers are straight-line. No fan assignment or access walks.",
+    "method": "Illustrative inbound options. Origin stop inside the comuna nearest its census center. Direct bus or up to two Metro lines at a common station. Else use a feeder bus and a transfer already listed in a published OD plan. Each option reaches the grounds gate from 14:00 inclusive to 15:00 exclusive. Outdoor walking follows connected OSM pedestrian ways and walkable street centerlines. A physical GTFS-matched platform or exit lies on or within one metre of a pedestrian way. Indoor Metro egress uses directed GTFS pathways and source traversal times; no indoor line is drawn. Match day was Sunday; the native regular Monday is a replay assumption. Connections allow at least five minutes to transfer. Distances to centers are straight-line. No fan assignment or walk from home to first boarding stop.",
     "venues": make_venues(),
 }
 Path("data/mvp/event_transit_routes.json").write_text(
