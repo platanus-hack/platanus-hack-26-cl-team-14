@@ -12,7 +12,6 @@
   // Must be a valid URL, for example: https://my-project.vercel.app
   // If your project is an app, put the download link here instead
   // (for example, a URL to download an APK).
-  // La ficha enlaza al código fuente. El equipo decide la URL de entrega.
-  // Paquetes de descarga: https://github.com/platanus-hack/platanus-hack-26-cl-team-14/releases/tag/v0.1.0
-  "deploy-url": "https://github.com/platanus-hack/platanus-hack-26-cl-team-14"
+  // La portada enlaza a la última versión publicada.
+  "deploy-url": "https://santiaguito.cl/"
 }
