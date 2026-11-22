@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Santiaguito · Mapocho y Metro</title>
+  <style>
+    @font-face {
+      font-family: Barlow;
+      src: url("../viz/assets/barlow/Barlow-Regular.ttf") format("truetype");
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100svh;
+      margin: 0;
+      padding: 3vh 3vw 2vh;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 2vh;
+      color: #fff;
+      background: #101923;
+      font-family: Barlow, system-ui, sans-serif;
+    }
+    main {
+      width: min(100%, 170vh);
+      margin: auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: auto auto auto;
+      column-gap: clamp(12px, 2vw, 38px);
+      row-gap: 1.6vh;
+    }
+    section {
+      display: grid;
+      grid-row: span 3;
+      grid-template-rows: subgrid;
+    }
+    h1, h2 {
+      align-self: end;
+      margin: 0;
+      padding-bottom: .12em;
+      font-size: clamp(1rem, min(3vw, 5.4vh), 3.75rem);
+      font-weight: 400;
+      line-height: 1.03;
+      text-wrap: balance;
+    }
+    video {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #0b1219;
+    }
+    .detail {
+      min-height: 2.55em;
+      margin: 0;
+      color: #8dd0ff;
+      font-size: clamp(.85rem, min(2.15vw, 3.7vh), 2.55rem);
+      line-height: 1.14;
+    }
+    #auto-result:not([hidden]) {
+      display: block;
+      color: #fff;
+      font-size: .76em;
+    }
+    footer {
+      color: #dce4ef;
+      font-size: clamp(.55rem, 1vw, 1rem);
+      line-height: 1.2;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section aria-labelledby="mapocho-question">
+      <h1 id="mapocho-question">¿Y si hubiera un ferry en el Mapocho?</h1>
+      <video id="ferry" src="media/mapocho-muelle.mp4" muted playsinline preload="auto"
+        aria-label="Embarque y zarpe del ferry simulado en el Mapocho"></video>
+      <p class="detail">Embarque y zarpe</p>
+    </section>
+    <section aria-labelledby="metro-question">
+      <h2 id="metro-question">¿Y si cerrara todo el Metro de 7 a 10?</h2>
+      <video id="metro" src="media/metro-tobalaba.mp4" muted playsinline preload="auto"
+        aria-label="Trenes en Tobalaba antes y durante el cierre simulado"></video>
+      <p class="detail">
+        <span id="metro-status">Servicio habitual</span>
+        <span id="auto-result" hidden>Salidas estimadas al trabajo en auto de 504.342 a 591.740</span>
+      </p>
+    </section>
+  </main>
+  <footer>
+    © OpenStreetMap contributors · Google Research, Open Buildings 2.5D Temporal ·
+    Copernicus WorldDEM-90 © DLR e.V. 2010–2014 and Airbus Defence and Space GmbH
+    2014–2018, provided under COPERNICUS by the European Union and ESA. All rights reserved.
+  </footer>
+  <script>
+    const ferry = document.querySelector('#ferry');
+    const metro = document.querySelector('#metro');
+    const status = document.querySelector('#metro-status');
+    const result = document.querySelector('#auto-result');
+
+    metro.addEventListener('timeupdate', () => {
+      status.textContent = metro.currentTime >= 6.9 ? 'Cierre simulado de 07:00 a 10:00' : 'Servicio habitual';
+      result.hidden = metro.currentTime < 11.9;
+    });
+
+    function playSlide() {
+      for (const video of [ferry, metro]) {
+        video.currentTime = 0;
+        video.playbackRate = 1.25;
+        video.play().catch(() => {});
+      }
+    }
+
+    document.addEventListener('click', playSlide);
+    document.addEventListener('keydown', event => {
+      if (event.code === 'Space' || event.code === 'KeyR') {
+        event.preventDefault();
+        playSlide();
+      }
+    });
+    playSlide();
+  </script>
+</body>
+</html>
