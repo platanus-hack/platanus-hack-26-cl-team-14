@@ -1,4 +1,4 @@
-//! Local display detours use connected, directed OSM streets outside placed buildings.
+//! Local display detours use open, directed OSM streets.
 use super::*;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BinaryHeap, HashSet};
@@ -22,6 +22,7 @@ struct ArcEdge {
 #[derive(Clone, Copy)]
 struct Edge {
     to: usize,
+    way: u64,
     metres: f32,
     crossing: Option<road_water::Crossing>,
 }
@@ -48,7 +49,8 @@ impl Graph {
             nodes.push(p);
         }
         let mut edges = vec![Vec::new(); nodes.len()];
-        for way in pack.ways.into_values() {
+        for (id, way) in pack.ways {
+            let way_id = id.parse().unwrap();
             let crossing = match way.structure.as_str() {
                 "bridge" => Some(road_water::Crossing::Bridge),
                 "tunnel" => Some(road_water::Crossing::Tunnel),
@@ -57,6 +59,7 @@ impl Graph {
             for edge in way.edges {
                 edges[indices[&edge.from]].push(Edge {
                     to: indices[&edge.to],
+                    way: way_id,
                     metres: edge.length_m,
                     crossing,
                 });
@@ -112,8 +115,8 @@ impl Graph {
                 }
             }
         }
-        anchors.sort_by_key(|a| (a.from, a.edge.to));
-        anchors.dedup_by_key(|a| (a.from, a.edge.to));
+        anchors.sort_by_key(|a| (a.from, a.edge.to, a.edge.way));
+        anchors.dedup_by_key(|a| (a.from, a.edge.to, a.edge.way));
         anchors
     }
 }
@@ -144,7 +147,7 @@ impl Ord for Visit {
 pub(super) struct CarDetours {
     graph: Option<Graph>,
     open: Vec<Vec<Edge>>,
-    retired: HashSet<(usize, usize)>,
+    retired: HashSet<(usize, usize, u64)>,
     mask: StreetMask,
     roads: road_edits::TrafficEdits,
     // Retain the source Arc so its address cannot be reused during this result.
@@ -162,14 +165,14 @@ impl CarDetours {
         self.mask = mask.clone();
         self.open.clear();
         self.retired.clear();
-        if mask.is_empty() {
+        if mask.is_empty() && roads.is_empty() {
             return;
         }
         let graph = self.graph.get_or_insert_with(Graph::load);
         for (from, edges) in graph.edges.iter().enumerate() {
             for edge in edges {
-                if roads.crosses_retired(graph.nodes[from], graph.nodes[edge.to]) {
-                    self.retired.insert((from, edge.to));
+                if roads.retires_way(edge.way, graph.nodes[from], graph.nodes[edge.to], edge.crossing) {
+                    self.retired.insert((from, edge.to, edge.way));
                 }
             }
         }
@@ -185,7 +188,7 @@ impl CarDetours {
                         let (a, b) = (graph.nodes[from], graph.nodes[edge.to]);
                         let separated = edge.crossing.is_some();
                         (separated || !mask.blocks_segment(a, b, 4.))
-                            && !self.retired.contains(&(from, edge.to))
+                            && !self.retired.contains(&(from, edge.to, edge.way))
                     })
                     .collect()
             })
@@ -193,7 +196,7 @@ impl CarDetours {
     }
 
     pub(super) fn path(&mut self, original: Arc<Path>) -> Option<Arc<Path>> {
-        if self.mask.is_empty()
+        if (self.mask.is_empty() && self.roads.is_empty())
             || original.legs.len() != 1
             || original.legs[0].vehicle != Vehicle::Car
         {
@@ -218,13 +221,11 @@ impl CarDetours {
             .enumerate()
             .filter_map(|(i, pair)| {
                 let metres = (path.metres[i] + path.metres[i + 1]) * 0.5;
-                let separated = path.crossings.iter().any(|&(a, b, kind)| {
-                    matches!(
-                        kind,
-                        road_water::Crossing::Bridge | road_water::Crossing::Tunnel
-                    ) && (a..b).contains(&metres)
-                });
-                (!separated && self.mask.blocks_segment(pair[0], pair[1], 4.)).then_some(i)
+                let crossing = path.crossing_at(metres);
+                let separated = matches!(crossing, Some(road_water::Crossing::Bridge | road_water::Crossing::Tunnel));
+                ((!separated && self.mask.blocks_segment(pair[0], pair[1], 4.))
+                    || self.roads.crosses_retired(pair[0], pair[1], crossing))
+                    .then_some(i)
             })
             .collect();
         Some((*conflicts.first()?, *conflicts.last()?))
@@ -234,21 +235,12 @@ impl CarDetours {
         let graph = self.graph.as_ref().unwrap();
         let anchor = |i: usize, source: bool| {
             let p = path.points[i];
-            if self.mask.blocks_segment(p, p + Vec3::X * 0.01, 4.) {
-                return None;
-            }
-            let (a, b) = if i + 1 < path.points.len() {
-                (i, i + 1)
-            } else {
-                (i - 1, i)
-            };
-            let direction = (path.points[b] - path.points[a]).normalize();
-            let m = (path.metres[a] + path.metres[b]) * 0.5;
-            let crossing = path
-                .crossings
-                .iter()
-                .find(|&&(a, b, _)| (a..b).contains(&m))
-                .map(|&(_, _, k)| k);
+            // Use the preserved side of the route at each splice.
+            let a = if source { i.saturating_sub(1) } else { i.min(path.points.len() - 2) };
+            let b = a + 1;
+            let direction = (path.points[b] - path.points[a]).normalize_or_zero();
+            let crossing = path.crossing_at((path.metres[a] + path.metres[b]) * 0.5);
+            let crossing = crossing.filter(|kind| *kind != road_water::Crossing::Water);
             let anchors: Vec<_> = graph
                 .anchors(p, direction, crossing, i == 0 || i + 1 == path.points.len())
                 .into_iter()
@@ -258,8 +250,9 @@ impl CarDetours {
                     } else {
                         graph.nodes[a.from]
                     };
-                    !self.retired.contains(&(a.from, a.edge.to))
+                    !self.retired.contains(&(a.from, a.edge.to, a.edge.way))
                         && (a.edge.crossing.is_some() || !self.mask.blocks_segment(p, join, 4.))
+                        && !self.roads.crosses_retired(p, join, a.edge.crossing)
                 })
                 .collect();
             (!anchors.is_empty()).then_some((i, anchors))
@@ -268,10 +261,12 @@ impl CarDetours {
             .filter_map(|i| anchor(i, true))
             .flat_map(|(i, arcs)| arcs.into_iter().map(move |arc| (i, arc)))
             .collect();
-        let goals: Vec<_> = (last + 1..path.points.len())
-            .filter_map(|i| anchor(i, false))
-            .flat_map(|(i, arcs)| arcs.into_iter().map(move |arc| (i, arc)))
-            .collect();
+        let mut goals = HashMap::<_, Vec<_>>::new();
+        for (i, arcs) in (last + 1..path.points.len()).filter_map(|i| anchor(i, false)) {
+            for arc in arcs {
+                goals.entry(arc.from).or_default().push((i, arc));
+            }
+        }
         if starts.is_empty() || goals.is_empty() {
             return None;
         }
@@ -279,8 +274,13 @@ impl CarDetours {
         let mut previous = vec![None; graph.nodes.len()];
         let mut seeds = HashMap::new();
         let mut queue = BinaryHeap::new();
+        // Charge for replacing an open part of the original route. The road
+        // detour should leave near the cut and rejoin the same route promptly.
+        let rejoin_bias = if self.roads.is_empty() { 0. } else { 2. };
         for (index, a) in starts {
-            let metres = path.metres[index] + a.edge.metres * (1. - a.fraction);
+            let replaced = path.metres[first] - path.metres[index];
+            let metres = path.metres[index] + a.edge.metres * (1. - a.fraction)
+                + rejoin_bias * replaced;
             if metres < distance[a.edge.to] {
                 distance[a.edge.to] = metres;
                 seeds.insert(a.edge.to, (index, a));
@@ -296,9 +296,10 @@ impl CarDetours {
             if metres > best {
                 break;
             }
-            for &(index, goal) in goals.iter().filter(|(_, a)| a.from == node) {
+            for &(index, goal) in goals.get(&node).into_iter().flatten() {
+                let replaced = path.metres[index] - path.metres[last + 1];
                 let total = metres + goal.edge.metres * goal.fraction + path.metres.last().unwrap()
-                    - path.metres[index];
+                    - path.metres[index] + rejoin_bias * replaced;
                 if total < best {
                     best = total;
                     reached = Some((index, goal));
@@ -356,15 +357,14 @@ impl CarDetours {
         }
         crossings.sort_by(|a, b| a.0.total_cmp(&b.0));
         let mut seconds = path.seconds[..=start].to_vec();
+        let speed = Vehicle::Car.speed();
         for &m in &metres[start + 1..] {
-            seconds.push(
-                path.seconds[start]
-                    + (path.seconds[end] - path.seconds[start]) * (m - left) / (right - left),
-            );
+            seconds.push(path.seconds[start] + (m - left) / speed);
         }
+        let delay = seconds.last().unwrap() - path.seconds[end];
         points.extend_from_slice(&path.points[end + 1..]);
         metres.extend(path.metres[end + 1..].iter().map(|m| m + delta));
-        seconds.extend_from_slice(&path.seconds[end + 1..]);
+        seconds.extend(path.seconds[end + 1..].iter().map(|t| t + delay));
         let end = points.len() - 1;
         Some(Arc::new(Path {
             points,
