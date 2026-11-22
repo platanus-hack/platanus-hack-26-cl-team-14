@@ -3,7 +3,7 @@ use super::*;
 use serde::Deserialize;
 use std::{collections::BTreeMap, fs::File, io::BufReader};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Segment(Vec2, Vec2);
 
 impl Segment {
@@ -73,14 +73,14 @@ struct Line {
 #[derive(Default)]
 pub(super) struct Catalog(Option<Roads>);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Lane {
     line: Segment,
     until: f32,
     changed: Option<usize>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default, PartialEq)]
 pub(super) struct TrafficEdits {
     cells: HashMap<IVec2, Vec<Lane>>,
     before: Vec<Vec<Segment>>,

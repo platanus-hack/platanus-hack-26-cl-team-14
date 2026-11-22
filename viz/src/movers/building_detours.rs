@@ -146,12 +146,18 @@ pub(super) struct CarDetours {
     open: Vec<Vec<Edge>>,
     retired: HashSet<(usize, usize)>,
     mask: StreetMask,
+    roads: road_edits::TrafficEdits,
     // Retain the source Arc so its address cannot be reused during this result.
     paths: HashMap<usize, (Arc<Path>, Option<Arc<Path>>)>,
 }
 
 impl CarDetours {
     pub(super) fn reset(&mut self, mask: &StreetMask, roads: &road_edits::TrafficEdits) {
+        // Scene revisions keep the same streets, so retain graph and path caches.
+        if self.mask == *mask && self.roads == *roads {
+            return;
+        }
+        self.roads = roads.clone();
         self.paths.clear();
         self.mask = mask.clone();
         self.open.clear();
