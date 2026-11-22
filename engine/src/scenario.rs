@@ -866,19 +866,22 @@ impl Scenario {
         let mut origins = vec![EntryOrigins::default(); self.stations.len() + network.additions.len()];
         let b = &self.base;
         let mut s = self.state(&pop, &network, &mut origins);
-        // Network reach: after a line edit that splits the Metro, a station keeps only the share of its riders
-        // (weighted by baseline station entries) whose stations it still reaches on the operating Metro graph.
+        // Network reach: after a Metro line edit, a station keeps the share of its riders' destination accessibility
+        // that remains on the operating Metro graph: destinations weighted by baseline entries and by
+        // exp(-beta x scheduled minutes), with the job-choice beta that choice.rs fits on the Census.
         let mut reach = vec![];
         if let Some(edits) = &line_edits {
-            let (now, then) = (edits.metro_components(), self.lines.get().unwrap().as_ref().unwrap().edits().metro_components());
+            let (now, then) = (edits.metro_minutes(), self.lines.get().unwrap().as_ref().unwrap().edits().metro_minutes());
             if now != then {
                 let w: Vec<f64> = b.day.iter().map(|bins| bins.iter().sum()).collect();
                 let ids: Vec<&String> = self.stations.iter().map(|st| &st.0).collect();
                 let open = |d: usize| network.open.contains(ids[d]);
+                let beta = self.choice.beta;
+                let access = |times: Option<&HashMap<String, f64>>, d: usize| times.and_then(|t| t.get(ids[d])).map_or(0.0, |m| w[d] * (-beta * m).exp());
                 for (i, day) in s.day.iter_mut().enumerate().take(ids.len()) {
-                    let (Some(&c_now), Some(&c_then)) = (now.get(ids[i]), then.get(ids[i])) else { continue };
-                    let kept: f64 = (0..ids.len()).filter(|&d| d != i && open(d) && now.get(ids[d]) == Some(&c_now)).map(|d| w[d]).sum();
-                    let total: f64 = (0..ids.len()).filter(|&d| d != i && then.get(ids[d]) == Some(&c_then)).map(|d| w[d]).sum();
+                    let Some(base) = then.get(ids[i]) else { continue };
+                    let kept: f64 = (0..ids.len()).filter(|&d| d != i && open(d)).map(|d| access(now.get(ids[i]), d)).sum();
+                    let total: f64 = (0..ids.len()).filter(|&d| d != i).map(|d| access(Some(base), d)).sum();
                     let r = kept / total;
                     day.iter_mut().for_each(|x| *x *= r);
                     reach.push(json!({"id": ids[i], "reach": (r * 1000.0).round() / 1000.0}));
@@ -1000,7 +1003,7 @@ impl Scenario {
         if !line_riders.is_empty() { result["line_riders"] = json!(line_riders); }
         if !reach.is_empty() {
             result["metro_reach"] = json!(reach);
-            result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a line edit splits the Metro, each station's entries are multiplied by the share of baseline entries at the other open stations it still reaches on the operating Metro graph. Riders who lose reach leave the Metro (bus or other); they are not counted at another station."));
+            result["assumptions"].as_array_mut().unwrap().push(json!("metro_reach: after a Metro line edit, each station's entries are multiplied by its remaining accessibility: the other open stations weighted by baseline entries and exp(-beta x scheduled Metro minutes), divided by the same sum on the baseline network. beta is the job-choice coefficient fitted on the Census. Changing trains costs an assumed 2 minutes; the first wait is not counted. Riders who lose accessibility leave the Metro (bus or other); they are not counted at another station."));
         }
         if !car_shares.is_empty() {
             let cars = self.car_ownership.as_ref().unwrap();
