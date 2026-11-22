@@ -39,12 +39,12 @@ Run: engine at this branch, `POST /api/scenario` with the two changes in `boat_l
 | --- | ---: | ---: |
 | Workers with a usable pier pair (1 km each end) | 11,094 | 4,173 |
 | Share where the boat beats the comuna-pair public time | 7.7 % | 6.5 % |
-| Demand, trips to work per weekday | 3,510 | 942 |
+| Demand, trips to work per weekday | 3,470 | 932 |
 | Riders after the segment capacity cap | 3,470 | 932 |
 | Taken from public / car / other | 2,439 / 451 / 580 | 416 / 245 / 271 |
 | Busiest segment, modeled daily on board | MAP06→MAP07, 2,367 | MAP07→MAP06, 278 |
 | Peak half hour (07:00–07:30), modeled demand on the busiest segment / seats | 404 / 486 = 83 % | 47 / 486 = 10 % |
-| Busiest boarding / alighting pier | MAP06 1,159 / MAP08 1,476 | MAP08 212 / MAP06 242 |
+| Busiest boarding / alighting pier | MAP06 1,190 / MAP08 1,503 | MAP08 210 / MAP06 241 |
 
 EOD 2012 reference ([mapocho/boat_trips.md](mapocho/boat_trips.md), same 17 km/h and 10 min): the boat beats the reported time on **36.8 %** of 51,929 weekday trips between any two piers (800 m each end), and 45.4 % when the piers are 3 km or more apart.
 
