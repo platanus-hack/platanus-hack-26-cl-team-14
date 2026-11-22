@@ -91,7 +91,7 @@ if [[ $presentation == --presentation ]]; then
     export SANTIAGO_WINDOW_RECT="$city_x $city_y $city_width $city_height"
     export SANTIAGO_DISTANCE="${SANTIAGO_DISTANCE:-38000}"
     touch "$viewer_log"
-    "${viewer[@]}" > >(tee "$viewer_log") &
+    "${viewer[@]}" > >(tee "$viewer_log") 2>&1 &
     window_pid=$!
     # The first activity-height receipt follows loading the city and applying the baseline.
     until grep -Eq '^Scenario [0-9]+: activity height changed' "$viewer_log"; do
