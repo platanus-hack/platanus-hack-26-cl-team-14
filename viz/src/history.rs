@@ -3,6 +3,7 @@ use bevy::{
     prelude::*,
     text::FontSize,
     ui::RelativeCursorPosition,
+    window::PrimaryWindow,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -398,6 +399,7 @@ fn receive(
 
 fn scroll(
     mut wheel: MessageReader<MouseWheel>,
+    window: Single<&Window, With<PrimaryWindow>>,
     list: Single<(&RelativeCursorPosition, &ComputedNode, &mut ScrollPosition), With<Catalogue>>,
 ) {
     let (cursor, node, mut position) = list.into_inner();
@@ -405,7 +407,7 @@ fn scroll(
         .read()
         .map(|event| match event.unit {
             MouseScrollUnit::Line => event.y * 33.,
-            MouseScrollUnit::Pixel => event.y,
+            MouseScrollUnit::Pixel => event.y / window.resolution.base_scale_factor(),
         })
         .sum();
     if cursor.cursor_over() && delta != 0. {

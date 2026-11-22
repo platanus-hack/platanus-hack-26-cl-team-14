@@ -1,3 +1,4 @@
+import { queryResult, queryResultTool } from './query-result.mjs';
 import { buildingPlacementChange, expandBuildingPlacements } from './building-placement.mjs';
 import { optionalAttendanceChange } from './optional-attendance.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -119,7 +120,7 @@ const tool = {
     type: 'object',
     required: ['changes'],
     properties: {
-      stations: { type: 'array', items: { type: 'string' }, description: 'Optional. Names or ids of the Metro stations the user asked about, for example ["UNIVERSIDAD DE CHILE"] or ["L7-05"]. Their rows always come back in asked_stations; a name shared by two stations returns both rows.' },
+      stations: { type: 'array', items: { type: 'string' }, description: 'Optional. Names or ids of the Metro stations the user asked about, for example ["UNIVERSIDAD DE CHILE"] or ["L7-05"]. Their rows come back in asked_stations. During a timed closure, entries_in_window counts modeled Metro entries within closure_window.half_hours. A name shared by two stations returns both rows.' },
       changes: {
         type: 'array',
         items: { oneOf: [scalarChange, ...featureChanges, buildingPlacementChange, optionalPointVisitChange, optionalAttendanceChange] },
@@ -354,6 +355,12 @@ function editSummary({ before, after, effects, ...edit }) {
   return { ...edit, before: featureSummary(before), after: featureSummary(after), effects };
 }
 
+function publicWorkerWeights() {
+  return data('mode_od.csv').trim().split('\n').slice(1).map(row => row.split(','))
+    .filter(([origin, destination, mode, workers]) => origin.startsWith('13') && destination.startsWith('13') && mode === '2' && +workers > 0)
+    .map(([origin_cut, destination_cut, , workers]) => ({ origin_cut, destination_cut, workers: +workers }));
+}
+
 async function dispatch({ method, params }) {
   if (method === 'initialize') return {
     protocolVersion: '2024-11-05',
@@ -361,7 +368,7 @@ async function dispatch({ method, params }) {
     serverInfo: { name: 'santiago', version: '2.0.0' },
   };
   if (method === 'ping') return {};
-  const tools = [tool, sceneTool, listReplaysTool, runReplayTool, createReplayTool];
+  const tools = [tool, sceneTool, listReplaysTool, runReplayTool, createReplayTool, queryResultTool];
   if (method === 'tools/list') return { tools };
   if (method !== 'tools/call' || !tools.some(t => t.name === params?.name)) return null;
   try {
@@ -373,6 +380,15 @@ async function dispatch({ method, params }) {
     }
     let text;
     if (params.name === sceneTool.name) text = await setScene(args);
+    else if (params.name === queryResultTool.name) {
+      const { source } = args;
+      const valid = source?.type === 'current' && Object.keys(source).length === 1 ||
+        source?.type === 'replay' && typeof source.id === 'string' && Object.keys(source).length === 2;
+      if (!valid) throw new Error('Choose the current result or specify one saved replay ID.');
+      const raw = source.type === 'replay' ? readReplay(source.id).result : await engineJSON('/api/scenario-latest');
+      if (!raw) throw new Error('There is no published result. Confirm and run an experiment, or select a saved replay.');
+      text = { source, ...queryResult(raw, args, publicWorkerWeights) };
+    }
     else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => readReplay(f.slice(0, -5)).meta);
     else if (params.name === runReplayTool.name) {
       const { meta, result } = readReplay(args.id);
@@ -459,7 +475,18 @@ function shortResult(full, asked, placesUsed) {
     result.asked_stations = asked.flatMap((name) => {
       const byId = byDelta.filter((s) => s.id === name);
       const matches = byId.length ? byId : byDelta.filter((s) => plain(s.name) === plain(name));
-      return matches.length ? matches.map((s) => ({ asked: name, ...s, new_station: !currentStations.has(s.id) })) : [{ asked: name, not_found: true }];
+      if (!matches.length) return [{ asked: name, not_found: true }];
+    return matches.map((s) => {
+      const row = { asked: name, ...s, new_station: !currentStations.has(s.id) };
+      const window = result.closure_window?.half_hours;
+      if (window) {
+        const [start, end] = window;
+        const station = stations.find(({ id }) => id === s.id);
+        const sum = (bins) => Math.round(bins.slice(start, end).reduce((total, entries) => total + entries, 0) * 10) / 10;
+        row.entries_in_window = { base: sum(station.base_half_hour), scenario: sum(station.scenario_half_hour) };
+      }
+      return row;
+    });
     });
     const opened = byDelta.filter((s) => !currentStations.has(s.id));
     if (opened.length) result.new_stations = {
