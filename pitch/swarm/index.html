@@ -158,7 +158,7 @@ for (const { h, items, n } of lanesData) {
     });
   }
   // One band per human: the lane that holds that person's agents.
-  add(lanes, 'band', { top: y - 6 + 'px', height: n * PITCH + 18 + 'px', background: h.color + '1a', borderLeft: '8px solid ' + h.color });
+  add(lanes, 'band', { top: y - 6 + 'px', height: n * PITCH + 18 + 'px', background: h.color + '1a' });
   add(names, 'hname', { top: y - LTOP + 10 + n * PITCH / 2 - 20 + 'px', color: h.color }, h.name.replace(/ .*/, ''));
   y += n * PITCH + GAP;
 }
