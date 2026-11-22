@@ -81,7 +81,7 @@ const add = (parent, cls, css, html = '') => {
 };
 
 // Story time -> track x. The night is compressed, short arcs get a minimum length.
-const SECONDS = 60, PPM = 1920 / 300, MID = 960;   // ~5 story hours across the screen
+const SECONDS = 40, LOOP = 45, PPM = 1920 / 300, MID = 960;   // ~5 story hours across the screen
 const arcs = []; let acc = 0;
 for (const p of PHASES) {
   const w = Math.max((p.to - p.from) * (p.night ? 0.15 : 1), 50) * PPM;
@@ -170,6 +170,11 @@ const pad = n => String(n).padStart(2, '0');
 const nameAt = (a, t) => a.names.filter(([nt]) => nt <= t).at(-1)[1];
 let start = performance.now(), lastArc;
 function frame() {
+  // Loop: after 45 s, clear the bars and play again from the start.
+  if ((performance.now() - start) / 1000 >= LOOP) {
+    start = performance.now(); lastArc = null;
+    for (const b of bars) { b.dot.classList.remove('on'); b.bar.classList.remove('done'); b.bar.style.width = '0px'; }
+  }
   const raw = (performance.now() - start) / 1000, sec = Math.min(raw, SECONDS);
   const x = sec / SECONDS * TOTAL;
   const t = tOf(x);
@@ -227,7 +232,7 @@ function frame() {
   // The final screen keeps only the city, the team's tokens and the site.
   for (const el of [lanes, document.getElementById('arc'), document.querySelector('.stats')]) el.style.opacity = 1 - fade;
   document.getElementById('final').style.opacity = fade;
-  if (raw < SECONDS + 3) setTimeout(frame, 33);
+  setTimeout(frame, 33);
 }
 frame();
 </script>
