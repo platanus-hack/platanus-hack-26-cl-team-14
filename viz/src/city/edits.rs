@@ -251,39 +251,35 @@ fn mesh_depth(meshes: &Assets<Mesh>, handle: &Mesh3d, bounds: Option<&Aabb>) -> 
     2. * bounds.half_extents.y + 2.
 }
 
-// The source still belongs to the city's ink and facade palette until it leaves the site.
+// Read the same geometry, facade and activity height as the occupied tile.
 fn baseline_copy(
     id: &str,
-    feature: &Value,
     buildings: &Buildings,
+    now: f32,
 ) -> Option<(Surface, Handle<StandardMaterial>)> {
     let (tile, index) = tile_key(id)?;
-    if super::ground::HIDDEN.contains(&(tile, index)) {
-        return None;
-    }
-    let bytes = buildings.boxes.slice(tile);
-    let at = 4 + 12 * index;
-    let x = super::word(bytes, at);
-    let z = super::word(bytes, at + 2);
-    let height = super::word(bytes, at + 10) as f32 * 0.1;
-    let center = buildings.boxes.position(x as f32, z as f32);
-    let (wall, roof) = super::paint(x, z, height);
-    let mut footprint = rings(&feature["geometry"]["coordinates"]);
-    for p in footprint.iter_mut().flatten() {
-        p.y = center.y;
-    }
-    let mut mesh = Surface {
-        textured: true,
-        ..default()
+    let (from, to) = buildings.heights.scale(tile, index);
+    let height = from + (to - from) * buildings.heights.progress(now);
+    let scale = |_| (height, height);
+    let detail = buildings.tiles[tile].map_or(super::Detail::Near, |(detail, _)| detail);
+    let (mesh, mat) = match detail {
+        super::Detail::Near => (
+            super::polygon_mesh(&buildings.boxes, &buildings.polygons, tile, &scale, &HashSet::new(), Some(index)),
+            &buildings.facade_material,
+        ),
+        detail => (
+            super::box_mesh(&buildings.boxes, tile, detail, &scale, &HashSet::new(), Some(index)),
+            &buildings.material,
+        ),
     };
-    super::facade::building(&mut mesh, &footprint, height, wall, roof);
-    Some((mesh, buildings.facade_material.clone()))
+    Some((mesh, mat.clone()))
 }
 
 // Every result is a full scenario. Keep only the last state of each edited object.
 pub(crate) fn refresh(
     mut commands: Commands,
     scenario: Res<Scenario>,
+    time: Res<Time>,
     mut buildings: ResMut<Buildings>,
     mode: Res<SubwayView>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -334,7 +330,12 @@ pub(crate) fn refresh(
         .collect();
     let unchanged: HashSet<_> = current
         .iter()
-        .filter(|(id, after)| previous.get(*id) == Some(*after))
+        .filter(|(id, after)| {
+            previous.get(*id).is_some_and(|shown| {
+                shown["geometry"] == after["geometry"]
+                    && shown["properties"]["height_m"] == after["properties"]["height_m"]
+            })
+        })
         .map(|(id, _)| id.as_str())
         .collect();
     // city_edits starts at the catalog baseline; the viewer may already show a later placement.
@@ -472,14 +473,15 @@ pub(crate) fn refresh(
         })
         .clone();
     for ((kind, id), (before, after)) in &final_state {
-        if kind == "building" && unchanged.contains(id.as_str()) {
-            continue;
-        }
-        let transition = departures.get(id.as_str()).copied();
+        let transition = if kind == "building" {
+            departures.get(id.as_str()).copied()
+        } else {
+            None
+        };
         if let Some(source) = transition {
             if !source.is_null()
                 && !departing_mesh.contains(id)
-                && let Some((shape, mat)) = baseline_copy(id, source, &buildings)
+                && let Some((shape, mat)) = baseline_copy(id, &buildings, time.elapsed_secs())
                 && !shape.indices.is_empty()
             {
                 let mesh = Mesh3d(meshes.add(shape.finish()));
@@ -522,9 +524,6 @@ pub(crate) fn refresh(
                     Mesh3d(meshes.add(shape.finish())),
                     MeshMaterial3d(path_material.clone()),
                 ));
-                if kind == "building" {
-                    entity.insert(BuildingEdit::new(id, false));
-                }
                 if kind == "road" || before["properties"]["mode"] != "metro" {
                     entity.insert((
                         SurfaceEdit,
@@ -536,6 +535,9 @@ pub(crate) fn refresh(
                     ));
                 }
             }
+        }
+        if kind == "building" && unchanged.contains(id.as_str()) {
+            continue;
         }
         if !after.is_null() && !(kind == "building" && moved_landmarks.contains_key(id)) {
             let shape = draw(after, kind, false, mask);
