@@ -2,7 +2,7 @@ use super::{Rgba, Surface, terrain::drape_land, terrain_from_xz};
 use bevy::prelude::{Resource, Vec3};
 use geo::{BooleanOps, BoundingRect, Coord, Intersects, LineString, Polygon, Rect, Relate};
 
-#[derive(Default, PartialEq, Resource)]
+#[derive(Clone, Default, PartialEq, Resource)]
 pub(crate) struct StreetMask(Vec<(Rect<f32>, Polygon<f32>)>);
 
 fn polygon(rings: &[Vec<Vec3>]) -> Polygon<f32> {
@@ -16,6 +16,64 @@ fn polygon(rings: &[Vec<Vec3>]) -> Polygon<f32> {
 }
 
 impl StreetMask {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub(super) fn overlaps(&self, rings: &[Vec<Vec3>]) -> bool {
+        let footprint = polygon(rings);
+        let Some(bounds) = footprint.bounding_rect() else {
+            return false;
+        };
+        self.0.iter().any(|(rect, mask)| {
+            if !rect.intersects(&bounds) {
+                return false;
+            }
+            let relation = mask.relate(&footprint);
+            relation.is_intersects() && !relation.is_touches()
+        })
+    }
+
+    pub(crate) fn intersects_body(
+        &self,
+        position: Vec3,
+        direction: Vec3,
+        half_length: f32,
+        half_width: f32,
+    ) -> bool {
+        let along = Vec3::new(direction.x, 0., direction.z).normalize_or_zero();
+        let side = Vec3::new(-along.z, 0., along.x) * half_width;
+        let along = along * half_length;
+        let corners = [
+            position + along + side,
+            position + along - side,
+            position - along - side,
+            position - along + side,
+        ];
+        let (lo, hi) = corners
+            .iter()
+            .fold((corners[0], corners[0]), |(lo, hi), &p| {
+                (lo.min(p), hi.max(p))
+            });
+        let bounds = Rect::new((lo.x, lo.z), (hi.x, hi.z));
+        if !self.intersects(&bounds) {
+            return false;
+        }
+        let body = polygon(&[corners.to_vec()]);
+        self.0
+            .iter()
+            .any(|(rect, mask)| rect.intersects(&bounds) && mask.intersects(&body))
+    }
+
+    pub(crate) fn blocks_segment(&self, from: Vec3, to: Vec3, clearance: f32) -> bool {
+        self.intersects_body(
+            (from + to) * 0.5,
+            to - from,
+            from.distance(to) * 0.5 + clearance,
+            clearance,
+        )
+    }
+
     pub(super) fn from_footprints(footprints: impl IntoIterator<Item = Vec<Vec<Vec3>>>) -> Self {
         Self(
             footprints

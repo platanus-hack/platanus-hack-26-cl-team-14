@@ -3,7 +3,7 @@ use super::*;
 use serde::Deserialize;
 use std::{collections::BTreeMap, fs::File, io::BufReader};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Segment(Vec2, Vec2);
 
 impl Segment {
@@ -73,14 +73,14 @@ struct Line {
 #[derive(Default)]
 pub(super) struct Catalog(Option<Roads>);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Lane {
     line: Segment,
     until: f32,
     changed: Option<usize>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default, PartialEq)]
 pub(super) struct TrafficEdits {
     cells: HashMap<IVec2, Vec<Lane>>,
     before: Vec<Vec<Segment>>,
@@ -88,6 +88,33 @@ pub(super) struct TrafficEdits {
 }
 
 impl TrafficEdits {
+    pub(super) fn crosses_retired(&self, from: Vec3, to: Vec3) -> bool {
+        let segment = Segment(from.xz(), to.xz());
+        if !segment.cells(0.).any(|cell| self.cells.contains_key(&cell)) {
+            return false;
+        }
+        let direction = (to - from).normalize_or_zero();
+        if [from, to, (from + to) * 0.5]
+            .into_iter()
+            .any(|p| self.hides(p, direction))
+        {
+            return true;
+        }
+        // Split at geometry boundaries so a short closed interval is sampled.
+        let mut boundaries = vec![0., from.distance(to)];
+        for line in self.before.iter().flatten().chain(&self.retained) {
+            for boundary in [line.0, line.1] {
+                if let Some(p) = segment.projection(boundary, direction.xz()) {
+                    boundaries.push((p - from.xz()).dot(direction.xz()));
+                }
+            }
+        }
+        boundaries.sort_by(f32::total_cmp);
+        boundaries
+            .windows(2)
+            .any(|pair| self.hides(from + direction * ((pair[0] + pair[1]) * 0.5), direction))
+    }
+
     pub(super) fn from_result(result: &Value, catalog: &mut Catalog) -> Self {
         let mut state = BTreeMap::new();
         for edit in result["city_edits"]
