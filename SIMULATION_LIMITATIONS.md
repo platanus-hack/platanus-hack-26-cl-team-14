@@ -6,11 +6,11 @@ Sources: the Discord thread "Qué mide el motor" (1573907253805977710) and the e
 
 ## How a run works
 
-- One run models one typical weekday of Santiago, in 48 half-hours. There is no calendar date and no sequence of days.
+- The base city models one typical weekday of Santiago in 48 half-hours. A route activity uses its own local start and end within one day. The model has no calendar date or sequence of days.
 - People are synthetic and match the Census 2024 margins. They are not microdata.
-- An experiment changes properties (a building, a street, a line, a station, an event). The engine recomputes the whole day from the baseline.
+- An experiment can apply initial city edits, run a route activity, or do both. Initial edits recompute the base city for that weekday. A route activity advances declared arrivals, travel, queues and visits in steps.
 - A saved replay plays a stored result. It does not recompute.
-- The scene time only sets where the viewer starts. Only temporary transit line edits (Metro, bus and other lines) use a time window (`half_hours`) in the calculation.
+- The scene time sets where the viewer starts. A temporary transit line edit uses its own `half_hours` window. A route activity uses its own minute schedule. Its motor access label describes the phase. It does not change ordinary car routes.
 
 ## Engine outputs
 
@@ -30,12 +30,13 @@ The engine produces these outputs. The chat sees a summary of them through `simu
 - Events (stadium, concert): attendance is an input, and origin shares can be supplied. Arrival mode, return comuna and timed routes exist only for events with supported audience and itinerary data (the MUT and Monumental case), not for any event.
 - Mapocho ferry: work trips by direction.
 - One synthetic person: whether the time and money allow an optional activity at place A or B.
+- Route activity: modeled arrivals, exits and participants still present. The activity receipt also reports visit starts and person-minutes spent waiting or visiting. These counts follow the declared route rules. They cannot establish individual paths, ordinary store visits or sales.
 
 ## What the engine cannot answer today
 
 - Road congestion, car travel time with traffic, or bus crowding.
 - Emissions, noise, accidents, shop sales, rents or property prices.
-- Visitors of one specific building. Jobs added to a building are modeled work stock, not visitors.
+- Observed attendance or ordinary visitor counts for one building. Jobs added to a building are modeled work stock.
 - Door-to-door journey time of individual people. Route percentiles cover only matched changed pairs, not every traveller.
 - Filters that join separate dimensions, for example shopping trips by origin AND mode AND hour. Each comes as a separate total.
 - Effects across several days.
@@ -45,6 +46,7 @@ The engine produces these outputs. The chat sees a summary of them through `simu
 ## How the chat must use this
 
 - Before a new experiment, offer only engine outputs that fit the change and that the tool result will contain.
+- For a route activity, confirm whether the person wants initial edits, the activity, or both. Confirm the route, local start and end, arrivals, capacity, any stops, and what to measure. State what uses an assumption. Run the confirmed case with `simulate_city`. Use `create_replay` if the person asks to save it.
 - If the person asks for something in "What the engine cannot answer", say so in one line and offer the nearest result that the engine can give.
 - Never invent a number. Every number comes from a tool result.
 - Say when a value is missing from the result (no coverage). Do not report it as zero.
