@@ -495,7 +495,12 @@ fn animate(
                 };
                 let step = (opacity * SOLID as f32).round() as usize;
                 paint.set_if_neq(MeshMaterial3d(art.paint[group.mode][step].clone()));
-                (point, heading, false, map_scale.min(1.15))
+                let scale = if admitted < GATE_FADE_SECONDS {
+                    pedestrian_scale(rig.distance, map_scale)
+                } else {
+                    map_scale.min(1.15)
+                };
+                (point, heading, false, scale)
             }
             GroupPath::Local { from, to } => {
                 let p = (t - group.delay) / 0.51;
