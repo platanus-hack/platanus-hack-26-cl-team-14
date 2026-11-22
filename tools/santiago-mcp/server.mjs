@@ -1,4 +1,5 @@
 import { queryResult, queryResultTool } from './query-result.mjs';
+import { publishExperimentError, publishExperimentResult, publishMetricResult, publishResultStatus, resultStatusTool } from './result-display.mjs';
 import { buildingPlacementChange, expandBuildingPlacements } from './building-placement.mjs';
 import { optionalAttendanceChange } from './optional-attendance.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -430,25 +431,30 @@ async function dispatch({ method, params }) {
   };
   if (method === 'ping') return {};
   const tools = [tool, sceneTool, listReplaysTool, runReplayTool, createReplayTool, queryResultTool];
+  if (resultStatusTool) tools.push(resultStatusTool);
   if (method === 'tools/list') return { tools };
   if (method !== 'tools/call' || !tools.some(t => t.name === params?.name)) return null;
   try {
     const args = params.arguments ?? {};
-    const placement = args.changes?.some(change => change.kind === 'building_placement');
+    const placement = [tool.name, createReplayTool.name].includes(params.name) &&
+      args.changes?.some(change => change.kind === 'building_placement');
     if (placement) {
       const namedPlaces = placeRows.map(r => ({ id: r[0], name: r[1], ...places[r[0]] }));
       args.changes = await expandBuildingPlacements(args.changes, namedPlaces, engineJSON, args.scene?.place);
     }
     let text;
-    if (params.name === sceneTool.name) text = await setScene(args);
+    if (params.name === resultStatusTool?.name) text = publishResultStatus(args);
+    else if (params.name === sceneTool.name) text = await setScene(args);
     else if (params.name === queryResultTool.name) {
       const { source } = args;
       const valid = source?.type === 'current' && Object.keys(source).length === 1 ||
         source?.type === 'replay' && typeof source.id === 'string' && Object.keys(source).length === 2;
       if (!valid) throw new Error('Choose the current result or specify one saved replay ID.');
-      const raw = source.type === 'replay' ? readReplay(source.id).result : await engineJSON('/api/scenario-latest');
+      const saved = source.type === 'replay' ? readReplay(source.id) : undefined;
+      const raw = saved ? saved.result : await engineJSON('/api/scenario-latest');
       if (!raw) throw new Error('There is no published result. Confirm and run an experiment, or select a saved replay.');
       text = { source, ...queryResult(raw, args, publicWorkerWeights) };
+      publishMetricResult(args, text, { sourceTitle: saved?.meta?.title, comunaNames: comunaName });
     }
     else if (params.name === listReplaysTool.name) text = readdirSync(replays).filter(f => f.endsWith('.json')).map(f => replayMetadataForChat(readReplay(f.slice(0, -5)).meta));
     else if (params.name === runReplayTool.name) {
@@ -478,9 +484,21 @@ async function dispatch({ method, params }) {
       const replay = { meta: { ...meta, scene: full.scene, changes, stations, places_used: placesUsed, created_at: new Date().toISOString() }, result: full };
       writeFileSync(replayFile(meta.id), JSON.stringify(replay));
       text = { saved: `data/replays/${meta.id}.json`, replay: replayMetadataForChat(replay.meta), result: short };
-    } else text = (await runScenario(args, placement)).short;
+      publishExperimentResult(full, { sourceTitle: meta.title });
+    } else {
+      const { full, short } = await runScenario(args, placement);
+      text = short;
+      publishExperimentResult(full);
+    }
     return { content: [{ type: 'text', text: JSON.stringify(text) }] };
   } catch (error) {
+    if (params.name === queryResultTool.name) {
+      publishMetricResult(params.arguments ?? {}, null, {
+        error: error.code ? 'No se pudo leer el resultado solicitado.' : error.message,
+      });
+    } else if ([tool.name, createReplayTool.name].includes(params.name)) {
+      publishExperimentError(error.code ? 'No se pudo completar el experimento.' : error.message);
+    }
     return { isError: true, content: [{ type: 'text', text: error.message }] };
   }
 }
