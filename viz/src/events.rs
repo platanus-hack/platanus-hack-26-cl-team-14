@@ -466,6 +466,10 @@ fn animate(
         caption.0.clone_from(text);
     }
     for (group, mut transform, mut visibility, mut mesh, mut paint) in &mut groups {
+        if rig.distance >= FIGURE_MAX_DISTANCE_M {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        }
         let Some((phase, t)) = playback.events[group.venue].progress else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
