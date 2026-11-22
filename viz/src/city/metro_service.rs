@@ -32,21 +32,6 @@ fn half_width(result: &Value, distance: f32) -> Option<f32> {
     }
 }
 
-// DTPM March 2026 GTFS routes.txt, field route_color.
-fn line_color(route: &str) -> [f32; 4] {
-    let [r, g, b] = match route {
-        "L1" => [0xc8, 0x10, 0x2e],
-        "L2" => [0xf2, 0xa9, 0x00],
-        "L3" => [0x70, 0x3f, 0x2a],
-        "L4" => [0x15, 0x1f, 0x6d],
-        "L4A" => [0x00, 0x72, 0xce],
-        "L5" => [0x00, 0x96, 0x5e],
-        "L6" => [0x8e, 0x3a, 0x80],
-        _ => unreachable!(),
-    };
-    Color::srgb_u8(r, g, b).to_linear().to_f32_array()
-}
-
 fn setup(
     scenario: Res<Scenario>,
     rig: Res<Rig>,
@@ -75,8 +60,14 @@ fn setup(
             .iter()
             .map(|p| world(p[0].as_f64().unwrap(), p[1].as_f64().unwrap()))
             .collect();
-        let color = line_color(route["route"].as_str().unwrap());
-        ribbon(&mut mesh, &points, width, 1.2, color);
+        let color = Srgba::hex(route["color"].as_str().unwrap()).unwrap();
+        ribbon(
+            &mut mesh,
+            &points,
+            width,
+            1.2,
+            Color::from(color).to_linear().to_f32_array(),
+        );
     }
     commands.spawn((
         ServiceLines(width),
