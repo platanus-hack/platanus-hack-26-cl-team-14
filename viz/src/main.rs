@@ -5,6 +5,7 @@ mod chart;
 mod city;
 mod focus;
 mod halos;
+mod history;
 mod label;
 mod movers;
 mod net;
@@ -17,6 +18,7 @@ use bevy::{
     post_process::dof::{DepthOfField, DepthOfFieldMode},
     prelude::*,
     render::view::screenshot::{Screenshot, ScreenshotCaptured},
+    ui::RelativeCursorPosition,
     window::{PrimaryWindow, WindowPosition, WindowResolution},
     winit::WinitSettings,
 };
@@ -189,8 +191,14 @@ fn navigate(
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<&Camera, With<Camera3d>>,
     canvas: Query<&Sprite, With<pixels::CityCanvas>>,
+    history: Query<(&Node, &RelativeCursorPosition), With<history::HistorySurface>>,
 ) {
-    if rig.fixed {
+    if rig.fixed || history.iter().any(|(node, cursor)| {
+        node.display != Display::None && cursor.cursor_over()
+    }) {
+        wheel.clear();
+        pinch.clear();
+        motion.clear();
         return;
     }
     // A mouse wheel (lines) zooms. A trackpad two-finger swipe (pixels) pans, and a pinch zooms.
@@ -348,6 +356,7 @@ fn main() -> AppExit {
             MiniatureCamera,
             net::NetPlugin,
             chart::ChartPlugin,
+            history::HistoryPlugin,
             label::LabelPlugin,
             movers::MoversPlugin,
             city::metro_service::MetroServicePlugin,
