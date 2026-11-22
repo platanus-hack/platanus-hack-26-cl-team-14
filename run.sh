@@ -27,7 +27,9 @@ engine_pid=
 window_pid=
 terminal_pid=
 terminal_layout_pid=
-engine_log=$(mktemp "${TMPDIR:-/tmp}/santiago-engine.XXXXXX")
+launch_dir=$(mktemp -d "${TMPDIR:-/tmp}/santiago-boot.XXXXXX")
+engine_log="$launch_dir/engine.log"
+export SANTIAGO_BOOT_SIGNAL="$launch_dir/enter"
 cleanup() {
     trap - EXIT INT TERM
     for pid in $terminal_layout_pid $terminal_pid $window_pid $engine_pid; do
@@ -35,12 +37,13 @@ cleanup() {
     done
     if declare -F cleanup_city_terminal_mac >/dev/null; then cleanup_city_terminal_mac || true; fi
     wait 2>/dev/null || true
-    rm -f "$engine_log"
+    rm -rf "$launch_dir"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+touch "$engine_log"
 "$target/release/santiago-scenario-core" data/mvp "$port" 2> >(tee "$engine_log" >&2) &
 engine_pid=$!
 until grep -Fxq "Scenario core listening on $api" "$engine_log"; do
@@ -51,12 +54,21 @@ curl --fail --silent --show-error --output /dev/null \
     --header 'Content-Type: application/json' --data '{"changes":[]}' "$api/api/scenario"
 echo "SANTIAGO_API_URL=$api"
 export SANTIAGO_ENGINE="$api"
-if declare -F open_city_terminal_mac >/dev/null; then
-    open_city_terminal_mac
-else
-    open_city_terminal_linux
+if declare -F open_city_terminal_linux >/dev/null; then
+    export SANTIAGO_CITY_WINDOW_CLASS="SantiagoCity$$"
 fi
-export SANTIAGO_WINDOW_RECT="$city_x $city_y $city_width $city_height"
 cargo run --locked --release --manifest-path viz/Cargo.toml &
 window_pid=$!
+while [[ ! -e "$SANTIAGO_BOOT_SIGNAL" ]] && kill -0 "$window_pid" 2>/dev/null; do
+    sleep 0.1
+done
+if [[ -e "$SANTIAGO_BOOT_SIGNAL" ]] && kill -0 "$window_pid" 2>/dev/null; then
+    if declare -F open_city_terminal_mac >/dev/null; then
+        open_city_terminal_mac
+    else
+        open_city_terminal_linux
+    fi
+    printf '%s %s %s %s\n' "$city_x" "$city_y" "$city_width" "$city_height" > "$launch_dir/layout.tmp"
+    mv "$launch_dir/layout.tmp" "$SANTIAGO_BOOT_SIGNAL.rect"
+fi
 wait "$window_pid"

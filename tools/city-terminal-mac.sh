@@ -38,8 +38,8 @@ const y = screen.frame.size.height - work.origin.y - height
 const strip = Math.round(width * 0.35)
 const title = $.NSWindow.frameRectForContentRectStyleMask(
     $.NSMakeRect(0, 0, 100, 100), $.NSWindowStyleMaskTitled).size.height - 100
-// Winit creates a macOS window using a content rectangle below its title bar.
-const pixels = [x, y + title, width - strip, height - title]
+// Winit moves the outer frame and resizes its content after Enter.
+const pixels = [x, y, width - strip, height - title]
     .map(n => Math.round(n * screen.backingScaleFactor))
 pixels.concat([x + width - strip, y, x + width, y + height].map(Math.round)).join(' ')
 JS
