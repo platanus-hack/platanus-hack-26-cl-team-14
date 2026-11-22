@@ -47,4 +47,4 @@ impl WalkRoutes {
 
 #[path = "access_flows.rs"]
 mod access_flows;
-pub(super) use access_flows::{AccessFlows, entry_disc};
+pub(super) use access_flows::{AccessFlows, AccessFootprint, entry_disc};
