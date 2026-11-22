@@ -216,13 +216,13 @@ def final_walk(venue, stop_id, platform=None):
 
 
 @lru_cache(None)
-def final_platform(track, end):
+def platform_at(track, index):
     # Every native run that calls here must use the same original GTFS platform.
-    parent = tracks[track]["parent_station_ids"][end]
+    parent = tracks[track]["parent_station_ids"][index]
     platforms = {
         sid
         for tid, calls in rail_runs[track]
-        if any(c[3] == end for c in calls)
+        if any(c[3] == index for c in calls)
         for _, sid, _, _ in ordered[tid]
         if stops[sid]["parent_station"] == parent
     }
@@ -460,7 +460,7 @@ def make_venues():
         rail_by_origin = defaultdict(list)
         for path in metro_options(stations):
             track, _, end = path[-1]
-            platform = final_platform(track, end)
+            platform = platform_at(track, end)
             if not platform:
                 continue
             walk = final_walk(venue, tracks[track]["parent_station_ids"][end], platform)
@@ -520,6 +520,10 @@ def make_venues():
                 option["legs"], option.get("transfer"), option["walk_path"]
             )
             if departures:
+                if mode == "metro":
+                    first, *onward = option["legs"]
+                    platform = platform_at(first["track"], first["from"])
+                    option["legs"] = [{**first, "board_platform_id": platform}, *onward]
                 option["departure_options"] = departures
                 by_cut.setdefault(cut, []).append(option)
         venues[venue] = {
