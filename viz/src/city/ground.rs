@@ -44,7 +44,7 @@ pub(super) fn ribbon(
     });
 }
 
-fn ribbon_faces(points: &[Vec3], half_width: f32, mut face: impl FnMut(Vec<Vec3>)) {
+pub(super) fn ribbon_faces(points: &[Vec3], half_width: f32, mut face: impl FnMut(Vec<Vec3>)) {
     let mut draped = Vec::with_capacity(points.len());
     for pair in points.windows(2) {
         let horizontal = Vec2::new(pair[1].x - pair[0].x, pair[1].z - pair[0].z).length();
@@ -143,7 +143,8 @@ fn land_areas(tiles: &mut GroundTiles, terrain: &mut LandCover, path: &Path) {
     }
 }
 
-fn mapocho(tiles: &mut GroundTiles, root: &Path) {
+fn mapocho(tiles: &mut GroundTiles, root: &Path) -> Vec<(Vec<Vec3>, f32, f32)> {
+    let mut bridges = Vec::new();
     let fc = read_geojson(&root.join("web/data/mapocho_detail.geojson"));
     let mut banks = Vec::new();
     let mut water = super::water::Map::default();
@@ -169,13 +170,8 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
                 "footway" | "cycleway" | "path" | "steps" | "pedestrian" => 1.0,
                 _ => 2.8,
             };
-            ribbon(
-                tile_for(tiles, points[points.len() / 2]),
-                &points,
-                half_width,
-                crate::city::road_surface_lift(props["layer"].as_i64().unwrap() as i32) + 0.08,
-                [0.18, 0.19, 0.20, 1.],
-            );
+            let lift = super::road_surface_lift(props["layer"].as_i64().unwrap() as i32) + 0.08;
+            bridges.push((points, half_width, lift));
         }
     }
     // Keep each outer river symbol up to its first actual meeting with a detailed bank.
@@ -240,9 +236,10 @@ fn mapocho(tiles: &mut GroundTiles, root: &Path) {
         .collect();
     water.add_channel(&detailed);
     water.install();
+    bridges
 }
 
-pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mesh)>) {
+pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mesh)>, Vec<(Vec<Vec3>, f32, f32)>) {
     let mut tiles = GroundTiles::new();
     let mut terrain = LandCover::default();
     land_areas(
@@ -255,12 +252,12 @@ pub(super) fn load_ground(root: &Path) -> (Vec<(String, Mesh)>, Vec<(String, Mes
         &mut terrain,
         &root.join("web/data/open_surfaces.geojson.gz"),
     );
-    mapocho(&mut tiles, root);
+    let bridges = mapocho(&mut tiles, root);
     let scenery = tiles
         .into_iter()
         .map(|((x, z), surface)| (format!("City ground {x} {z}"), surface.finish()))
         .collect();
-    (terrain.meshes(), scenery)
+    (terrain.meshes(), scenery, bridges)
 }
 
 /// Camera-facing tree prints anchored to the packed OSM coordinates.
