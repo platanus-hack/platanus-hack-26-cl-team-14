@@ -42,6 +42,15 @@ struct SceneRequest {
     half_hour: u8,
 }
 
+async fn building_footprint(
+    State(core): State<Arc<Core>>,
+    Json(locator): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    core.scenario.mapped_footprint(&locator)
+        .map(Json)
+        .map_err(|reason| (StatusCode::UNPROCESSABLE_ENTITY, reason))
+}
+
 fn next_revision(snapshot: &Value) -> u64 {
     snapshot["revision"].as_u64().unwrap_or(0) + 1
 }
@@ -155,6 +164,7 @@ async fn main() {
                 ([("cache-control", "no-store")], Json(result))
             }),
         )
+        .route("/api/building-footprint", post(building_footprint))
         .route("/api/scene", post(set_scene))
         .route("/api/scenario-events", get(scenario_events))
         .route("/api/scenario", post(general_scenario))
