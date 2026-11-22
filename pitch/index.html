@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Presentación de Santiaguito</title>
+  <style>
+    @font-face {
+      font-family: Barlow;
+      src: url("../viz/assets/barlow/Barlow-Regular.ttf") format("truetype");
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: white;
+      background: #101923;
+      font-family: Barlow, system-ui, sans-serif;
+    }
+    #slide { width: 100vw; height: 100svh; }
+    #slide > iframe, #slide > img, #slide > video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      object-fit: contain;
+    }
+    #slide > iframe { pointer-events: none; }
+    .welcome {
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 1rem;
+      height: 100%;
+      background: linear-gradient(#10192370, #101923b0), url("jury/santiago.jpg") center / cover;
+      text-align: center;
+    }
+    .welcome h1 { margin: 0; font-size: clamp(3rem, 10vw, 12rem); font-weight: 400; }
+    button {
+      padding: .35em .8em;
+      font: inherit;
+      color: inherit;
+      background: #101923;
+      border: 1px solid #85b9dd;
+      border-radius: .25em;
+      cursor: pointer;
+    }
+    .welcome button { font-size: clamp(1.25rem, 2.5vw, 2.5rem); }
+    .sample {
+      position: fixed;
+      top: .8rem;
+      right: 1rem;
+      margin: 0;
+      padding: .3em .55em;
+      background: #101923;
+      font-size: clamp(.8rem, 1.25vw, 1.2rem);
+    }
+    nav {
+      position: fixed;
+      right: .9rem;
+      bottom: .9rem;
+      display: flex;
+      gap: .45rem;
+      opacity: 0;
+    }
+    nav:hover, nav:focus-within { opacity: 1; }
+    button:disabled { opacity: .4; cursor: default; }
+  </style>
+</head>
+<body>
+  <main id="slide" aria-label="Lámina actual"></main>
+  <nav aria-label="Láminas">
+    <button id="back" type="button">Atrás</button>
+    <button id="next" type="button">Siguiente</button>
+  </nav>
+  <template id="inicio">
+    <div class="welcome">
+      <h1>santiaguito.cl</h1>
+      <button type="button" data-start>Comenzar</button>
+    </div>
+  </template>
+  <script>
+    const slides = [
+      { id: 'inicio', title: 'Bienvenida' },
+      { id: 'mut', title: 'MUT y Monumental', video: 'media/mut-ensayo.mp4' },
+      { id: 'mapocho-metro', title: 'Mapocho y Metro', page: 'mapocho-metro.html' },
+      { id: 'evaluacion', title: 'Evaluación de ensayo', image: 'media/evaluacion.png' },
+      { id: 'qr', title: 'QR para descargar santiaguito.cl', image: 'media/santiaguito-qr.png' },
+      { id: 'datos', title: 'Datos y parámetros', page: 'jury/santiaguito-parametros.html' },
+      { id: 'enjambre', title: 'Cómo trabajó el enjambre', page: 'jury/enjambre.html' },
+    ];
+
+    const stage = document.querySelector('#slide');
+    const back = document.querySelector('#back');
+    const next = document.querySelector('#next');
+    let index = 0;
+
+    function openFromHash() {
+      show(slides.findIndex(slide => '#' + slide.id === location.hash));
+    }
+
+    function show(target) {
+      index = Math.max(0, Math.min(target, slides.length - 1));
+      const slide = slides[index];
+      history.replaceState(null, '', '#' + slide.id);
+      stage.setAttribute('aria-label', slide.title);
+
+      if (slide.page) {
+        const frame = document.createElement('iframe');
+        frame.src = slide.page;
+        frame.title = slide.title;
+        frame.tabIndex = -1;
+        frame.allow = 'autoplay';
+        stage.replaceChildren(frame);
+      } else if (slide.video) {
+        const video = document.createElement('video');
+        video.src = slide.video;
+        video.muted = true;
+        video.autoplay = true;
+        video.playsInline = true;
+        const label = document.createElement('p');
+        label.className = 'sample';
+        label.textContent = 'Grabación del ensayo';
+        stage.replaceChildren(video, label);
+      } else if (slide.image) {
+        const image = document.createElement('img');
+        image.src = slide.image;
+        image.alt = slide.title;
+        stage.replaceChildren(image);
+      } else {
+        stage.replaceChildren(document.querySelector('#inicio').content.cloneNode(true));
+        stage.querySelector('[data-start]').onclick = () => show(1);
+      }
+
+      back.disabled = index === 0;
+      next.disabled = index === slides.length - 1;
+    }
+
+    back.onclick = () => show(index - 1);
+    next.onclick = () => show(index + 1);
+    document.addEventListener('keydown', event => {
+      if (event.target instanceof HTMLButtonElement && event.key === 'Enter') return;
+      if (event.key === 'ArrowLeft') show(index - 1);
+      if (event.key === 'ArrowRight' || event.key === 'Enter') show(index + 1);
+      if (event.key === 'r') show(index);
+    });
+    window.addEventListener('hashchange', openFromHash);
+    openFromHash();
+  </script>
+</body>
+</html>
