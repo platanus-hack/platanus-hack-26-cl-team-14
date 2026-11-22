@@ -6,6 +6,14 @@ This candidate uses a short, observed suspension for the V4 slide. DTPM records 
 
 At 13:10 on Monday 18 November, Metro reported Line 1 service only from San Pablo to Baquedano and from Escuela Militar to Los Dominicos. At 13:14 it named seven stations without Line 1 service. Transfers at Los Leones and Tobalaba were suspended. Red announced parallel bus service and a shuttle between the two open ends. Metro announced full service at 14:34. Use 13:30–14:30 for the two bins fully inside the reported suspension. [Metro notices and times](https://redgol.cl/tendencias/alerta-metro-de-santiago-reportan-cierre-de-varias-estaciones-de-la-linea-1-del-servicio) · [Red notice reproduced by Cooperativa](https://cooperativa.cl/noticias/pais/transportes/metro/metro-repone-el-servicio-en-toda-la-red-tras-suspension-de-linea-1/2024-11-18/134444.html)
 
+## Bus response and evidence limits
+
+At 13:19 Chile time, Red announced a support loop between Baquedano and Escuela Militar and 11 parallel routes: 106, 401, 405, 405c, 406, 407, 412, 418, 421, 426 and 430. The notice gives neither a service code for the loop nor its stops and departure times. [Red notice](https://twitter.com/Red_Movilidad/status/1858545600729358801) · [Notice reproduced by Cooperativa](https://cooperativa.cl/noticias/pais/transportes/metro/metro-repone-el-servicio-en-toda-la-red-tras-suspension-de-linea-1/2024-11-18/134444.html)
+
+The historical DTPM archive contains `2024/GTFS_20241109.zip` (SHA-256 `68c7be2bbd45f33512d64d7e3f452ec16e96707b3595a1339b817ed2955f37aa`). All 11 routes have trips with active service on 18 November. To reproduce, match `routes.txt` by short name, use `calendar.txt` and `calendar_dates.txt` for 18 November, and count matching records in `trips.txt`. These are scheduled trip records. They do not measure extra service or departures during the interruption. No named route in this feed lists both loop endpoints. [DTPM historical GTFS archive](https://www.dtpm.cl/descargas/gtfs/2024.zip)
+
+The stage archive records boarding service and stop codes. I inspected a partial extract of 18 November. The public dictionary has no emergency service field, and the notice gives no loop code to match. The loop's ridership and frequency remain unmeasured. A comparison of the parallel bus routes would first need to map the published route names to the stage service codes and isolate the affected corridor. [DTPM field dictionary](https://www.dtpm.cl/descargas/modelos_y_matrices/Estructura-de-Tabla-de-Etapas-%20Nov%2024.txt) · [November stages](https://www.dtpm.cl/descargas/modelos_y_matrices/Tabla-de-Etapas-%20Nov24.zip)
+
 ## Recorded Metro boarding stages
 
 | Station | Engine ID | Mon 18 Nov 13:30 | Mon 14:00 | Thu 21 Nov 13:30 | Thu 14:00 |
