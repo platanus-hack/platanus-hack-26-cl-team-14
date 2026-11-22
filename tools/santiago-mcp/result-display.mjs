@@ -4,6 +4,9 @@ import { renameSync, rmSync, writeFileSync } from 'node:fs';
 const displayFile = process.env.SANTIAGO_RESULT_DISPLAY_FILE;
 const number = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
 const stateNames = { base: 'Base', scenario: 'Escenario', delta: 'Cambio' };
+const operations = { sum: 'Total', count: 'Conteo', mean: 'Promedio', share: 'Proporción', histogram: 'Distribución' };
+const times = ({ min_inclusive: min, max_exclusive: max }) =>
+  min === null ? `< ${cell(max)}` : max === null ? `≥ ${cell(min)}` : `${cell(min)} a < ${cell(max)}`;
 const titles = {
   metro_entries: 'Entradas al Metro',
   commute_flows: 'Viajes al trabajo',
@@ -82,17 +85,22 @@ function groupLabel(group = {}, comunaNames = {}) {
 }
 
 function displayRows(result, states, comunaNames) {
-  return result.results.flatMap(({ group, value, selected_workers, covered_workers }) => {
+  return result.results.flatMap(({ group, value, selected_workers, covered_workers, selected_rows, valid_rows, valid_weight }) => {
     const label = groupLabel(group, comunaNames);
-    const coverage = label && Number.isFinite(selected_workers) && Number.isFinite(covered_workers)
-      ? `${cell(covered_workers)} de ${cell(selected_workers)} con datos` : '';
+    let coverage = '';
+    if (label && Number.isFinite(covered_workers)) {
+      coverage = `${cell(covered_workers)} de ${cell(selected_workers)} con datos`;
+    } else if (label && Number.isFinite(valid_rows)) {
+      coverage = `${cell(valid_rows)} de ${cell(selected_rows)} filas`;
+      if (result.data === 'route_minutes' && Number.isFinite(valid_weight)) coverage += ` · peso ${cell(valid_weight)}`;
+    }
     const values = states.length === 1 ? [value] : states.map(state => value?.[state]);
     const bins = values.find(Array.isArray);
     if (!bins) return [{ label: [label, coverage].filter(Boolean).join(' · ') || 'Valor', values: values.map(cell) }];
-    return bins.map(({ min_inclusive: min, max_exclusive: max }, index) => {
-      const range = min === null ? `< ${cell(max)}` : max === null ? `≥ ${cell(min)}` : `${cell(min)} a < ${cell(max)}`;
-      return { label: [label, range, index === 0 && coverage].filter(Boolean).join(' · '), values: values.map(value => cell(value?.[index]?.count)) };
-    });
+    return bins.map((bin, index) => ({
+      label: [label, times(bin), index === 0 && coverage].filter(Boolean).join(' · '),
+      values: values.map(value => cell(value?.[index]?.count)),
+    }));
   });
 }
 
@@ -115,8 +123,10 @@ function coverageText(c) {
 
 export function publishMetricResult(args, result, { sourceTitle, comunaNames, error } = {}) {
   if (!displayFile) return;
-  const source = args.source?.type === 'replay' ? `Replay · ${sourceTitle ?? args.source.id ?? ''}` : 'Escenario actual';
-  const title = [titles[args.data] ?? 'Métrica del experimento', result?.worksite?.name].filter(Boolean).join(' · ');
+  const source = args.source?.type === 'replay' ? `Replay · ${sourceTitle ?? args.source.id ?? ''}`
+    : result?.revision == null ? 'Escenario actual' : `Escenario actual · revisión ${result.revision}`;
+  const operation = result?.aggregate === 'percentile' ? `Percentil ${args.percentile}` : operations[result?.aggregate];
+  const title = [titles[args.data] ?? 'Métrica del experimento', result?.worksite?.name, operation].filter(Boolean).join(' · ');
   if (!result) {
     publish([{ title, source, status: 'unavailable', coverage: error }]);
     return;
@@ -128,7 +138,16 @@ export function publishMetricResult(args, result, { sourceTitle, comunaNames, er
   const incomplete = c.missing_or_unreachable_rows || c.missing_workers || c.pairs_without_positive_public_weight ||
     c.may_be_truncated || c.groups_returned < c.groups || c.commuters_with_paired_times < c.observed_public_commuters_in_scope;
   const unit = result.aggregate === 'histogram' ? `${result.unit} · intervalos en ${result.measured_unit}` : result.unit;
-  const scope = [result.scope, result.data === 'route_minutes' && result.weighting].filter(Boolean).join(' ');
+  const operators = { eq: '=', gt: '>', gte: '≥', lt: '<', lte: '≤' };
+  const describe = filters => filters?.map(({ field, op, value }) =>
+    `${field} ${operators[op]} ${groupLabel({ [field]: value }, comunaNames)}`).join(', ');
+  const filters = describe(args.filters);
+  const numerator = describe(args.share_filters);
+  const scope = [
+    filters && `Filtro: ${filters}.`, numerator && `Numerador: ${numerator}.`,
+    result.population, result.scope, result.method,
+    ['route_minutes', 'worksite_minutes'].includes(result.data) && result.weighting,
+  ].filter(Boolean).join(' ');
   publish([{
     title, source, status: !available ? 'unavailable' : incomplete ? 'partial' : 'result', unit, scope,
     coverage: coverageText(c), columns: states.map(state => result.state_labels?.[state] ?? stateNames[state]),
@@ -140,14 +159,33 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
   if (!displayFile) return;
   const source = sourceTitle ? `Replay · ${sourceTitle}` : 'Escenario actual';
   const missing = raw.not_modeled ?? [];
-  const cards = (raw.worksite_cohorts ?? []).map(site => ({
-    title: site.name ?? 'Trabajadores del lugar', source, status: 'result', unit: site.unit,
-    scope: site.scope, columns: ['Trabajadores'],
-    rows: [
-      { label: 'Asignados al lugar', values: [cell(site.assigned_workers)] },
-      { label: 'Desde otras comunas', values: [cell(site.outside_workers)] },
-    ],
-  }));
+  const cards = (raw.worksite_cohorts ?? []).flatMap(site => {
+    const modes = site.outside_by_mode ?? [];
+    const title = site.name ?? 'Trabajadores del lugar';
+    const counts = {
+      title, source, status: 'result', unit: site.unit, scope: site.scope, columns: ['Trabajadores'],
+      rows: [
+        { label: 'Asignados al lugar', values: [cell(site.assigned_workers)] },
+        { label: 'Desde otras comunas', values: [cell(site.outside_workers)] },
+        ...modes.map(mode => ({ label: mode.mode, values: [cell(mode.workers)] })),
+      ],
+    };
+    if (!modes.length) return [counts];
+    const timing = {
+      title: `Tiempo de viaje · ${title}`, source,
+      status: !modes.some(mode => mode.timed_workers) ? 'unavailable'
+        : modes.some(mode => mode.missing_workers) ? 'partial' : 'result',
+      unit: 'Trabajadores modelados por intervalo en minutos',
+      scope: site.time_scope, columns: ['Trabajadores'],
+      rows: modes.flatMap(mode => {
+        const label = `${mode.mode} · ${cell(mode.timed_workers)} de ${cell(mode.workers)} con datos`;
+        return mode.bins?.map((bin, index) => ({
+          label: `${index === 0 ? label : mode.mode} · ${times(bin)}`, values: [cell(bin.workers)],
+        })) ?? [{ label: `${label} · tiempo no disponible`, values: ['—'] }];
+      }),
+    };
+    return [counts, timing];
+  });
   if (!cards.length && (!missing.length || raw.applied?.length) && Number.isFinite(raw.summary?.workers_moved)) {
     cards.push({
       title: 'Cambio de lugar de trabajo', source, status: 'result', unit: 'trabajadores modelados',
@@ -162,4 +200,8 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
     });
   }
   if (cards.length) publish(cards);
+}
+
+export function publishExperimentError(error) {
+  publish([{ title: 'Experimento sin resultado', source: 'Escenario actual', status: 'unavailable', coverage: error }]);
 }

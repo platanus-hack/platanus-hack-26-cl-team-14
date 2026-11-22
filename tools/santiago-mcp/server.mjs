@@ -1,5 +1,5 @@
 import { queryResult, queryResultTool } from './query-result.mjs';
-import { publishExperimentResult, publishMetricResult, publishResultStatus, resultStatusTool } from './result-display.mjs';
+import { publishExperimentError, publishExperimentResult, publishMetricResult, publishResultStatus, resultStatusTool } from './result-display.mjs';
 import { buildingPlacementChange, expandBuildingPlacements } from './building-placement.mjs';
 import { optionalAttendanceChange } from './optional-attendance.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -496,6 +496,8 @@ async function dispatch({ method, params }) {
       publishMetricResult(params.arguments ?? {}, null, {
         error: error.code ? 'No se pudo leer el resultado solicitado.' : error.message,
       });
+    } else if ([tool.name, createReplayTool.name].includes(params.name)) {
+      publishExperimentError(error.code ? 'No se pudo completar el experimento.' : error.message);
     }
     return { isError: true, content: [{ type: 'text', text: error.message }] };
   }
