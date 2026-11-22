@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enjambre · Team 14</title>
+<style>
+  @font-face { font-family: Barlow; src: url("assets/Barlow-Regular.ttf") format("truetype"); }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  html { background: #101923; }
+  body { color: #fff; font-family: Barlow, sans-serif; }
+  #fondo { position: fixed; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; filter: blur(3px) brightness(.22);  }
+  @keyframes pan { from { transform: scale(1.3) translate(-10%, 4%); } to { transform: scale(1.3) translate(10%, -4%); } }
+  #stage { position: absolute; width: 1920px; height: 1080px; left: 50%; top: 50%; transform-origin: 0 0; overflow: hidden; }
+  #stage div, #stage i, #stage span { position: absolute; }
+  .arc { left: 160px; width: 1600px; top: 36px; text-align: center; transition: opacity .4s; }
+  .arc b { display: block; font-size: 72px; font-weight: 400; line-height: 1.05; white-space: nowrap; }
+  .arc span { position: static !important; display: block; margin-top: 10px; font-size: 36px; color: #c3ccd5; white-space: nowrap; }
+  .stats { left: 160px; right: 160px; top: 196px; display: flex; justify-content: space-between; }
+  #stage .stats .count { position: static; text-align: center; }
+  .hour { transition: opacity .2s; }
+  .count b { display: block; font-size: 60px; font-weight: 400; line-height: 1; color: #4aa8ff; }
+  .count span { position: static !important; display: block; font-size: 28px; color: #c3ccd5; }
+  .view { left: 0; width: 1920px; }
+  .track { left: 0; top: 0; z-index: 1; }
+  .band { left: 0; width: 1920px; z-index: 0; border-radius: 0 6px 6px 0; }
+  .hour { font-size: 38px; color: #c3ccd5; transform: translateX(-50%); white-space: nowrap; text-align: center; }
+  .hour em { position: static; display: block; font-style: normal; color: #fff; font-size: 32px; }
+  .htick { width: 2px; height: 16px; margin-left: -1px; background: #6b7c8c; }
+  .axis { height: 3px; background: #6b7c8c; }
+  .mtick { width: 2px; margin-left: -1px; background: rgba(255,255,255,.18); display: none; }
+  .mtick.past { display: block; }
+  .mlabel { font-size: 32px; color: #fff; white-space: nowrap; padding-left: 12px; opacity: 0; transition: opacity .3s; }
+  .mlabel::before { content: ""; position: absolute; left: -6px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #fff; }
+  .names { left: 0; width: 340px; z-index: 2; background: linear-gradient(90deg, rgba(8,12,17,.75) 55%, rgba(8,12,17,0)); }
+  .hname { left: 40px; font-size: 40px; line-height: 1; }
+  .bar { height: var(--bar); border-radius: 2px; width: 0; }
+  .bar.done { opacity: .3; }
+  .dot { width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; display: none; }
+  .dot.on { display: block; }
+  .aname { font-size: 32px; padding: 0 10px; background: rgba(16,25,35,.85); white-space: nowrap; transform: translateY(-50%); opacity: 0; }
+  .head { left: 959px; width: 3px; background: #fff; }
+  .now { left: 960px; transform: translateX(-50%); font-size: 52px; line-height: 1; padding: 6px 18px; background: #101923; border: 3px solid #fff; border-radius: 12px; white-space: nowrap; }
+  .final { left: 0; width: 1920px; top: 560px; text-align: center; opacity: 0; }
+  .final b { display: block; font-size: 200px; font-weight: 400; line-height: 1; color: #4aa8ff; }
+  .final span { position: static !important; display: block; margin-top: 36px; font-size: 48px; color: #fff; }
+  .final em { position: static; display: block; margin-top: 20px; font-style: normal; font-size: 30px; color: #c3ccd5; }
+</style>
+</head>
+<body>
+<video id="fondo" src="../media/santiago-fondo.mp4" muted loop autoplay playsinline oncanplay="this.playbackRate = .35"></video>
+<div id="stage">
+  <div class="arc" id="arc"><b id="arcT"></b><span id="arcS"></span></div>
+  <div class="stats">
+    <div class="count"><b id="due">00:00</b><span>para la entrega</span></div>
+    <div class="count"><b id="agents">0</b><span>agentes trabajando</span></div>
+    <div class="count"><b id="msgs">0</b><span>mensajes en Discord</span></div>
+    <div class="count"><b id="prs">0</b><span>PRs en main</span></div>
+  </div>
+  <div class="view" id="lanes"><div class="track" id="track"></div></div>
+  <div class="final" id="final">
+    <b>23,3 B tokens</b>
+    <span>US$ 7.307 a precio de lista · 135.485 requests · 27 % del total de la hack</span>
+    <em>hack.platan.us · santiaguito.cl · 5 personas</em>
+  </div>
+</div>
+<script src="prs.js"></script>
+<script src="data.js"></script>
+<script src="story.js"></script>
+<script>
+const stage = document.getElementById('stage');
+const fit = () => {
+  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  stage.style.transform = `scale(${s}) translate(-960px, -540px)`;
+};
+addEventListener('resize', fit); fit();
+const add = (parent, cls, css, html = '') => {
+  const el = document.createElement('div');
+  el.className = cls; Object.assign(el.style, css); el.innerHTML = html;
+  parent.append(el); return el;
+};
+
+// Story time -> track x. The night is compressed, short arcs get a minimum length.
+const SECONDS = 60, PPM = 1920 / 300, MID = 960;   // ~5 story hours across the screen
+const arcs = []; let acc = 0;
+for (const p of PHASES) {
+  const w = Math.max((p.to - p.from) * (p.night ? 0.15 : 1), 50) * PPM;
+  arcs.push({ ...p, x: acc, w }); acc += w;
+}
+const TOTAL = acc;
+const xOf = t => {
+  const a = arcs.find(a => t < a.to) || arcs.at(-1);
+  return a.x + Math.min(1, (t - a.from) / (a.to - a.from)) * a.w;
+};
+const tOf = x => {
+  const a = arcs.find(a => x < a.x + a.w) || arcs.at(-1);
+  return a.from + Math.min(1, (x - a.x) / a.w) * (a.to - a.from);
+};
+
+// Rows of agents per human.
+const GAP = 30, MROW = 44, MROWS = 3;
+const lanesData = HUMANS.map(h => {
+  const ag = AGENTS.filter(a => a.human === h.id).sort((a, b) => a.from - b.from);
+  const rows = [], items = [];
+  for (const a of ag) {
+    let r = rows.findIndex(end => end <= a.from);
+    if (r < 0) r = rows.push(0) - 1;
+    rows[r] = a.to; items.push({ a, r });
+  }
+  return { h, items, n: rows.length };
+});
+// Rows shrink so all lanes fit between the arc title and the hour labels.
+const totalRows = lanesData.reduce((s, l) => s + l.n, 0);
+const PITCH = Math.min(15, (740 - (MROWS * MROW + 20 + 16 + 110) - GAP * HUMANS.length) / totalRows);
+const lanesH = lanesData.reduce((s, l) => s + l.n * PITCH + GAP, 0);
+document.documentElement.style.setProperty('--bar', Math.max(2, PITCH * .7) + 'px');
+// Block: milestone labels, lanes, axis, hour labels. Vertically centered below the arc title.
+const BLOCK = MROWS * MROW + 20 + lanesH + 16 + 110;
+const TOP = 320 + (1060 - 320 - BLOCK) / 2;
+const lanes = document.getElementById('lanes'), track = document.getElementById('track');
+lanes.style.top = TOP + 'px'; lanes.style.height = BLOCK + 'px';
+const LTOP = MROWS * MROW + 20, AXIS = LTOP + lanesH + 16;
+
+add(track, 'axis', { left: 0, width: TOTAL + 'px', top: AXIS + 'px' });
+let lastX = -1e9;
+const hours = [];
+const DAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+for (let t = Math.ceil(START / 60) * 60; t <= END; t += 60) {
+  const x = xOf(t);
+  add(track, 'htick', { left: x + 'px', top: AXIS + 'px' });
+  const day = t % 1440 === 0 || lastX < -1e8;
+  if (x - lastX < 170 && !day) continue;
+  const h = String((t / 60) % 24).padStart(2, '0') + ':00';
+  const d = 20 + Math.floor(t / 1440);
+  hours.push(add(track, 'hour', { left: x + 'px', top: AXIS + 22 + 'px' }, h + (day ? `<em>${DAYS[(5 + d - 20) % 7]} ${d}</em>` : '')));
+  hours.at(-1).x = x;
+  lastX = x;
+}
+const ticks = MILESTONES.map((m, i) => {
+  const x = xOf(m.t), top = (i % MROWS) * MROW + 22;
+  return {
+    m, x,
+    tick: add(track, 'mtick', { left: x + 'px', top: top + 'px', height: AXIS - top + 'px' }),
+    label: add(track, 'mlabel', { left: x + 'px', top: top - 20 + 'px', lineHeight: '40px' }, m.title),
+  };
+});
+
+const names = add(lanes, 'names', { top: LTOP - 10 + 'px', height: lanesH + 'px' });
+let y = LTOP;
+const bars = [];
+for (const { h, items, n } of lanesData) {
+  for (const { a, r } of items) {
+    const ay = y + 8 + r * PITCH;
+    bars.push({
+      a, y: ay,
+      bar: add(track, 'bar', { left: xOf(a.from) + 'px', top: ay - 4 + 'px', background: h.color }),
+      dot: add(track, 'dot', { left: xOf(a.from) + 'px', top: ay + 'px', background: h.color }),
+    });
+  }
+  // One band per human: the lane that holds that person's agents.
+  add(lanes, 'band', { top: y - 6 + 'px', height: n * PITCH + 18 + 'px', background: h.color + '1a', borderLeft: '8px solid ' + h.color });
+  add(names, 'hname', { top: y - LTOP + 10 + n * PITCH / 2 - 20 + 'px', color: h.color }, h.name.replace(/ .*/, ''));
+  y += n * PITCH + GAP;
+}
+const aname = add(track, 'aname', {});
+add(lanes, 'head', { top: '0px', height: AXIS + 'px' });
+const now = add(lanes, 'now', { top: AXIS + 18 + 'px' });
+
+const pad = n => String(n).padStart(2, '0');
+const nameAt = (a, t) => a.names.filter(([nt]) => nt <= t).at(-1)[1];
+let start = performance.now(), lastArc;
+function frame() {
+  const raw = (performance.now() - start) / 1000, sec = Math.min(raw, SECONDS);
+  const x = sec / SECONDS * TOTAL;
+  const t = tOf(x);
+  const m = Math.floor(t % 1440);
+  now.textContent = `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+  for (const h of hours) h.style.opacity = Math.abs(h.x - x) < 175 ? 0 : 1;
+  const left = Math.round(3420 - t);  // submission: 22 nov 09:00 Chile
+  document.getElementById('due').textContent = `${pad(Math.floor(left / 60))}:${pad(left % 60)}`;
+  track.style.transform = `translateX(${MID - x}px)`;
+
+  for (const k of ticks) {
+    const past = k.m.t <= t;
+    k.tick.classList.toggle('past', past);
+    k.label.style.opacity = past && x - k.x < 760 ? 1 : 0;
+  }
+
+  let alive = 0, newest;
+  for (const b of bars) {
+    const { a } = b;
+    if (t < a.from) continue;
+    b.dot.classList.add('on');
+    b.bar.style.width = Math.max(0, xOf(Math.min(t, a.to)) - xOf(a.from)) + 'px';
+    b.bar.classList.toggle('done', t >= a.to && a.to < END);
+    if (t < a.to || a.to >= END) alive++;
+    if (!newest || a.from > newest.a.from) newest = b;
+  }
+  // Name of the newest agent, for 2.5 s of screen time after it spawns.
+  if (newest && x - xOf(newest.a.from) < 2.5 / SECONDS * TOTAL && sec < SECONDS) {
+    aname.textContent = nameAt(newest.a, t);
+    aname.style.left = xOf(newest.a.from) + 16 + 'px';
+    aname.style.top = newest.y + 'px';
+    aname.style.opacity = 1;
+  } else aname.style.opacity = 0;
+
+  document.getElementById('agents').textContent = alive;
+  // Messages so far: binary search in the sorted minute list.
+  let lo = 0, hi = DISCORD_TIMES.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (DISCORD_TIMES[mid] <= t) lo = mid + 1; else hi = mid; }
+  document.getElementById('msgs').textContent = lo.toLocaleString('es-CL');
+  document.getElementById('prs').textContent = PRS.filter(p => p[2] !== null && p[2] <= t).length;
+
+  const arc = arcs.find(a => t < a.to) || arcs.at(-1);
+  if (arc.label + arc.sub !== (lastArc && lastArc.label + lastArc.sub)) {
+    const el = document.getElementById('arc');
+    el.style.opacity = 0;
+    setTimeout(() => {
+      document.getElementById('arcT').textContent = arc.label;
+      document.getElementById('arcS').textContent = arc.sub;
+      el.style.opacity = 1;
+    }, lastArc ? 400 : 0);
+    lastArc = arc;
+  }
+  // Hold, then fade the lanes and show the real LLM usage.
+  const fade = Math.min(1, Math.max(0, raw - SECONDS - 1.5));
+  lanes.style.opacity = 1 - fade * .92;
+  document.getElementById('final').style.opacity = fade;
+  if (raw < SECONDS + 3) setTimeout(frame, 33);
+}
+frame();
+</script>
+</body>
+</html>

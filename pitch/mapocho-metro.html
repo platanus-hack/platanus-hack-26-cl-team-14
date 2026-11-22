@@ -9,13 +9,17 @@
       font-family: Barlow;
       src: url("../viz/assets/barlow/Barlow-Regular.ttf") format("truetype");
     }
+    @font-face {
+      font-family: JetBrainsMono;
+      src: url("../tools/terminal-font/JetBrainsMonoNerdFontMono-Regular.ttf") format("truetype");
+    }
     * { box-sizing: border-box; }
     body {
       min-height: 100svh;
       margin: 0;
       padding: 3vh 3vw 2vh;
       display: grid;
-      grid-template-rows: 1fr auto;
+      grid-template-rows: 1fr;
       gap: 2vh;
       color: #fff;
       background: #101923;
@@ -48,12 +52,29 @@
     section h2 {
       align-self: end;
       margin: 0;
-      padding-bottom: .12em;
-      font-size: clamp(1rem, min(3vw, 5.4vh), 3.75rem);
-      font-weight: 400;
-      line-height: 1.03;
-      text-wrap: balance;
+      padding: .45em .6em;
+      min-height: 4.4em;
+      font: 400 clamp(.9rem, min(2.2vw, 4vh), 2.8rem) / 1.15 JetBrainsMono, monospace;
+      background: #05090d;
+      border: 1px solid #2c3d4f;
+      border-radius: .3em;
     }
+    .prompt { color: #8dd0ff; }
+    .cursor::after {
+      content: "";
+      display: inline-block;
+      width: .55em;
+      height: 1em;
+      margin-left: .1em;
+      vertical-align: -.12em;
+      background: #fff;
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .run { display: block; min-height: 1.15em; color: #8dd0ff; }
+    .run.done { color: #7ee2a8; }
+    section video, section .detail { opacity: 0; transition: opacity .6s; }
+    section.ready video, section.ready .detail { opacity: 1; }
     video {
       display: block;
       width: 100%;
@@ -72,6 +93,21 @@
       color: #fff;
       font-size: .76em;
     }
+    #fondo {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: blur(3px) brightness(.22);
+      
+    }
+    /* Slow panoramic drift across the city. */
+    @keyframes pan {
+      from { transform: scale(1.3) translate(-10%, 4%); }
+      to { transform: scale(1.3) translate(10%, -4%); }
+    }
     footer {
       color: #dce4ef;
       font-size: clamp(.55rem, 1vw, 1rem);
@@ -80,20 +116,18 @@
   </style>
 </head>
 <body>
+  <video id="fondo" src="media/santiago-fondo.mp4" muted loop autoplay playsinline oncanplay="this.playbackRate = .35"></video>
   <main>
-    <header class="intro">
-      <h1>santiaguito es un engine generalizado de simulaciones urbanas</h1>
-    </header>
     <div class="scenarios">
       <section aria-labelledby="mapocho-question">
-        <h2 id="mapocho-question">¿Y si hubiera un ferry en el Mapocho?</h2>
-        <video id="ferry" src="media/mapocho-muelle.mp4" muted playsinline preload="auto"
+        <h2 id="mapocho-question"><span class="prompt">❯ </span><span class="typed" data-text="¿Y si hubiera un ferry en el Mapocho?"></span><span class="run"></span></h2>
+        <video id="ferry" src="media/mapocho-muelle.mp4" muted loop playsinline preload="auto"
           aria-label="Embarque y zarpe del ferry simulado en el Mapocho"></video>
         <p class="detail">Embarque y zarpe</p>
       </section>
       <section aria-labelledby="metro-question">
-        <h2 id="metro-question">¿Y si cerrara todo el Metro de 7 a 10?</h2>
-        <video id="metro" src="media/metro-tobalaba.mp4" muted playsinline preload="auto"
+        <h2 id="metro-question"><span class="prompt">❯ </span><span class="typed" data-text="¿Y si cerrara todo el Metro de 7 a 10?"></span><span class="run"></span></h2>
+        <video id="metro" src="media/metro-tobalaba.mp4" muted loop playsinline preload="auto"
           aria-label="Trenes en Tobalaba antes y durante el cierre simulado"></video>
         <p class="detail">
           <span id="metro-status">Servicio habitual</span>
@@ -102,11 +136,6 @@
       </section>
     </div>
   </main>
-  <footer>
-    © OpenStreetMap contributors · Google Research, Open Buildings 2.5D Temporal ·
-    Copernicus WorldDEM-90 © DLR e.V. 2010–2014 and Airbus Defence and Space GmbH
-    2014–2018, provided under COPERNICUS by the European Union and ESA. All rights reserved.
-  </footer>
   <script>
     const ferry = document.querySelector('#ferry');
     const metro = document.querySelector('#metro');
@@ -118,12 +147,52 @@
       result.hidden = metro.currentTime < 11.9;
     });
 
+    const spinner = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
+    let timer;
+
+    // Type both prompts, press Enter, show the run, then reveal the looping results.
     function playSlide() {
-      for (const video of [ferry, metro]) {
-        video.currentTime = 0;
-        video.playbackRate = 1.25;
-        video.play().catch(() => {});
+      clearInterval(timer);
+      const sections = [...document.querySelectorAll('section')];
+      for (const section of sections) {
+        section.classList.remove('ready');
+        section.querySelector('.typed').textContent = '';
+        section.querySelector('.typed').classList.add('cursor');
+        section.querySelector('.run').textContent = '';
+        section.querySelector('.run').className = 'run';
       }
+      for (const video of [ferry, metro]) {
+        video.pause();
+        video.currentTime = 0;
+      }
+      let tick = 0;
+      const longest = Math.max(...sections.map(s => s.querySelector('.typed').dataset.text.length));
+      timer = setInterval(() => {
+        tick++;
+        for (const section of sections) {
+          const typed = section.querySelector('.typed');
+          const run = section.querySelector('.run');
+          typed.textContent = typed.dataset.text.slice(0, tick);
+          if (tick === longest + 8) {
+            typed.classList.remove('cursor');
+          }
+          if (tick > longest + 12 && tick <= longest + 52) {
+            run.textContent = spinner[tick % spinner.length] + ' santiaguito simulando…';
+          }
+          if (tick === longest + 53) {
+            run.textContent = '✓ simulación lista';
+            run.classList.add('done', 'cursor');
+            section.classList.add('ready');
+          }
+        }
+        if (tick === longest + 53) {
+          clearInterval(timer);
+          for (const video of [ferry, metro]) {
+            video.playbackRate = 1.25;
+            video.play().catch(() => {});
+          }
+        }
+      }, 45);
     }
 
     document.addEventListener('click', playSlide);
