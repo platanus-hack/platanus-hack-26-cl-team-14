@@ -77,7 +77,7 @@ impl FanJourneys {
                 let age = fraction * car.path.seconds.last().unwrap();
                 if let Some((p, dir, _, metres)) = car.path.trip_pose(age, 0)
                     && visible(p, 100.)
-                    && !road_edits.hides(p, dir)
+                    && !road_edits.hides_on(p, dir, car.path.crossing_at(metres))
                     && let Some(at) = routes.water.surface_position(
                         &car.path,
                         metres,

@@ -63,6 +63,7 @@ struct Way {
 struct WayProperties {
     osm_way_id: u64,
     width_m: f32,
+    structure: String,
 }
 #[derive(Deserialize)]
 struct Line {
@@ -76,6 +77,7 @@ pub(super) struct Catalog(Option<Roads>);
 #[derive(Clone, Copy, PartialEq)]
 struct Lane {
     line: Segment,
+    crossing: Option<road_water::Crossing>,
     until: f32,
     changed: Option<usize>,
 }
@@ -85,23 +87,52 @@ pub(super) struct TrafficEdits {
     cells: HashMap<IVec2, Vec<Lane>>,
     before: Vec<Vec<Segment>>,
     retained: Vec<Segment>,
+    changed_ways: BTreeMap<u64, bool>,
 }
 
 impl TrafficEdits {
-    pub(super) fn crosses_retired(&self, from: Vec3, to: Vec3) -> bool {
+    pub(super) fn is_empty(&self) -> bool {
+        self.cells.is_empty()
+    }
+
+    pub(super) fn retires_way(
+        &self,
+        way: u64,
+        from: Vec3,
+        to: Vec3,
+        crossing: Option<road_water::Crossing>,
+    ) -> bool {
+        match self.changed_ways.get(&way) {
+            Some(true) => true,
+            Some(false) => self.crosses_retired(from, to, crossing),
+            None => false,
+        }
+    }
+
+    pub(super) fn crosses_retired(
+        &self,
+        from: Vec3,
+        to: Vec3,
+        crossing: Option<road_water::Crossing>,
+    ) -> bool {
         let segment = Segment(from.xz(), to.xz());
         if !segment.cells(0.).any(|cell| self.cells.contains_key(&cell)) {
             return false;
         }
-        let direction = (to - from).normalize_or_zero();
+        let length = segment.0.distance(segment.1);
+        if length == 0. {
+            return false;
+        }
+        let axis = (segment.1 - segment.0) / length;
+        let direction = Vec3::new(axis.x, 0., axis.y);
         if [from, to, (from + to) * 0.5]
             .into_iter()
-            .any(|p| self.hides(p, direction))
+            .any(|p| self.hides_on(p, direction, crossing))
         {
             return true;
         }
         // Split at geometry boundaries so a short closed interval is sampled.
-        let mut boundaries = vec![0., from.distance(to)];
+        let mut boundaries = vec![0., length];
         for line in self.before.iter().flatten().chain(&self.retained) {
             for boundary in [line.0, line.1] {
                 if let Some(p) = segment.projection(boundary, direction.xz()) {
@@ -112,7 +143,7 @@ impl TrafficEdits {
         boundaries.sort_by(f32::total_cmp);
         boundaries
             .windows(2)
-            .any(|pair| self.hides(from + direction * ((pair[0] + pair[1]) * 0.5), direction))
+            .any(|pair| self.hides_on(from + direction * ((pair[0] + pair[1]) * 0.5), direction, crossing))
     }
 
     pub(super) fn from_result(result: &Value, catalog: &mut Catalog) -> Self {
@@ -149,6 +180,7 @@ impl TrafficEdits {
             }
             if let Ok(osm_id) = id.parse::<u64>() {
                 by_id.insert(osm_id, cut.before.len());
+                cut.changed_ways.insert(osm_id, after.is_null());
             }
             cut.before.push(lines);
         }
@@ -165,6 +197,11 @@ impl TrafficEdits {
             if let Some(index) = changed {
                 mapped[index] = true;
             }
+            let crossing = match way.properties.structure.as_str() {
+                "bridge" => Some(road_water::Crossing::Bridge),
+                "tunnel" => Some(road_water::Crossing::Tunnel),
+                _ => None,
+            };
             let until = way.properties.width_m * 0.5 + 3.8;
             for pair in way.geometry.coordinates.windows(2) {
                 let [a, b] = [pair[0], pair[1]].map(|[x, y]| world(x, y).xz());
@@ -173,6 +210,7 @@ impl TrafficEdits {
                     if let Some(lanes) = cut.cells.get_mut(&cell) {
                         lanes.push(Lane {
                             line,
+                            crossing,
                             until,
                             changed,
                         });
@@ -187,6 +225,7 @@ impl TrafficEdits {
                     if let Some(lanes) = cut.cells.get_mut(&cell) {
                         lanes.push(Lane {
                             line,
+                            crossing: None,
                             until: 3.8,
                             changed: Some(index),
                         });
@@ -198,13 +237,23 @@ impl TrafficEdits {
     }
 
     pub(super) fn hides(&self, position: Vec3, direction: Vec3) -> bool {
+        self.hides_on(position, direction, None)
+    }
+
+    pub(super) fn hides_on(
+        &self,
+        position: Vec3,
+        direction: Vec3,
+        crossing: Option<road_water::Crossing>,
+    ) -> bool {
+        let crossing = crossing.filter(|kind| *kind != road_water::Crossing::Water);
         let p = position.xz();
         let Some(lanes) = self.cells.get(&tile(p)) else {
             return false;
         };
         let heading = direction.xz().normalize_or_zero();
         let (mut closed, mut open) = (f32::INFINITY, f32::INFINITY);
-        for lane in lanes {
+        for lane in lanes.iter().filter(|lane| lane.crossing == crossing) {
             let Some(projection) = lane.line.projection(p, heading) else {
                 continue;
             };
