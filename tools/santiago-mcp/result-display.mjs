@@ -208,7 +208,7 @@ export function publishMetroResult(raw, { projectId, projectTitle, sourceTitle }
     const work = {
       title, source, status: 'result',
       unit: 'Viajes de ida al trabajo por día hábil',
-      scope: 'Estimación del modelo con el límite de capacidad del servicio. El modo anterior agrupa todo el transporte público.',
+      scope: 'Proyección de viajes directos con la frecuencia y el límite de capacidad supuestos en las franjas de salida al trabajo. El cálculo de rutas toma las 08:00 como referencia. Para líneas nuevas, el grafo supone salidas desde los terminales de 08:00 a 09:00. Las extensiones conservan los horarios existentes. El transporte público previo se muestra en un solo grupo.',
       rows: [
         { label: 'Usarían el Metro propuesto', values: [cell(riders)] },
         { label: 'Antes en transporte público', values: [cell(previous.public)] },
