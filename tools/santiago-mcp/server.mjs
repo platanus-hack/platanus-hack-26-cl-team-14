@@ -225,7 +225,7 @@ const listReplaysTool = {
 };
 const runReplayTool = {
   name: 'run_replay',
-  description: 'Play one cached replay in the open city view. For a new replay question, use list_replays, then end your reply with a short preview: the edits, start time, duration and what to analyze. Ask the presenter to confirm before you play the baseline. Call this tool only after that confirmation in a new user message. After the baseline, wait for the presenter to confirm they see it before you call this tool for the experiment. Report the saved result in six lines or fewer unless the presenter asks for more.',
+  description: 'Play one cached replay in the open city view. After the user asks to see a saved result or a prepared demo case, choose its saved ID with list_replays and call run_replay once in the same turn. Open the experiment for a prepared demo case, or its baseline when the user explicitly requests it. The playback request is enough to start. Confirm in one line after the replay opens. A request with different inputs is a new experiment and needs confirmation before it runs. Use query_result for a measurement question about a saved result.',
   inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
 };
 const createReplayTool = {
