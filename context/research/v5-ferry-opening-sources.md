@@ -1,10 +1,14 @@
 # Observed boardings for an urban ferry opening
 
-The Mapocho scene adds a scheduled ferry to existing land transport. The engine estimates weekday trips to work by pier and direction. A comparison needs observed boardings for the same service and a way to identify work trips. [Mapocho boat inputs and limits](boat-line-entity.md)
+The Mapocho scene adds a scheduled ferry to existing land transport. The engine estimates weekday trips to work by pier and direction. A comparison needs observed boardings for the same service and a way to identify work trips. [Mapocho boat inputs and limits](boat-line-entity.md) · [Earlier V5 source search](https://discord.com/channels/1573514576400752640/1573863187672207411/1573874260613791797)
 
 ## Valdivia
 
 Chile's transport ministry announced three urban river routes on 28 December 2020. Its October 2021 report counts 8,629 passengers through August across the service. Two university piers still awaited full operation at the time of the report. The available aggregate lacks counts by pier, day, direction, and trip purpose. This is the closest Chilean service example. [Launch and routes](https://www.subtrans.gob.cl/los-rios-mtt-lanza-en-valdivia-el-primer-servicio-de-transporte-publico-fluvial-sustentable-del-pais/) · [Ministry passenger report](https://www.subtrans.gob.cl/subsecretario-de-transportes-realizo-balance-del-transporte-publico-fluvial-en-valdivia-mas-de-8-mil-personas-ya-lo-han-utilizado/)
+
+## Santiago corridor reference
+
+DTPM recorded 1,218 B41 bus boarding stages on Saturday 8 November 2025. Their expansion weights sum to 1,191.2666. These counts describe bus use in the corridor. A matched weekday ferry count remains unavailable. [B41 extraction](https://discord.com/channels/1573514576400752640/1573863187672207411/1573881155554513081)
 
 ## Astoria, New York City
 
