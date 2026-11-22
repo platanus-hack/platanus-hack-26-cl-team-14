@@ -621,6 +621,10 @@ pub(crate) fn draw_buildings(
 #[derive(Component)]
 pub(crate) struct NamedBuilding(usize, usize);
 
+// Keep seating, route lookup and activity height on the landmark's stable anchor.
+#[derive(Component)]
+pub(crate) struct BuildingVisual(pub(crate) Entity);
+
 impl NamedBuilding {
     pub(crate) fn is_monumental(&self) -> bool {
         (self.0, self.1) == ground::NAMED[4]
@@ -655,12 +659,17 @@ pub(crate) fn setup_ground(
         commands.spawn((ChildOf(root), Mesh3d(meshes.add(mesh)), MeshMaterial3d(foliage.clone())));
     }
     for ((tile, i), base, mesh, seating) in ground::named_buildings(Path::new(".")) {
-        let mut entity = commands.spawn((
-            NamedBuilding(tile, i),
+        let visual = commands.spawn((
             Mesh3d(meshes.add(mesh)),
             MeshMaterial3d(mat.clone()),
+        )).id();
+        let mut entity = commands.spawn((
+            NamedBuilding(tile, i),
+            BuildingVisual(visual),
             Transform::from_xyz(0., base, 0.),
+            Visibility::Inherited,
         ));
+        entity.add_child(visual);
         if let Some(seating) = seating {
             entity.insert(seating);
         }
