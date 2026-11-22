@@ -16,6 +16,7 @@ impl Plugin for ClockPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CityClock>()
             .add_plugins(ferry::FerryPlugin)
+            .add_plugins(crate::city::route_activity::RouteActivityPlugin)
             .add_systems(Startup, spawn)
             .add_systems(Update, show.in_set(UpdateClock).after(super::read_result));
     }
