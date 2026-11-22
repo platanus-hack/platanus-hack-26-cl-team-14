@@ -51,18 +51,18 @@ export function shoppingSiteMetrics(raw, { data, shopping_site, state }) {
   if (!Array.isArray(raw.shopping?.sites)) {
     throw new Error('This result does not contain shopping sites.');
   }
-  const sites = raw.shopping.sites.filter(site => site.shops !== 0).map(({ longitude, latitude, shops, shoppers }) => ({
-    longitude, latitude, variant: shops < 0 ? 'base' : 'scenario', shoppers,
-  }));
+  const sites = raw.shopping.sites.flatMap(({ longitude, latitude, shops, shoppers }, index) =>
+    shops === 0 ? [] : [{ longitude, latitude, index, variant: shops < 0 ? 'base' : 'scenario', shoppers }]);
   const matches = shopping_site === undefined ? sites : sites.filter(site =>
     site.longitude === shopping_site.longitude && site.latitude === shopping_site.latitude &&
-    (shopping_site.variant === undefined || site.variant === shopping_site.variant));
+    (shopping_site.variant === undefined || site.variant === shopping_site.variant) &&
+    (shopping_site.index === undefined || site.index === shopping_site.index));
   if (matches.length !== 1) {
-    const options = sites.map(({ longitude, latitude, variant }) => ({ longitude, latitude, variant }));
-    throw new Error(`Select one unambiguous shopping site by its reported coordinates and, if needed, variant. Available sites: ${JSON.stringify(options)}.`);
+    const options = sites.map(({ longitude, latitude, variant, index }) => ({ longitude, latitude, variant, index }));
+    throw new Error(`Select one shopping site by its reported coordinates. Include the variant or zero-based index from this result if needed. Available sites: ${JSON.stringify(options)}.`);
   }
 
-  const { longitude, latitude, variant, shoppers } = matches[0];
+  const { longitude, latitude, variant, index, shoppers } = matches[0];
   if (state !== variant) {
     throw new Error(`The selected shopping site reports only the ${variant} side. Use state "${variant}".`);
   }
@@ -77,7 +77,7 @@ export function shoppingSiteMetrics(raw, { data, shopping_site, state }) {
     unit,
     rowUnit: view.rowUnit,
     population,
-    scope: `Site at ${longitude}, ${latitude}. The engine reports only the ${variant} side for this site. The other side is unavailable. ${view.scope}`,
+    scope: `Site at ${longitude}, ${latitude}, row ${index} in this result. The engine reports only the ${variant} side for this site. The other side is unavailable. ${view.scope}`,
     may_be_truncated: view.may_be_truncated,
   };
 }
