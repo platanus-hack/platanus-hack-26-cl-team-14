@@ -26,7 +26,7 @@
 "web/data/open_surfaces.geojson.gz",
 "web/data/estadio_nacional_parts.geojson",
 "web/data/estadio_monumental_parts.geojson",
-"web/data/local_car_graph.json.gz",
+"web/wasm/car-topology.bin.gz",
 "web/data/rider_services.json.gz",
 "web/data/station_access_routes.json.gz",
 "web/data/station_access_routes_grecia_larrain.json.gz",

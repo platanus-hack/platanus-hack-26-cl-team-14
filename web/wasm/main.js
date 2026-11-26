@@ -83,6 +83,7 @@ globalThis.fetch = async (input, options) => {
     await Promise.all([
       edits.some(edit => edit.kind === 'building') && loadFile(fullPolygons),
       edits.some(edit => edit.kind === 'road' && edit.before) && loadFile('web/data/road_centerlines.geojson.gz'),
+      edits.some(edit => edit.kind === 'building' || edit.kind === 'road') && loadFile('web/data/local_car_graph.json.gz'),
       edits.some(edit => edit.kind === 'line' && edit.after?.properties?.mode === 'boat') && loadFile('data/mvp/editable_transit.json'),
     ]);
     santiagoScenario(JSON.stringify(latest));

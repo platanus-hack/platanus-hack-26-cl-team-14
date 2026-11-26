@@ -16,6 +16,10 @@ cargo build --release --manifest-path viz/Cargo.toml --target wasm32-unknown-unk
 wasm-bindgen --target web --no-typescript --remove-name-section --remove-producers-section \
     --out-name viewer --out-dir web/wasm "$target/wasm32-unknown-unknown/release/santiago-miniature.wasm"
 python3 tools/wasm/pack_startup_polygons.py
+topology=web/wasm/car-topology.bin.gz
+if [ ! -f "$topology" ] || [ web/data/local_car_graph.json.gz -nt "$topology" ] || [ tools/wasm/pack_topology.py -nt "$topology" ]; then
+    python3 tools/wasm/pack_topology.py
+fi
 # A static site cannot list a folder. The MCP server lists these two.
 python3 -c 'import json, os; print(json.dumps({d: sorted(os.listdir(d)) for d in ("data/replays/", "web/data/")}))' > web/wasm/folders.json
 streets=web/wasm/road-surface.bin.gz

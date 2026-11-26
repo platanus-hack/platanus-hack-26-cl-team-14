@@ -6,3 +6,5 @@ viewer_bg.wasm
 folders.json
 road-surface.bin.gz
 road-surface.bin.tmp
+car-topology.bin.gz
+car-topology.bin.tmp
