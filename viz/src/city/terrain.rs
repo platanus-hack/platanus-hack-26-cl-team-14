@@ -1,7 +1,7 @@
 // Intended as viz/src/terrain.rs. The grid metadata lives beside terrain.i16.
 use crate::city::Surface;
 use bevy::prelude::*;
-use std::{fs, sync::OnceLock};
+use std::sync::OnceLock;
 
 const W: usize = 481;
 const H: usize = 421;
@@ -16,7 +16,7 @@ type Rgba = [f32; 4];
 fn heights() -> &'static [i16] {
     static METRES: OnceLock<Vec<i16>> = OnceLock::new();
     METRES.get_or_init(|| {
-        fs::read("web/data/terrain.i16")
+        crate::data::read("web/data/terrain.i16")
             .unwrap()
             .chunks_exact(2)
             .map(|b| i16::from_le_bytes([b[0], b[1]]))

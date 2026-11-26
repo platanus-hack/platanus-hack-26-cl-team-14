@@ -21,21 +21,44 @@ impl Plugin for PixelMode {
             app.add_systems(PostStartup, setup)
                 .add_systems(Update, fit_window);
         }
+        #[cfg(target_family = "wasm")]
+        app.add_systems(Update, fit_panels);
     }
 }
 
 #[derive(Component)]
 pub(crate) struct CityCanvas;
 
+/// Window pixels per city pixel.
+#[cfg(not(target_family = "wasm"))]
+fn scale(_: &Window) -> u32 {
+    SCALE
+}
+
+/// Browser: the window has any size. Keep the grid of the 1920-pixel design.
+#[cfg(target_family = "wasm")]
+fn scale(window: &Window) -> u32 {
+    ((SCALE * window.physical_width()) as f32 / 1920.).round().max(1.) as u32
+}
+
 fn sample_size(window: &Window) -> UVec2 {
     UVec2::new(
-        window.physical_width().div_ceil(SCALE).max(1),
-        window.physical_height().div_ceil(SCALE).max(1),
+        window.physical_width().div_ceil(scale(window)).max(1),
+        window.physical_height().div_ceil(scale(window)).max(1),
     )
 }
 
 fn canvas_size(size: UVec2, window: &Window) -> Vec2 {
-    size.as_vec2() * (SCALE as f32 / window.scale_factor())
+    size.as_vec2() * (scale(window) as f32 / window.scale_factor())
+}
+
+/// Browser: the panels keep the proportions of the 1920-pixel design in a window of any size.
+#[cfg(target_family = "wasm")]
+fn fit_panels(window: Single<&Window, With<PrimaryWindow>>, mut ui: ResMut<UiScale>) {
+    let fit = window.physical_width() as f32 / 1920.;
+    if ui.0 != fit {
+        ui.0 = fit;
+    }
 }
 
 fn setup(

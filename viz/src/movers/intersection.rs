@@ -2,12 +2,11 @@
 mod topology;
 
 use super::{BIN, DAY, Life, Path, Replay, Vehicle, departure_offset};
-use bevy::prelude::*;
+use bevy::{platform::time::Instant, prelude::*};
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashMap, HashSet, VecDeque},
     sync::Arc,
-    time::Instant,
 };
 use topology::{Topology, cell, conflict, register};
 

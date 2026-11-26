@@ -12,7 +12,7 @@ use bevy::{
 use flate2::read::GzDecoder;
 use geo::Rect as GeoRect;
 use serde::Deserialize;
-use std::{collections::BTreeMap, fs::File, io::BufReader, path::Path};
+use std::{collections::BTreeMap, io::BufReader, path::Path};
 
 #[derive(Deserialize)]
 struct Roads {
@@ -151,7 +151,7 @@ pub(super) fn spawn(
     scenery: Entity,
     scenery_material: &Handle<StandardMaterial>,
 ) {
-    let gz = GzDecoder::new(File::open(path).unwrap());
+    let gz = GzDecoder::new(crate::data::open(path).unwrap());
     let roads: Roads = serde_json::from_reader(BufReader::new(gz)).unwrap();
     let mut tiles = BTreeMap::<usize, Vec<StreetFace>>::new();
     for road in roads.features {

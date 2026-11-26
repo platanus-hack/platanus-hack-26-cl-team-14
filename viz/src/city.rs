@@ -35,10 +35,16 @@ fn world_xz(lon: f64, lat: f64) -> Vec2 {
     Vec2::new(x, z)
 }
 
+/// The inverse of `world`: [longitude, latitude] of a map point.
+#[cfg(target_family = "wasm")]
+pub fn lon_lat(point: Vec3) -> [f64; 2] {
+    [point.x as f64 / 92_915.0 - 70.65, -(point.z as f64) / 110_905.0 - 33.45]
+}
+
 use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
 use flate2::read::GzDecoder;
 use std::collections::HashSet;
-use std::{fs::File, io::Read};
+use std::io::Read;
 
 pub type Rgba = [f32; 4];
 
@@ -180,7 +186,7 @@ struct Pack {
 impl Pack {
     fn load(name: &str) -> Self {
         let mut bytes = Vec::new();
-        GzDecoder::new(File::open(format!("web/data/city_building_{name}.bin.gz")).unwrap())
+        GzDecoder::new(crate::data::open(format!("web/data/city_building_{name}.bin.gz")).unwrap())
             .read_to_end(&mut bytes)
             .unwrap();
         let cols = word(&bytes, 4) as usize;

@@ -7,7 +7,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use serde_json::Value;
-use std::{fs::File, ops::Range};
+use std::ops::Range;
 
 pub(crate) struct MetroServicePlugin;
 
@@ -42,7 +42,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let routes: Vec<Value> =
-        serde_json::from_reader(File::open("web/data/transit_paths.json").unwrap()).unwrap();
+        serde_json::from_reader(crate::data::open("web/data/transit_paths.json").unwrap()).unwrap();
     let lines: Vec<_> = routes
         .iter()
         .filter(|route| route["mode"] == "metro" && route["direction"] == 0)

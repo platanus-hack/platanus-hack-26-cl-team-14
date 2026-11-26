@@ -12,8 +12,7 @@ use bevy::{
 // The darkest ink of the print palette (pixels/vote.wgsl).
 pub(crate) const PANEL_INK: Color = Color::srgb_u8(0x10, 0x15, 0x8a);
 
-// Glass panels: a near-black tint, a bright rim and a soft shadow. White text stays legible over white roofs.
-pub(crate) const GLASS: Color = Color::srgba(0., 0., 0., 0.82);
+// Every panel is the print blue with white text, a bright rim and a soft shadow.
 pub(crate) const GLASS_RIM: Color = Color::srgba(1., 1., 1., 0.35);
 pub(crate) fn glass_shadow() -> BoxShadow {
     BoxShadow::new(Color::srgba(0., 0., 0., 0.35), px(0), px(10), px(0), px(28))
@@ -106,7 +105,7 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
         .spawn((
             CaptionBand,
             Visibility::Hidden,
-            BackgroundColor(GLASS),
+            BackgroundColor(PANEL_INK),
             BorderColor::all(GLASS_RIM),
             glass_shadow(),
             Node {
@@ -115,7 +114,6 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                 right: px(40),
                 bottom: px(32),
                 border: UiRect::all(px(2)),
-                border_radius: BorderRadius::all(px(44)),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..default()
@@ -141,14 +139,13 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                         CueArrow(step),
                         AccessibilityNode(accessibility),
                         RelativeCursorPosition::default(),
-                        BackgroundColor(GLASS),
+                        BackgroundColor(PANEL_INK),
                         BorderColor::all(GLASS_RIM),
                         glass_shadow(),
                         Node {
                             width: px(96),
                             height: px(96),
                             border: UiRect::all(px(2)),
-                            border_radius: BorderRadius::MAX,
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
@@ -165,14 +162,13 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                 row.spawn((
                     CueClose,
                     RelativeCursorPosition::default(),
-                    BackgroundColor(GLASS),
+                    BackgroundColor(PANEL_INK),
                     BorderColor::all(GLASS_RIM),
                     glass_shadow(),
                     Node {
                         width: px(96),
                         height: px(96),
                         border: UiRect::all(px(2)),
-                        border_radius: BorderRadius::MAX,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
@@ -235,9 +231,9 @@ fn style_arrows(
     for (arrow, mut background, mut accessibility) in &mut arrows {
         let enabled = step.can_step(arrow.0);
         background.set_if_neq(BackgroundColor(if enabled {
-            GLASS
+            PANEL_INK
         } else {
-            Color::srgba(0., 0., 0., 0.35)
+            PANEL_INK.with_alpha(0.35)
         }));
         if hidden && !accessibility.is_hidden() {
             accessibility.set_hidden();

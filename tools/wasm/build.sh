@@ -1,0 +1,19 @@
+#!/bin/sh
+# Build the browser version: the engine (wasm32-wasip1) and the viewer (wasm32-unknown-unknown, WebGPU).
+# Needs: rustup target add wasm32-wasip1 wasm32-unknown-unknown
+#        cargo install wasm-bindgen-cli --version 0.2.130 --locked   (the version in viz/Cargo.lock)
+# Then serve the repository root and open /web/wasm/ in a browser with WebGPU:
+#        python3 tools/wasm/serve.py 8961
+set -e
+cd "$(dirname "$0")/../.."
+export PATH="$HOME/.cargo/bin:$PATH"
+target=${CARGO_TARGET_DIR:-target/wasm}
+cargo build --release --manifest-path engine/Cargo.toml --bin santiago-scenario-core --target wasm32-wasip1 --target-dir "$target"
+cp "$target/wasm32-wasip1/release/santiago-scenario-core.wasm" web/wasm/engine.wasm
+cargo build --release --manifest-path viz/Cargo.toml --target wasm32-unknown-unknown --target-dir "$target"
+# The name section is half of the file; the browser does not need it.
+wasm-bindgen --target web --no-typescript --remove-name-section --remove-producers-section \
+    --out-name viewer --out-dir web/wasm "$target/wasm32-unknown-unknown/release/santiago-miniature.wasm"
+# A static site cannot list a folder. The MCP server lists these two.
+python3 -c 'import json, os; print(json.dumps({d: sorted(os.listdir(d)) for d in ("data/replays/", "web/data/")}))' > web/wasm/folders.json
+ls -l web/wasm/engine.wasm web/wasm/viewer_bg.wasm

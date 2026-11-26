@@ -233,6 +233,29 @@ export function publishExperimentResult(raw, { sourceTitle } = {}) {
   if (raw.activity) {
     cards.push(...activityCards(raw.activity, source, raw.city_edits?.some(isRoadClosure), rejectedClosure));
   }
+  // A station or line change answers with Metro entries, not with job places.
+  const metroChange = raw.applied?.some(change => ['station', 'line'].includes(change.kind));
+  const stations = metroChange ? (raw.stations ?? []).filter(station => Math.abs(station.delta_daily) >= 0.5)
+    .sort((a, b) => Math.abs(b.delta_daily) - Math.abs(a.delta_daily)) : [];
+  const placed = cards.length;
+  // A new line answers with its riders.
+  if (!placed && raw.line_riders?.length) {
+    cards.push({
+      title: 'Pasajeros de la línea', source, status: 'result', unit: 'viajes al trabajo modelados en un día hábil',
+      columns: ['Viajes', 'Demanda'],
+      rows: raw.line_riders.map(line => ({ label: line.id, values: [cell(line.riders_to_work), cell(line.demand_to_work)] })),
+    });
+  }
+  if (!placed && stations.length) {
+    cards.push({
+      title: 'Entradas al Metro', source, status: 'result', unit: 'entradas modeladas en un día hábil',
+      scope: `Las ${Math.min(6, stations.length)} estaciones con mayor cambio, de ${stations.length} que cambian.`,
+      columns: ['Base', 'Escenario', 'Cambio'],
+      rows: stations.slice(0, 6).map(station => ({
+        label: station.name, values: [cell(station.base_daily), cell(station.scenario_daily), cell(station.delta_daily)],
+      })),
+    });
+  }
   if (!cards.length && (!missing.length || raw.applied?.length) && Number.isFinite(raw.summary?.workers_moved)) {
     cards.push({
       title: 'Cambio de lugar de trabajo', source, status: 'result', unit: 'trabajadores modelados',

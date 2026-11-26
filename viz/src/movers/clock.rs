@@ -45,7 +45,7 @@ fn spawn(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             ..default()
         },
         TextColor(Color::WHITE),
-        BackgroundColor(crate::label::GLASS),
+        BackgroundColor(crate::label::PANEL_INK),
         BorderColor::all(crate::label::GLASS_RIM),
         crate::label::glass_shadow(),
         Node {
@@ -54,7 +54,6 @@ fn spawn(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
             left: px(24),
             padding: UiRect::axes(px(28), px(10)),
             border: UiRect::all(px(2)),
-            border_radius: BorderRadius::MAX,
             ..default()
         },
         Visibility::Hidden,

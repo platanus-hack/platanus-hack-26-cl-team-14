@@ -3,7 +3,7 @@ use crate::city::{Surface, world};
 use bevy::prelude::*;
 use flate2::read::GzDecoder;
 use serde_json::Value;
-use std::{collections::BTreeMap, fs::File, io::BufReader, path::Path};
+use std::{collections::BTreeMap, io::BufReader, path::Path};
 
 type Color4 = [f32; 4];
 type GroundTiles = BTreeMap<(i32, i32), Surface>;
@@ -82,7 +82,7 @@ pub(super) fn ribbon_faces(points: &[Vec3], half_width: f32, mut face: impl FnMu
 }
 
 fn read_geojson(path: &Path) -> Value {
-    let file = BufReader::new(File::open(path).unwrap());
+    let file = BufReader::new(crate::data::open(path).unwrap());
     if path.extension().unwrap() == "gz" {
         serde_json::from_reader(BufReader::new(GzDecoder::new(file))).unwrap()
     } else {
@@ -265,7 +265,7 @@ pub(super) fn mapped_trees(path: &Path) -> impl Iterator<Item = Mesh> {
     let mut tiles = GroundTiles::new();
     use std::io::Read;
     let mut bytes = Vec::new();
-    GzDecoder::new(File::open(path).unwrap())
+    GzDecoder::new(crate::data::open(path).unwrap())
         .read_to_end(&mut bytes)
         .unwrap();
     for pair in bytes.chunks_exact(4) {

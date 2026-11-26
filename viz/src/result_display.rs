@@ -7,24 +7,31 @@ use bevy::{
     window::PrimaryWindow,
 };
 use serde::Deserialize;
-use std::{env, fs, io::ErrorKind, path::PathBuf, time::Duration};
+use std::{env, io::ErrorKind, path::PathBuf, time::Duration};
 
-const PAPER: Color = Color::srgb(0.97, 0.95, 0.88);
-const MUTED: Color = Color::srgb(0.75, 0.81, 0.88);
-const ACCENT: Color = Color::srgb(0.55, 0.85, 0.76);
+// One style: white text on the print blue.
+const PAPER: Color = Color::WHITE;
+const MUTED: Color = Color::WHITE;
+const ACCENT: Color = Color::WHITE;
 
 pub(crate) struct ResultDisplayPlugin;
 
 impl Plugin for ResultDisplayPlugin {
     fn build(&self, app: &mut App) {
-        if let Some(path) = env::var_os("SANTIAGO_RESULT_DISPLAY_FILE") {
+        // Browser: no environment. The page keeps the file that the MCP server writes.
+        let path = if cfg!(target_family = "wasm") {
+            Some("result-display.json".into())
+        } else {
+            env::var_os("SANTIAGO_RESULT_DISPLAY_FILE")
+        };
+        if let Some(path) = path {
             app.insert_resource(Feed {
                 path: path.into(),
                 timer: Timer::new(Duration::from_millis(250), TimerMode::Repeating),
                 previous: None,
                 dismissed: false,
             })
-            .add_systems(Update, (read_receipt, interact).chain());
+            .add_systems(Update, (read_receipt, interact, show_more).chain());
         }
     }
 }
@@ -37,6 +44,10 @@ struct Dismiss;
 
 #[derive(Component)]
 struct Body;
+
+/// The line that tells the reader that the card has more rows below.
+#[derive(Component)]
+struct More;
 
 #[derive(Resource)]
 struct Feed {
@@ -130,7 +141,7 @@ fn read_receipt(
     if !feed.timer.tick(time.delta()).just_finished() {
         return;
     }
-    let snapshot = fs::read(&feed.path).map_err(|error| error.kind());
+    let snapshot = crate::data::read(&feed.path).map_err(|error| error.kind());
     if feed.previous.as_ref() == Some(&snapshot) {
         return;
     }
@@ -159,17 +170,16 @@ fn read_receipt(
             RelativeCursorPosition::default(),
             GlobalZIndex(18),
             BackgroundColor(crate::label::PANEL_INK),
-            BorderColor::all(Color::srgb_u8(0x4e, 0x5e, 0xde)),
+            BorderColor::all(crate::label::GLASS_RIM),
             Node {
                 position_type: PositionType::Absolute,
                 top: px(156),
                 left: px(24),
-                width: vw(31),
-                min_width: px(290),
-                max_width: px(470),
-                max_height: vh(48),
+                width: vw(44),
+                min_width: px(480),
+                max_width: px(900),
+                max_height: vh(80),
                 border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(8)),
                 padding: UiRect::all(px(15)),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(10),
@@ -184,20 +194,19 @@ fn read_receipt(
                     ..default()
                 })
                 .with_children(|header| {
-                    header.spawn(text(font, "Consulta", 21., PAPER));
+                    header.spawn(text(font, "Consulta", 38., PAPER));
                     header
                         .spawn((
                             Dismiss,
-                            BackgroundColor(Color::srgb_u8(0x1c, 0x25, 0xa9)),
+                            BackgroundColor(Color::WHITE),
                             RelativeCursorPosition::default(),
                             Node {
                                 padding: UiRect::axes(px(9), px(4)),
-                                border_radius: BorderRadius::all(px(5)),
                                 ..default()
                             },
                         ))
                         .with_children(|button| {
-                            button.spawn(text(font, "Cerrar", 16., MUTED));
+                            button.spawn(text(font, "Cerrar", 34., crate::label::PANEL_INK));
                         });
                 });
             panel
@@ -223,7 +232,19 @@ fn read_receipt(
                         .with_children(|section| render_card(section, font, card));
                     }
                 });
+            panel.spawn((More, Node { display: Display::None, ..default() }, text(font, "Desliza para ver más", 30., PAPER)));
         });
+}
+
+// The card scrolls with the wheel. Without this line a cut row looks like the end of the result.
+fn show_more(body: Query<&ComputedNode, With<Body>>, mut more: Query<&mut Node, With<More>>) {
+    let (Ok(body), Ok(mut more)) = (body.single(), more.single_mut()) else {
+        return;
+    };
+    let display = if body.content_size().y > body.size().y + 1. { Display::Flex } else { Display::None };
+    if more.display != display {
+        more.display = display;
+    }
 }
 
 fn unreadable_receipt() -> Vec<Card> {
@@ -243,20 +264,20 @@ fn render_card(section: &mut ChildSpawnerCommands, font: &Handle<Font>, card: Ca
     section.spawn(text(
         font,
         format!("{} · {}", card.status.label(), card.source),
-        16.,
+        32.,
         ACCENT,
     ));
-    section.spawn(text(font, card.title, 24., PAPER));
+    section.spawn(text(font, card.title, 46., PAPER));
     for detail in [card.unit, card.coverage] {
         if !detail.is_empty() {
-            section.spawn(text(font, detail, 17., MUTED));
+            section.spawn(text(font, detail, 34., MUTED));
         }
     }
     if !card.columns.is_empty() {
-        render_row(section, font, String::new(), card.columns, 15., MUTED);
+        render_row(section, font, String::new(), card.columns, 32., MUTED);
     }
     for row in card.rows {
-        render_row(section, font, row.label, row.values, 17., PAPER);
+        render_row(section, font, row.label, row.values, 38., PAPER);
         if let Some(bar) = row.bar {
             section.spawn((
                 BackgroundColor(ACCENT),
@@ -269,7 +290,7 @@ fn render_card(section: &mut ChildSpawnerCommands, font: &Handle<Font>, card: Ca
         }
     }
     if !card.scope.is_empty() {
-        section.spawn(text(font, card.scope, 17., MUTED));
+        section.spawn(text(font, card.scope, 34., MUTED));
     }
 }
 

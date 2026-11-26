@@ -2,7 +2,6 @@
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::path::Path;
-use std::process::Command;
 
 const WALK_METRES_PER_MINUTE: f64 = 80.0;
 const MODES: [&str; 3] = ["public", "car", "other"];
@@ -22,15 +21,8 @@ impl Request {
 }
 
 fn compressed_routes(data: &Path, file: &str) -> Option<Value> {
-    let output = Command::new("gzip")
-        .arg("-dc")
-        .arg(data.join(file))
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    serde_json::from_slice(&output.stdout).ok()
+    let file = std::io::BufReader::new(std::fs::File::open(data.join(file)).ok()?);
+    serde_json::from_reader(flate2::read::GzDecoder::new(file)).ok()
 }
 
 fn car_legs(venue: &Value, home_cut: &str) -> Option<Vec<Value>> {

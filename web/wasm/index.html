@@ -1,0 +1,72 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>santiaguito.cl</title>
+<link rel="icon" href="data:,">
+<!-- The MCP server runs in the page as it is. These three modules stand in for Node. -->
+<script type="importmap">
+{ "imports": { "node:fs": "./node/fs.js", "node:readline": "./node/readline.js", "node:crypto": "./node/crypto.js" } }
+</script>
+<style>
+  @font-face { font-family: Barlow; src: url("../../viz/assets/barlow/Barlow-Regular.ttf"); }
+  /* Two styles only: the simulator blue with white text, or white with a blue border and blue text. No round corners.
+     --u is one pixel of the 1920-pixel city design. The viewer scales its panels the same way,
+     so the page and the city keep their proportions on any monitor. */
+  :root { --blue: #10158a; --side: 35vw; --u: calc((100vw - var(--side)) / 1920); }
+  html, body { margin: 0; height: 100%; background: var(--blue); color: #fff; font: max(18px, calc(40 * var(--u)))/1.2 Barlow, system-ui, sans-serif; overflow: hidden; }
+  /* The city has the left part of the window. The tool form has the right part, where the chat was. */
+  #frame { position: fixed; inset: 0 var(--side) 0 0; }
+  /* The tabs and the send button keep their place. The form and the reply scroll between them.
+     The scroll bar of macOS draws over the content, so the content keeps 18 pixels clear at the right. */
+  #tools { position: fixed; inset: 0 0 0 auto; width: var(--side); box-sizing: border-box; padding: calc(24 * var(--u)); display: flex; flex-direction: column; gap: calc(20 * var(--u)); }
+  #scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: calc(20 * var(--u)); scrollbar-color: #fff var(--blue); padding-right: 18px; }
+  #tabs { display: flex; gap: calc(12 * var(--u)); }
+  button, input, select, textarea { font: inherit; box-sizing: border-box; border-radius: 0; border: calc(2 * var(--u)) solid var(--blue); padding: calc(10 * var(--u)) calc(16 * var(--u)); background: #fff; color: var(--blue); }
+  button { cursor: pointer; }
+  button.blue { background: var(--blue); color: #fff; border-color: #fff; }
+  #tabs button { flex: 1; padding: calc(18 * var(--u)); }
+  #tabs button:last-child { flex: none; }
+  #send { padding: calc(18 * var(--u)); }
+  input, select, textarea { width: 100%; min-width: 0; }
+  input[type=checkbox] { width: auto; }
+  /* The browser paints these parts with its own colors and round shapes. */
+  input, select, textarea, button { accent-color: var(--blue); }
+  ::placeholder { color: var(--blue); opacity: 1; font-style: italic; }
+  :focus-visible { outline: calc(4 * var(--u)) solid #fff; outline-offset: 0; border-radius: 0; }
+  input.key { flex: 0 0 6.5em; }
+  /* The tool reply: names at the left, values at the right. */
+  #result .row > span:first-child { width: auto; flex: 1; padding-top: 0; }
+  #result b { font-weight: normal; text-align: right; overflow-wrap: anywhere; max-width: 60%; }
+  #result details { border-top: calc(2 * var(--u)) solid #fff6; padding-top: calc(8 * var(--u)); }
+  #result details details { margin-left: calc(14 * var(--u)); }
+  #result summary { cursor: pointer; }
+  #result p { margin: calc(4 * var(--u)) 0 0; overflow-wrap: anywhere; }
+  /* One level of the tool input: its fields, one below the other. */
+  .group { display: flex; flex-direction: column; gap: calc(10 * var(--u)); flex: 1; min-width: 0; }
+  .group .group { padding-left: calc(14 * var(--u)); border-left: calc(2 * var(--u)) solid #fff6; }
+  .row { display: flex; gap: calc(12 * var(--u)); align-items: flex-start; }
+  .row > span:first-child { flex: none; width: 6.5em; padding-top: calc(12 * var(--u)); overflow-wrap: anywhere; }
+  .row > span + span { padding-top: calc(12 * var(--u)); }
+  .row > button, .group > button { flex: none; }
+  .row:has(> .help) { flex-wrap: wrap; }
+  .help, #about { flex-basis: 100%; order: 2; white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* A field that holds more fields: its name stays on the first line and the fields go below, full width. */
+  .row:has(> span + .group) { flex-wrap: wrap; }
+  .row:has(> span + .group) > span:first-child { flex: 1; }
+  .row:has(> span + .group) > .group { flex-basis: 100%; order: 1; }
+  /* Bottom of the city: the same band as the viewer subtitle. The page uses it only while it loads or computes. */
+  #note { position: fixed; left: calc(40 * var(--u)); right: calc(var(--side) + 40 * var(--u)); bottom: calc(32 * var(--u)); padding: calc(26 * var(--u)) calc(40 * var(--u)); background: var(--blue); border: calc(2 * var(--u)) solid #fff5; font-size: calc(52 * var(--u)); text-align: center; }
+  [hidden] { display: none !important; }
+</style>
+<div id="frame"><canvas id="city"></canvas></div>
+<form id="tools" hidden>
+  <div id="tabs"></div>
+  <div id="hint"></div>
+  <div id="scroll">
+    <div id="about" hidden></div>
+    <div id="input"></div>
+    <div id="result" class="group" hidden></div>
+  </div>
+  <button id="send">Enviar</button>
+</form>
+<div id="note">santiaguito.cl</div>
+<script type="module" src="./main.js"></script>

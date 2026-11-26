@@ -3,6 +3,7 @@ mod boot;
 mod chat_terminal;
 mod chart;
 mod city;
+mod data;
 mod focus;
 mod halos;
 mod result_display;
@@ -23,7 +24,9 @@ use bevy::{
     window::{PrimaryWindow, WindowPosition, WindowResolution},
     winit::WinitSettings,
 };
-use std::{env, time::Instant};
+// The std clock is absent in the browser.
+use bevy::platform::time::Instant;
+use std::env;
 
 const DAY_SKY: Color = Color::srgb_u8(249, 248, 244);
 
@@ -54,6 +57,8 @@ impl Plugin for MiniatureCamera {
             )
             .add_plugins((movers::clock::ClockPlugin, movers::follow::FollowPlugin))
             .add_systems(Last, measure.run_if(resource_exists::<city::Buildings>));
+        #[cfg(target_family = "wasm")]
+        app.add_systems(Update, (track_cursor.after(aim), track_ready.run_if(resource_exists::<city::Buildings>)));
     }
 }
 
@@ -63,6 +68,9 @@ pub fn window() -> Window {
         title: "santiaguito.cl".into(),
         name: env::var("SANTIAGO_CITY_WINDOW_CLASS").ok(),
         resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+        // Browser only: draw in the page canvas and fill the element that holds it.
+        canvas: Some("#city".into()),
+        fit_canvas_to_parent: true,
         ..default()
     };
     if let Ok(bounds) = env::var("SANTIAGO_WINDOW_RECT") {
@@ -198,6 +206,7 @@ fn navigate(
         With<result_display::ResultSurface>,
     >,
 ) {
+    let page_zoom = page_zoom();
     if rig.fixed || overlay.iter().any(|(node, cursor)| {
         node.display != Display::None && cursor.cursor_over()
     }) {
@@ -207,7 +216,7 @@ fn navigate(
         return;
     }
     // A mouse wheel (lines) zooms. A trackpad two-finger swipe (pixels) pans, and a pinch zooms.
-    let mut scroll: f32 = pinch.read().map(|event| event.0 * 2.0).sum();
+    let mut scroll: f32 = pinch.read().map(|event| event.0 * 2.0).sum::<f32>() + page_zoom;
     let mut swipe = Vec2::ZERO;
     for event in wheel.read() {
         match event.unit {
@@ -258,6 +267,67 @@ fn navigate(
             (-right * delta.x + forward * delta.y / camera.forward().y.abs()) * meters_per_pixel;
         rig.target.y = city::terrain_from_xz(rig.target.x, rig.target.z);
     }
+}
+
+// Browser: a trackpad pinch is a wheel event with Ctrl, not a pinch gesture. The page passes it here.
+#[cfg(target_family = "wasm")]
+static PAGE_ZOOM: std::sync::Mutex<f32> = std::sync::Mutex::new(0.);
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(js_name = santiagoZoom)]
+pub fn zoom_from_page(amount: f32) {
+    *PAGE_ZOOM.lock().unwrap() += amount;
+}
+
+#[cfg(target_family = "wasm")]
+fn page_zoom() -> f32 {
+    std::mem::take(&mut *PAGE_ZOOM.lock().unwrap())
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn page_zoom() -> f32 {
+    0.
+}
+
+// Browser: the page keeps its loading band until the buildings are on the screen.
+#[cfg(target_family = "wasm")]
+static PAGE_READY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(js_name = santiagoReady)]
+pub fn ready_for_page() -> bool {
+    PAGE_READY.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[cfg(target_family = "wasm")]
+fn track_ready(buildings: Res<city::Buildings>) {
+    PAGE_READY.store(buildings.ready, std::sync::atomic::Ordering::Relaxed);
+}
+
+// Browser: the page asks for the map point under the cursor, to fill a longitude and a latitude.
+#[cfg(target_family = "wasm")]
+static PAGE_CURSOR: std::sync::Mutex<Option<[f64; 2]>> = std::sync::Mutex::new(None);
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(js_name = santiagoCursor)]
+pub fn cursor_for_page() -> Option<Vec<f64>> {
+    PAGE_CURSOR.lock().unwrap().map(Vec::from)
+}
+
+#[cfg(target_family = "wasm")]
+fn track_cursor(
+    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Single<(&Camera, &GlobalTransform), With<Camera3d>>,
+    canvas: Query<&Sprite, With<pixels::CityCanvas>>,
+) {
+    let (camera, transform) = *camera;
+    // The same cursor-to-ground steps as the zoom in `navigate`.
+    let ground = window.cursor_position().zip(camera.logical_viewport_size()).and_then(|(cursor, viewport)| {
+        let size = canvas.single().ok().and_then(|s| s.custom_size).unwrap_or(window.size());
+        let pixel = ((cursor - window.size() * 0.5) / size + Vec2::splat(0.5)) * viewport;
+        city::cursor_ground(camera.viewport_to_world(transform, pixel).ok()?)
+    });
+    *PAGE_CURSOR.lock().unwrap() = ground.map(city::lon_lat);
 }
 
 fn aim(

@@ -36,7 +36,7 @@ impl Graph {
     fn load() -> Self {
         let pack: Pack =
             serde_json::from_reader(std::io::BufReader::new(flate2::read::GzDecoder::new(
-                fs::File::open("web/data/local_car_graph.json.gz").unwrap(),
+                crate::data::open("web/data/local_car_graph.json.gz").unwrap(),
             )))
             .unwrap();
         let mut indices = HashMap::new();

@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, HashMap},
-    fs::File,
     io::BufReader,
 };
 
@@ -51,7 +50,7 @@ pub(super) struct Topology {
 
 impl Topology {
     pub(super) fn load() -> Self {
-        let file = File::open("web/data/local_car_graph.json.gz").unwrap();
+        let file = crate::data::open("web/data/local_car_graph.json.gz").unwrap();
         let pack: Pack =
             serde_json::from_reader(BufReader::new(flate2::read::GzDecoder::new(file))).unwrap();
         let positions: HashMap<Node, Vec2> = pack

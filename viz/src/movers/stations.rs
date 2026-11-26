@@ -107,6 +107,7 @@ pub(super) fn position_closed_signs(
     window: Single<&Window, With<bevy::window::PrimaryWindow>>,
     canvas: Query<&Sprite, With<crate::pixels::CityCanvas>>,
     rig: Res<crate::Rig>,
+    ui: Res<UiScale>,
     mut signs: Query<(&StationPin, &mut Node, &mut Visibility)>,
 ) {
     let (camera, transform) = *camera;
@@ -137,8 +138,9 @@ pub(super) fn position_closed_signs(
                 point = window.size() * 0.5 + (point / viewport - Vec2::splat(0.5)) * size;
             }
             let offset = if sign.name { Vec2::new(-32., -51.) } else { Vec2::splat(-SIGN_SIZE / 2.) };
-            node.left = px(point.x + offset.x);
-            node.top = px(point.y + offset.y);
+            // The UI scale multiplies node positions; the map point is in window pixels.
+            node.left = px(point.x / ui.0 + offset.x);
+            node.top = px(point.y / ui.0 + offset.y);
             *visibility = Visibility::Inherited;
         } else {
             *visibility = Visibility::Hidden;
