@@ -1,7 +1,20 @@
 {
   "name": "santiaguito-landing",
   "compatibility_date": "2026-11-21",
-  "assets": { "directory": "./public" },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
   "workers_dev": false,
-  "routes": [{ "pattern": "santiaguito.cl", "custom_domain": true }]
+  "routes": [
+    {
+      "pattern": "santiaguito.cl",
+      "custom_domain": true
+    }
+  ],
+  "main": "./worker.js",
+  "build": {
+    "command": "python3 pack-assets.py",
+    "cwd": "landing"
+  }
 }

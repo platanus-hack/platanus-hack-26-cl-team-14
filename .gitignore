@@ -19,3 +19,5 @@ build/
 
 # Scraped data (large, rebuild with tools/scrape/)
 data/raw/
+
+/.wrangler/
