@@ -30,7 +30,7 @@
   #scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: calc(20 * var(--u)); scrollbar-color: #fff var(--blue); padding-right: 18px; }
   #tabs { display: flex; gap: calc(12 * var(--u)); }
   button, input, select, textarea { font: inherit; box-sizing: border-box; border-radius: 0; border: calc(2 * var(--u)) solid var(--blue); padding: calc(10 * var(--u)) calc(16 * var(--u)); background: #fff; color: var(--blue); }
-  button { cursor: pointer; }
+  button { display: grid; place-items: center; text-align: center; cursor: pointer; }
   button.blue { background: var(--blue); color: #fff; border-color: #fff; }
   #tabs button { flex: 1; padding: calc(18 * var(--u)); }
   #tabs button:last-child { flex: none; }
@@ -69,7 +69,7 @@
 <div id="frame"><canvas id="city"></canvas></div>
 <aside id="assistant-guide" aria-label="Asistente">
   <button id="toggle-tools" type="button" aria-controls="tools" aria-expanded="false" disabled>Cambios</button>
-  <span id="assistant-status" role="status">Abre la extensión de Santiaguito en Chrome</span>
+  <span id="assistant-status" role="status">Abre la extensión de Claude o ChatGPT</span>
   <span id="assistant-arrow" aria-hidden="true">↗</span>
 </aside>
 <form id="tools" hidden>

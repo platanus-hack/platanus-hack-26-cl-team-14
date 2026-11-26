@@ -5,7 +5,7 @@ use bevy::{
     a11y::AccessibilityNode,
     prelude::*,
     text::FontSize,
-    ui::RelativeCursorPosition,
+    ui::{RelativeCursorPosition, UiTransform, Val2},
 };
 
 // The darkest blue-violet ink of the city print, opaque so text stays legible over white roofs.
@@ -98,6 +98,34 @@ struct CueArrow(i32);
 #[derive(Component)]
 struct CueClose;
 
+fn cue_icon(icon: &mut ChildSpawnerCommands, step: i32) {
+    const THICKNESS: f32 = 5.;
+    let length = if step == 0 { 36. } else { 28. };
+    for side in [-1., 1.] {
+        let (offset, angle) = if step == 0 {
+            (0., side * 45.)
+        } else {
+            (side * 9.5, -side * step as f32 * 45.)
+        };
+        icon.spawn((
+            BackgroundColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                top: percent(50),
+                left: percent(50),
+                width: px(length),
+                height: px(THICKNESS),
+                ..default()
+            },
+            UiTransform {
+                translation: Val2::px(-length / 2., offset - THICKNESS / 2.),
+                rotation: Rot2::degrees(angle),
+                ..default()
+            },
+        ));
+    }
+}
+
 // Floating glass subtitle bar: the projector audience reads one large line per camera cue.
 fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     let font = fonts.add(Font::from_bytes(include_bytes!("../assets/barlow/Barlow-Regular.ttf").to_vec()));
@@ -130,7 +158,7 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                 ..default()
             })
             .with_children(|row| {
-                for (step, glyph, label) in [(-1, "<", "Previous cue"), (1, ">", "Next cue")] {
+                for (step, label) in [(-1, "Previous cue"), (1, "Next cue")] {
                     let mut accessibility = AccessNode::new(Role::Button);
                     accessibility.set_label(label);
                     accessibility.set_disabled();
@@ -151,13 +179,7 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                             ..default()
                         },
                     ))
-                    .with_children(|arrow| {
-                        arrow.spawn((
-                            Text::new(glyph),
-                            TextFont { font: font.clone().into(), font_size: FontSize::Px(64.), ..default() },
-                            TextColor(Color::WHITE),
-                        ));
-                    });
+                    .with_children(|icon| cue_icon(icon, step));
                 }
                 row.spawn((
                     CueClose,
@@ -174,13 +196,7 @@ fn spawn_caption(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
                         ..default()
                     },
                 ))
-                .with_children(|close| {
-                    close.spawn((
-                        Text::new("×"),
-                        TextFont { font: font.clone().into(), font_size: FontSize::Px(64.), ..default() },
-                        TextColor(Color::WHITE),
-                    ));
-                });
+                .with_children(|icon| cue_icon(icon, 0));
             });
             band.spawn((
                 CaptionText,

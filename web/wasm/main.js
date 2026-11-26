@@ -105,7 +105,6 @@ const mcp = (method, params) => new Promise((resolve) => {
   answers.set(++requests, resolve);
   send(JSON.stringify({ jsonrpc: '2.0', id: requests, method, params }));
 });
-globalThis.santiagoMcp = mcp;
 const tool = async (name, args = {}) => {
   const { result } = await mcp('tools/call', { name, arguments: args });
   if (result.isError) throw new Error(result.content[0].text);
@@ -432,8 +431,14 @@ if (replay) {
   }
 }
 
-connectAssistant(availableTools, async (name, args) => {
+const revealAssistantControls = connectAssistant(availableTools, async (name, args) => {
   const reply = await tool(name, args);
   if (name !== 'list_replays') showReply(reply);
   return reply;
 });
+
+const toolNames = new Set(availableTools.map(({ name }) => name));
+globalThis.santiagoMcp = (method, params) => {
+  if (method === 'tools/call' && toolNames.has(params?.name)) revealAssistantControls();
+  return mcp(method, params);
+};
