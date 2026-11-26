@@ -13,6 +13,19 @@ const note = (text) => { $('#note').textContent = text ?? ''; $('#note').hidden 
 const resultCards = 'result-display.json';
 // The viewer reads its files at once, so the page downloads them before the viewer starts.
 const files = new Map();
+const downloads = new Map();
+function loadFile(path) {
+  if (!downloads.has(path)) {
+    const url = new URL(path, root);
+    downloads.set(path, fetch(url).then(async (response) => {
+      if (!response.ok) throw new Error(`Download of ${path} failed with status ${response.status}`);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      files.set(path, bytes);
+      preloaded.set(url.href, bytes);
+    }));
+  }
+  return downloads.get(path);
+}
 globalThis.santiagoFile = (path) => {
   if (path === resultCards) return saved(path) && new TextEncoder().encode(saved(path));
   const bytes = files.get(path.replace(/^\.\//, ''));
@@ -22,9 +35,7 @@ globalThis.santiagoFile = (path) => {
 const list = await (await fetch(new URL('viewer-files.json', import.meta.url))).json();
 let done = 0;
 await Promise.all(list.map(async (path) => {
-  const bytes = new Uint8Array(await (await fetch(new URL(path, root))).arrayBuffer());
-  files.set(path, bytes);
-  preloaded.set(new URL(path, root).href, bytes); // the MCP server reads some of the same files
+  await loadFile(path);
   note(`santiaguito.cl · ${Math.round(100 * ++done / list.length)} %`);
 }));
 
@@ -50,7 +61,13 @@ globalThis.fetch = async (input, options) => {
   if (url.origin !== engineAddress) return network(input, options);
   const reply = await engine(url.pathname, options?.body && JSON.parse(options.body));
   if (reply.status === 200 && options?.method === 'POST' && url.pathname !== '/api/building-footprint') {
-    santiagoScenario(JSON.stringify((await engine('/api/scenario-latest')).body));
+    const { body: latest } = await engine('/api/scenario-latest');
+    const edits = latest.city_edits ?? [];
+    await Promise.all([
+      edits.some(edit => edit.kind === 'road' && edit.before) && loadFile('web/data/road_centerlines.geojson.gz'),
+      edits.some(edit => edit.kind === 'line' && edit.after?.properties?.mode === 'boat') && loadFile('data/mvp/editable_transit.json'),
+    ]);
+    santiagoScenario(JSON.stringify(latest));
   }
   return new Response(typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body), { status: reply.status });
 };
