@@ -11,25 +11,34 @@ use bevy::{
 };
 use flate2::read::GzDecoder;
 use geo::Rect as GeoRect;
+#[cfg(not(target_family = "wasm"))]
 use serde::Deserialize;
-use std::{collections::BTreeMap, io::BufReader, path::Path};
+use std::collections::BTreeMap;
+#[cfg(not(target_family = "wasm"))]
+use std::io::BufReader;
+#[cfg(target_family = "wasm")]
+use std::io::Read;
 
+#[cfg(not(target_family = "wasm"))]
 #[derive(Deserialize)]
 struct Roads {
     features: Vec<Road>,
 }
 
+#[cfg(not(target_family = "wasm"))]
 #[derive(Deserialize)]
 struct Road {
     geometry: Polygon,
     properties: RoadProperties,
 }
 
+#[cfg(not(target_family = "wasm"))]
 #[derive(Deserialize)]
 struct Polygon {
     coordinates: Vec<Vec<[f64; 2]>>,
 }
 
+#[cfg(not(target_family = "wasm"))]
 #[derive(Deserialize)]
 struct RoadProperties {
     tile: usize,
@@ -49,6 +58,16 @@ struct StreetFace {
 }
 
 impl StreetFace {
+    fn road(rings: Vec<Vec<Vec2>>, layer: i32, road_use: &str) -> Self {
+        let (color, extra_lift) = match road_use {
+            "sidewalk" => ([0.66, 0.67, 0.68, 1.], 0.03),
+            "foot" => ([0.47, 0.48, 0.49, 1.], 0.02),
+            "cycle" => ([0.30, 0.31, 0.32, 1.], 0.01),
+            _ => (ASPHALT, 0.),
+        };
+        Self::new(rings, super::road_surface_lift(layer) + extra_lift, color)
+    }
+
     fn new(rings: Vec<Vec<Vec2>>, lift: f32, color: Rgba) -> Self {
         let (mut low, mut high) = (rings[0][0], rings[0][0]);
         for &p in &rings[0] {
@@ -142,16 +161,10 @@ pub(super) fn apply(
     }
 }
 
-pub(super) fn spawn(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    path: &Path,
-    street_material: &Handle<StandardMaterial>,
-    bridges: Vec<(Vec<Vec3>, f32, f32)>,
-    scenery: Entity,
-    scenery_material: &Handle<StandardMaterial>,
-) {
-    let gz = GzDecoder::new(crate::data::open(path).unwrap());
+#[cfg(not(target_family = "wasm"))]
+fn load_faces() -> BTreeMap<usize, Vec<StreetFace>> {
+    let file = crate::data::open("web/data/road_surface.geojson.gz").unwrap();
+    let gz = GzDecoder::new(file);
     let roads: Roads = serde_json::from_reader(BufReader::new(gz)).unwrap();
     let mut tiles = BTreeMap::<usize, Vec<StreetFace>>::new();
     for road in roads.features {
@@ -159,12 +172,6 @@ pub(super) fn spawn(
         if p.structure == "tunnel" {
             continue;
         }
-        let (color, extra_lift) = match p.road_use.as_str() {
-            "sidewalk" => ([0.66, 0.67, 0.68, 1.], 0.03),
-            "foot" => ([0.47, 0.48, 0.49, 1.], 0.02),
-            "cycle" => ([0.30, 0.31, 0.32, 1.], 0.01),
-            _ => (ASPHALT, 0.),
-        };
         let rings = road
             .geometry
             .coordinates
@@ -176,13 +183,88 @@ pub(super) fn spawn(
                     .collect()
             })
             .collect();
-        let lift = super::road_surface_lift(p.layer) + extra_lift;
         tiles
             .entry(p.tile)
             .or_default()
-            .push(StreetFace::new(rings, lift, color));
+            .push(StreetFace::road(rings, p.layer, &p.road_use));
     }
-    for faces in tiles.into_values() {
+    tiles
+}
+
+#[cfg(target_family = "wasm")]
+fn load_faces() -> BTreeMap<usize, Vec<StreetFace>> {
+    fn varint(bytes: &mut &[u8]) -> u32 {
+        let mut value = 0;
+        let mut shift = 0;
+        loop {
+            let (&byte, rest) = bytes.split_first().unwrap();
+            *bytes = rest;
+            value |= u32::from(byte & 127) << shift;
+            if byte < 128 {
+                return value;
+            }
+            shift += 7;
+        }
+    }
+
+    fn signed(value: u32) -> i32 {
+        (value >> 1) as i32 ^ -((value & 1) as i32)
+    }
+
+    fn coordinate(bytes: &mut &[u8], previous: &mut i32) -> f64 {
+        let mut delta = varint(bytes);
+        // A zero marks an exact correction for an off-grid coordinate.
+        let correction = if delta == 0 {
+            let correction = signed(varint(bytes));
+            delta = varint(bytes);
+            correction
+        } else {
+            0
+        };
+        *previous += signed(delta - 1);
+        let rounded = f64::from(*previous) / 1_000_000.;
+        f64::from_bits(rounded.to_bits().wrapping_add_signed(i64::from(correction)))
+    }
+
+    let file = crate::data::open("web/wasm/road-surface.bin.gz").unwrap();
+    let mut unpacked = Vec::new();
+    GzDecoder::new(file).read_to_end(&mut unpacked).unwrap();
+    let mut bytes = unpacked.as_slice();
+    let mut tiles = BTreeMap::<usize, Vec<StreetFace>>::new();
+    while !bytes.is_empty() {
+        let tile = varint(&mut bytes) as usize;
+        let layer = signed(varint(&mut bytes));
+        let road_use = ["road", "cycle", "foot", "sidewalk"][varint(&mut bytes) as usize];
+        let rings = (0..varint(&mut bytes))
+            .map(|_| {
+                let (mut lon, mut lat) = (0, 0);
+                (0..varint(&mut bytes))
+                    .map(|_| {
+                        world_xz(
+                            coordinate(&mut bytes, &mut lon),
+                            coordinate(&mut bytes, &mut lat),
+                        )
+                    })
+                    .collect()
+            })
+            .collect();
+        tiles
+            .entry(tile)
+            .or_default()
+            .push(StreetFace::road(rings, layer, road_use));
+    }
+    tiles
+}
+
+pub(super) fn spawn(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    street_material: &Handle<StandardMaterial>,
+    bridges: Vec<(Vec<Vec3>, f32, f32)>,
+    scenery: Entity,
+    scenery_material: &Handle<StandardMaterial>,
+) {
+    for faces in load_faces().into_values() {
         commands.spawn((
             StreetTile::bundle(faces, meshes),
             MeshMaterial3d(street_material.clone()),

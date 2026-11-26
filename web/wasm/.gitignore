@@ -2,3 +2,5 @@ engine.wasm
 viewer.js
 viewer_bg.wasm
 folders.json
+road-surface.bin.gz
+road-surface.bin.tmp

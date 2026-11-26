@@ -705,7 +705,6 @@ pub(crate) fn setup_ground(
     streets::spawn(
         &mut commands,
         &mut meshes,
-        Path::new("web/data/road_surface.geojson.gz"),
         &street_mat,
         bridges,
         root,

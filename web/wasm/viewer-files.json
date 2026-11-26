@@ -18,7 +18,7 @@
 "web/data/city_building_polygons.bin.gz",
 "web/data/city_building_block_ids.bin.gz",
 "web/data/city_trees.bin.gz",
-"web/data/road_surface.geojson.gz",
+"web/wasm/road-surface.bin.gz",
 "web/data/terrain.i16",
 "web/data/mapocho_detail.geojson",
 "web/data/santiago_landmarks.geojson",
