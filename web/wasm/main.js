@@ -26,6 +26,11 @@ function loadFile(path) {
   }
   return downloads.get(path);
 }
+const fullPolygons = 'web/data/city_building_polygons.bin.gz';
+globalThis.santiagoPolygonsReady = () => {
+  if (!downloads.has(fullPolygons)) loadFile(fullPolygons).catch(error => note(String(error)));
+  return files.has(fullPolygons);
+};
 globalThis.santiagoFile = (path) => {
   if (path === resultCards) return saved(path) && new TextEncoder().encode(saved(path));
   const bytes = files.get(path.replace(/^\.\//, ''));
@@ -76,6 +81,7 @@ globalThis.fetch = async (input, options) => {
     const { body: latest } = await engine('/api/scenario-latest');
     const edits = latest.city_edits ?? [];
     await Promise.all([
+      edits.some(edit => edit.kind === 'building') && loadFile(fullPolygons),
       edits.some(edit => edit.kind === 'road' && edit.before) && loadFile('web/data/road_centerlines.geojson.gz'),
       edits.some(edit => edit.kind === 'line' && edit.after?.properties?.mode === 'boat') && loadFile('data/mvp/editable_transit.json'),
     ]);

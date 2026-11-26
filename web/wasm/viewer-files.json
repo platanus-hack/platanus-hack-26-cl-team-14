@@ -15,7 +15,7 @@
 "data/mvp/blocks.csv",
 "data/mvp/metro_planned.geojson",
 "web/data/city_building_boxes.bin.gz",
-"web/data/city_building_polygons.bin.gz",
+"web/wasm/building-polygons-startup.bin.gz",
 "web/data/city_building_block_ids.bin.gz",
 "web/data/city_trees.bin.gz",
 "web/wasm/road-surface.bin.gz",

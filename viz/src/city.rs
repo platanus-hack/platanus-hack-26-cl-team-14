@@ -184,9 +184,9 @@ struct Pack {
 }
 
 impl Pack {
-    fn load(name: &str) -> Self {
+    fn load(path: &str) -> Self {
         let mut bytes = Vec::new();
-        GzDecoder::new(crate::data::open(format!("web/data/city_building_{name}.bin.gz")).unwrap())
+        GzDecoder::new(crate::data::open(path).unwrap())
             .read_to_end(&mut bytes)
             .unwrap();
         let cols = word(&bytes, 4) as usize;
@@ -262,6 +262,8 @@ enum Detail {
 pub(crate) struct Buildings {
     boxes: Pack,
     polygons: Pack,
+    #[cfg(target_family = "wasm")]
+    full_polygons: bool,
     tiles: Vec<Option<(Detail, Entity)>>,
     material: Handle<StandardMaterial>,
     facade_material: Handle<StandardMaterial>,
@@ -270,6 +272,25 @@ pub(crate) struct Buildings {
     dirty: Vec<bool>,
     heights: activity::HeightScales,
     hidden: HashSet<(usize, usize)>,
+}
+
+const FULL_POLYGONS: &str = "web/data/city_building_polygons.bin.gz";
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_name = santiagoPolygonsReady)]
+    fn page_polygons_ready() -> bool;
+}
+
+#[cfg(target_family = "wasm")]
+impl Buildings {
+    fn load_full_polygons(&mut self) {
+        if !self.full_polygons && page_polygons_ready() {
+            self.polygons = Pack::load(FULL_POLYGONS);
+            self.full_polygons = true;
+        }
+    }
 }
 
 fn box_mesh(
@@ -392,8 +413,11 @@ pub fn load_buildings(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let boxes = Pack::load("boxes");
-    let polygons = Pack::load("polygons");
+    let boxes = Pack::load("web/data/city_building_boxes.bin.gz");
+    #[cfg(target_family = "wasm")]
+    let polygons = Pack::load("web/wasm/building-polygons-startup.bin.gz");
+    #[cfg(not(target_family = "wasm"))]
+    let polygons = Pack::load(FULL_POLYGONS);
     let tiles = vec![None; boxes.offsets.len() - 1];
     let count: usize = (0..tiles.len())
         .map(|i| boxes.slice(i))
@@ -418,6 +442,8 @@ pub fn load_buildings(
     commands.insert_resource(Buildings {
         boxes,
         polygons,
+        #[cfg(target_family = "wasm")]
+        full_polygons: false,
         tiles,
         material,
         facade_material,
@@ -548,6 +574,8 @@ pub(crate) fn draw_buildings(
         }
     }
     let mut jobs = Vec::new();
+    #[cfg(target_family = "wasm")]
+    let mut pending_polygons = 0;
     for tile in 0..buildings.tiles.len() {
         if buildings.boxes.slice(tile).is_empty() {
             continue;
@@ -563,13 +591,31 @@ pub(crate) fn draw_buildings(
         } else {
             Some(Detail::Far)
         };
+        #[cfg(target_family = "wasm")]
+        let desired = if desired == Some(Detail::Near) && buildings.polygons.slice(tile).is_empty() {
+            if pending_polygons == 0 {
+                buildings.load_full_polygons();
+            }
+            if buildings.polygons.slice(tile).is_empty() {
+                pending_polygons += 1;
+                Some(buildings.tiles[tile].map_or(Detail::Far, |(detail, _)| detail))
+            } else {
+                desired
+            }
+        } else {
+            desired
+        };
         if !buildings.dirty[tile] && buildings.tiles[tile].map(|t| t.0) == desired {
             continue;
         }
         jobs.push((d, tile, desired));
     }
     buildings.pending_tiles = jobs.len();
-    buildings.ready = jobs.is_empty();
+    #[cfg(target_family = "wasm")]
+    {
+        buildings.pending_tiles += pending_polygons;
+    }
+    buildings.ready = buildings.pending_tiles == 0;
     jobs.sort_by(|a, b| a.0.total_cmp(&b.0));
     let mut near = false;
     for (_, tile, detail) in jobs.into_iter().take(8) {

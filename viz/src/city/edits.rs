@@ -377,6 +377,10 @@ pub(crate) fn refresh(
         .filter(|((kind, _), _)| kind == "building")
         .map(|((_, id), (_, after))| (id.clone(), after.clone()))
         .collect();
+    #[cfg(target_family = "wasm")]
+    if !current.is_empty() {
+        buildings.load_full_polygons();
+    }
     let unchanged: HashSet<_> = current
         .iter()
         .filter(|(id, after)| {

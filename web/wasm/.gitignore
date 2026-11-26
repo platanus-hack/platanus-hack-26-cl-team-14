@@ -1,4 +1,5 @@
 engine.wasm
+building-polygons-startup.bin.gz
 baseline.json
 viewer.js
 viewer_bg.wasm
