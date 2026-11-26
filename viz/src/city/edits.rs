@@ -88,6 +88,7 @@ pub(crate) fn place_closure_ends(
     window: Single<&Window, With<bevy::window::PrimaryWindow>>,
     canvas: Query<&Sprite, With<crate::pixels::CityCanvas>>,
     mode: Res<SubwayView>,
+    ui: Res<UiScale>,
     mut ends: Query<(&ClosureEnd, &mut Node, &mut Visibility)>,
 ) {
     let (camera, transform) = *camera;
@@ -101,8 +102,9 @@ pub(crate) fn place_closure_ends(
         {
             p = window.size() * 0.5 + (p / viewport - Vec2::splat(0.5)) * size;
         }
-        node.left = px(p.x - 8.);
-        node.top = px(p.y - 8.);
+        // The UI scale multiplies node positions; the map point is in window pixels.
+        node.left = px(p.x / ui.0 - 8.);
+        node.top = px(p.y / ui.0 - 8.);
         *visible = if mode.0 { Visibility::Hidden } else { Visibility::Inherited };
     }
 }
@@ -375,6 +377,10 @@ pub(crate) fn refresh(
         .filter(|((kind, _), _)| kind == "building")
         .map(|((_, id), (_, after))| (id.clone(), after.clone()))
         .collect();
+    #[cfg(target_family = "wasm")]
+    if !current.is_empty() {
+        buildings.load_full_polygons();
+    }
     let unchanged: HashSet<_> = current
         .iter()
         .filter(|(id, after)| {

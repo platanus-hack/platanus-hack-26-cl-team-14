@@ -1,12 +1,9 @@
 use super::{Approach, Path, Replay, STOP_DISTANCE, Site};
 use crate::movers::{CAR_LANE_OFFSET, Vehicle, right, road_water};
 use bevy::prelude::*;
+#[cfg(not(target_family = "wasm"))]
 use serde::Deserialize;
-use std::{
-    collections::{BTreeMap, HashMap},
-    fs::File,
-    io::BufReader,
-};
+use std::collections::{BTreeMap, HashMap};
 
 const MATCH_RADIUS: f32 = 5.;
 const CELL: f32 = 40.;
@@ -15,22 +12,94 @@ const SHORT_LINK_LIMIT: f32 = EDGE_PROBE + 0.5;
 type Cell = (i32, i32);
 type Node = u64;
 
-#[derive(Deserialize)]
-struct Pack {
-    nodes: HashMap<String, [f64; 2]>,
-    ways: HashMap<String, Way>,
+#[cfg(not(target_family = "wasm"))]
+fn load_graph() -> (HashMap<Node, Vec2>, impl Iterator<Item = (Node, Node, bool)>) {
+    #[derive(Deserialize)]
+    struct Pack {
+        nodes: HashMap<String, [f64; 2]>,
+        ways: HashMap<String, Way>,
+    }
+    #[derive(Deserialize)]
+    struct Way {
+        structure: String,
+        edges: Vec<Edge>,
+    }
+    #[derive(Deserialize)]
+    struct Edge {
+        from: String,
+        to: String,
+    }
+
+    let file = crate::data::open("web/data/local_car_graph.json.gz").unwrap();
+    let pack: Pack =
+        serde_json::from_reader(std::io::BufReader::new(flate2::read::GzDecoder::new(file)))
+            .unwrap();
+    let positions = pack
+        .nodes
+        .into_iter()
+        .filter_map(|(id, [lon, lat])| {
+            Some((id.parse().ok()?, crate::movers::world(lon, lat).xz()))
+        })
+        .collect();
+    let edges = pack.ways.into_values().flat_map(|way| {
+        let ground = way.structure == "ground";
+        way.edges.into_iter().filter_map(move |edge| {
+            Some((edge.from.parse().ok()?, edge.to.parse().ok()?, ground))
+        })
+    });
+    (positions, edges)
 }
 
-#[derive(Deserialize)]
-struct Way {
-    structure: String,
-    edges: Vec<Edge>,
-}
+#[cfg(target_family = "wasm")]
+fn load_graph() -> (HashMap<Node, Vec2>, impl Iterator<Item = (Node, Node, bool)>) {
+    use std::io::Read;
 
-#[derive(Deserialize)]
-struct Edge {
-    from: String,
-    to: String,
+    fn varint(bytes: &mut impl Iterator<Item = u8>) -> u64 {
+        let mut value = 0;
+        let mut shift = 0;
+        loop {
+            let byte = bytes.next().unwrap();
+            value |= u64::from(byte & 127) << shift;
+            if byte < 128 {
+                return value;
+            }
+            shift += 7;
+        }
+    }
+
+    fn signed(value: u64) -> i64 {
+        (value >> 1) as i64 ^ -((value & 1) as i64)
+    }
+
+    let file = crate::data::open("web/wasm/car-topology.bin.gz").unwrap();
+    let mut unpacked = Vec::new();
+    flate2::read::GzDecoder::new(file).read_to_end(&mut unpacked).unwrap();
+    let mut bytes = unpacked.into_iter();
+    let count = varint(&mut bytes) as usize;
+    let mut ids = Vec::with_capacity(count);
+    let mut positions = HashMap::with_capacity(count);
+    let (mut id, mut lon, mut lat) = (0u64, 0, 0);
+    for _ in 0..count {
+        id = id.wrapping_add_signed(signed(varint(&mut bytes)));
+        lon += signed(varint(&mut bytes));
+        lat += signed(varint(&mut bytes));
+        let position = crate::movers::world(lon as f64 / 10_000_000., lat as f64 / 10_000_000.);
+        ids.push(id);
+        positions.insert(id, position.xz());
+    }
+
+    let mut previous = 0;
+    let edges = std::iter::from_fn(move || {
+        if bytes.len() == 0 {
+            return None;
+        }
+        let from = previous + signed(varint(&mut bytes));
+        let packed_end = varint(&mut bytes);
+        let to = from + signed(packed_end >> 1);
+        previous = to;
+        Some((ids[from as usize], ids[to as usize], packed_end & 1 != 0))
+    });
+    (positions, edges)
 }
 
 struct DirectedEdge {
@@ -51,53 +120,38 @@ pub(super) struct Topology {
 
 impl Topology {
     pub(super) fn load() -> Self {
-        let file = File::open("web/data/local_car_graph.json.gz").unwrap();
-        let pack: Pack =
-            serde_json::from_reader(BufReader::new(flate2::read::GzDecoder::new(file))).unwrap();
-        let positions: HashMap<Node, Vec2> = pack
-            .nodes
-            .into_iter()
-            .filter_map(|(id, [lon, lat])| {
-                Some((id.parse().ok()?, crate::movers::world(lon, lat).xz()))
-            })
-            .collect();
+        let (positions, roads) = load_graph();
         let mut links: BTreeMap<Node, Vec<Node>> = BTreeMap::new();
         let mut edges = Vec::new();
         let mut short_links = HashMap::<_, [Vec<_>; 2]>::new();
         let mut edge_cells: HashMap<Cell, Vec<usize>> = HashMap::new();
-        for way in pack.ways.into_values() {
-            let ground = way.structure == "ground";
-            for edge in way.edges {
-                let (Ok(from), Ok(to)) = (edge.from.parse(), edge.to.parse()) else {
-                    continue;
-                };
-                let (start, end) = (positions[&from], positions[&to]);
-                let Some(heading) = (end - start).try_normalize() else {
-                    continue;
-                };
-                if ground {
-                    links.entry(from).or_default().push(to);
-                    links.entry(to).or_default().push(from);
-                    if start.distance_squared(end) <= SHORT_LINK_LIMIT * SHORT_LINK_LIMIT {
-                        short_links.entry(from).or_default()[0].push(edges.len());
-                        short_links.entry(to).or_default()[1].push(edges.len());
-                    }
+        for (from, to, ground) in roads {
+            let (start, end) = (positions[&from], positions[&to]);
+            let Some(heading) = (end - start).try_normalize() else {
+                continue;
+            };
+            if ground {
+                links.entry(from).or_default().push(to);
+                links.entry(to).or_default().push(from);
+                if start.distance_squared(end) <= SHORT_LINK_LIMIT * SHORT_LINK_LIMIT {
+                    short_links.entry(from).or_default()[0].push(edges.len());
+                    short_links.entry(to).or_default()[1].push(edges.len());
                 }
-                let (x0, z0) = cell(start.min(end), CELL);
-                let (x1, z1) = cell(start.max(end), CELL);
-                for x in x0..=x1 {
-                    for z in z0..=z1 {
-                        edge_cells.entry((x, z)).or_default().push(edges.len());
-                    }
-                }
-                edges.push(DirectedEdge {
-                    nodes: [from, to],
-                    start,
-                    end,
-                    heading,
-                    ground,
-                });
             }
+            let (x0, z0) = cell(start.min(end), CELL);
+            let (x1, z1) = cell(start.max(end), CELL);
+            for x in x0..=x1 {
+                for z in z0..=z1 {
+                    edge_cells.entry((x, z)).or_default().push(edges.len());
+                }
+            }
+            edges.push(DirectedEdge {
+                nodes: [from, to],
+                start,
+                end,
+                heading,
+                ground,
+            });
         }
         let mut nodes = Vec::new();
         let mut cells: HashMap<Cell, Vec<usize>> = HashMap::new();

@@ -7,7 +7,7 @@ pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
 pub(crate) mod route_activity;
 pub(crate) mod street_mask;
-mod streets;
+pub(crate) mod streets;
 mod terrain;
 mod trees;
 pub(crate) mod water;
@@ -35,10 +35,16 @@ fn world_xz(lon: f64, lat: f64) -> Vec2 {
     Vec2::new(x, z)
 }
 
+/// The inverse of `world`: [longitude, latitude] of a map point.
+#[cfg(target_family = "wasm")]
+pub fn lon_lat(point: Vec3) -> [f64; 2] {
+    [point.x as f64 / 92_915.0 - 70.65, -(point.z as f64) / 110_905.0 - 33.45]
+}
+
 use bevy::{asset::RenderAssetUsages, mesh::Indices, render::render_resource::PrimitiveTopology};
 use flate2::read::GzDecoder;
 use std::collections::HashSet;
-use std::{fs::File, io::Read};
+use std::io::Read;
 
 pub type Rgba = [f32; 4];
 
@@ -178,9 +184,9 @@ struct Pack {
 }
 
 impl Pack {
-    fn load(name: &str) -> Self {
+    fn load(path: &str) -> Self {
         let mut bytes = Vec::new();
-        GzDecoder::new(File::open(format!("web/data/city_building_{name}.bin.gz")).unwrap())
+        GzDecoder::new(crate::data::open(path).unwrap())
             .read_to_end(&mut bytes)
             .unwrap();
         let cols = word(&bytes, 4) as usize;
@@ -256,6 +262,8 @@ enum Detail {
 pub(crate) struct Buildings {
     boxes: Pack,
     polygons: Pack,
+    #[cfg(target_family = "wasm")]
+    full_polygons: bool,
     tiles: Vec<Option<(Detail, Entity)>>,
     material: Handle<StandardMaterial>,
     facade_material: Handle<StandardMaterial>,
@@ -264,6 +272,18 @@ pub(crate) struct Buildings {
     dirty: Vec<bool>,
     heights: activity::HeightScales,
     hidden: HashSet<(usize, usize)>,
+}
+
+const FULL_POLYGONS: &str = "web/data/city_building_polygons.bin.gz";
+
+#[cfg(target_family = "wasm")]
+impl Buildings {
+    fn load_full_polygons(&mut self) {
+        if !self.full_polygons && crate::data::load_later(FULL_POLYGONS) {
+            self.polygons = Pack::load(FULL_POLYGONS);
+            self.full_polygons = true;
+        }
+    }
 }
 
 fn box_mesh(
@@ -386,8 +406,11 @@ pub fn load_buildings(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let boxes = Pack::load("boxes");
-    let polygons = Pack::load("polygons");
+    let boxes = Pack::load("web/data/city_building_boxes.bin.gz");
+    #[cfg(target_family = "wasm")]
+    let polygons = Pack::load("web/wasm/building-polygons-startup.bin.gz");
+    #[cfg(not(target_family = "wasm"))]
+    let polygons = Pack::load(FULL_POLYGONS);
     let tiles = vec![None; boxes.offsets.len() - 1];
     let count: usize = (0..tiles.len())
         .map(|i| boxes.slice(i))
@@ -412,6 +435,8 @@ pub fn load_buildings(
     commands.insert_resource(Buildings {
         boxes,
         polygons,
+        #[cfg(target_family = "wasm")]
+        full_polygons: false,
         tiles,
         material,
         facade_material,
@@ -542,6 +567,8 @@ pub(crate) fn draw_buildings(
         }
     }
     let mut jobs = Vec::new();
+    #[cfg(target_family = "wasm")]
+    let mut pending_polygons = 0;
     for tile in 0..buildings.tiles.len() {
         if buildings.boxes.slice(tile).is_empty() {
             continue;
@@ -557,13 +584,31 @@ pub(crate) fn draw_buildings(
         } else {
             Some(Detail::Far)
         };
+        #[cfg(target_family = "wasm")]
+        let desired = if desired == Some(Detail::Near) && buildings.polygons.slice(tile).is_empty() {
+            if pending_polygons == 0 {
+                buildings.load_full_polygons();
+            }
+            if buildings.polygons.slice(tile).is_empty() {
+                pending_polygons += 1;
+                Some(buildings.tiles[tile].map_or(Detail::Far, |(detail, _)| detail))
+            } else {
+                desired
+            }
+        } else {
+            desired
+        };
         if !buildings.dirty[tile] && buildings.tiles[tile].map(|t| t.0) == desired {
             continue;
         }
         jobs.push((d, tile, desired));
     }
     buildings.pending_tiles = jobs.len();
-    buildings.ready = jobs.is_empty();
+    #[cfg(target_family = "wasm")]
+    {
+        buildings.pending_tiles += pending_polygons;
+    }
+    buildings.ready = buildings.pending_tiles == 0;
     jobs.sort_by(|a, b| a.0.total_cmp(&b.0));
     let mut near = false;
     for (_, tile, detail) in jobs.into_iter().take(8) {
@@ -699,7 +744,6 @@ pub(crate) fn setup_ground(
     streets::spawn(
         &mut commands,
         &mut meshes,
-        Path::new("web/data/road_surface.geojson.gz"),
         &street_mat,
         bridges,
         root,

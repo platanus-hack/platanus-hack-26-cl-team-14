@@ -233,7 +233,7 @@ fn shot_block(result: &Value, id: &str, kind: &str) -> Option<Vec3> {
     } else {
         "data/mvp/blocks.csv"
     };
-    let csv = std::fs::read_to_string(file).ok()?;
+    let csv = String::from_utf8(crate::data::read(file).ok()?).ok()?;
     let mut fields = csv
         .lines()
         .find(|l| l.split_once(',').is_some_and(|(key, _)| key == id))?
@@ -245,7 +245,7 @@ fn shot_block(result: &Value, id: &str, kind: &str) -> Option<Vec3> {
 fn planned_extent(selector: &str, id: &str, points: &mut Vec<Vec3>) {
     static CATALOG: std::sync::OnceLock<Option<Value>> = std::sync::OnceLock::new();
     let data = CATALOG.get_or_init(|| {
-        serde_json::from_reader(std::fs::File::open("data/mvp/metro_planned.geojson").ok()?).ok()
+        serde_json::from_reader(crate::data::open("data/mvp/metro_planned.geojson").ok()?).ok()
     });
     if let Some(features) = data.as_ref().and_then(|d| d["features"].as_array()) {
         for feature in features {

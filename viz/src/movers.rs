@@ -35,7 +35,7 @@ use bevy::{
     prelude::*,
 };
 use serde_json::Value;
-use std::{collections::HashMap, fs, io::Read, sync::Arc};
+use std::{collections::HashMap, io::Read, sync::Arc};
 
 // Base sample sizes before applying the mode's density.
 const PERSONS_PER_STREET_WALKER: f64 = 48.0;
@@ -64,7 +64,7 @@ impl Plugin for MoversPlugin {
 }
 
 fn json(file: &str) -> Value {
-    serde_json::from_slice(&fs::read(file).unwrap()).unwrap()
+    serde_json::from_slice(&crate::data::read(file).unwrap()).unwrap()
 }
 
 fn point(p: &Value) -> Vec3 {
@@ -427,7 +427,7 @@ fn local_key(id: u64, mode: &str, origin: &Value, destination: &Value) -> LocalK
 
 fn gzip_json(file: &str) -> Value {
     let mut bytes = Vec::new();
-    flate2::read::GzDecoder::new(fs::File::open(file).unwrap())
+    flate2::read::GzDecoder::new(crate::data::open(file).unwrap())
         .read_to_end(&mut bytes)
         .unwrap();
     serde_json::from_slice(&bytes).unwrap()
@@ -498,7 +498,7 @@ impl Routes {
             .iter()
             .map(|(key, row)| (key.clone(), public_path(row, &riders)))
             .collect();
-        let water: road_water::Pack = serde_json::from_reader(flate2::read::GzDecoder::new(fs::File::open("web/data/car_water_spans.json.gz").unwrap())).unwrap();
+        let water: road_water::Pack = serde_json::from_reader(flate2::read::GzDecoder::new(crate::data::open("web/data/car_water_spans.json.gz").unwrap())).unwrap();
         let mut local = local_routes(&riders, &water);
         let mut cars = table("web/data/car_routes.json", Vehicle::Car);
         for (key, path) in &mut cars { road_water::set_crossings(path, water.od.get(key)); }

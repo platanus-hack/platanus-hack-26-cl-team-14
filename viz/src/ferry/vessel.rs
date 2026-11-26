@@ -4,7 +4,6 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::{
     collections::{BTreeMap, HashMap},
-    fs::File,
     io::BufReader,
     sync::OnceLock,
 };
@@ -45,7 +44,7 @@ fn catalog_stops() -> &'static HashMap<String, CatalogStop> {
         stops: HashMap<String, CatalogStop>,
     }
     STOPS.get_or_init(|| {
-        let file = File::open("data/mvp/editable_transit.json").unwrap();
+        let file = crate::data::open("data/mvp/editable_transit.json").unwrap();
         serde_json::from_reader::<_, Catalog>(BufReader::new(file))
             .unwrap()
             .stops

@@ -56,14 +56,16 @@ pub struct Visits {
 fn par<T: Send>(len: usize, n: usize, f: impl Fn(usize, &mut [VisitOption<u8>]) -> T + Sync) -> Vec<T> {
     let threads = std::thread::available_parallelism().map_or(1, |t| t.get());
     let chunk = len.div_ceil(threads).max(1);
+    let run = |start: usize| {
+        let mut options: Vec<VisitOption<u8>> = (0..n as u8).map(|d| VisitOption { choice: d, total_minutes: 0, cost_clp: 0, available: true, preference: 0 }).collect();
+        (start..(start + chunk).min(len)).map(|i| f(i, &mut options)).collect::<Vec<T>>()
+    };
+    // The browser build has no threads; one chunk runs in place.
+    if threads == 1 {
+        return run(0);
+    }
     std::thread::scope(|scope| {
-        let handles: Vec<_> = (0..len).step_by(chunk).map(|start| {
-            let f = &f;
-            scope.spawn(move || {
-                let mut options: Vec<VisitOption<u8>> = (0..n as u8).map(|d| VisitOption { choice: d, total_minutes: 0, cost_clp: 0, available: true, preference: 0 }).collect();
-                (start..(start + chunk).min(len)).map(|i| f(i, &mut options)).collect::<Vec<T>>()
-            })
-        }).collect();
+        let handles: Vec<_> = (0..len).step_by(chunk).map(|start| scope.spawn(move || run(start))).collect();
         handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
     })
 }

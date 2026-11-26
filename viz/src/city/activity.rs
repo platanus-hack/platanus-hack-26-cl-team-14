@@ -1,7 +1,7 @@
 // Both building levels of detail share the same block dictionary.
 use flate2::read::GzDecoder;
 use serde_json::Value;
-use std::{collections::HashMap, fs::File, io::Read, path::Path};
+use std::{collections::HashMap, io::Read, path::Path};
 
 pub struct HeightScales {
     offsets: Vec<usize>,
@@ -17,7 +17,7 @@ pub struct HeightScales {
 impl HeightScales {
     pub fn load(path: &Path) -> Self {
         let mut bytes = Vec::new();
-        GzDecoder::new(File::open(path).unwrap())
+        GzDecoder::new(crate::data::open(path).unwrap())
             .read_to_end(&mut bytes)
             .unwrap();
         let word = |p| u16::from_le_bytes(bytes[p..p + 2].try_into().unwrap());

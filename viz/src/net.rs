@@ -1,23 +1,42 @@
 use bevy::prelude::*;
 use serde_json::Value;
+use std::sync::Mutex;
+#[cfg(not(target_family = "wasm"))]
 use std::{
     env,
     error::Error,
     io::{BufRead, BufReader},
     process::{Command, Stdio},
-    sync::{Mutex, mpsc},
+    sync::mpsc,
     thread,
 };
 
 #[derive(Resource, Default)]
 pub struct Scenario(pub Value);
 
+#[cfg(not(target_family = "wasm"))]
 #[derive(Resource)]
 struct Inbox(Mutex<mpsc::Receiver<Value>>);
+
+// Browser: no processes and no threads. The page gives each engine result to the viewer.
+#[cfg(target_family = "wasm")]
+static INBOX: Mutex<Option<Value>> = Mutex::new(None);
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(js_name = santiagoScenario)]
+pub fn scenario_from_page(json: &str) {
+    *INBOX.lock().unwrap() = Some(serde_json::from_str(json).unwrap());
+}
 
 pub struct NetPlugin;
 
 impl Plugin for NetPlugin {
+    #[cfg(target_family = "wasm")]
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Scenario>().add_systems(PreUpdate, receive_scenario);
+    }
+
+    #[cfg(not(target_family = "wasm"))]
     fn build(&self, app: &mut App) {
         let base = env::var("SANTIAGO_ENGINE").unwrap_or_else(|_| "http://127.0.0.1:8787".into());
         let (send, receive) = mpsc::channel();
@@ -32,6 +51,7 @@ impl Plugin for NetPlugin {
     }
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn read_engine(base: &str, send: mpsc::Sender<Value>) -> Result<(), Box<dyn Error>> {
     let latest = Command::new("curl")
         .args(["-fsS", &format!("{base}/api/scenario-latest")])
@@ -54,6 +74,16 @@ fn read_engine(base: &str, send: mpsc::Sender<Value>) -> Result<(), Box<dyn Erro
     Ok(())
 }
 
+#[cfg(target_family = "wasm")]
+fn receive_scenario(mut scenario: ResMut<Scenario>) {
+    if let Some(newest) = INBOX.lock().unwrap().take()
+        && newest["revision"] != scenario.0["revision"]
+    {
+        scenario.0 = newest;
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
 fn receive_scenario(inbox: Res<Inbox>, mut scenario: ResMut<Scenario>) {
     if let Some(newest) = inbox.0.lock().unwrap().try_iter().last()
         && newest["revision"] != scenario.0["revision"]

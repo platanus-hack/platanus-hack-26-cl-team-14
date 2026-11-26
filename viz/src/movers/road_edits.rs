@@ -1,7 +1,7 @@
 //! Suppress ordinary car poses on the retired pieces of an accepted road edit.
 use super::*;
 use serde::Deserialize;
-use std::{collections::BTreeMap, fs::File, io::BufReader};
+use std::{collections::BTreeMap, io::BufReader};
 
 #[derive(Clone, Copy, PartialEq)]
 struct Segment(Vec2, Vec2);
@@ -188,7 +188,7 @@ impl TrafficEdits {
             return cut;
         }
         let roads = catalog.0.get_or_insert_with(|| {
-            let file = File::open("web/data/road_centerlines.geojson.gz").unwrap();
+            let file = crate::data::open("web/data/road_centerlines.geojson.gz").unwrap();
             serde_json::from_reader(BufReader::new(flate2::read::GzDecoder::new(file))).unwrap()
         });
         let mut mapped = vec![false; cut.before.len()];

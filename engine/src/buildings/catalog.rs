@@ -4,15 +4,16 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::io::Read;
 use std::sync::OnceLock;
 
 type Point = [f64; 2];
 type Rings = Vec<Vec<Point>>;
 
 fn gunzip(path: &Path) -> Option<Vec<u8>> {
-    let out = Command::new("gzip").arg("-dc").arg(path).output().ok()?;
-    out.status.success().then_some(out.stdout)
+    let mut out = Vec::new();
+    flate2::read::GzDecoder::new(std::fs::File::open(path).ok()?).read_to_end(&mut out).ok()?;
+    Some(out)
 }
 
 fn word(b: &[u8], at: usize) -> u16 {

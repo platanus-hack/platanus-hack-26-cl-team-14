@@ -5,7 +5,6 @@ use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::{
     collections::BTreeMap,
-    fs::File,
     io::{BufRead, BufReader},
     sync::OnceLock,
 };
@@ -129,7 +128,7 @@ impl WalkNetwork {
             features: Vec<Feature>,
         }
         let reader = BufReader::new(GzDecoder::new(
-            File::open("web/data/residential_streets.geojson.gz").unwrap(),
+            crate::data::open("web/data/residential_streets.geojson.gz").unwrap(),
         ));
         let streets: Streets = serde_json::from_reader(reader).unwrap();
         let ways = streets
@@ -138,7 +137,7 @@ impl WalkNetwork {
             .map(|f| f.geometry.coordinates.into_iter().map(flat).collect())
             .collect();
         let mut blocks = Vec::new();
-        for row in BufReader::new(File::open("data/mvp/blocks.csv").unwrap())
+        for row in BufReader::new(crate::data::open("data/mvp/blocks.csv").unwrap())
             .lines()
             .skip(1)
         {

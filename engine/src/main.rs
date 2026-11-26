@@ -4,10 +4,10 @@ mod rechoose;
 mod scenario;
 mod stations;
 
+use axum::{Json, extract::State, http::StatusCode};
+#[cfg(not(target_family = "wasm"))]
 use axum::{
-    Json, Router,
-    extract::State,
-    http::StatusCode,
+    Router,
     response::sse::{Event, KeepAlive, Sse},
     routing::{get, post},
 };
@@ -15,6 +15,7 @@ use santiago_scenario_core::activity::Activity;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{collections::HashSet, path::Path, sync::Arc};
+#[cfg(not(target_family = "wasm"))]
 use tower_http::cors::CorsLayer;
 
 struct Core {
@@ -256,6 +257,7 @@ async fn set_scene(
     Ok(Json(response))
 }
 
+#[cfg(not(target_family = "wasm"))]
 async fn scenario_events(
     State(core): State<Arc<Core>>,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
@@ -282,6 +284,7 @@ async fn scenario_events(
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
+#[cfg(not(target_family = "wasm"))]
 #[tokio::main]
 async fn main() {
     let mut args = std::env::args().skip(1);
@@ -315,4 +318,66 @@ async fn main() {
         listener.local_addr().unwrap()
     );
     axum::serve(listener, app).await.unwrap();
+}
+
+// Browser build (wasm32-wasip1): no sockets, so the page calls the same handlers with the same
+// paths and JSON bodies as the HTTP API. The host runs `_start` once, then calls the two exports.
+#[cfg(target_family = "wasm")]
+static CORE: std::sync::OnceLock<Arc<Core>> = std::sync::OnceLock::new();
+
+#[cfg(target_family = "wasm")]
+fn main() {
+    CORE.get_or_init(|| {
+        Arc::new(Core {
+            scenario_events: tokio::sync::watch::channel(Value::Null).0,
+            scenario: scenario::Scenario::load(Path::new("data/mvp")),
+        })
+    });
+}
+
+#[cfg(target_family = "wasm")]
+#[unsafe(no_mangle)]
+pub extern "C" fn santiago_alloc(len: usize) -> *mut u8 {
+    Vec::<u8>::with_capacity(len).leak().as_mut_ptr()
+}
+
+/// Request: `{"path": "/api/scenario", "body": ...}`. Response: `{"status": 200, "body": ...}`.
+/// Returns the response address in the high 32 bits and its length in the low 32 bits.
+#[cfg(target_family = "wasm")]
+#[unsafe(no_mangle)]
+pub extern "C" fn santiago_call(ptr: *mut u8, len: usize) -> u64 {
+    use futures_util::FutureExt;
+    fn reply<E: ToString>(result: Result<Json<Value>, (StatusCode, E)>) -> Value {
+        match result {
+            Ok(Json(body)) => json!({"status": 200, "body": body}),
+            Err((status, reason)) => json!({"status": status.as_u16(), "body": reason.to_string()}),
+        }
+    }
+    fn parse<T: for<'de> Deserialize<'de>>(body: Value) -> Result<Json<T>, (StatusCode, String)> {
+        serde_json::from_value(body)
+            .map(Json)
+            .map_err(|error| (StatusCode::UNPROCESSABLE_ENTITY, error.to_string()))
+    }
+    let mut request: Value = serde_json::from_slice(&unsafe { Vec::from_raw_parts(ptr, len, len) }).unwrap();
+    let body = request["body"].take();
+    let core = State(CORE.get().unwrap().clone());
+    // The handlers never wait, so each future is ready on the first poll.
+    let response = match request["path"].as_str().unwrap() {
+        // The browser starts with the result of the empty scenario that the build saved.
+        "/bootstrap" => {
+            core.scenario_events.send_replace(body);
+            json!({ "status": 200, "body": null })
+        }
+        "/api/scenario-latest" => json!({"status": 200, "body": *core.scenario_events.borrow()}),
+        "/api/scenario" => reply(parse(body).and_then(|body| general_scenario(core, body).now_or_never().unwrap())),
+        "/api/scene" => match parse(body) {
+            Ok(body) => reply(set_scene(core, body).now_or_never().unwrap()),
+            Err(error) => reply(Err(error)),
+        },
+        "/api/replay" => reply(play_replay(core, Json(body)).now_or_never().unwrap()),
+        "/api/building-footprint" => reply(building_footprint(core, Json(body)).now_or_never().unwrap()),
+        _ => json!({"status": 404, "body": "Unknown path."}),
+    };
+    let bytes = serde_json::to_vec(&response).unwrap().leak();
+    ((bytes.as_ptr() as u64) << 32) | bytes.len() as u64
 }

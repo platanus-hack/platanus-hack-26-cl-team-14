@@ -17,6 +17,11 @@ base64 = "0.22"
 portable-pty = "0.9"
 wry = { version = "=0.57.3", default-features = false }
 
+# Browser build: WebGPU drawing and the bindings to the page. The ink pass reads scene depth, which WebGL2 cannot do.
+[target.'cfg(target_family = "wasm")'.dependencies]
+bevy = { version = "=0.20.1", default-features = false, features = ["webgpu"] }
+wasm-bindgen = "0.2"
+
 [target.'cfg(target_os = "linux")'.dependencies]
 bevy = { version = "=0.20.1", default-features = false, features = ["x11"] }
 
