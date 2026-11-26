@@ -2,10 +2,12 @@
 import gzip
 import json
 import struct
+from itertools import groupby
 from pathlib import Path
 
 SOURCE = Path("web/data/road_surface.geojson.gz")
 OUTPUT = Path("web/wasm/road-surface.bin.gz")
+DEFERRED = Path("web/wasm/road-surface-deferred.bin")
 FEATURE = b'{"type":"Feature"'
 ROAD_USES = {"road": 0, "cycle": 1, "foot": 2, "sidewalk": 3}
 
@@ -47,16 +49,13 @@ def bits(value):
     return struct.unpack("<Q", struct.pack("<d", value))[0]
 
 
-temporary = OUTPUT.with_suffix(".tmp")
-with gzip.open(SOURCE, "rb") as source, temporary.open("wb") as file, gzip.GzipFile(
-    filename="", fileobj=file, mode="wb", compresslevel=6, mtime=0
-) as pack:
-    for feature in features(source):
+def encode_tile(group):
+    out = bytearray()
+    for feature in group:
         props = feature["properties"]
         if props["structure"] == "tunnel":
             continue
         rings = feature["geometry"]["coordinates"]
-        out = bytearray()
         for value in (props["tile"], zigzag(props["layer"]), ROAD_USES.get(props["use"], 0), len(rings)):
             varint(out, value)
         for ring in rings:
@@ -71,5 +70,30 @@ with gzip.open(SOURCE, "rb") as source, temporary.open("wb") as file, gzip.GzipF
                         varint(out, zigzag(bits(value) - bits(rounded)))
                     varint(out, 1 + zigzag(millionths - previous[axis]))
                     previous[axis] = millionths
-        pack.write(out)
-temporary.replace(OUTPUT)
+    return out
+
+
+def startup_tile(tile):
+    # The road pack uses the building grid. A 5.7 km center radius covers the
+    # opening frustum and its shadows with at least one tile of margin.
+    col, row = tile % 20, tile // 20
+    x = (-70.85 + (col + 0.5) * 0.02 + 70.6505) * 92_915
+    z = (-33.65 + (row + 0.5) * 0.02 + 33.443) * 110_905
+    return x * x + z * z <= 5_700 ** 2
+
+
+startup_tmp = OUTPUT.with_suffix(".tmp")
+deferred_tmp = DEFERRED.with_suffix(".tmp")
+with gzip.open(SOURCE, "rb") as source, startup_tmp.open("wb") as file, deferred_tmp.open("wb") as later, gzip.GzipFile(
+    filename="", fileobj=file, mode="wb", compresslevel=6, mtime=0
+) as pack:
+    for tile, group in groupby(features(source), key=lambda f: f["properties"]["tile"]):
+        encoded = encode_tile(group)
+        if startup_tile(tile):
+            pack.write(encoded)
+        elif encoded:
+            compressed = gzip.compress(encoded, compresslevel=6, mtime=0)
+            later.write(struct.pack("<HI", tile, len(compressed)))
+            later.write(compressed)
+startup_tmp.replace(OUTPUT)
+deferred_tmp.replace(DEFERRED)

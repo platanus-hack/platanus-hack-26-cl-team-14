@@ -421,6 +421,13 @@ fn measure(
 
 fn main() -> AppExit {
     let mut app = App::new();
+    #[cfg(target_family = "wasm")]
+    app.add_systems(
+        Update,
+        city::streets::draw_deferred
+            .after(city::edits::refresh)
+            .before(city::draw_buildings),
+    );
     #[cfg(target_os = "macos")]
     app.add_plugins(chat_terminal::ChatTerminal);
     app.add_plugins(DefaultPlugins.set(WindowPlugin {

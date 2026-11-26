@@ -116,6 +116,11 @@ fn mesh_for(faces: &[StreetFace], mask: Option<&StreetMask>) -> Mesh {
 }
 
 impl StreetTile {
+    fn masked(&self, mask: &StreetMask) -> Option<Mesh> {
+        (mask.intersects(&self.bounds) && self.faces.iter().any(|f| mask.intersects(&f.bounds)))
+            .then(|| mesh_for(&self.faces, Some(mask)))
+    }
+
     fn bundle(
         faces: Vec<StreetFace>,
         meshes: &mut Assets<Mesh>,
@@ -153,8 +158,8 @@ pub(super) fn apply(
     tiles: &mut Query<(&StreetTile, &mut Mesh3d)>,
 ) {
     for (tile, mut current) in tiles {
-        if mask.intersects(&tile.bounds) && tile.faces.iter().any(|f| mask.intersects(&f.bounds)) {
-            current.0 = meshes.add(mesh_for(&tile.faces, Some(mask)));
+        if let Some(mesh) = tile.masked(mask) {
+            current.0 = meshes.add(mesh);
         } else if current.0 != tile.original {
             current.0 = tile.original.clone();
         }
@@ -193,6 +198,12 @@ fn load_faces() -> BTreeMap<usize, Vec<StreetFace>> {
 
 #[cfg(target_family = "wasm")]
 fn load_faces() -> BTreeMap<usize, Vec<StreetFace>> {
+    let file = crate::data::open("web/wasm/road-surface.bin.gz").unwrap();
+    decode_faces(file)
+}
+
+#[cfg(target_family = "wasm")]
+fn decode_faces(file: impl Read) -> BTreeMap<usize, Vec<StreetFace>> {
     fn varint(bytes: &mut &[u8]) -> u32 {
         let mut value = 0;
         let mut shift = 0;
@@ -226,7 +237,6 @@ fn load_faces() -> BTreeMap<usize, Vec<StreetFace>> {
         f64::from_bits(rounded.to_bits().wrapping_add_signed(i64::from(correction)))
     }
 
-    let file = crate::data::open("web/wasm/road-surface.bin.gz").unwrap();
     let mut unpacked = Vec::new();
     GzDecoder::new(file).read_to_end(&mut unpacked).unwrap();
     let mut bytes = unpacked.as_slice();
@@ -254,6 +264,65 @@ fn load_faces() -> BTreeMap<usize, Vec<StreetFace>> {
             .push(StreetFace::road(rings, layer, road_use));
     }
     tiles
+}
+
+#[cfg(target_family = "wasm")]
+#[derive(Default)]
+pub(crate) struct DeferredRoads {
+    loaded: bool,
+    bytes: Vec<u8>,
+    tiles: Vec<(Vec2, std::ops::Range<usize>)>,
+}
+
+#[cfg(target_family = "wasm")]
+pub(crate) fn draw_deferred(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    rig: Res<crate::Rig>,
+    scenario: Res<crate::net::Scenario>,
+    buildings: Res<super::Buildings>,
+    layers: Res<super::SurfaceLayers>,
+    mask: Res<StreetMask>,
+    mut deferred: Local<DeferredRoads>,
+) {
+    const DEFERRED: &str = "web/wasm/road-surface-deferred.bin";
+    if !deferred.loaded {
+        let moved = rig.distance != 1650. || rig.target.xz() != world_xz(-70.6505, -33.443);
+        let edited = scenario.0["city_edits"].as_array().into_iter().flatten().any(|edit| {
+            matches!(edit["kind"].as_str(), Some("road" | "building"))
+        });
+        if !(moved || edited) || !crate::data::load_later(DEFERRED) {
+            return;
+        }
+        let bytes = crate::data::read(DEFERRED).unwrap();
+        let mut at = 0;
+        while at < bytes.len() {
+            let tile = super::word(&bytes, at) as usize;
+            let len = super::integer(&bytes, at + 2);
+            let start = at + 6;
+            deferred.tiles.push((buildings.boxes.center(tile).xz(), start..start + len));
+            at = start + len;
+        }
+        deferred.bytes = bytes;
+        deferred.loaded = true;
+    }
+    let target = rig.target.xz();
+    let Some((index, _)) = deferred.tiles.iter().enumerate().min_by(|(_, a), (_, b)| {
+        a.0.distance_squared(target).total_cmp(&b.0.distance_squared(target))
+    }) else {
+        return;
+    };
+    // Decode and triangulate one nearby tile per frame.
+    let (_, range) = deferred.tiles.swap_remove(index);
+    let faces = decode_faces(&deferred.bytes[range]).into_values().next().unwrap();
+    let (tile, mut mesh, bounds, no_aabb) = StreetTile::bundle(faces, &mut meshes);
+    if let Some(masked) = tile.masked(&mask) {
+        mesh.0 = meshes.add(masked);
+    }
+    commands.spawn((tile, mesh, bounds, no_aabb, MeshMaterial3d(layers.materials[2].0.clone())));
+    if deferred.tiles.is_empty() {
+        deferred.bytes = Vec::new();
+    }
 }
 
 pub(super) fn spawn(

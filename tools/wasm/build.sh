@@ -23,7 +23,7 @@ fi
 # A static site cannot list a folder. The MCP server lists these two.
 python3 -c 'import json, os; print(json.dumps({d: sorted(os.listdir(d)) for d in ("data/replays/", "web/data/")}))' > web/wasm/folders.json
 streets=web/wasm/road-surface.bin.gz
-if [ ! -f "$streets" ] || [ web/data/road_surface.geojson.gz -nt "$streets" ] || [ tools/wasm/pack_streets.py -nt "$streets" ]; then
+if [ ! -f "$streets" ] || [ ! -f web/wasm/road-surface-deferred.bin ] || [ web/data/road_surface.geojson.gz -nt "$streets" ] || [ tools/wasm/pack_streets.py -nt "$streets" ]; then
     python3 tools/wasm/pack_streets.py
 fi
 node tools/wasm/baseline.mjs

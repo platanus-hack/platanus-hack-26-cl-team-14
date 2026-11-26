@@ -18,6 +18,10 @@ extern "C" {
     /// The page downloads the files before it starts the viewer. A missing file is `undefined`.
     #[wasm_bindgen(js_name = santiagoFile)]
     fn file(path: &str) -> Option<Vec<u8>>;
+
+    /// Start the download if needed. Return true when read can use the bytes.
+    #[wasm_bindgen(js_name = santiagoLoadFile)]
+    pub(crate) fn load_later(path: &str) -> bool;
 }
 
 #[cfg(target_family = "wasm")]

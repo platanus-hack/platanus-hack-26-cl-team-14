@@ -27,9 +27,9 @@ function loadFile(path) {
   return downloads.get(path);
 }
 const fullPolygons = 'web/data/city_building_polygons.bin.gz';
-globalThis.santiagoPolygonsReady = () => {
-  if (!downloads.has(fullPolygons)) loadFile(fullPolygons).catch(error => note(String(error)));
-  return files.has(fullPolygons);
+globalThis.santiagoLoadFile = (path) => {
+  if (!downloads.has(path)) loadFile(path).catch(error => note(String(error)));
+  return files.has(path);
 };
 globalThis.santiagoFile = (path) => {
   if (path === resultCards) return saved(path) && new TextEncoder().encode(saved(path));

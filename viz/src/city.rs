@@ -7,7 +7,7 @@ pub(crate) use ground::StadiumSeating;
 pub(crate) mod metro_service;
 pub(crate) mod route_activity;
 pub(crate) mod street_mask;
-mod streets;
+pub(crate) mod streets;
 mod terrain;
 mod trees;
 pub(crate) mod water;
@@ -277,16 +277,9 @@ pub(crate) struct Buildings {
 const FULL_POLYGONS: &str = "web/data/city_building_polygons.bin.gz";
 
 #[cfg(target_family = "wasm")]
-#[wasm_bindgen::prelude::wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_name = santiagoPolygonsReady)]
-    fn page_polygons_ready() -> bool;
-}
-
-#[cfg(target_family = "wasm")]
 impl Buildings {
     fn load_full_polygons(&mut self) {
-        if !self.full_polygons && page_polygons_ready() {
+        if !self.full_polygons && crate::data::load_later(FULL_POLYGONS) {
             self.polygons = Pack::load(FULL_POLYGONS);
             self.full_polygons = true;
         }
