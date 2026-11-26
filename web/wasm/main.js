@@ -3,6 +3,7 @@
 import init, { santiagoCursor, santiagoReady, santiagoScenario, santiagoZoom } from './viewer.js';
 import { preloaded, saved } from './node/fs.js';
 import { send } from './node/readline.js';
+import { connectAssistant } from './assistant.js';
 
 const root = new URL('../../', import.meta.url);
 const $ = (selector) => document.querySelector(selector);
@@ -339,7 +340,8 @@ function items(schema, name) {
 
 // The two tools that change the city. Saved replays are not in this form.
 const shown = ['set_scene', 'simulate_city'];
-const tools = (await mcp('tools/list')).result.tools.filter(({ name }) => shown.includes(name));
+const availableTools = (await mcp('tools/list')).result.tools;
+const tools = availableTools.filter(({ name }) => shown.includes(name));
 // The tool reply, as an agent receives it. Totals and short lists come first and start open;
 // long notes go last. A list item shows its name, not only its number.
 const number = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
@@ -415,5 +417,23 @@ $('#tools').onsubmit = async (event) => {
   }, (error) => note(error.message));
   $('#send').disabled = false;
 };
-$('#tools').hidden = false;
 note();
+
+const replay = new URLSearchParams(location.search).get('replay');
+if (replay) {
+  note('Abriendo replay…');
+  try {
+    if (!/^[a-z0-9-]+$/.test(replay)) throw new Error('Invalid replay id.');
+    await loadFile(`data/replays/${replay}.json`);
+    showReply(await tool('run_replay', { id: replay }));
+    note();
+  } catch {
+    note('No se pudo abrir el replay.');
+  }
+}
+
+connectAssistant(availableTools, async (name, args) => {
+  const reply = await tool(name, args);
+  if (name !== 'list_replays') showReply(reply);
+  return reply;
+});

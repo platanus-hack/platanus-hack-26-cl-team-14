@@ -1,5 +1,7 @@
 <!doctype html>
+<html lang="es-CL">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>santiaguito.cl</title>
 <link rel="icon" href="data:,">
 <!-- The MCP server runs in the page as it is. These three modules stand in for Node. -->
@@ -11,13 +13,20 @@
   /* Two styles only: the simulator blue with white text, or white with a blue border and blue text. No round corners.
      --u is one pixel of the 1920-pixel city design. The viewer scales its panels the same way,
      so the page and the city keep their proportions on any monitor. */
-  :root { --blue: #10158a; --side: 35vw; --u: calc((100vw - var(--side)) / 1920); }
+  :root { --blue: #10158a; --side: 0px; --bottom: 0px; --u: calc((100vw - var(--side)) / 1920); }
   html, body { margin: 0; height: 100%; background: var(--blue); color: #fff; font: max(18px, calc(40 * var(--u)))/1.2 Barlow, system-ui, sans-serif; overflow: hidden; }
-  /* The city has the left part of the window. The tool form has the right part, where the chat was. */
-  #frame { position: fixed; inset: 0 var(--side) 0 0; }
+  body.controls-open { --side: max(360px, 35vw); }
+  #frame { position: fixed; inset: 0 var(--side) var(--bottom) 0; }
+  #assistant-guide { position: fixed; z-index: 1; top: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: 6px 10px; max-width: 100%; box-sizing: border-box; background: var(--blue); border: 1px solid #fff; font-size: 16px; }
+  #assistant-guide button { padding: 4px 8px; }
+  #assistant-arrow { font-size: 1.35em; line-height: 1; }
   /* The tabs and the send button keep their place. The form and the reply scroll between them.
      The scroll bar of macOS draws over the content, so the content keeps 18 pixels clear at the right. */
-  #tools { position: fixed; inset: 0 0 0 auto; width: var(--side); box-sizing: border-box; padding: calc(24 * var(--u)); display: flex; flex-direction: column; gap: calc(20 * var(--u)); }
+  #tools { position: fixed; inset: 0 0 0 auto; width: var(--side); box-sizing: border-box; padding: max(50px, calc(24 * var(--u))) calc(24 * var(--u)) calc(24 * var(--u)); display: flex; flex-direction: column; gap: calc(20 * var(--u)); }
+  @media (max-width: 700px) {
+    body.controls-open { --side: 0px; --bottom: 49dvh; }
+    #tools { inset: auto 0 0; width: 100%; height: var(--bottom); padding-top: calc(24 * var(--u)); }
+  }
   #scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: calc(20 * var(--u)); scrollbar-color: #fff var(--blue); padding-right: 18px; }
   #tabs { display: flex; gap: calc(12 * var(--u)); }
   button, input, select, textarea { font: inherit; box-sizing: border-box; border-radius: 0; border: calc(2 * var(--u)) solid var(--blue); padding: calc(10 * var(--u)) calc(16 * var(--u)); background: #fff; color: var(--blue); }
@@ -54,10 +63,15 @@
   .row:has(> span + .group) > span:first-child { flex: 1; }
   .row:has(> span + .group) > .group { flex-basis: 100%; order: 1; }
   /* Bottom of the city: the same band as the viewer subtitle. The page uses it only while it loads or computes. */
-  #note { position: fixed; left: calc(40 * var(--u)); right: calc(var(--side) + 40 * var(--u)); bottom: calc(32 * var(--u)); padding: calc(26 * var(--u)) calc(40 * var(--u)); background: var(--blue); border: calc(2 * var(--u)) solid #fff5; font-size: calc(52 * var(--u)); text-align: center; }
+  #note { position: fixed; left: calc(40 * var(--u)); right: calc(var(--side) + 40 * var(--u)); bottom: calc(var(--bottom) + 32 * var(--u)); padding: calc(26 * var(--u)) calc(40 * var(--u)); background: var(--blue); border: calc(2 * var(--u)) solid #fff5; font-size: calc(52 * var(--u)); text-align: center; }
   [hidden] { display: none !important; }
 </style>
 <div id="frame"><canvas id="city"></canvas></div>
+<aside id="assistant-guide" aria-label="Asistente">
+  <button id="toggle-tools" type="button" aria-controls="tools" aria-expanded="false" disabled>Cambios</button>
+  <span id="assistant-status" role="status">Abre la extensión de Santiaguito en Chrome</span>
+  <span id="assistant-arrow" aria-hidden="true">↗</span>
+</aside>
 <form id="tools" hidden>
   <div id="tabs"></div>
   <div id="hint"></div>

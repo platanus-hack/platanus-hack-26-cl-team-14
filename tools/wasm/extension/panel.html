@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es-CL">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Santiaguito</title>
+<style>
+  :root { color-scheme: light; --blue: #10158a; }
+  body { margin: 0; padding: 1rem; background: var(--blue); color: white; font: 1rem/1.5 system-ui, sans-serif; }
+  h1 { margin: 0; font-size: 2rem; }
+  button, textarea { box-sizing: border-box; width: 100%; padding: .65rem; border: 1px solid var(--blue); border-radius: 0; background: white; color: var(--blue); font: inherit; }
+  button { margin-block-start: .4rem; cursor: pointer; }
+  button:focus-visible, textarea:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+  textarea { min-height: 5rem; resize: vertical; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+<h1>Santiaguito</h1>
+<p id="status" role="status">Abre el simulador en esta ventana.</p>
+<div id="controls" hidden>
+  <form id="ask" hidden>
+    <label for="prompt">¿Qué quieres probar?</label>
+    <textarea id="prompt" placeholder="Cierra la estación Tobalaba." required></textarea>
+    <button>Consultar a Gemini Nano</button>
+  </form>
+  <button id="ferry" type="button">Reproducir el ferry del Mapocho</button>
+  <button id="reset" type="button">Volver al día normal</button>
+</div>
+<pre id="result" aria-live="polite"></pre>
+<script type="module" src="./panel.js"></script>
+</html>

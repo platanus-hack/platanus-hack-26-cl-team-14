@@ -1,11 +1,13 @@
-/* Same look as the app title: viz/src/boot.rs. */
+:root {
+  --blue: #10158a;
+  --white: #fff;
+  font-family: Barlow, system-ui, sans-serif;
+}
+
 body {
   margin: 0;
-  overflow: hidden;
-  background: rgb(14 16 28);
-  color: white;
-  font-family: Barlow, system-ui, sans-serif;
-  text-align: center;
+  background: var(--blue);
+  color: var(--white);
 }
 
 .city {
@@ -16,37 +18,128 @@ body {
   object-fit: cover;
 }
 
-main {
+.welcome {
   position: relative;
   box-sizing: border-box;
-  height: 100svh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: rgb(14 16 28 / 46%);
+  min-height: 100svh;
+  display: grid;
+  justify-items: start;
+  align-content: end;
+  padding: clamp(1rem, 5vw, 5rem);
+}
+
+.intro {
+  max-width: 40rem;
+  padding: clamp(1.25rem, 4vw, 3rem);
+  background: var(--blue);
+  border: 1px solid var(--white);
 }
 
 h1 {
   margin: 0;
-  font-size: 12vmin;
+  font-size: clamp(2.4rem, 7vw, 5.5rem);
   font-weight: 400;
-  line-height: 1.2;
-  text-shadow: 1.5px 3px rgb(14 16 28 / 85%);
+  line-height: 1;
 }
 
-.download {
-  margin-top: 12px;
-  padding: 4px 22px;
-  background: rgb(14 16 28 / 84%);
-  color: white;
-  font-size: max(2.8vw, 1.4rem);
+.intro p {
+  max-width: 34ch;
+  margin: 1.25rem 0 1.75rem;
+  font-size: clamp(1.2rem, 3vw, 1.65rem);
+  line-height: 1.35;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  font-size: 1.15rem;
+}
+
+.launch {
+  display: inline-block;
+  padding: 0.55rem 1.25rem;
+  border: 1px solid var(--blue);
+  background: var(--white);
+  color: var(--blue);
   text-decoration: none;
 }
 
-.download:hover,
-.download:focus-visible {
-  background: white;
-  color: rgb(14 16 28);
-  outline: none;
+.launch:hover,
+.launch:focus-visible {
+  border-color: var(--white);
+  background: var(--blue);
+  color: var(--white);
+}
+
+.text-link {
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 0.25em;
+}
+
+.text-link:hover,
+.text-link:focus-visible {
+  text-decoration: underline;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--white);
+  outline-offset: 3px;
+}
+
+.gallery {
+  max-width: 78rem;
+  margin-inline: auto;
+  padding: clamp(1rem, 5vw, 4rem);
+}
+
+.gallery h1 {
+  margin-block: 1.25rem 2rem;
+}
+
+.replay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.replay h2 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
+  font-weight: 400;
+}
+
+.replay-video {
+  position: relative;
+  border: 1px solid var(--white);
+}
+
+.replay-video video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+.replay-video .launch {
+  position: absolute;
+  inset: 0.75rem 0.75rem auto auto;
+  font-size: 1.125rem;
+}
+
+@media (hover: hover) {
+  .replay .launch { opacity: 0; }
+  .replay:hover .launch,
+  .replay:focus-within .launch { opacity: 1; }
+}
+
+@media (max-width: 42rem) {
+  .replay-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .city { visibility: hidden; }
+  .welcome { background: center / cover no-repeat url("./santiago.jpg"); }
 }
