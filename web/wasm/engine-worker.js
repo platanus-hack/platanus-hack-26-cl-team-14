@@ -14,6 +14,8 @@ const read = (path) => {
   if (request.status === 404) return null;
   throw new Error(`Download of ${path} failed with status ${request.status}`);
 };
+const baseline = new Promise((resolve) => { onmessage = ({ data }) => resolve(data); });
 const call = await engine(await (await fetch(new URL('engine.wasm', import.meta.url))).arrayBuffer(), read);
+call('/bootstrap', JSON.parse(await baseline));
 onmessage = ({ data: { id, path, body } }) => postMessage({ id, ...call(path, body) });
 postMessage({ ready: true });

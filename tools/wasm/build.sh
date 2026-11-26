@@ -2,6 +2,7 @@
 # Build the browser version: the engine (wasm32-wasip1) and the viewer (wasm32-unknown-unknown, WebGPU).
 # Needs: rustup target add wasm32-wasip1 wasm32-unknown-unknown
 #        cargo install wasm-bindgen-cli --version 0.2.130 --locked   (the version in viz/Cargo.lock)
+#        Node.js 22 or later
 # Then serve the repository root and open /web/wasm/ in a browser with WebGPU:
 #        python3 tools/wasm/serve.py 8961
 set -e
@@ -20,4 +21,5 @@ streets=web/wasm/road-surface.bin.gz
 if [ ! -f "$streets" ] || [ web/data/road_surface.geojson.gz -nt "$streets" ] || [ tools/wasm/pack_streets.py -nt "$streets" ]; then
     python3 tools/wasm/pack_streets.py
 fi
-ls -l web/wasm/engine.wasm web/wasm/viewer_bg.wasm
+node tools/wasm/baseline.mjs
+ls -l web/wasm/engine.wasm web/wasm/viewer_bg.wasm web/wasm/baseline.json

@@ -11,7 +11,7 @@ const note = (text) => { $('#note').textContent = text ?? ''; $('#note').hidden 
 
 // The MCP server writes the result cards to this file. The viewer reads it four times per second.
 const resultCards = 'result-display.json';
-// The viewer reads its files at once, so the page downloads them before the viewer starts.
+// The page loads the startup files before the viewer starts.
 const files = new Map();
 const downloads = new Map();
 function loadFile(path) {
@@ -32,23 +32,35 @@ globalThis.santiagoFile = (path) => {
   if (!bytes) console.error(`The viewer asked for a file that the page did not download: ${path}`);
   return bytes;
 };
+const baselineText = fetch(new URL('baseline.json', import.meta.url)).then((response) => {
+  if (!response.ok) throw new Error(`Download of baseline.json failed with status ${response.status}`);
+  return response.text();
+});
 const list = await (await fetch(new URL('viewer-files.json', import.meta.url))).json();
 let done = 0;
-await Promise.all(list.map(async (path) => {
+const [baseline] = await Promise.all([baselineText, ...list.map(async (path) => {
   await loadFile(path);
   note(`santiaguito.cl · ${Math.round(100 * ++done / list.length)} %`);
-}));
+})]);
 
 // The engine answers the same paths and JSON as its HTTP API.
-const worker = new Worker(new URL('engine-worker.js', import.meta.url), { type: 'module' });
 const waiting = new Map();
-const ready = new Promise((resolve) => {
-  worker.onmessage = ({ data }) => data.ready ? resolve() : waiting.get(data.id)(data);
-});
-worker.onerror = (event) => note(`El motor se detuvo: ${event.message}`);
+let ready;
+function startEngine() {
+  const worker = new Worker(new URL('engine-worker.js', import.meta.url), { type: 'module' });
+  return new Promise((resolve, reject) => {
+    worker.onmessage = ({ data }) => data.ready ? resolve(worker) : waiting.get(data.id)(data);
+    worker.onerror = (event) => {
+      const message = `El motor se detuvo: ${event.message}`;
+      note(message);
+      reject(new Error(message));
+    };
+    worker.postMessage(baseline);
+  });
+}
 let calls = 0;
 const engine = async (path, body) => {
-  await ready;
+  const worker = await (ready ??= startEngine());
   return new Promise((resolve) => { waiting.set(++calls, resolve); worker.postMessage({ id: calls, path, body }); });
 };
 
@@ -105,9 +117,8 @@ $('#frame').addEventListener('wheel', (event) => {
 // The viewer event loop can leave `init` with an exception. That is a normal start.
 await init().catch((error) => { if (!String(error).includes('Using exceptions for control flow')) throw error; });
 
-// As run.sh does: the engine computes the usual day before the first request, so the city starts with its people.
-note('santiaguito.cl · día base');
-await fetch(new URL('/api/scenario', engineAddress), { method: 'POST', body: '{"changes":[]}' });
+// Show the usual day while the engine stays idle until the first tool call.
+santiagoScenario(baseline);
 
 // The band stays until the viewer has the buildings on the screen. A hidden tab does not draw, so the wait has a limit.
 note('santiaguito.cl · dibujando la ciudad');

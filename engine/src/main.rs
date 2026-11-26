@@ -363,6 +363,11 @@ pub extern "C" fn santiago_call(ptr: *mut u8, len: usize) -> u64 {
     let core = State(CORE.get().unwrap().clone());
     // The handlers never wait, so each future is ready on the first poll.
     let response = match request["path"].as_str().unwrap() {
+        // The browser starts with the result of the empty scenario that the build saved.
+        "/bootstrap" => {
+            core.scenario_events.send_replace(body);
+            json!({ "status": 200, "body": null })
+        }
         "/api/scenario-latest" => json!({"status": 200, "body": *core.scenario_events.borrow()}),
         "/api/scenario" => reply(parse(body).and_then(|body| general_scenario(core, body).now_or_never().unwrap())),
         "/api/scene" => match parse(body) {

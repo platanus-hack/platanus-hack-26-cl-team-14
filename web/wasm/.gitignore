@@ -1,4 +1,5 @@
 engine.wasm
+baseline.json
 viewer.js
 viewer_bg.wasm
 folders.json
