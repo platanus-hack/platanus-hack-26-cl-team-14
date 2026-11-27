@@ -1,10 +1,12 @@
-// The companion reports its own panel state. WebMCP can report when a tool is used.
+// The companion reports its panel state. Tool calls report assistant activity.
 export function connectAssistant(tools, call) {
   const panel = document.querySelector('#tools');
   const button = document.querySelector('#toggle-tools');
   const status = document.querySelector('#assistant-status');
   const arrow = document.querySelector('#assistant-arrow');
+  const instruction = status.textContent;
   let manual = false;
+  let assistantUsed = false;
   let connected = document.documentElement.hasAttribute('data-santiaguito-assistant');
 
   const update = () => {
@@ -14,8 +16,8 @@ export function connectAssistant(tools, call) {
     button.hidden = connected;
     button.setAttribute('aria-expanded', String(open));
     button.textContent = open ? 'Ocultar cambios' : 'Cambios';
-    status.textContent = connected ? 'Extensión conectada' : 'Abre la extensión de Santiaguito en Chrome';
-    arrow.hidden = connected;
+    status.textContent = connected ? 'Extensión conectada' : assistantUsed ? 'Asistente activo en esta pestaña' : instruction;
+    arrow.hidden = connected || assistantUsed;
   };
   const panelChanged = ({detail}) => {
     connected = detail?.open === true;
@@ -23,7 +25,11 @@ export function connectAssistant(tools, call) {
   };
   window.addEventListener('santiaguito:assistant', panelChanged);
   button.disabled = false;
-  button.addEventListener('click', () => { manual = !manual; update(); });
+  button.addEventListener('click', () => {
+    manual = !manual;
+    if (!manual) assistantUsed = false;
+    update();
+  });
   update();
 
   const allowed = new Set(tools.map(({name}) => name));
@@ -49,15 +55,19 @@ export function connectAssistant(tools, call) {
   });
   window.postMessage({source: 'santiaguito-page', type: 'ready'}, location.origin);
 
+  const reveal = () => {
+    assistantUsed = true;
+    manual = true;
+    update();
+  };
   const modelContext = document.modelContext ?? navigator.modelContext;
-  if (!modelContext?.registerTool) return;
+  if (!modelContext?.registerTool) return reveal;
   for (const descriptor of tools) {
     Promise.resolve().then(() => modelContext.registerTool({
       ...descriptor,
       async execute(args, {signal} = {}) {
         signal?.throwIfAborted();
-        manual = true;
-        update();
+        reveal();
         try {
           return await call(descriptor.name, args);
         } catch (error) {
@@ -66,4 +76,5 @@ export function connectAssistant(tools, call) {
       },
     })).catch(error => console.warn(`Could not register ${descriptor.name}: ${error.message}`));
   }
+  return reveal;
 }

@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 class Handler(http.server.SimpleHTTPRequestHandler):
     def translate_path(self, path):
         route = urlsplit(path).path
-        if route in {"/", "/index.html", "/style.css", "/santiago.mp4", "/santiago.jpg", "/replays.html"} or route.startswith("/replay-media/"):
+        if route in {"/", "/index.html", "/style.css", "/santiago.mp4", "/santiago.jpg", "/replays.html"}:
             path = "/landing/public" + path
         return super().translate_path(path)
 
