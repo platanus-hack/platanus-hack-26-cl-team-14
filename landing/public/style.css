@@ -107,7 +107,6 @@ a:focus-visible {
   min-height: 16rem;
   padding: clamp(1.25rem, 3vw, 2.25rem);
   border: 2px solid var(--blue);
-  text-decoration: none;
 }
 
 .replay h2 {
@@ -123,25 +122,28 @@ a:focus-visible {
   line-height: 1.3;
 }
 
-.replay .launch {
-  justify-self: start;
+.replay-actions {
+  display: flex;
+  gap: 1rem;
 }
 
 .replay:hover,
-.replay:focus-visible {
+.replay:focus-within {
   background: var(--blue);
   color: var(--white);
 }
 
-.replay:hover .launch,
-.replay:focus-visible .launch {
+.replay .launch:hover,
+.replay .launch:focus-visible {
+  background: var(--blue);
+  color: var(--white);
   border-color: var(--white);
 }
 
 @media (hover: hover) {
-  .replay .launch { visibility: hidden; }
-  .replay:hover .launch,
-  .replay:focus-visible .launch { visibility: visible; }
+  .replay-actions { visibility: hidden; }
+  .replay:hover .replay-actions,
+  .replay:focus-within .replay-actions { visibility: visible; }
 }
 
 @media (max-width: 42rem) {
